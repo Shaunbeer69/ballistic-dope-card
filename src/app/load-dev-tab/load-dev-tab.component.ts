@@ -731,200 +731,252 @@ private async savePdfNative(doc: jsPDF, filename: string): Promise<void> {
    * User can then use "Save as PDF" in the browser print dialog.
    */
   
-  exportSelectedProjectToPdf(): void {
-    if (!this.selectedProject) {
-      alert('Select a load development first.');
-      return;
-    }
+ // ✅ ONLY THE PDF EXPORT SECTION WAS MODIFIED, EVERYTHING ELSE IS UNTOUCHED
 
-    const project: any = this.selectedProject;
-    const rifle =
-      this.rifles && this.selectedRifleId
-        ? this.rifles.find(r => r.id === this.selectedRifleId)
-        : null;
+// ---------- EXPORT PDF ----------
 
-    const entries: any[] = this.entriesForSelectedProject() || [];
-    if (!entries.length) {
-      alert('No entries to export yet.');
-      return;
-    }
+exportSelectedProjectToPdf(): void {
+  if (!this.selectedProject) {
+    alert('Select a load development first.');
+    return;
+  }
 
-    const statsList = entries.map(e => this.statsForEntry(e));
+  const project: any = this.selectedProject;
+  const rifle =
+    this.rifles && this.selectedRifleId
+      ? this.rifles.find(r => r.id === this.selectedRifleId)
+      : null;
 
-    const velocities: number[] = [];
-    const charges: number[] = [];
+  const entries: any[] = this.entriesForSelectedProject() || [];
+  if (!entries.length) {
+    alert('No entries to export yet.');
+    return;
+  }
 
-    statsList.forEach((s: any, idx) => {
-      if (s && typeof s.avg === 'number') {
-        velocities.push(s.avg);
-        const ch = entries[idx].chargeGr;
-        if (typeof ch === 'number') {
-          charges.push(ch);
-        } else {
-          charges.push(NaN);
-        }
-      }
-    });
+  const allShotValues: number[] = [];
 
-    const doc = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
+  entries.forEach(e => {
+    const values = this.parseVelocityInput(e.velocityInput);
+    values.forEach(v => allShotValues.push(v));
+  });
 
-    // -------- BRAND BAR --------
-    doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, pageWidth, 10, 'F');
+  if (!allShotValues.length) {
+    alert('No velocity data captured yet.');
+    return;
+  }
 
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(11);
-    doc.text('GUNSTUFF', 8, 6);
-    doc.setFontSize(8);
-    doc.text('Ballistics', 8, 9);
+  const minV = Math.min(...allShotValues);
+  const maxV = Math.max(...allShotValues);
+  const rangeV = maxV - minV || 1;
 
-    doc.setFontSize(9);
-    doc.text('Load development report', pageWidth - 8, 6);
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
 
-    doc.setTextColor(0, 0, 0);
-    let y = 18;
+  // -------- BRAND BAR --------
+  doc.setFillColor(0, 0, 0);
+  doc.rect(0, 0, pageWidth, 10, 'F');
 
-    // -------- META --------
-    doc.setFontSize(13);
-    doc.text(project.name || 'Load development', 14, y);
-    y += 7;
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+  doc.text('GUNSTUFF', 8, 6);
+  doc.setFontSize(8);
+  doc.text('Ballistics', 8, 9);
 
-    doc.setFontSize(10);
-    doc.text(`Rifle: ${rifle?.name || '—'}`, 14, y);
-    y += 5;
+  doc.setTextColor(0, 0, 0);
+  let y = 18;
 
-    if (project.type) {
-      doc.text(`Type: ${(project.type as string).toUpperCase()}`, 14, y);
-      y += 5;
-    }
+  // -------- META --------
+  doc.setFontSize(13);
+  doc.text(project.name || 'Load development', 14, y);
+  y += 7;
 
-    if (project.dateStarted) {
-      doc.text(`Date: ${this.shortDate(project.dateStarted)}`, 14, y);
-      y += 6;
-    }
+  doc.setFontSize(10);
+  doc.text(`Rifle: ${rifle?.name || '—'}`, 14, y);
+  y += 5;
 
-    y += 2;
+  doc.text(`Type: ${(project.type as string).toUpperCase()}`, 14, y);
+  y += 5;
 
-    // -------- MAIN VELOCITY CHART --------
-    if (velocities.length >= 2 && charges.length === velocities.length) {
-      const minV = Math.min(...velocities);
-      const maxV = Math.max(...velocities);
-      const rangeV = maxV - minV || 1;
+  if (project.dateStarted) {
+    doc.text(`Date: ${this.shortDate(project.dateStarted)}`, 14, y);
+    y += 6;
+  }
 
-      const chartLeft = 18;
-      const chartWidth = pageWidth - 36;
-      const chartTop = y;
-      const chartHeight = 55;
+  y += 4;
 
-      // Border
-      doc.setDrawColor(200);
-      doc.rect(chartLeft, chartTop, chartWidth, chartHeight);
+  // -------- MAIN SHOT-ONLY CHART --------
+  const chartLeft = 18;
+  const chartWidth = pageWidth - 36;
+  const chartTop = y;
+  const chartHeight = 55;
 
-      // Title
-      doc.setFontSize(10);
-      doc.text('Velocity vs charge', chartLeft, chartTop - 3);
+  doc.setDrawColor(200);
+  doc.rect(chartLeft, chartTop, chartWidth, chartHeight);
+  doc.setFontSize(10);
+  doc.text('Velocity vs Charge (RAW SHOTS)', chartLeft, chartTop - 3);
 
-      const n = velocities.length;
-      const xStep = n > 1 ? chartWidth / (n - 1) : 0;
+  const n = entries.length;
+  const xStep = n > 1 ? chartWidth / (n - 1) : 0;
 
-      // Velocity line
-      doc.setDrawColor(34, 197, 94);
-      for (let i = 1; i < n; i++) {
-        const prevV = velocities[i - 1];
-        const currV = velocities[i];
-        const prevX = chartLeft + (i - 1) * xStep;
-        const currX = chartLeft + i * xStep;
+  const palette = [
+    { r: 255, g: 99, b: 132 },
+    { r: 54, g: 162, b: 235 },
+    { r: 255, g: 206, b: 86 },
+    { r: 75, g: 192, b: 192 },
+    { r: 153, g: 102, b: 255 }
+  ];
 
-        const prevY =
-          chartTop + chartHeight - ((prevV - minV) / rangeV) * chartHeight;
-        const currY =
-          chartTop + chartHeight - ((currV - minV) / rangeV) * chartHeight;
+  entries.forEach((entry, i) => {
+  const values = this.parseVelocityInput(entry.velocityInput);
+  if (!values.length) return;
 
-        doc.line(prevX, prevY, currX, currY);
-      }
+  const baseX = chartLeft + i * xStep;
+  const colour = palette[i % palette.length];
 
-      // Points + labels
-      doc.setFontSize(7);
-      for (let i = 0; i < n; i++) {
-        const v = velocities[i];
-        const charge = charges[i];
-        const x = chartLeft + i * xStep;
-        const yVal =
-          chartTop + chartHeight - ((v - minV) / rangeV) * chartHeight;
+  doc.setDrawColor(colour.r, colour.g, colour.b);
+  doc.setFillColor(colour.r, colour.g, colour.b);
 
-        // Point
-        doc.setFillColor(250, 204, 21);
-        doc.circle(x, yVal, 1.5, 'F');
+  let minY: number | null = null;
+  let maxY: number | null = null;
+  let sum = 0;
 
-        // Charge under axis
-        if (!Number.isNaN(charge)) {
-          const chargeText = charge.toFixed(1);
-          doc.text(
-            chargeText,
-            x - doc.getTextWidth(chargeText) / 2,
-            chartTop + chartHeight + 4
-          );
-        }
+  // ✅ DRAW RAW SHOT DOTS (SMALLER)
+  values.forEach(v => {
+    const yVal =
+      chartTop + chartHeight - ((v - minV) / rangeV) * chartHeight;
 
-        // Velocity above point
-        const vText = String(Math.round(v));
-        doc.text(vText, x - doc.getTextWidth(vText) / 2, yVal - 2);
-      }
+    // ✅ SMALLER DOT
+    doc.circle(baseX, yVal, 0.7, 'F');
 
-      // Simple axis labels (no rotation)
-      doc.setFontSize(8);
-      const xLabel = 'Charge (gr)';
-      doc.text(
-        xLabel,
-        chartLeft + chartWidth / 2 - doc.getTextWidth(xLabel) / 2,
-        chartTop + chartHeight + 10
-      );
+    // ✅ VELOCITY LABEL (CLEAR + OFFSET)
+    const label = String(Math.round(v));
+    doc.setFontSize(7);
+    doc.text(label, baseX + 1.5, yVal - 1.5);
 
-      const yLabel = 'Velocity (fps)';
-      doc.text(yLabel, chartLeft, chartTop - 6);
+    sum += v;
 
-      y = chartTop + chartHeight + 16;
-    }
+    minY = minY === null ? yVal : Math.min(minY, yVal);
+    maxY = maxY === null ? yVal : Math.max(maxY, yVal);
+  });
 
-    // -------- TABLE --------
-    const tableBody = entries.map((entry: any, idx: number) => {
-      const stats = statsList[idx];
-      const avg = stats?.avg ?? '';
-      const es = stats?.es ?? '';
-      const sd = stats?.sd ?? '';
-      const shots = entry.shotsFired ?? '';
+  // ✅ GREY CLUSTER RING
+  if (minY !== null && maxY !== null && maxY > minY) {
+    const centerY = (minY + maxY) / 2;
+    const radius = (maxY - minY) / 2 + 1.5;
 
-      return [
-        idx + 1,
-        entry.chargeGr ?? '',
-        avg ? Math.round(avg) : '',
-        es,
-        sd,
-        shots
-      ];
-    });
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.3);
+    doc.circle(baseX, centerY, radius, 'S');
+  }
+// ✅ GROUP SIZE OVERLAY BAR (VISUAL TIGHTNESS INDICATOR)
+if (typeof entry.groupSize === 'number' && entry.groupSize > 0) {
+  // Scale group size visually (smaller = tighter)
+  const maxGroupVisual = 12; // affects visual height only
+  const groupVisual =
+    Math.min(entry.groupSize, maxGroupVisual);
 
-    autoTable(doc, {
-      startY: y,
-      head: [['#', 'Charge (gr)', 'Avg (fps)', 'ES', 'SD', 'Shots']],
-      body: tableBody,
-      styles: { fontSize: 8 }
-    });
+  doc.setLineWidth(2);
+  doc.setDrawColor(colour.r, colour.g, colour.b);
 
-     const filename =
-  (project.name || 'load-development')
-    .toString()
-    .replace(/[^a-z0-9\-]+/gi, '_') + '.pdf';
-
-if (Capacitor.isNativePlatform()) {
-  // Running inside the Android (or iOS) app
-  this.savePdfNative(doc, filename);  // async, but we don't need to await here
-} else {
-  // Normal browser build
-  doc.save(filename);
+  doc.line(
+    baseX,
+    chartTop + chartHeight + 6,
+    baseX,
+    chartTop + chartHeight + 6 + groupVisual
+  );
 }
+
+// ✅ POI OVERLAY TEXT ABOVE CLUSTER
+if (entry.poiNote) {
+  doc.setFontSize(7);
+  doc.setTextColor(colour.r, colour.g, colour.b);
+
+  const poiText = `POI: ${entry.poiNote}`;
+  const textWidth = doc.getTextWidth(poiText);
+
+  doc.text(
+    poiText,
+    baseX - textWidth / 2,
+    chartTop - 5
+  );
+
+  doc.setTextColor(0, 0, 0); // reset back to black
 }
+
+  // ✅ CONNECT THIS CHARGE TO PREVIOUS CHARGE USING A LINE
+  if (i > 0) {
+    const prevEntry = entries[i - 1];
+    const prevValues = this.parseVelocityInput(prevEntry.velocityInput);
+
+    if (prevValues.length) {
+      const prevAvg =
+        prevValues.reduce((a, b) => a + b, 0) / prevValues.length;
+      const currAvg = sum / values.length;
+
+      const prevX = chartLeft + (i - 1) * xStep;
+      const currX = baseX;
+
+      const prevY =
+        chartTop +
+        chartHeight -
+        ((prevAvg - minV) / rangeV) * chartHeight;
+
+      const currY =
+        chartTop +
+        chartHeight -
+        ((currAvg - minV) / rangeV) * chartHeight;
+
+      doc.setLineWidth(0.6);
+      doc.setDrawColor(colour.r, colour.g, colour.b); // ✅ SAME COLOUR AS SHOTS
+      doc.line(prevX, prevY, currX, currY);
+    }
+  }
+
+  // ✅ CHARGE LABEL
+  if (typeof entry.chargeGr === 'number') {
+    const chargeText = entry.chargeGr.toFixed(1);
+    doc.text(
+      chargeText,
+      baseX - doc.getTextWidth(chargeText) / 2,
+      chartTop + chartHeight + 4
+    );
+  }
+});
+
+  y = chartTop + chartHeight + 16;
+
+  // -------- TABLE --------
+  const tableBody = entries.map((entry: any, idx: number) => {
+    const stats = this.statsForEntry(entry);
+    return [
+      idx + 1,
+      entry.chargeGr ?? '',
+      stats?.avg ? Math.round(stats.avg) : '',
+      stats?.es ?? '',
+      stats?.sd ? stats.sd.toFixed(3) : '',   // ✅ SD LIMITED TO 3 DECIMALS
+      entry.shotsFired ?? ''
+    ];
+  });
+
+  autoTable(doc, {
+    startY: y,
+    head: [['#', 'Charge (gr)', 'Avg', 'ES', 'SD', 'Shots']],
+    body: tableBody,
+    styles: { fontSize: 8 }
+  });
+
+  const filename =
+    (project.name || 'load-development')
+      .toString()
+      .replace(/[^a-z0-9\-]+/gi, '_') + '.pdf';
+
+  if (Capacitor.isNativePlatform()) {
+    this.savePdfNative(doc, filename);
+  } else {
+    doc.save(filename);
+  }
+}
+
 
 
   cancelEntryForm(): void {
