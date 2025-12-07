@@ -180,6 +180,7 @@ export class WindEffectToolComponent implements OnInit {
     const mph = this.windSpeedMph;
     this.windUnit = unit;
     this.windSpeedInput = this.fromMph(mph, unit);
+    this.updatePoiFromDrift(); 
   }
 
   private toMph(v: number, u: WindUnit): number {
@@ -334,20 +335,28 @@ export class WindEffectToolComponent implements OnInit {
     return distanceFt / v;
   }
 
-  private getCrosswindComponents(): { factorAbs: number; sign: number } {
-    const fromClock = this.windFromClock % 12 || 12;
-    const fromDeg = (fromClock / 12) * 360;
-    const towardDeg = (fromDeg + 180) % 360;
+ private getCrosswindComponents(): { factorAbs: number; sign: number } {
+  const fromClock = this.windFromClock % 12 || 12;
+  const fromDeg = (fromClock / 12) * 360;
+  const rad = (fromDeg * Math.PI) / 180;
 
-    const towardRad = (towardDeg * Math.PI) / 180;
-    const cos = Math.cos(towardRad);
+  // Crosswind: max at 3 & 9 o'clock
+  const sin = Math.sin(rad);           // -1 .. 1
+  const cross = Math.abs(sin);         // 0 .. 1
 
-    const sign = cos > 0 ? 1 : cos < 0 ? -1 : 0;
-    const abs = Math.abs(cos);
+  // Head/tail: max at 12 & 6 o'clock
+  const cos = Math.cos(rad);           // -1 .. 1
+  const axial = 0.3 * Math.abs(cos);   // scaled contribution for head/tail
 
-    const clipped = Math.max(0, Math.min(1, abs));
-    return { factorAbs: clipped, sign };
-  }
+  // Combine: crosswind dominates, head/tail still has a visible effect
+  const combined = Math.min(1, Math.sqrt(cross * cross + axial * axial));
+
+  // Sign still tells us which side (3 vs 9 etc.)
+  const sign = sin >= 0 ? 1 : -1;
+
+  return { factorAbs: combined, sign };
+}
+
 
   computeLateralInches(): number {
     if (
