@@ -1,11 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { DataService } from '../data.service';
-import { Rifle, RifleLoad, ScopeUnit } from '../models';
-
-interface RifleForm extends Partial<Rifle> {}
-interface LoadForm extends Partial<RifleLoad> {}
 
 @Component({
   selector: 'app-rifles-tab',
@@ -15,61 +12,86 @@ interface LoadForm extends Partial<RifleLoad> {}
   styleUrls: ['./rifles-tab.component.css'],
 })
 export class RiflesTabComponent implements OnInit {
-  rifles: Rifle[] = [];
+  // All rifles
+  rifles: any[] = [];
 
-  // rifle selection / forms
-  selectedRifleId: string | number | null = null;
-
-  // ⬇⬇⬇ change: start collapsed instead of true
+  // Rifle selection / forms
+  selectedRifleId: number | string | null = null;
   addFormVisible = false;
+  editingRifle: any | null = null;
 
-  editingRifle: Rifle | null = null;
+  // Loads visibility / forms
+  activeLoadsRifleId: number | string | null = null;
+  activeLoadFormRifleId: number | string | null = null;
+  editingLoadId: number | string | null = null;
 
-  // load visibility / forms
-  activeLoadsRifleId: string | number | null = null;      // which rifle’s loads table is open
-  activeLoadFormRifleId: string | number | null = null;   // which rifle’s add/edit load form is open
-  editingLoadId: string | number | null = null;
-
-  rifleForm: RifleForm = {
-    scopeUnit: 'MIL' as ScopeUnit,
+  // Forms
+  rifleForm: any = {
+    scopeUnit: 'MIL',
     barrelUnit: 'inch',
     roundCount: 0,
   };
 
-  loadForm: LoadForm = {};
+  loadForm: any = {};
 
-  constructor(private data: DataService) {}
+  constructor(
+    private router: Router,
+    private data: DataService
+  ) {}
 
   ngOnInit(): void {
     this.refresh();
   }
 
-  // --- Helpers ----------------------------------------------------------
+  // Back button – router first, then history fallback
+  goBack(): void {
+    this.router
+      .navigate(['/'])
+      .then((ok) => {
+        if (!ok && window.history.length > 1) {
+          window.history.back();
+        }
+      })
+      .catch(() => {
+        if (window.history.length > 1) {
+          window.history.back();
+        }
+      });
+  }
 
   private generateId(prefix: string): string {
-    return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   }
 
   refresh(): void {
-    // Adjust to your DataService API if needed
-    if ((this.data as any).getRifles) {
-      this.rifles = (this.data as any).getRifles() as Rifle[];
+    const anyData: any = this.data;
+
+    if (typeof anyData.getRifles === 'function') {
+      this.rifles = anyData.getRifles() ?? [];
+    } else if (Array.isArray(anyData.rifles)) {
+      this.rifles = anyData.rifles;
     } else {
-      // Fallback if your service exposes rifles directly
-      this.rifles = (this.data as any).rifles ?? [];
+      this.rifles = [];
     }
 
-    if (this.rifles.length && !this.selectedRifleId) {
-      this.selectedRifleId = this.rifles[0].id!;
+    if (this.rifles.length && this.selectedRifleId == null) {
+      const first = this.rifles[0];
+      this.selectedRifleId = first?.id ?? first?.rifleId ?? null;
     }
   }
 
-  get selectedRifle(): Rifle | undefined {
-    return this.rifles.find((r) => r.id === this.selectedRifleId);
+  get selectedRifle(): any | null {
+    if (this.selectedRifleId == null) return null;
+    return (
+      this.rifles.find(
+        (r: any) =>
+          r &&
+          (r.id === this.selectedRifleId || r.rifleId === this.selectedRifleId)
+      ) ?? null
+    );
   }
 
-  // --- Rifle form logic -------------------------------------------------
-
+  // Rifle form logic
   toggleAddForm(): void {
     this.addFormVisible = !this.addFormVisible;
     if (!this.addFormVisible) {
@@ -79,18 +101,24 @@ export class RiflesTabComponent implements OnInit {
 
   clearRifleForm(): void {
     this.rifleForm = {
-      scopeUnit: 'MIL' as ScopeUnit,
+      scopeUnit: 'MIL',
       barrelUnit: 'inch',
       roundCount: 0,
     };
     this.editingRifle = null;
   }
 
-  onSelectedRifleChange(rifleId: string | number | null): void {
-    this.selectedRifleId = rifleId;
+  onSelectedRifleChange(rawId: any): void {
+    if (rawId === null || rawId === undefined || rawId === '') {
+      this.selectedRifleId = null;
+      return;
+    }
+    this.selectedRifleId =
+      typeof rawId === 'number' ? rawId : Number(rawId) || rawId;
   }
 
-  editRifle(r: Rifle): void {
+  editRifle(r: any): void {
+    if (!r) return;
     this.addFormVisible = true;
     this.editingRifle = r;
 
@@ -99,59 +127,70 @@ export class RiflesTabComponent implements OnInit {
   }
 
   saveRifle(): void {
+    const anyData: any = this.data;
     const isEditing = !!this.editingRifle;
     const existingLoads = this.editingRifle?.loads ?? [];
 
-    // Ensure round count is numeric
     const roundCount =
       this.rifleForm.roundCount != null
         ? Number(this.rifleForm.roundCount)
         : 0;
 
-    const rifle: Rifle = {
+    const id =
+      this.editingRifle?.id ??
+      this.rifleForm.id ??
+      this.generateId('rifle');
+
+    const rifle = {
       ...(this.editingRifle || {}),
       ...this.rifleForm,
-      id:
-        this.editingRifle?.id ??
-        (this.rifleForm.id as any) ??
-        this.generateId('rifle'),
+      id,
       loads: existingLoads,
       roundCount,
-    } as Rifle;
+    };
 
-    if (isEditing) {
-      if ((this.data as any).updateRifle) {
-        (this.data as any).updateRifle(rifle);
-      }
+    if (isEditing && typeof anyData.updateRifle === 'function') {
+      anyData.updateRifle(rifle);
+    } else if (!isEditing && typeof anyData.addRifle === 'function') {
+      anyData.addRifle(rifle);
+    } else if (typeof anyData.setRifles === 'function') {
+      const list = isEditing
+        ? this.rifles.map((x: any) => (x.id === id ? rifle : x))
+        : [...this.rifles, rifle];
+      anyData.setRifles(list);
     } else {
-      if ((this.data as any).addRifle) {
-        (this.data as any).addRifle(rifle);
-      } else if ((this.data as any).setRifles) {
-        const rifles = [...this.rifles, rifle];
-        (this.data as any).setRifles(rifles);
-      }
+      this.rifles = isEditing
+        ? this.rifles.map((x: any) => (x.id === id ? rifle : x))
+        : [...this.rifles, rifle];
+      anyData.rifles = this.rifles;
     }
 
     this.clearRifleForm();
+    this.addFormVisible = false;
     this.refresh();
-    this.selectedRifleId = rifle.id!;
-    this.addFormVisible = false; // collapse again after save if you want
+    this.selectedRifleId = id;
   }
 
-  deleteRifle(r: Rifle): void {
+  deleteRifle(r: any): void {
+    if (!r) return;
     if (!confirm('Delete this rifle and all its loads?')) return;
 
-    if ((this.data as any).deleteRifle) {
-      (this.data as any).deleteRifle(r);
-    } else if ((this.data as any).setRifles) {
-      const rifles = this.rifles.filter((x) => x.id !== r.id);
-      (this.data as any).setRifles(rifles);
+    const anyData: any = this.data;
+
+    if (typeof anyData.deleteRifle === 'function') {
+      anyData.deleteRifle(r);
+    } else if (typeof anyData.setRifles === 'function') {
+      const list = this.rifles.filter((x: any) => x.id !== r.id);
+      anyData.setRifles(list);
+    } else {
+      this.rifles = this.rifles.filter((x: any) => x.id !== r.id);
+      anyData.rifles = this.rifles;
     }
 
     this.refresh();
-
     if (this.rifles.length) {
-      this.selectedRifleId = this.rifles[0].id!;
+      const first = this.rifles[0];
+      this.selectedRifleId = first?.id ?? first?.rifleId ?? null;
     } else {
       this.selectedRifleId = null;
     }
@@ -162,29 +201,26 @@ export class RiflesTabComponent implements OnInit {
     this.resetLoadForm();
   }
 
-  // --- Loads visibility -------------------------------------------------
+  // Loads visibility
+  toggleLoads(r: any): void {
+    if (!r) return;
 
-  toggleLoads(r: Rifle): void {
     if (this.activeLoadsRifleId === r.id) {
-      // collapse
       this.activeLoadsRifleId = null;
       this.activeLoadFormRifleId = null;
       this.editingLoadId = null;
       this.resetLoadForm();
     } else {
-      // expand loads table but do NOT auto-open add/edit form
-      this.activeLoadsRifleId = r.id!;
+      this.activeLoadsRifleId = r.id;
     }
   }
 
-  toggleLoadForm(rifleId: string | number): void {
+  toggleLoadForm(rifleId: number | string): void {
     if (this.activeLoadFormRifleId === rifleId) {
-      // collapse form
       this.activeLoadFormRifleId = null;
       this.editingLoadId = null;
       this.resetLoadForm();
     } else {
-      // open form for this rifle
       this.activeLoadFormRifleId = rifleId;
       if (!this.editingLoadId) {
         this.resetLoadForm();
@@ -192,18 +228,19 @@ export class RiflesTabComponent implements OnInit {
     }
   }
 
-  // --- Load form logic --------------------------------------------------
-
+  // Load form logic
   resetLoadForm(): void {
     this.loadForm = {};
     this.editingLoadId = null;
   }
 
-  saveLoad(r: Rifle): void {
-    const loads = [...(r.loads || [])];
+  saveLoad(r: any): void {
+    if (!r) return;
+
+    const anyData: any = this.data;
+    const loads: any[] = [...(r.loads || [])];
 
     if (this.editingLoadId != null) {
-      // update existing
       const idx = loads.findIndex((l) => l.id === this.editingLoadId);
       if (idx !== -1) {
         loads[idx] = {
@@ -218,14 +255,14 @@ export class RiflesTabComponent implements OnInit {
             this.loadForm.bulletWeightGr != null
               ? Number(this.loadForm.bulletWeightGr)
               : loads[idx].bulletWeightGr,
-        } as RifleLoad;
+        };
       }
     } else {
-      // add new
-      const newLoad: RifleLoad = {
-        id:
-          (this.loadForm.id as any) ??
-          this.generateId('load'),
+      const newLoadId =
+        this.loadForm.id ?? this.generateId('load');
+
+      const newLoad: any = {
+        id: newLoadId,
         powder: this.loadForm.powder || '',
         chargeGn:
           this.loadForm.chargeGn != null
@@ -239,35 +276,43 @@ export class RiflesTabComponent implements OnInit {
             ? Number(this.loadForm.bulletWeightGr)
             : undefined,
         bulletBc: this.loadForm.bulletBc,
-      } as RifleLoad;
+      };
 
       loads.push(newLoad);
     }
 
-    const updatedRifle: Rifle = {
+    const updatedRifle = {
       ...r,
       loads,
     };
 
-    if ((this.data as any).updateRifle) {
-      (this.data as any).updateRifle(updatedRifle);
-    } else if ((this.data as any).setRifles) {
-      const rifles = this.rifles.map((x) =>
+    if (typeof anyData.updateRifle === 'function') {
+      anyData.updateRifle(updatedRifle);
+    } else if (typeof anyData.setRifles === 'function') {
+      const list = this.rifles.map((x: any) =>
         x.id === updatedRifle.id ? updatedRifle : x
       );
-      (this.data as any).setRifles(rifles);
+      anyData.setRifles(list);
+    } else {
+      this.rifles = this.rifles.map((x: any) =>
+        x.id === updatedRifle.id ? updatedRifle : x
+      );
+      anyData.rifles = this.rifles;
     }
 
     this.refresh();
-    this.activeLoadsRifleId = updatedRifle.id!;
+    this.activeLoadsRifleId = updatedRifle.id;
+    this.activeLoadFormRifleId = null; // collapse form after save
     this.resetLoadForm();
     this.editingLoadId = null;
   }
 
-  editLoad(r: Rifle, load: RifleLoad): void {
-    this.activeLoadsRifleId = r.id!;
-    this.activeLoadFormRifleId = r.id!;
-    this.editingLoadId = load.id as any;
+  editLoad(r: any, load: any): void {
+    if (!r || !load) return;
+
+    this.activeLoadsRifleId = r.id;
+    this.activeLoadFormRifleId = r.id;
+    this.editingLoadId = load.id;
 
     this.loadForm = {
       id: load.id,
@@ -281,24 +326,32 @@ export class RiflesTabComponent implements OnInit {
     };
   }
 
-  deleteLoad(r: Rifle, load: RifleLoad): void {
+  deleteLoad(r: any, load: any): void {
+    if (!r || !load) return;
     if (!confirm('Delete this load?')) return;
 
-    const loads = (r.loads || []).filter((l) => l.id !== load.id);
-    const updatedRifle: Rifle = { ...r, loads };
+    const anyData: any = this.data;
 
-    if ((this.data as any).updateRifle) {
-      (this.data as any).updateRifle(updatedRifle);
-    } else if ((this.data as any).setRifles) {
-      const rifles = this.rifles.map((x) =>
+    const loads = (r.loads || []).filter((l: any) => l.id !== load.id);
+    const updatedRifle = { ...r, loads };
+
+    if (typeof anyData.updateRifle === 'function') {
+      anyData.updateRifle(updatedRifle);
+    } else if (typeof anyData.setRifles === 'function') {
+      const list = this.rifles.map((x: any) =>
         x.id === updatedRifle.id ? updatedRifle : x
       );
-      (this.data as any).setRifles(rifles);
+      anyData.setRifles(list);
+    } else {
+      this.rifles = this.rifles.map((x: any) =>
+        x.id === updatedRifle.id ? updatedRifle : x
+      );
+      anyData.rifles = this.rifles;
     }
 
     this.refresh();
-    this.activeLoadsRifleId = r.id!;
-    this.activeLoadFormRifleId = r.id!;
+    this.activeLoadsRifleId = updatedRifle.id;
+    this.activeLoadFormRifleId = null;
     this.editingLoadId = null;
     this.resetLoadForm();
   }
