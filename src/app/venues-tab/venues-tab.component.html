@@ -6,10 +6,11 @@
       {{ editingVenue ? 'Edit Venue' : 'Add Venue' }}
     </div>
     <button
-      class="px-3 py-1 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold"
-      (click)="toggleForm()">
-      {{ formVisible ? 'Hide' : 'Show' }}
-    </button>
+  class="px-3 py-1 rounded-xl bg-emerald-500 text-slate-900 text-xs font-semibold"
+  (click)="toggleForm()">
+  {{ formVisible ? 'Close' : 'Add' }}
+</button>
+
   </div>
 
   <!-- Venue form -->
@@ -193,13 +194,13 @@
               </button>
 
               <button
-                class="px-2 py-1 rounded bg-slate-700"
+                class="px-3 py-1 rounded-xl bg-blue-600 text-white font-semibold"
                 (click)="editVenue(v)">
-                Edit Venue
+                Edit
               </button>
 
               <button
-                class="px-2 py-1 rounded bg-red-600"
+                class="px-3 py-1 rounded-xl bg-red-600 text-white font-semibold"
                 (click)="deleteVenue(v)">
                 Delete
               </button>
@@ -217,7 +218,7 @@
               *ngFor="let sr of v.subRanges"
               class="bg-slate-950 rounded-xl p-2 text-[11px]">
               <span class="font-semibold">{{ sr.name }}</span>
-              <span *ngIf="sr.distancesM?.length">
+              <span *ngIf="sr.distancesM.length">
                 • {{ sr.distancesM.join(', ') }} m
               </span>
             </div>
