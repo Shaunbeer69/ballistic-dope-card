@@ -414,26 +414,33 @@ export class WindEffectToolComponent implements OnInit {
   // ========================================
 
   private updatePoiFromDrift(): void {
-    const centerX = 50;
-    const centerY = 50;
+  const centerX = 50;
+  const centerY = 50;
 
-    const mils = this.milDrift;
-    if (!mils) {
-      this.poiX = centerX;
-      this.poiY = centerY;
-      return;
-    }
+  const mils = this.milDrift;
 
-    const magMil = Math.min(3, mils);
-    const pixelsPerMil = 4;
-    const radius = magMil * pixelsPerMil;
-
-    const downwindTopDeg = this.arrowAngleDeg;
-    const rad = ((downwindTopDeg - 90) * Math.PI) / 180;
-
-    this.poiX = centerX + radius * Math.cos(rad);
-    this.poiY = centerY + radius * Math.sin(rad);
+  // No wind / no drift → keep dot in the centre
+  if (mils == null || !Number.isFinite(mils) || mils === 0) {
+    this.poiX = centerX;
+    this.poiY = centerY;
+    return;
   }
+
+  // 🔸 VISUAL SCALE ONLY – does NOT change the numbers shown in the cards
+  const visualScale = 2;        // 2× movement for visual effect
+  const pixelsPerMil = 6;       // how many pixels per mil after scaling
+  const maxRadius = 36;         // keep dot inside the outer ring (r≈40)
+
+  const rawRadius = Math.abs(mils) * visualScale * pixelsPerMil;
+  const radius = Math.min(rawRadius, maxRadius);
+
+  // Direction is still driven purely by the real wind direction / arrow angle
+  const downwindTopDeg = this.arrowAngleDeg;
+  const rad = ((downwindTopDeg - 90) * Math.PI) / 180;
+
+  this.poiX = centerX + radius * Math.cos(rad);
+  this.poiY = centerY + radius * Math.sin(rad);
+}
 
   // ========================================
   // Bottom Back button → go to Menu (root route)
