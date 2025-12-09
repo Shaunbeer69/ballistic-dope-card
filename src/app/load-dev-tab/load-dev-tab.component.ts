@@ -309,6 +309,16 @@ exportProjectToPdf(): void {
     const safe = base.replace(/[^\w\d\-]+/g, '_');
     return safe + '.pdf';
   }
+// Simple SD helper just for node detection
+private computeNodeWindowSd(values: number[]): number {
+  if (!values.length) return 0;
+  const n = values.length;
+  const mean = values.reduce((s, v) => s + v, 0) / n;
+  const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / n;
+  return Math.sqrt(variance);
+}
+
+
 
   private createEmptyEntryForm(): EntryForm {
     return {
@@ -1096,73 +1106,112 @@ if (entry.poiNote) {
 
   // ---------- node detection & colouring ----------
 
-  private computeNodesForSelectedProject(): Map<number, number> {
-    const map = new Map<number, number>();
+// ---------- node detection & colouring ----------
 
-    if (!this.selectedProject || this.selectedProject.type !== 'ladder') {
-      return map;
-    }
-    if (!this.selectedProject.entries || this.selectedProject.entries.length < 3) {
-      return map;
-    }
+// We treat a “node” as 3 or more neighbouring charges
+// whose average velocities have SD < 10 fps.
+private computeNodesForSelectedProject(): Map<number, number> {
+  const map = new Map<number, number>();
+  const project = this.selectedProject;
 
-    const withStats: NodeEntry[] = this.selectedProject.entries
-      .map(e => ({ entry: e, stats: this.statsForEntry(e) }))
-      .filter((x): x is NodeEntry => !!x.stats);
-
-    if (withStats.length < 3) return map;
-
-    const sorted = withStats.sort(
-      (a, b) => (a.entry.chargeGr ?? 9999) - (b.entry.chargeGr ?? 9999)
-    );
-
-    const groups: number[][] = [];
-    let i = 0;
-
-    while (i + 2 < sorted.length) {
-      let window = [sorted[i], sorted[i + 1], sorted[i + 2]];
-      let vals = window.map(w => w.stats.avg);
-
-      if (this.computeSimpleSd(vals) >= 10) {
-        i++;
-        continue;
-      }
-
-      let j = i + 3;
-      while (j < sorted.length) {
-        const extended = [...window, sorted[j]];
-        const extVals = extended.map(w => w.stats.avg);
-        if (this.computeSimpleSd(extVals) < 10) {
-          window = extended;
-          vals = extVals;
-          j++;
-        } else break;
-      }
-
-      groups.push(window.map(w => w.entry.id));
-      i = j;
-    }
-
-    groups.forEach((ids, index) => {
-      ids.forEach(id => map.set(id, index));
-    });
-
+  // Only ladder projects get node highlighting
+  if (!project || project.type !== 'ladder') {
     return map;
   }
 
-  nodeCssClass(entry: LoadDevEntry) {
-    const map = this.computeNodesForSelectedProject();
-    const idx = map.get(entry.id);
-
-    return {
-      'bg-black text-white ring-4 ring-[#00ff00] shadow-[0_0_12px_#00ff00]':
-        idx === 0,
-      'bg-black text-white ring-4 ring-[#ff9900] shadow-[0_0_12px_#ff9900]':
-        idx === 1,
-      'bg-black text-white ring-4 ring-[#ff0000] shadow-[0_0_12px_#ff0000]':
-        idx === 2
-    };
+  const entries = project.entries ?? [];
+  if (entries.length < 3) {
+    return map;
   }
+
+  // Attach stats and drop entries with no velocity data
+  const withStats: NodeEntry[] = entries
+    .map(e => {
+      const stats = this.statsForEntry(e);
+      return stats ? { entry: e, stats } : null;
+    })
+    .filter((x): x is NodeEntry => !!x);
+
+  if (withStats.length < 3) {
+    return map;
+  }
+
+  // Sort by charge so “neighbouring” really means neighbouring on the ladder
+  const sorted = [...withStats].sort(
+    (a, b) => (a.entry.chargeGr ?? 9999) - (b.entry.chargeGr ?? 9999)
+  );
+
+  const NODE_SD_THRESHOLD = 10; // fps
+  const groups: number[][] = [];
+  let i = 0;
+
+  // Sliding window over sorted ladder
+  while (i + 2 < sorted.length) {
+    // Start with a 3-shot window
+    let window = [sorted[i], sorted[i + 1], sorted[i + 2]];
+    let vals = window.map(w => w.stats.avg);
+    let sd = this.computeSimpleSd(vals);
+
+    // If the 3-shot window is too “noisy”, move on
+    if (sd >= NODE_SD_THRESHOLD) {
+      i++;
+      continue;
+    }
+
+    // Try to extend the window while SD stays under threshold
+    let j = i + 3;
+    while (j < sorted.length) {
+      const extended = [...window, sorted[j]];
+      const extVals = extended.map(w => w.stats.avg);
+      const extSd = this.computeSimpleSd(extVals);
+
+      if (extSd < NODE_SD_THRESHOLD) {
+        window = extended;
+        vals = extVals;
+        sd = extSd;
+        j++;
+      } else {
+        break;
+      }
+    }
+
+    // Record this group of entry IDs as one node
+    const ids = window.map(w => w.entry.id);
+    groups.push(ids);
+
+    // Skip past this node for the next search
+    i = j;
+  }
+
+  // Assign node index to each entry ID
+  groups.forEach((ids, index) => {
+    ids.forEach(id => map.set(id, index));
+  });
+
+  return map;
+}
+
+nodeCssClass(entry: LoadDevEntry) {
+  const map = this.computeNodesForSelectedProject();
+  const idx = entry && entry.id != null ? map.get(entry.id) : undefined;
+
+  // No node -> no extra classes (row uses default styling)
+  if (idx == null) {
+    return {};
+  }
+
+  // Node 0 = “best” node (first one found) – green
+  // Node 1 = second node – orange
+  // Node 2 = third node – red
+  return {
+    'bg-black text-white ring-4 ring-[#00ff00] shadow-[0_0_12px_#00ff00]':
+      idx === 0,
+    'bg-black text-white ring-4 ring-[#ff9900] shadow-[0_0_12px_#ff9900]':
+      idx === 1,
+    'bg-black text-white ring-4 ring-[#ff0000] shadow-[0_0_12px_#ff0000]':
+      idx === 2
+  };
+}
 
   // ---------- helpers for wizard / velocity input ----------
 

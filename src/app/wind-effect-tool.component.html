@@ -16,18 +16,16 @@
   </div>
 
   <!-- Rifle / wind from -->
-
   <div class="bg-gray-900/70 border border-gray-700 rounded-xl p-2">
     <div class="grid grid-cols-3 gap-2">
       <div>
         <div class="text-[9px] text-gray-400">Range (m)</div>
-       <input
-  type="number"
-  [(ngModel)]="rangeMeters"
-  (ngModelChange)="onRangeMetersChange($event)"
-  class="w-full bg-black border border-gray-700 rounded-lg px-2 py-0.5 text-[10px]"
-/>
-
+        <input
+          type="number"
+          [(ngModel)]="rangeMeters"
+          (ngModelChange)="onRangeMetersChange($event)"
+          class="w-full bg-black border border-gray-700 rounded-lg px-2 py-0.5 text-[10px]"
+        />
       </div>
 
       <div>
@@ -59,7 +57,7 @@
         type="number"
         [ngModel]="windSpeedInput"
         (ngModelChange)="onWindSpeedInputChange($event)"
-        class="w-24-1 bg-black border border-gray-700 rounded-lg px-2 py-1 text-[11px]"
+        class="w-24 bg-black border border-gray-700 rounded-lg px-2 py-1 text-[11px]"
       />
       <select
         [ngModel]="windUnit"
