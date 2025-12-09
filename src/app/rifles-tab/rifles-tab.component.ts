@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, EventEmitter, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
 import { DataService } from '../data.service';
 
 @Component({
@@ -12,6 +11,8 @@ import { DataService } from '../data.service';
   styleUrls: ['./rifles-tab.component.css'],
 })
 export class RiflesTabComponent implements OnInit {
+  @Output() backToMenu = new EventEmitter<void>();
+
   // All rifles
   rifles: any[] = [];
 
@@ -20,14 +21,11 @@ export class RiflesTabComponent implements OnInit {
   addFormVisible = false;
   editingRifle: any | null = null;
 
-// Load Show selection / forms
- 
-
   // Loads visibility / forms
   activeLoadsRifleId: number | string | null = null;
   activeLoadFormRifleId: number | string | null = null;
   editingLoadId: number | string | null = null;
- selectedLoad: any | null = null;
+
   // Forms
   rifleForm: any = {
     scopeUnit: 'MIL',
@@ -37,52 +35,21 @@ export class RiflesTabComponent implements OnInit {
 
   loadForm: any = {};
 
-  constructor(
-    private router: Router,
-    private data: DataService
-  ) {}
+  constructor(private data: DataService) {}
 
   ngOnInit(): void {
     this.refresh();
   }
 
-
-selectLoad(load: any) {
-  this.selectedLoad = load;
-}
-
-editSelectedLoad(rifle: any) {
-  if (!this.selectedLoad) return;
-  this.editLoad(rifle, this.selectedLoad);
-}
-
-deleteSelectedLoad(rifle: any) {
-  if (!this.selectedLoad) {
-    return;
-  }
-  const ok = confirm('Delete this load?\nThis cannot be undone.');
-  if (!ok) {
-    return;
-  }
-  this.deleteLoad(rifle, this.selectedLoad);
-  this.selectedLoad = null;
-}
-
-
-  // Back button – router first, then history fallback
+  // Back button – same idea as History tab: reset local state and tell parent to go back
   goBack(): void {
-    this.router
-      .navigate(['/'])
-      .then((ok) => {
-        if (!ok && window.history.length > 1) {
-          window.history.back();
-        }
-      })
-      .catch(() => {
-        if (window.history.length > 1) {
-          window.history.back();
-        }
-      });
+    this.addFormVisible = false;
+    this.editingRifle = null;
+    this.activeLoadsRifleId = null;
+    this.activeLoadFormRifleId = null;
+    this.editingLoadId = null;
+    this.resetLoadForm();
+    this.backToMenu.emit();
   }
 
   private generateId(prefix: string): string {
@@ -284,8 +251,7 @@ deleteSelectedLoad(rifle: any) {
         };
       }
     } else {
-      const newLoadId =
-        this.loadForm.id ?? this.generateId('load');
+      const newLoadId = this.loadForm.id ?? this.generateId('load');
 
       const newLoad: any = {
         id: newLoadId,
@@ -355,7 +321,6 @@ deleteSelectedLoad(rifle: any) {
   deleteLoad(r: any, load: any): void {
     if (!r || !load) return;
     if (!confirm('Delete this load?')) return;
-    
 
     const anyData: any = this.data;
 

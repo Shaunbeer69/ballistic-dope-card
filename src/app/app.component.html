@@ -344,9 +344,10 @@
       <!-- OTHER TABS -->
       <ng-template #otherTabs>
         <div class="flex-1 mt-2">
-          <div *ngIf="currentTab === 'rifles'">
-            <app-rifles-tab></app-rifles-tab>
-          </div>
+        <div *ngIf="currentTab === 'rifles'">
+  <app-rifles-tab (backToMenu)="setTab('menu')"></app-rifles-tab>
+</div>
+
 
           <div *ngIf="currentTab === 'venues'">
             <app-venues-tab></app-venues-tab>
