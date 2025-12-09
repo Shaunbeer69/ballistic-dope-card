@@ -20,11 +20,14 @@ export class RiflesTabComponent implements OnInit {
   addFormVisible = false;
   editingRifle: any | null = null;
 
+// Load Show selection / forms
+ 
+
   // Loads visibility / forms
   activeLoadsRifleId: number | string | null = null;
   activeLoadFormRifleId: number | string | null = null;
   editingLoadId: number | string | null = null;
-
+ selectedLoad: any | null = null;
   // Forms
   rifleForm: any = {
     scopeUnit: 'MIL',
@@ -42,6 +45,29 @@ export class RiflesTabComponent implements OnInit {
   ngOnInit(): void {
     this.refresh();
   }
+
+
+selectLoad(load: any) {
+  this.selectedLoad = load;
+}
+
+editSelectedLoad(rifle: any) {
+  if (!this.selectedLoad) return;
+  this.editLoad(rifle, this.selectedLoad);
+}
+
+deleteSelectedLoad(rifle: any) {
+  if (!this.selectedLoad) {
+    return;
+  }
+  const ok = confirm('Delete this load?\nThis cannot be undone.');
+  if (!ok) {
+    return;
+  }
+  this.deleteLoad(rifle, this.selectedLoad);
+  this.selectedLoad = null;
+}
+
 
   // Back button – router first, then history fallback
   goBack(): void {

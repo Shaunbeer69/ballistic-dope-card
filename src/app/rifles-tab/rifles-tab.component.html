@@ -180,11 +180,21 @@
 
         <!-- Loads for this rifle -->
         <div class="mt-2 border-t border-slate-700 pt-2">
-          <button
-            class="px-3 py-1 rounded-xl bg-slate-100 text-slate-900 text-[11px] font-semibold"
-            (click)="toggleLoads(r)">
-            {{ activeLoadsRifleId === r.id ? 'Hide load data' : 'Show load data' }}
-          </button>
+
+          <!-- Show/Hide + Add row -->
+          <div class="flex justify-between items-center">
+            <button
+              class="px-3 py-1 rounded-xl bg-slate-100 text-slate-900 text-[11px] font-semibold"
+              (click)="toggleLoads(r)">
+              {{ activeLoadsRifleId === r.id ? 'Hide load data' : 'Show load data' }}
+            </button>
+
+            <button
+              class="px-3 py-1 rounded-xl bg-emerald-500 text-slate-900 text-[11px] font-semibold"
+              (click)="toggleLoadForm(r.id)">
+              Add
+            </button>
+          </div>
 
           <div *ngIf="activeLoadsRifleId === r.id" class="mt-2 space-y-2">
             <div class="text-[11px] text-slate-300">
@@ -200,51 +210,74 @@
                     <th class="px-2 py-1 text-left font-semibold">COAL</th>
                     <th class="px-2 py-1 text-left font-semibold">Primer</th>
                     <th class="px-2 py-1 text-left font-semibold">Bullet</th>
-                    <th class="px-2 py-1"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let l of r.loads" class="border-b border-slate-800">
+                  <tr
+                    *ngFor="let l of r.loads"
+                    class="border-b border-slate-800 cursor-pointer"
+                    (click)="selectLoad(l)"
+                    [class.bg-slate-800]="selectedLoad === l"
+                  >
                     <td class="px-2 py-1">{{ l.powder }}</td>
                     <td class="px-2 py-1">{{ l.chargeGn }}</td>
                     <td class="px-2 py-1">{{ l.coal }}</td>
                     <td class="px-2 py-1">{{ l.primer }}</td>
-                    <td class="px-2 py-1">
-                      <span *ngIf="l.bulletWeightGr || l.bullet; else noBullet">
-                        <span *ngIf="l.bulletWeightGr">{{ l.bulletWeightGr }} gr </span>{{ l.bullet }}
-                        <span *ngIf="l.bulletBc"> (BC {{ l.bulletBc }})</span>
-                      </span>
-                      <ng-template #noBullet>
-                        <span class="text-[9px] text-slate-500">–</span>
-                      </ng-template>
-                  <td class="px-1 py-1 align-top">
-  <div class="flex flex-col gap-1">
-    <button
-      class="px-2 py-0.5 rounded bg-blue-600 text-white text-[10px]"
-      (click)="editLoad(r, l)">
-      Edit
-    </button>
-    <button
-      class="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px]"
-      (click)="deleteLoad(r, l)">
-      Del
-    </button>
-  </div>
-</td>
 
+                    <!-- Bullet text column -->
+                    <td class="px-2 py-1 align-top text-left">
+                      <div class="text-[10px] leading-tight max-w-[90px]">
+                        <ng-container *ngIf="l.bulletWeightGr || l.bullet; else noBullet">
+                          <span *ngIf="l.bulletWeightGr">{{ l.bulletWeightGr }} gr </span>{{ l.bullet }}
+                          <div *ngIf="l.bulletBc" class="text-[9px] text-slate-400">
+                            BC: {{ l.bulletBc }}
+                          </div>
+                        </ng-container>
+                        <ng-template #noBullet>
+                          <span class="text-[9px] text-slate-500">–</span>
+                        </ng-template>
+                      </div>
+                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
 
-            <!-- Add load button at bottom -->
-            <div class="flex justify-end mt-2">
-              <button
-                *ngIf="activeLoadFormRifleId !== r.id"
-                class="px-3 py-1 rounded-2xl bg-emerald-500 text-slate-900 text-[11px] font-semibold"
-                (click)="toggleLoadForm(r.id)">
-                Add
-              </button>
+            <!-- Bottom row: selected load info + Edit/Delete -->
+            <div
+              *ngIf="activeLoadFormRifleId !== r.id"
+              class="flex items-center mt-2"
+            >
+              <div class="text-[10px] text-slate-400" *ngIf="selectedLoad">
+                Selected:
+                <span *ngIf="selectedLoad.bulletWeightGr">
+                  {{ selectedLoad.bulletWeightGr }} gr
+                </span>
+                {{ selectedLoad.bullet || '' }}
+                <span *ngIf="selectedLoad.chargeGn">
+                  @ {{ selectedLoad.chargeGn }} gr
+                </span>
+              </div>
+
+              <div class="flex gap-2 ml-auto">
+                <button
+                  type="button"
+                  class="px-3 py-1 rounded-xl bg-blue-600 text-white text-[11px] font-semibold disabled:opacity-40"
+                  [disabled]="!selectedLoad"
+                  (click)="editSelectedLoad(r)"
+                >
+                  Edit
+                </button>
+
+                <button
+                  type="button"
+                  class="px-3 py-1 rounded-xl bg-red-600 text-white text-[11px] font-semibold disabled:opacity-40"
+                  [disabled]="!selectedLoad"
+                  (click)="deleteSelectedLoad(r)"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
 
             <!-- Load edit/add form -->
