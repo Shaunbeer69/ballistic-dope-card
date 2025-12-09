@@ -355,6 +355,7 @@ deleteSelectedLoad(rifle: any) {
   deleteLoad(r: any, load: any): void {
     if (!r || !load) return;
     if (!confirm('Delete this load?')) return;
+    
 
     const anyData: any = this.data;
 

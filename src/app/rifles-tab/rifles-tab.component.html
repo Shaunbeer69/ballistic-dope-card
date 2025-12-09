@@ -203,81 +203,66 @@
 
             <div class="overflow-x-auto">
               <table class="min-w-full text-[10px] border-collapse">
-                <thead>
-                  <tr class="bg-slate-900 border-b border-slate-700">
-                    <th class="px-2 py-1 text-left font-semibold">Powder</th>
-                    <th class="px-2 py-1 text-left font-semibold">Charge</th>
-                    <th class="px-2 py-1 text-left font-semibold">COAL</th>
-                    <th class="px-2 py-1 text-left font-semibold">Primer</th>
-                    <th class="px-2 py-1 text-left font-semibold">Bullet</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    *ngFor="let l of r.loads"
-                    class="border-b border-slate-800 cursor-pointer"
-                    (click)="selectLoad(l)"
-                    [class.bg-slate-800]="selectedLoad === l"
-                  >
-                    <td class="px-2 py-1">{{ l.powder }}</td>
-                    <td class="px-2 py-1">{{ l.chargeGn }}</td>
-                    <td class="px-2 py-1">{{ l.coal }}</td>
-                    <td class="px-2 py-1">{{ l.primer }}</td>
+               <thead>
+                <tr class="bg-slate-900 border-b border-slate-700">
+                  <th class="px-2 py-1 text-left font-semibold">Powder</th>
+                  <th class="px-2 py-1 text-left font-semibold">Charge</th>
+                  <th class="px-2 py-1 text-left font-semibold">COAL</th>
+                  <th class="px-2 py-1 text-left font-semibold">Primer</th>
+                  <th class="px-2 py-1 text-left font-semibold">Bullet</th>
+                </tr>
+              </thead>
 
-                    <!-- Bullet text column -->
-                    <td class="px-2 py-1 align-top text-left">
-                      <div class="text-[10px] leading-tight max-w-[90px]">
-                        <ng-container *ngIf="l.bulletWeightGr || l.bullet; else noBullet">
-                          <span *ngIf="l.bulletWeightGr">{{ l.bulletWeightGr }} gr </span>{{ l.bullet }}
-                          <div *ngIf="l.bulletBc" class="text-[9px] text-slate-400">
-                            BC: {{ l.bulletBc }}
-                          </div>
-                        </ng-container>
-                        <ng-template #noBullet>
-                          <span class="text-[9px] text-slate-500">–</span>
-                        </ng-template>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
+               <tbody>
+              <ng-container *ngFor="let l of r.loads">
+
+                <!-- Data row -->
+                <tr class="border-b border-slate-800">
+                  <td class="px-2 py-1">{{ l.powder }}</td>
+                  <td class="px-2 py-1">{{ l.chargeGn }}</td>
+                  <td class="px-2 py-1">{{ l.coal }}</td>
+                  <td class="px-2 py-1">{{ l.primer }}</td>
+
+                  <!-- Bullet text column -->
+                  <td class="px-2 py-1 align-top text-left">
+                    <div class="text-[10px] leading-tight max-w-[90px]">
+                      <ng-container *ngIf="l.bulletWeightGr || l.bullet; else noBullet">
+                        <span *ngIf="l.bulletWeightGr">{{ l.bulletWeightGr }} gr </span>{{ l.bullet }}
+                        <div *ngIf="l.bulletBc" class="text-[9px] text-slate-400">
+                          BC: {{ l.bulletBc }}
+                        </div>
+                      </ng-container>
+                      <ng-template #noBullet>
+                        <span class="text-[9px] text-slate-500">–</span>
+                      </ng-template>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Actions row under the load, right-justified -->
+                <tr class="border-b border-slate-900">
+                  <td colspan="5" class="px-2 pb-2 pt-0">
+                    <div class="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        class="px-3 py-1 rounded-xl bg-blue-600 text-white text-[10px] font-semibold"
+                        (click)="editLoad(r, l)">
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        class="px-3 py-1 rounded-xl bg-red-600 text-white text-[10px] font-semibold"
+                        (click)="deleteLoad(r, l)">
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+              </ng-container>
+            </tbody>
+
               </table>
-            </div>
-
-            <!-- Bottom row: selected load info + Edit/Delete -->
-            <div
-              *ngIf="activeLoadFormRifleId !== r.id"
-              class="flex items-center mt-2"
-            >
-              <div class="text-[10px] text-slate-400" *ngIf="selectedLoad">
-                Selected:
-                <span *ngIf="selectedLoad.bulletWeightGr">
-                  {{ selectedLoad.bulletWeightGr }} gr
-                </span>
-                {{ selectedLoad.bullet || '' }}
-                <span *ngIf="selectedLoad.chargeGn">
-                  @ {{ selectedLoad.chargeGn }} gr
-                </span>
-              </div>
-
-              <div class="flex gap-2 ml-auto">
-                <button
-                  type="button"
-                  class="px-3 py-1 rounded-xl bg-blue-600 text-white text-[11px] font-semibold disabled:opacity-40"
-                  [disabled]="!selectedLoad"
-                  (click)="editSelectedLoad(r)"
-                >
-                  Edit
-                </button>
-
-                <button
-                  type="button"
-                  class="px-3 py-1 rounded-xl bg-red-600 text-white text-[11px] font-semibold disabled:opacity-40"
-                  [disabled]="!selectedLoad"
-                  (click)="deleteSelectedLoad(r)"
-                >
-                  Delete
-                </button>
-              </div>
             </div>
 
             <!-- Load edit/add form -->
