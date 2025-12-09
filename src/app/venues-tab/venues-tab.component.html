@@ -6,11 +6,10 @@
       {{ editingVenue ? 'Edit Venue' : 'Add Venue' }}
     </div>
     <button
-  class="px-3 py-1 rounded-xl bg-emerald-500 text-slate-900 text-xs font-semibold"
-  (click)="toggleForm()">
-  {{ formVisible ? 'Close' : 'Add' }}
-</button>
-
+      class="px-3 py-1 rounded-xl bg-emerald-500 text-slate-900 text-xs font-semibold"
+      (click)="toggleForm()">
+      {{ formVisible ? 'Close' : 'Add' }}
+    </button>
   </div>
 
   <!-- Venue form -->
@@ -228,6 +227,16 @@
         </div>
       </ng-container>
     </ng-container>
+  </div>
+
+  <!-- Back button (same look as History) -->
+  <div class="mt-3 flex justify-end">
+    <button
+      type="button"
+      class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black text-[11px] font-semibold"
+      (click)="goBack()">
+      Back
+    </button>
   </div>
 
 </div>

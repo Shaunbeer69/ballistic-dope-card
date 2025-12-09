@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, EventEmitter, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../data.service';
 import { Venue, SubRange } from '../models';
@@ -19,6 +19,9 @@ interface SubRangeRow {
 })
 export class VenuesTabComponent implements OnInit {
   venues: Venue[] = [];
+
+  // 🔸 Tell parent when user presses Back (same pattern as History)
+  @Output() backToMenu = new EventEmitter<void>();
 
   // form state
   formVisible = false;
@@ -215,5 +218,26 @@ export class VenuesTabComponent implements OnInit {
     if (this.expandedVenueId === v.id) {
       this.expandedVenueId = null;
     }
+  }
+
+  // ---------- Back to main menu (like History) ----------
+
+  goBack(): void {
+    // Reset local state to something clean
+    this.formVisible = false;
+    this.editingVenue = null;
+    this.expandedVenueId = null;
+
+    if (this.venues.length > 0) {
+      this.selectedVenueId = this.venues[0].id as number;
+    } else {
+      this.selectedVenueId = null;
+    }
+
+    this.subRangeRows = [];
+    this.addSubRangeRow();
+
+    // Tell parent tab container to go back to Menu
+    this.backToMenu.emit();
   }
 }
