@@ -21,11 +21,13 @@
     <div class="grid grid-cols-3 gap-2">
       <div>
         <div class="text-[9px] text-gray-400">Range (m)</div>
-        <input
-          type="number"
-          [(ngModel)]="rangeMeters"
-          class="w-ull bg-black border border-gray-700 rounded-lg px-2 py-0.5 text-[10px]"
-        />
+       <input
+  type="number"
+  [(ngModel)]="rangeMeters"
+  (ngModelChange)="onRangeMetersChange($event)"
+  class="w-full bg-black border border-gray-700 rounded-lg px-2 py-0.5 text-[10px]"
+/>
+
       </div>
 
       <div>

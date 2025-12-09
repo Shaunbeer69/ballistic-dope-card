@@ -285,7 +285,7 @@ export class WindEffectToolComponent implements OnInit {
     const angleRad = Math.atan2(dy, dx);
     const angleTopBasedDeg = (angleRad * 180) / Math.PI + 90;
 
-    this.arrowAngleDeg = (angleTopBasedDeg + 360) % 360;
+    this.arrowAngleDeg = (angleTopBasedDeg + 180) % 360;
 
     const directionFromClock = this.clockFromArrow(this.arrowAngleDeg);
     this.windFromClock = directionFromClock;
@@ -329,16 +329,32 @@ export class WindEffectToolComponent implements OnInit {
     return m * 3.28084;
   }
 
-  private get timeOfFlightSeconds(): number {
-    const distanceFt = this.metersToFeet(this.rangeMeters);
-    const v = this.muzzleVelocityFps || 1;
-    return distanceFt / v;
-  }
+ get timeOfFlightSeconds(): number {
+  const distanceFt = this.metersToFeet(this.rangeMeters);
+  const v = this.muzzleVelocityFps || 1;
+
+  // Simple "bullet slowing down" fudge so drift grows with distance
+  const rangeKm = (this.rangeMeters || 0) / 1000;
+  const bc = this.ballisticCoeff || 0.5;
+
+
+    // Higher BC → slows less, so we reduce the extra factor
+  const bcFactor = 0.5 / bc;
+
+  // 0.4 is a tuning knob:
+  // - 600m: modest extra TOF
+  // - 2000m: noticeably more TOF → more drift
+  const slowDownFactor = 1 + 0.4 * rangeKm * bcFactor;
+
+  return (distanceFt / v) * slowDownFactor;
+}
 
  private getCrosswindComponents(): { factorAbs: number; sign: number } {
   const fromClock = this.windFromClock % 12 || 12;
   const fromDeg = (fromClock / 12) * 360;
   const rad = (fromDeg * Math.PI) / 180;
+
+  
 
   // Crosswind: max at 3 & 9 o'clock
   const sin = Math.sin(rad);           // -1 .. 1
@@ -357,6 +373,11 @@ export class WindEffectToolComponent implements OnInit {
   return { factorAbs: combined, sign };
 }
 
+onRangeMetersChange(raw: any): void {
+  const v = Number(raw);
+  this.rangeMeters = Number.isFinite(v) && v > 0 ? v : 0;
+  this.updatePoiFromDrift();
+}
 
   computeLateralInches(): number {
     if (
