@@ -40,6 +40,19 @@ interface LastSettingsResult {
     windDirectionClock: number | null;
   } | null;
 }
+interface MultiDistanceDopeSummary {
+  distanceM: number;
+  elevationMil: number | null;
+  windageMil: number | null;
+  sessionDate: string | null;
+}
+
+interface WindTrendSummary {
+  distanceM: number;
+  avgWindageMil: number | null;
+  sampleCount: number;
+  directionLabel: string;
+}
 
 @Component({
   selector: 'app-root',
@@ -79,7 +92,7 @@ export class AppComponent implements OnInit {
   }
 
   // REPORTS STATE
-  showReportsForm = false;
+    showReportsForm = false;
   reportRequest: ReportRequest = {
     type: 'recent',
     rifleId: null,
@@ -89,13 +102,19 @@ export class AppComponent implements OnInit {
     limit: 10,
   };
 
-  // NEW: distance + result + error bound in HTML
+  // Distance + result + error
   reportDistanceM: number | null = null;
   lastSettingsResult: LastSettingsResult | null = null;
   lastSettingsError: string | null = null;
 
+  // 🔴 NEW: multi-distance + wind trend
+  readonly REPORT_DISTANCES: number[] = [300, 600, 800, 900];
+  multiDistanceSummary: MultiDistanceDopeSummary[] = [];
+  windTrendSummary: WindTrendSummary | null = null;
+
   riflesOptions: any[] = [];
   venuesOptions: any[] = [];
+
 
   // TOOLS / KESTREL / CONVERTER
   showTools = false;
@@ -169,6 +188,8 @@ export class AppComponent implements OnInit {
   // Clear previous state
   this.lastSettingsResult = null;
   this.lastSettingsError = null;
+  this.multiDistanceSummary = [];
+  this.windTrendSummary = null;
 
   try {
     const rifleId = this.reportRequest.rifleId;
@@ -301,11 +322,22 @@ export class AppComponent implements OnInit {
         windDirectionClock: windDirClock ?? null,
       },
     };
+
+    // 🔁 Build multi-distance view & wind trend (using all matching sessions)
+    this.multiDistanceSummary = this.buildMultiDistanceSummary(
+      matching,
+      this.REPORT_DISTANCES
+    );
+    this.windTrendSummary = this.buildWindTrendSummary(
+      matching,
+      distanceM
+    );
   } catch (err) {
     console.error('Error running report:', err);
     this.lastSettingsError = 'Error running report – see console for details.';
   }
 }
+
 
 
   /**
@@ -489,6 +521,112 @@ private findDopeForExactDistance(session: any, distanceM: number): any | null {
 
     return null;
   }
+private buildMultiDistanceSummary(
+  sessions: any[],
+  distances: number[]
+): MultiDistanceDopeSummary[] {
+  const result: MultiDistanceDopeSummary[] = [];
+
+  // Go newest → oldest for each distance and stop on first hit
+  for (const d of distances) {
+    let found: MultiDistanceDopeSummary | null = null;
+
+    for (let i = sessions.length - 1; i >= 0; i--) {
+      const s = sessions[i];
+      const dope = this.findDopeForExactDistance(s, d);
+      if (!dope) continue;
+
+      const rawDate =
+        s.sessionDate ||
+        s.date ||
+        s.startTime ||
+        s.startedAt ||
+        s.createdAt ||
+        s.timestamp;
+
+      const dateStr = rawDate
+        ? new Date(rawDate).toISOString().slice(0, 10)
+        : null;
+
+      const elevationMil =
+        dope.elevationMil ?? dope.elevation ?? null;
+      const windageMil =
+        dope.windageMil ?? dope.windage ?? null;
+
+      found = {
+        distanceM: d,
+        elevationMil,
+        windageMil,
+        sessionDate: dateStr,
+      };
+      break;
+    }
+
+    if (found) {
+      result.push(found);
+    }
+  }
+
+  return result;
+}
+private buildWindTrendSummary(
+  sessions: any[],
+  distanceM: number
+): WindTrendSummary | null {
+  let sum = 0;
+  let count = 0;
+
+  for (const s of sessions) {
+    const dope = this.findDopeForExactDistance(s, distanceM);
+    if (!dope) continue;
+
+    const w =
+      typeof dope.windageMil === 'number'
+        ? dope.windageMil
+        : typeof dope.windage === 'number'
+        ? dope.windage
+        : null;
+
+    if (typeof w === 'number' && !Number.isNaN(w)) {
+      sum += w;
+      count++;
+    }
+  }
+
+  if (!count) {
+    return null;
+  }
+
+  const avg = sum / count;
+  const absAvg = Math.abs(avg);
+
+  let directionLabel = 'No clear bias';
+
+  if (absAvg < 0.05) {
+    directionLabel = 'No clear left/right trend';
+  } else if (avg > 0) {
+    directionLabel = `Left → Right (avg +${avg.toFixed(2)} mil)`;
+  } else if (avg < 0) {
+    directionLabel = `Right → Left (avg ${avg.toFixed(2)} mil)`;
+  }
+
+  return {
+    distanceM,
+    avgWindageMil: avg,
+    sampleCount: count,
+    directionLabel,
+  };
+}
+useLastSettingsInNewSession(): void {
+  if (!this.lastSettingsResult) {
+    this.lastSettingsError = 'Run a report first before using settings.';
+    return;
+  }
+
+  // For now: just jump to Sessions tab.
+  // Later we can pre-fill the session form via a shared service/localStorage.
+  this.setTab('sessions');
+}
 
   async onKestrelButtonClick(): Promise<void> {
     if (this.selectedTool === 'kestrel') {

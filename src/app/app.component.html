@@ -195,6 +195,61 @@
                         </span>
                       </div>
                     </div>
+
+                    <!-- One-tap recall -->
+                    <button
+                      class="mt-2 w-full px-3 py-1 text-[10px] rounded bg-gray-200 text-black font-semibold"
+                      (click)="useLastSettingsInNewSession()"
+                    >
+                      Use these settings in new session
+                    </button>
+                  </div>
+
+                  <!-- Wind trend -->
+                  <div
+                    *ngIf="windTrendSummary"
+                    class="mt-2 text-[10px] text-gray-300 bg-black/30 rounded-lg px-2 py-1"
+                  >
+                    <div class="font-semibold mb-0.5">
+                      Wind trend @ {{ windTrendSummary.distanceM }} m
+                    </div>
+                    <div>
+                      {{ windTrendSummary.directionLabel }}
+                      <span *ngIf="windTrendSummary.sampleCount > 1">
+                        ({{ windTrendSummary.sampleCount }} visits)
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Multi-distance quick view -->
+                  <div
+                    *ngIf="multiDistanceSummary.length"
+                    class="mt-2 text-[10px] text-gray-200 bg-black/30 rounded-lg p-2"
+                  >
+                    <div class="font-semibold mb-1">Quick DOPE view (last used)</div>
+                    <table class="w-full text-[10px]">
+                      <thead class="text-gray-400 border-b border-gray-700">
+                        <tr>
+                          <th class="text-left pb-1">Dist (m)</th>
+                          <th class="text-left pb-1">Elev (mil)</th>
+                          <th class="text-left pb-1">Wind (mil)</th>
+                          <th class="text-left pb-1">Last used</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          *ngFor="let row of multiDistanceSummary"
+                          class="border-b border-gray-800"
+                        >
+                          <td class="py-0.5">{{ row.distanceM }}</td>
+                          <td class="py-0.5">{{ row.elevationMil ?? '-' }}</td>
+                          <td class="py-0.5">{{ row.windageMil ?? '-' }}</td>
+                          <td class="py-0.5">
+                            <span class="font-mono">{{ row.sessionDate || '-' }}</span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
