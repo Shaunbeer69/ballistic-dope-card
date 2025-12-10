@@ -40,6 +40,18 @@ interface LastSettingsResult {
     windDirectionClock: number | null;
   } | null;
 }
+interface DistanceHistoryEntry {
+  sessionDate: string;
+  distanceM: number;
+  elevationMil: number | null;
+  windageMil: number | null;
+}
+
+interface DistanceHistoryGroup {
+  distanceM: number;
+  entries: DistanceHistoryEntry[];
+}
+
 interface MultiDistanceDopeSummary {
   distanceM: number;
   elevationMil: number | null;
@@ -115,6 +127,9 @@ export class AppComponent implements OnInit {
   riflesOptions: any[] = [];
   venuesOptions: any[] = [];
 
+  // 🔴 NEW: full history grouped by distance
+  distanceHistoryGroups: DistanceHistoryGroup[] = [];
+  expandedDistanceM: number | null = null;
 
   // TOOLS / KESTREL / CONVERTER
   showTools = false;
@@ -190,8 +205,14 @@ export class AppComponent implements OnInit {
   this.lastSettingsError = null;
   this.multiDistanceSummary = [];
   this.windTrendSummary = null;
+  
 
+  
+// 🔴 NEW:
+  this.distanceHistoryGroups = [];
+  this.expandedDistanceM = null;
   try {
+    
     const rifleId = this.reportRequest.rifleId;
     const venueId = this.reportRequest.venueId;
     const distanceM = this.reportDistanceM;
@@ -209,6 +230,8 @@ export class AppComponent implements OnInit {
     if (!sessions.length) {
       this.lastSettingsError = 'No sessions found in History yet.';
       return;
+
+      
     }
 
     // Filter by rifle + venue
@@ -332,10 +355,125 @@ export class AppComponent implements OnInit {
       matching,
       distanceM
     );
+        // 🔁 Build full distance history groups for this rifle @ venue
+    this.distanceHistoryGroups = this.buildDistanceHistoryGroups(matching);
+
   } catch (err) {
     console.error('Error running report:', err);
     this.lastSettingsError = 'Error running report – see console for details.';
   }
+}
+private buildDistanceHistoryGroups(
+  sessions: any[]
+): DistanceHistoryGroup[] {
+  const byDistance = new Map<number, DistanceHistoryEntry[]>();
+
+  for (const s of sessions) {
+    const rawDate =
+      s.sessionDate ||
+      s.date ||
+      s.startTime ||
+      s.startedAt ||
+      s.createdAt ||
+      s.timestamp;
+
+    const dateStr = rawDate
+      ? new Date(rawDate).toISOString().slice(0, 10)
+      : 'unknown date';
+
+    const dopes: any[] = [];
+
+    const pushArray = (arr: any) => {
+      if (Array.isArray(arr)) {
+        dopes.push(...arr);
+      }
+    };
+
+    // Same places we search for DOPE elsewhere
+    pushArray(s.distanceDopes);
+    pushArray(s.distances);
+    pushArray(s.distanceDope);
+    pushArray(s.dopes);
+    if (Array.isArray(s.dope)) {
+      pushArray(s.dope);
+    }
+    if (s.dopeMap && typeof s.dopeMap === 'object') {
+      pushArray(Object.values(s.dopeMap));
+    }
+
+    if (Array.isArray(s.subRanges)) {
+      for (const sr of s.subRanges) {
+        pushArray(sr.distanceDopes);
+        pushArray(sr.distances);
+        pushArray(sr.distanceDope);
+        if (Array.isArray(sr.dope)) {
+          pushArray(sr.dope);
+        }
+        if (sr.dopeMap && typeof sr.dopeMap === 'object') {
+          pushArray(Object.values(sr.dopeMap));
+        }
+      }
+    }
+
+    // For each DOPE entry, group by distance
+    for (const d of dopes) {
+      const dist =
+        typeof d?.distanceM === 'number'
+          ? d.distanceM
+          : typeof d?.distance === 'number'
+          ? d.distance
+          : null;
+
+      if (dist == null) continue;
+
+      // Round to whole meters so 599.9 vs 600.0 don't create separate groups
+      const distKey = Math.round(dist);
+
+      const elevationMil =
+        typeof d.elevationMil === 'number'
+          ? d.elevationMil
+          : typeof d.elevation === 'number'
+          ? d.elevation
+          : null;
+
+      const windageMil =
+        typeof d.windageMil === 'number'
+          ? d.windageMil
+          : typeof d.windage === 'number'
+          ? d.windage
+          : null;
+
+      const entry: DistanceHistoryEntry = {
+        sessionDate: dateStr,
+        distanceM: distKey,
+        elevationMil,
+        windageMil,
+      };
+
+      const list = byDistance.get(distKey) || [];
+      list.push(entry);
+      byDistance.set(distKey, list);
+    }
+  }
+
+  // Build sorted groups (distance ascending, entries newest-first)
+  const groups: DistanceHistoryGroup[] = [];
+
+  const distances = Array.from(byDistance.keys()).sort((a, b) => a - b);
+
+  for (const d of distances) {
+    const entries = byDistance.get(d) || [];
+    // Newest first by date string (ISO-like format we used)
+    const sorted = entries.slice().sort((a, b) =>
+      b.sessionDate.localeCompare(a.sessionDate)
+    );
+    groups.push({
+      distanceM: d,
+      entries: sorted,
+    });
+  }
+
+  return groups;
 }
 
 
