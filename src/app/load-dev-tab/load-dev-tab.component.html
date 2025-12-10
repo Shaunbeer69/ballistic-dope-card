@@ -1,10 +1,7 @@
 <div class="p-3 space-y-3">
-
   <!-- Rifle selector -->
   <div class="bg-gray-900/80 border border-gray-800 rounded-3xl p-3">
-    <div class="text-xs font-semibold text-gray-100 mb-1">
-      Rifle
-    </div>
+    <div class="text-xs font-semibold text-gray-100 mb-1">Rifle</div>
     <select
       class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-xs text-gray-100"
       [(ngModel)]="selectedRifleId"
@@ -12,7 +9,7 @@
     >
       <option [ngValue]="null">Select rifle…</option>
       <option *ngFor="let rifle of rifles" [ngValue]="rifle.id">
-        {{ rifle.name || ('Rifle ' + rifle.id) }}
+        {{ rifle.name || 'Rifle ' + rifle.id }}
       </option>
     </select>
   </div>
@@ -22,14 +19,11 @@
     *ngIf="selectedRifleId"
     class="bg-gray-900/80 border border-gray-800 rounded-3xl p-3 space-y-3"
   >
-
     <!-- Header + history + dropdown -->
     <div class="space-y-2">
       <!-- Header row: Load development + New on one line -->
       <div class="flex items-center justify-between">
-        <div class="text-xs font-semibold text-gray-100">
-          Load development
-        </div>
+        <div class="text-xs font-semibold text-gray-100">Load development</div>
         <button
           class="px-3 py-[4px] rounded-full bg-green-600 text-black text-[12px] font-semibold"
           (click)="newProject()"
@@ -39,9 +33,7 @@
       </div>
 
       <!-- History header -->
-      <div class="text-[12px] font-semibold text-gray-300">
-        History
-      </div>
+      <div class="text-[12px] font-semibold text-gray-300">History</div>
 
       <!-- Project dropdown (hidden while New/Edit form is visible) -->
       <div class="mt-1" *ngIf="!projectFormVisible">
@@ -51,10 +43,7 @@
           (ngModelChange)="onProjectSelectChange()"
         >
           <option [ngValue]="null">Select load…</option>
-          <option
-            *ngFor="let project of projects"
-            [ngValue]="project.id"
-          >
+          <option *ngFor="let project of projects" [ngValue]="project.id">
             {{ project.name }} · {{ shortDate(project.dateStarted) }}
           </option>
         </select>
@@ -79,7 +68,6 @@
       </div>
 
       <div class="grid grid-cols-1 gap-2 text-[11px]">
-
         <!-- Name -->
         <div>
           <div class="text-gray-400 mb-0.5">Load development name</div>
@@ -112,9 +100,9 @@
             {{
               projectForm.type === 'ladder'
                 ? 'Ladder test'
-                : (projectForm.type === 'ocw'
-                    ? 'OCW test'
-                    : 'Development type')
+                : projectForm.type === 'ocw'
+                ? 'OCW test'
+                : 'Development type'
             }}
           </div>
           <div>
@@ -181,10 +169,7 @@
             </button>
           </div>
 
-          <div
-            *ngIf="showNotesPanel"
-            class="mt-2"
-          >
+          <div *ngIf="showNotesPanel" class="mt-2">
             <textarea
               rows="2"
               class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-gray-100 text-[11px]"
@@ -200,7 +185,6 @@
         *ngIf="projectForm.type === 'ladder' || projectForm.type === 'ocw'"
         class="mt-2 border border-gray-800 rounded-2xl p-2 text-[11px] bg-black/40 space-y-2"
       >
-
         <div class="text-gray-100 font-semibold">
           {{ projectForm.type === 'ocw' ? 'OCW planning' : 'Ladder planning' }}
         </div>
@@ -252,10 +236,7 @@
         </div>
 
         <!-- Shots per group: OCW only -->
-        <div
-          *ngIf="projectForm.type === 'ocw'"
-          class="mt-2"
-        >
+        <div *ngIf="projectForm.type === 'ocw'" class="mt-2">
           <div class="text-gray-400 mb-0.5">Shots per group</div>
           <input
             type="number"
@@ -289,7 +270,6 @@
 
     <!-- Below here should be hidden while New form is open -->
     <ng-container *ngIf="selectedProject && !projectFormVisible">
-
       <!-- Graph + Hide results buttons -->
       <div class="mt-3 flex items-center justify-end gap-2 text-[11px]">
         <button
@@ -322,21 +302,18 @@
               ? 'OCW velocity wizard'
               : 'Ladder wizard'
           }}
-          – step {{ ladderWizardIndex + 1 }} of {{
-            ladderWizardEntries.length
-          }}
+          – step {{ ladderWizardIndex + 1 }} of {{ ladderWizardEntries.length }}
         </div>
-        <div class="text-[10px] text-gray-300">
-          Charge {{ velocityEditEntry.chargeGr }} gr
-        </div>
+        <div class="text-[10px] text-gray-300">Charge {{ velocityEditEntry.chargeGr }} gr</div>
         <div
           *ngIf="selectedProject && selectedProject.type === 'ocw'"
           class="text-[10px] text-gray-400"
         >
-          Enter all velocities for this group
-          ({{ velocityEditEntry.shotsFired || planner.shotsPerGroup || '?' }}
-          shots), separated by spaces or commas.
-          Leave blank and press Skip if you haven't shot this group yet.
+          Enter all velocities for this group ({{
+            velocityEditEntry.shotsFired || planner.shotsPerGroup || '?'
+          }}
+          shots), separated by spaces or commas. Leave blank and press Skip if you haven't shot this
+          group yet.
         </div>
 
         <input
@@ -345,30 +322,28 @@
           [(ngModel)]="velocityEditValue"
         />
         <div class="flex justify-end gap-2 text-[10px]">
-  <button
-    type="button"
-    class="px-3 py-1.5 rounded-2xl bg-gray-700 text-gray-100"
-    (click)="skipVelocityAndNext()"
-  >
-    Skip
-  </button>
-  <button
-    type="button"
-    class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black font-semibold"
-    (click)="saveVelocityAndNext()"
-  >
-    Save &amp; Next
-  </button>
-  <button
-    type="button"
-    class="px-3 py-1.5 rounded-2xl bg-red-700 text-red-50"
-    (click)="cancelLadderWizard()"
-  >
-    Close
-  </button>
-</div>
-
-
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-2xl bg-gray-700 text-gray-100"
+            (click)="skipVelocityAndNext()"
+          >
+            Skip
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black font-semibold"
+            (click)="saveVelocityAndNext()"
+          >
+            Save &amp; Next
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-2xl bg-red-700 text-red-50"
+            (click)="cancelLadderWizard()"
+          >
+            Close
+          </button>
+        </div>
       </div>
 
       <!-- Single-row Velocity Edit Panel -->
@@ -378,9 +353,7 @@
       >
         <div class="text-[11px] text-sky-200">
           Edit velocity for
-          <span class="font-semibold">
-            {{ velocityEditEntry.chargeGr }} gr
-          </span>
+          <span class="font-semibold"> {{ velocityEditEntry.chargeGr }} gr </span>
         </div>
 
         <input
@@ -446,12 +419,7 @@
             ></polyline>
 
             <ng-container *ngFor="let p of graphCoords">
-              <circle
-                [attr.cx]="p.x"
-                [attr.cy]="p.y"
-                r="1.7"
-                fill="#facc15"
-              ></circle>
+              <circle [attr.cx]="p.x" [attr.cy]="p.y" r="1.7" fill="#facc15"></circle>
             </ng-container>
           </svg>
         </div>
@@ -469,15 +437,12 @@
             </thead>
 
             <tbody>
-              <tr
-                *ngFor="let entry of entriesForSelectedProject()"
-                [ngClass]="nodeCssClass(entry)"
-              >
+              <tr *ngFor="let entry of entriesForSelectedProject()" [ngClass]="nodeCssClass(entry)">
                 <td class="px-2 py-1 text-gray-100">{{ entry.chargeGr }}</td>
 
                 <td class="px-2 py-1 text-gray-100">
                   <ng-container *ngIf="statsForEntry(entry) as s; else none">
-                    {{ s.avg | number:'1.0-0' }}
+                    {{ s.avg | number : '1.0-0' }}
                   </ng-container>
                   <ng-template #none>—</ng-template>
                 </td>
@@ -525,4 +490,13 @@
       </div>
     </ng-container>
   </div>
+</div>
+<div class="p-3 flex justify-end">
+  <button
+    type="button"
+    class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black text-[11px] font-semibold"
+    (click)="onBackFromHistory()"
+  >
+    Back
+  </button>
 </div>

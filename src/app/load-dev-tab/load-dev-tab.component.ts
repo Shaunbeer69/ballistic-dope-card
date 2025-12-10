@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../data.service';
 import { Capacitor } from '@capacitor/core';
@@ -76,6 +76,13 @@ interface NodeEntry {
   templateUrl: './load-dev-tab.component.html'
 })
 export class LoadDevTabComponent implements OnInit {
+
+  
+@Output() backToMenu = new EventEmitter<void>();
+
+onBackFromHistory() {
+   this.backToMenu.emit();
+}
 startOcwWizard() {
 throw new Error('Method not implemented.');
 

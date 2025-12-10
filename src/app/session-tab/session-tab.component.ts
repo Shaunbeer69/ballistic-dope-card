@@ -32,6 +32,7 @@ interface KestrelSnapshot {
 })
 export class SessionTabComponent implements OnInit {
   step: WizardStep = 'setup';
+@Output() backToMenu = new EventEmitter<void>();
 
   rifles: Rifle[] = [];
   venues: Venue[] = [];
@@ -334,4 +335,8 @@ export class SessionTabComponent implements OnInit {
     this.rifles = this.data.getRifles();
     this.venues = this.data.getVenues();
   }
+
+  onBackFromHistory() {
+   this.backToMenu.emit();
+}
 }

@@ -121,7 +121,10 @@ onBackFromWindEffect(): void {
   }
 
   toggleReportsForm(): void {
-    this.showReportsForm = !this.showReportsForm;
+    
+        this.showTools = false;
+     
+      this.showReportsForm = !this.showReportsForm;
   }
 
   submitReportRequest(): void {
@@ -134,6 +137,7 @@ onBackFromWindEffect(): void {
     if (!this.showTools) {
       this.selectedTool = null;
     }
+     this.showReportsForm = false;
   }
 
   onConverterToolClick(): void {

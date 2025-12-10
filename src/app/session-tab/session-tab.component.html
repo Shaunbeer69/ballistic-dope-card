@@ -1,45 +1,68 @@
 <div class="space-y-4 text-xs">
-
   <!-- STEP HEADER + PROGRESS -->
   <div class="w-full flex flex-col items-center mt-1 mb-3 px-2">
-    <div class="w-full bg-gray-900/80 px-2 py-2 rounded-2xl shadow border border-gray-700 text-[11px] flex justify-between">
+    <div
+      class="w-full bg-gray-900/80 px-2 py-2 rounded-2xl shadow border border-gray-700 text-[11px] flex justify-between"
+    >
       <!-- Step bubbles -->
       <div class="flex flex-col items-center flex-1">
-        <div class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
-             [ngClass]="step === 'setup' ? 'bg-orange-500 text-black' : 'bg-gray-700 text-gray-300'">
+        <div
+          class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
+          [ngClass]="step === 'setup' ? 'bg-orange-500 text-black' : 'bg-gray-700 text-gray-300'"
+        >
           1
         </div>
-        <span class="mt-1 text-[9px]" [ngClass]="step === 'setup' ? 'text-orange-400 font-semibold' : 'text-gray-400'">
+        <span
+          class="mt-1 text-[9px]"
+          [ngClass]="step === 'setup' ? 'text-orange-400 font-semibold' : 'text-gray-400'"
+        >
           Setup
         </span>
       </div>
 
       <div class="flex flex-col items-center flex-1">
-        <div class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
-             [ngClass]="step === 'environment' ? 'bg-orange-500 text-black' : 'bg-gray-700 text-gray-300'">
+        <div
+          class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
+          [ngClass]="
+            step === 'environment' ? 'bg-orange-500 text-black' : 'bg-gray-700 text-gray-300'
+          "
+        >
           2
         </div>
-        <span class="mt-1 text-[9px]" [ngClass]="step === 'environment' ? 'text-orange-400 font-semibold' : 'text-gray-400'">
+        <span
+          class="mt-1 text-[9px]"
+          [ngClass]="step === 'environment' ? 'text-orange-400 font-semibold' : 'text-gray-400'"
+        >
           Environment
         </span>
       </div>
 
       <div class="flex flex-col items-center flex-1">
-        <div class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
-             [ngClass]="step === 'shots' ? 'bg-orange-500 text-black' : 'bg-gray-700 text-gray-300'">
+        <div
+          class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
+          [ngClass]="step === 'shots' ? 'bg-orange-500 text-black' : 'bg-gray-700 text-gray-300'"
+        >
           3
         </div>
-        <span class="mt-1 text-[9px]" [ngClass]="step === 'shots' ? 'text-orange-400 font-semibold' : 'text-gray-400'">
+        <span
+          class="mt-1 text-[9px]"
+          [ngClass]="step === 'shots' ? 'text-orange-400 font-semibold' : 'text-gray-400'"
+        >
           Shots
         </span>
       </div>
 
       <div class="flex flex-col items-center flex-1">
-        <div class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
-             [ngClass]="step === 'complete' ? 'bg-orange-500 text-black' : 'bg-gray-700 text-gray-300'">
+        <div
+          class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
+          [ngClass]="step === 'complete' ? 'bg-orange-500 text-black' : 'bg-gray-700 text-gray-300'"
+        >
           4
         </div>
-        <span class="mt-1 text-[9px]" [ngClass]="step === 'complete' ? 'text-orange-400 font-semibold' : 'text-gray-400'">
+        <span
+          class="mt-1 text-[9px]"
+          [ngClass]="step === 'complete' ? 'text-orange-400 font-semibold' : 'text-gray-400'"
+        >
           Done
         </span>
       </div>
@@ -47,298 +70,298 @@
 
     <div class="w-full mt-2">
       <div class="h-1 bg-gray-800 rounded-full overflow-hidden">
-        <div class="h-1 bg-orange-500 transition-all duration-300"
-             [ngStyle]="{
-               width: step === 'setup'
-                 ? '25%'
-                 : step === 'environment'
-                 ? '50%'
-                 : step === 'shots'
-                 ? '75%'
-                 : '100%'
-             }">
-        </div>
+        <div
+          class="h-1 bg-orange-500 transition-all duration-300"
+          [ngStyle]="{
+            width:
+              step === 'setup'
+                ? '25%'
+                : step === 'environment'
+                ? '50%'
+                : step === 'shots'
+                ? '75%'
+                : '100%'
+          }"
+        ></div>
       </div>
     </div>
   </div>
 
- <!-- STEP 1: SETUP -->
-<div *ngIf="step === 'setup'" class="space-y-3">
-  <div class="bg-gray-900 rounded-2xl p-3 shadow border border-gray-800">
-    <h2 class="text-sm font-semibold mb-2">Session setup</h2>
+  <!-- STEP 1: SETUP -->
+  <div *ngIf="step === 'setup'" class="space-y-3">
+    <div class="bg-gray-900 rounded-2xl p-3 shadow border border-gray-800">
+      <h2 class="text-sm font-semibold mb-2">Session setup</h2>
 
-    <!-- 1) Session title FIRST -->
-    <label class="block mb-2">
-      <span class="text-[11px] text-gray-300">Session title</span>
-      <input
-        [(ngModel)]="title"
-        placeholder="e.g. Alma practice – 1100m"
-        class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
-      />
-    </label>
+      <!-- 1) Session title FIRST -->
+      <label class="block mb-2">
+        <span class="text-[11px] text-gray-300">Session title</span>
+        <input
+          [(ngModel)]="title"
+          placeholder="e.g. Alma practice – 1100m"
+          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
+        />
+      </label>
 
-    <!-- 2) Rifle -->
-    <label class="block mb-2">
-      <span class="text-[11px] text-gray-300">Rifle</span>
-      <select
-        [(ngModel)]="rifleId"
-        class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
-      >
-        <option [ngValue]="null">Select rifle…</option>
-        <option *ngFor="let r of rifles" [ngValue]="r.id">
-          {{ r.name || 'Unnamed rifle' }}
-        </option>
-      </select>
-    </label>
+      <!-- 2) Rifle -->
+      <label class="block mb-2">
+        <span class="text-[11px] text-gray-300">Rifle</span>
+        <select
+          [(ngModel)]="rifleId"
+          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
+        >
+          <option [ngValue]="null">Select rifle…</option>
+          <option *ngFor="let r of rifles" [ngValue]="r.id">
+            {{ r.name || 'Unnamed rifle' }}
+          </option>
+        </select>
+      </label>
 
-    <!-- 3) Venue -->
-    <label class="block mb-2">
-      <span class="text-[11px] text-gray-300">Venue</span>
-      <select
-        [(ngModel)]="venueId"
-        (change)="onVenueChange()"
-        class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
-      >
-        <option [ngValue]="null">Select venue…</option>
-        <option *ngFor="let v of venues" [ngValue]="v.id">
-          {{ v.name || 'Unnamed venue' }}
-        </option>
-      </select>
-    </label>
+      <!-- 3) Venue -->
+      <label class="block mb-2">
+        <span class="text-[11px] text-gray-300">Venue</span>
+        <select
+          [(ngModel)]="venueId"
+          (change)="onVenueChange()"
+          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
+        >
+          <option [ngValue]="null">Select venue…</option>
+          <option *ngFor="let v of venues" [ngValue]="v.id">
+            {{ v.name || 'Unnamed venue' }}
+          </option>
+        </select>
+      </label>
 
-    <!-- 4) Sub-range -->
-    <label class="block mb-2">
-      <span class="text-[11px] text-gray-300">Sub-range</span>
-      <select
-        [(ngModel)]="subRangeId"
-        class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
-      >
-        <option [ngValue]="null">Whole venue / no sub-range</option>
-        <option *ngFor="let sr of subRanges" [ngValue]="sr.id">
-          {{ sr.name || 'Sub-range' }}
-        </option>
-      </select>
-    </label>
+      <!-- 4) Sub-range -->
+      <label class="block mb-2">
+        <span class="text-[11px] text-gray-300">Sub-range</span>
+        <select
+          [(ngModel)]="subRangeId"
+          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
+        >
+          <option [ngValue]="null">Whole venue / no sub-range</option>
+          <option *ngFor="let sr of subRanges" [ngValue]="sr.id">
+            {{ sr.name || 'Sub-range' }}
+          </option>
+        </select>
+      </label>
 
-    <div class="flex justify-between mt-2">
-      <button
-        class="px-3 py-1.5 text-[11px] rounded bg-gray-700"
-        (click)="cancelSession()"
-      >
-        Cancel
-      </button>
-      <button
-        class="px-4 py-1.5 text-[11px] rounded bg-orange-500 text-black font-semibold"
-        [disabled]="!canGoToEnvironment()"
-        (click)="goToEnvironmentStep()"
-      >
-        Next: Environment
-      </button>
-    </div>
-  </div>
-</div>
-
-
- <!-- STEP 2: ENVIRONMENT -->
-<div *ngIf="step === 'environment'" class="space-y-3">
-  <div class="bg-gray-900 rounded-2xl p-3 shadow space-y-2 border border-gray-800">
-    <h2 class="text-sm font-semibold mb-1">Environment (before shooting)</h2>
-
-    <!-- Kestrel quick sync (above manual fields) -->
-    <div class="mb-3 bg-black/40 rounded-xl p-2.5 border border-gray-700">
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex-1">
-          <div class="text-[11px] font-semibold text-gray-100">
-            Kestrel quick sync
-          </div>
-          <div class="text-[10px] text-gray-400 line-clamp-2">
-          {{ kestrel.kestrelStatus$ | async }}
-          </div>
-        </div>
-
+      <div class="flex justify-between mt-2">
+        <button class="px-3 py-1.5 text-[11px] rounded bg-gray-700" (click)="cancelSession()">
+          Cancel
+        </button>
         <button
-          class="px-3 py-1.5 text-[10px] rounded-full border border-orange-500 font-semibold
-                 bg-orange-500 text-black disabled:opacity-50 disabled:cursor-not-allowed"
-          (click)="onKestrelButtonClick()"
-          [disabled]="(kestrel.kestrelIsConnecting$ | async)">
-          {{ (kestrel.kestrelIsConnecting$ | async) ? 'Connecting…' : 'Read now'  }}
-          
+          class="px-4 py-1.5 text-[11px] rounded bg-orange-500 text-black font-semibold"
+          [disabled]="!canGoToEnvironment()"
+          (click)="goToEnvironmentStep()"
+        >
+          Next: Environment
         </button>
       </div>
-
-      <div *ngIf="kestrelData" class="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-gray-200">
-        <div>
-          Temp:
-          <span class="font-semibold">{{ kestrelData.temperatureC }} °C</span>
-        </div>
-        <div>
-          Pressure:
-          <span class="font-semibold">
-            {{ kestrelData.pressureInHg | number:'1.0-0' }} inHg
-          </span>
-        </div>
-        <div>
-          Humidity:
-          <span class="font-semibold">
-            {{ kestrelData.humidityPercent | number:'1.0-0' }} %
-          </span>
-        </div>
-        <div>
-          Wind:
-          <span class="font-semibold">
-            {{ kestrelData.windSpeedMph | number:'1.1-1' }} mph
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Row 1: Temp / Pressure / Humidity (figures aligned) -->
-    <div class="grid grid-cols-3 gap-2">
-      <div class="flex flex-col items-stretch">
-        <span
-          class="text-[10px] text-gray-300 mb-1 text-center whitespace-nowrap">
-          Temp (°C)
-        </span>
-        <input
-          type="number"
-          [(ngModel)]="environment.temperatureC"
-          class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
-        />
-      </div>
-
-      <div class="flex flex-col items-stretch">
-        <span
-          class="text-[10px] text-gray-300 mb-1 text-center whitespace-nowrap">
-          Pressure (inHg)
-        </span>
-        <input
-          type="number"
-          [(ngModel)]="environment.pressureInHg"
-          class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
-        />
-      </div>
-
-      <div class="flex flex-col items-stretch">
-        <span
-          class="text-[10px] text-gray-300 mb-1 text-center whitespace-nowrap">
-          Humidity (%)
-        </span>
-        <input
-          type="number"
-          [(ngModel)]="environment.humidityPercent"
-          class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
-        />
-      </div>
-    </div>
-
-    <!-- Row 2: Wind speed / Wind from -->
-    <div class="grid grid-cols-2 gap-2 mt-2">
-      <div class="flex flex-col items-stretch">
-        <span class="text-[10px] text-gray-300 mb-1 text-center whitespace-nowrap">
-          Wind speed (m/s)
-        </span>
-        <input
-          type="number"
-          [(ngModel)]="environment.windSpeedMps"
-          (ngModelChange)="updateWindHint()"
-          class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
-        />
-      </div>
-
-      <div class="flex flex-col items-stretch">
-        <span class="text-[10px] text-gray-300 mb-1 text-center whitespace-nowrap">
-          Wind from (o'clock)
-        </span>
-        <input
-          type="number"
-          min="1"
-          max="12"
-          [(ngModel)]="windClock"
-          (ngModelChange)="updateWindHint()"
-          class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
-        />
-      </div>
-    </div>
-
-    <!-- Wind hint -->
-    <div *ngIf="windHint" class="text-[10px] text-orange-400 mt-1">
-      {{ windHint }}
-    </div>
-
-    <!-- Light conditions -->
-    <label class="flex flex-col mt-1">
-      <span class="text-[11px] text-gray-300 mb-1">Light conditions</span>
-      <input
-        [(ngModel)]="environment.lightConditions"
-        placeholder="Overcast, mirage, etc."
-        class="px-2 py-1 rounded bg-black border border-gray-700 text-[11px]"
-      />
-    </label>
-
-    <div class="flex justify-between mt-2">
-      <button
-        class="px-3 py-1.5 text-xs rounded bg-gray-700"
-        (click)="backToSetup()">
-        Back
-      </button>
-      <button
-        class="px-4 py-1.5 text-xs rounded bg-orange-500 text-black font-semibold"
-        (click)="nextFromEnvironment()">
-        Next: Shot plan
-      </button>
     </div>
   </div>
-</div>
+
+  <!-- STEP 2: ENVIRONMENT -->
+  <div *ngIf="step === 'environment'" class="space-y-3">
+    <div class="bg-gray-900 rounded-2xl p-3 shadow space-y-2 border border-gray-800">
+      <h2 class="text-sm font-semibold mb-1">Environment (before shooting)</h2>
+
+      <!-- Kestrel quick sync (above manual fields) -->
+      <div class="mb-3 bg-black/40 rounded-xl p-2.5 border border-gray-700">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex-1">
+            <div class="text-[11px] font-semibold text-gray-100">Kestrel quick sync</div>
+            <div class="text-[10px] text-gray-400 line-clamp-2">
+              {{ kestrel.kestrelStatus$ | async }}
+            </div>
+          </div>
+
+          <button
+            class="px-3 py-1.5 text-[10px] rounded-full border border-orange-500 font-semibold bg-orange-500 text-black disabled:opacity-50 disabled:cursor-not-allowed"
+            (click)="onKestrelButtonClick()"
+            [disabled]="kestrel.kestrelIsConnecting$ | async"
+          >
+            {{ (kestrel.kestrelIsConnecting$ | async) ? 'Connecting…' : 'Read now' }}
+          </button>
+        </div>
+
+        <div
+          *ngIf="kestrelData"
+          class="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-gray-200"
+        >
+          <div>
+            Temp:
+            <span class="font-semibold">{{ kestrelData.temperatureC }} °C</span>
+          </div>
+          <div>
+            Pressure:
+            <span class="font-semibold">
+              {{ kestrelData.pressureInHg | number : '1.0-0' }} inHg
+            </span>
+          </div>
+          <div>
+            Humidity:
+            <span class="font-semibold">
+              {{ kestrelData.humidityPercent | number : '1.0-0' }} %
+            </span>
+          </div>
+          <div>
+            Wind:
+            <span class="font-semibold">
+              {{ kestrelData.windSpeedMph | number : '1.1-1' }} mph
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 1: Temp / Pressure / Humidity (figures aligned) -->
+      <div class="grid grid-cols-3 gap-2">
+        <div class="flex flex-col items-stretch">
+          <span class="text-[10px] text-gray-300 mb-1 text-center whitespace-nowrap">
+            Temp (°C)
+          </span>
+          <input
+            type="number"
+            [(ngModel)]="environment.temperatureC"
+            class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
+          />
+        </div>
+
+        <div class="flex flex-col items-stretch">
+          <span class="text-[10px] text-gray-300 mb-1 text-center whitespace-nowrap">
+            Pressure (inHg)
+          </span>
+          <input
+            type="number"
+            [(ngModel)]="environment.pressureInHg"
+            class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
+          />
+        </div>
+
+        <div class="flex flex-col items-stretch">
+          <span class="text-[10px] text-gray-300 mb-1 text-center whitespace-nowrap">
+            Humidity (%)
+          </span>
+          <input
+            type="number"
+            [(ngModel)]="environment.humidityPercent"
+            class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
+          />
+        </div>
+      </div>
+
+      <!-- Row 2: Wind speed / Wind from -->
+      <div class="grid grid-cols-2 gap-2 mt-2">
+        <div class="flex flex-col items-stretch">
+          <span class="text-[10px] text-gray-300 mb-1 text-center whitespace-nowrap">
+            Wind speed (m/s)
+          </span>
+          <input
+            type="number"
+            [(ngModel)]="environment.windSpeedMps"
+            (ngModelChange)="updateWindHint()"
+            class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
+          />
+        </div>
+
+        <div class="flex flex-col items-stretch">
+          <span class="text-[10px] text-gray-300 mb-1 text-center whitespace-nowrap">
+            Wind from (o'clock)
+          </span>
+          <input
+            type="number"
+            min="1"
+            max="12"
+            [(ngModel)]="windClock"
+            (ngModelChange)="updateWindHint()"
+            class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
+          />
+        </div>
+      </div>
+
+      <!-- Wind hint -->
+      <div *ngIf="windHint" class="text-[10px] text-orange-400 mt-1">
+        {{ windHint }}
+      </div>
+
+      <!-- Light conditions -->
+      <label class="flex flex-col mt-1">
+        <span class="text-[11px] text-gray-300 mb-1">Light conditions</span>
+        <input
+          [(ngModel)]="environment.lightConditions"
+          placeholder="Overcast, mirage, etc."
+          class="px-2 py-1 rounded bg-black border border-gray-700 text-[11px]"
+        />
+      </label>
+
+      <div class="flex justify-between mt-2">
+        <button class="px-3 py-1.5 text-xs rounded bg-gray-700" (click)="backToSetup()">
+          Back
+        </button>
+        <button
+          class="px-4 py-1.5 text-xs rounded bg-orange-500 text-black font-semibold"
+          (click)="nextFromEnvironment()"
+        >
+          Next: Shot plan
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- STEP 3: SHOTS -->
   <div *ngIf="step === 'shots'" class="space-y-3">
     <div class="bg-gray-900 rounded-2xl p-3 shadow border border-gray-800">
       <h2 class="text-sm font-semibold mb-2">Shot plan</h2>
 
-      <div class="text-[11px] text-gray-300 mb-1">
-        Tap on distances to include them.
-      </div>
+      <div class="text-[11px] text-gray-300 mb-1">Tap on distances to include them.</div>
 
       <div class="grid grid-cols-3 gap-2">
-        <button *ngFor="let d of distanceOptions"
-                (click)="toggleDistance(d)"
-                class="px-3 py-2 text-xs rounded border transition"
-                [ngClass]="selectedDistances.includes(d)
-                  ? 'bg-orange-500 text-black border-orange-400 font-semibold shadow'
-                  : 'bg-black border-gray-700 text-gray-200'">
+        <button
+          *ngFor="let d of distanceOptions"
+          (click)="toggleDistance(d)"
+          class="px-3 py-2 text-xs rounded border transition"
+          [ngClass]="
+            selectedDistances.includes(d)
+              ? 'bg-orange-500 text-black border-orange-400 font-semibold shadow'
+              : 'bg-black border-gray-700 text-gray-200'
+          "
+        >
           {{ d }} m
         </button>
       </div>
 
-      <div *ngIf="selectedDistances.length"
-           class="mt-3 text-[11px] text-gray-300">
+      <div *ngIf="selectedDistances.length" class="mt-3 text-[11px] text-gray-300">
         Selected: {{ selectedDistances.join(', ') }} m
       </div>
 
       <label class="block mt-3">
         <span class="text-[11px] text-gray-300">Planned number of shots</span>
-        <input type="number"
-               min="1"
-               [(ngModel)]="shotCount"
-               class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]" />
+        <input
+          type="number"
+          min="1"
+          [(ngModel)]="shotCount"
+          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
+        />
       </label>
 
       <label class="block mt-3">
         <span class="text-[11px] text-gray-300">Session notes</span>
-        <textarea [(ngModel)]="notes"
-                  rows="3"
-                  class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
-                  placeholder="Wind pattern, mirage, positional notes, etc."></textarea>
+        <textarea
+          [(ngModel)]="notes"
+          rows="3"
+          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
+          placeholder="Wind pattern, mirage, positional notes, etc."
+        ></textarea>
       </label>
 
       <div class="flex justify-between mt-3">
-        <button class="px-3 py-1.5 text-xs rounded bg-gray-700"
-                (click)="backToEnvironmentStep()">
+        <button class="px-3 py-1.5 text-xs rounded bg-gray-700" (click)="backToEnvironmentStep()">
           Back
         </button>
-        <button class="px-4 py-1.5 text-xs rounded bg-orange-500 text-black font-semibold"
-                [disabled]="!canCompleteSession()"
-                (click)="completeSession()">
+        <button
+          class="px-4 py-1.5 text-xs rounded bg-orange-500 text-black font-semibold"
+          [disabled]="!canCompleteSession()"
+          (click)="completeSession()"
+        >
           Complete session
         </button>
       </div>
@@ -353,11 +376,21 @@
         {{ completeMessage || 'Your shooting session has been saved.' }}
       </p>
 
-      <button class="mt-4 px-4 py-2 text-xs rounded bg-orange-500 text-black font-semibold"
-        (click)="onJumpToHistory()">
-  Jump to history
-</button>
-
+      <button
+        class="mt-4 px-4 py-2 text-xs rounded bg-orange-500 text-black font-semibold"
+        (click)="onJumpToHistory()"
+      >
+        Jump to history
+      </button>
     </div>
   </div>
+</div>
+<div class="p-3 flex justify-end">
+  <button
+    type="button"
+    class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black text-[11px] font-semibold"
+    (click)="onBackFromHistory()"
+  >
+    Back
+  </button>
 </div>
