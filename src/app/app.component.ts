@@ -166,145 +166,156 @@ export class AppComponent implements OnInit {
    * last time there: windage, elevation & conditions at a chosen distance.
    */
   submitReportRequest(): void {
-    // Clear previous state
-    this.lastSettingsResult = null;
-    this.lastSettingsError = null;
+  // Clear previous state
+  this.lastSettingsResult = null;
+  this.lastSettingsError = null;
 
-    try {
-      const rifleId = this.reportRequest.rifleId;
-      const venueId = this.reportRequest.venueId;
-      const distanceM = this.reportDistanceM;
+  try {
+    const rifleId = this.reportRequest.rifleId;
+    const venueId = this.reportRequest.venueId;
+    const distanceM = this.reportDistanceM;
 
-      if (!rifleId || !venueId || distanceM == null) {
-        this.lastSettingsError = 'Please select rifle, venue and distance first.';
-        return;
-      }
-
-      const sessions =
-        (this.allSessions && this.allSessions.length
-          ? this.allSessions
-          : this.dataService.getSessions?.() ?? []) || [];
-
-      if (!sessions.length) {
-        this.lastSettingsError = 'No sessions found in History yet.';
-        return;
-      }
-
-      // Filter by rifle + venue
-      const matching = sessions.filter((s: any) => {
-        const sRifleId = s.rifleId || s.rifle?.id || s.rifleKey || null;
-        const sVenueId = s.venueId || s.venue?.id || s.venueKey || null;
-        return sRifleId === rifleId && sVenueId === venueId;
-      });
-
-      if (!matching.length) {
-        this.lastSettingsError = 'No previous sessions for this rifle @ venue.';
-        return;
-      }
-
-      // Latest matching session
-      const lastSession = matching[matching.length - 1];
-
-      // Find the DOPE row closest to requested distance
-      const dope = this.findDopeForDistance(lastSession, distanceM);
-
-      // Rifle / venue names
-      const rifleNameFromSession =
-        lastSession.rifleName ||
-        lastSession.rifle?.name ||
-        lastSession.rifleLabel;
-      const venueNameFromSession =
-        lastSession.venueName ||
-        lastSession.venue?.name ||
-        lastSession.venueLabel;
-
-      const rifleName =
-        rifleNameFromSession ||
-        this.findNameById(this.riflesOptions, rifleId) ||
-        'Unknown rifle';
-
-      const venueName =
-        venueNameFromSession ||
-        this.findNameById(this.venuesOptions, venueId) ||
-        'Unknown venue';
-
-      // Date
-      const rawDate =
-        lastSession.sessionDate ||
-        lastSession.date ||
-        lastSession.startTime ||
-        lastSession.startedAt ||
-        lastSession.createdAt ||
-        lastSession.timestamp;
-
-      const dateStr = rawDate
-        ? new Date(rawDate).toISOString().slice(0, 10)
-        : 'unknown date';
-
-      const resolvedDistanceM =
-        dope && (dope.distanceM ?? dope.distance ?? null);
-
-      const elevationMil =
-        dope && (dope.elevationMil ?? dope.elevation ?? null);
-      const windageMil =
-        dope && (dope.windageMil ?? dope.windage ?? null);
-
-      // Environment
-      const env =
-        lastSession.environment ||
-        lastSession.env ||
-        lastSession.conditions ||
-        null;
-
-      const temp =
-        env?.temperatureC ??
-        env?.tempC ??
-        env?.temperature ??
-        null;
-      const pressure =
-        env?.pressureInHg ??
-        env?.pressureHpa ??
-        env?.pressure ??
-        null;
-      const humidity =
-        env?.humidityPercent ??
-        env?.humidity ??
-        null;
-      const windSpeed =
-        env?.windSpeedMps ??
-        env?.windSpeed ??
-        null;
-      const windDirClock =
-        env?.windDirectionClock ??
-        env?.windDirClock ??
-        env?.windClock ??
-        null;
-
-      this.lastSettingsResult = {
-        rifleName,
-        venueName,
-        sessionDate: dateStr,
-        distanceM: resolvedDistanceM ?? distanceM,
-        elevationMil: elevationMil ?? null,
-        windageMil: windageMil ?? null,
-        environment: {
-          temperatureC: temp ?? null,
-          pressureInHg: pressure ?? null,
-          humidityPercent: humidity ?? null,
-          windSpeedMps: windSpeed ?? null,
-          windDirectionClock: windDirClock ?? null,
-        },
-      };
-    } catch (err) {
-      console.error('Error running report:', err);
-      this.lastSettingsError = 'Error running report – see console for details.';
+    if (!rifleId || !venueId || distanceM == null) {
+      this.lastSettingsError = 'Please select rifle, venue and distance first.';
+      return;
     }
+
+    const sessions =
+      (this.allSessions && this.allSessions.length
+        ? this.allSessions
+        : this.dataService.getSessions?.() ?? []) || [];
+
+    if (!sessions.length) {
+      this.lastSettingsError = 'No sessions found in History yet.';
+      return;
+    }
+
+    // Filter by rifle + venue
+    const matching = sessions.filter((s: any) => {
+      const sRifleId = s.rifleId || s.rifle?.id || s.rifleKey || null;
+      const sVenueId = s.venueId || s.venue?.id || s.venueKey || null;
+      return sRifleId === rifleId && sVenueId === venueId;
+    });
+
+    if (!matching.length) {
+      this.lastSettingsError = 'No previous sessions for this rifle @ venue.';
+      return;
+    }
+
+    // Latest matching session
+    const lastSession = matching[matching.length - 1];
+
+    // 🔑 EXACT distance only – no nearest match
+    const dope = this.findDopeForExactDistance(lastSession, distanceM);
+
+    // Rifle / venue names
+    const rifleNameFromSession =
+      lastSession.rifleName ||
+      lastSession.rifle?.name ||
+      lastSession.rifleLabel;
+    const venueNameFromSession =
+      lastSession.venueName ||
+      lastSession.venue?.name ||
+      lastSession.venueLabel;
+
+    const rifleName =
+      rifleNameFromSession ||
+      this.findNameById(this.riflesOptions, rifleId) ||
+      'Unknown rifle';
+
+    const venueName =
+      venueNameFromSession ||
+      this.findNameById(this.venuesOptions, venueId) ||
+      'Unknown venue';
+
+    // Date
+    const rawDate =
+      lastSession.sessionDate ||
+      lastSession.date ||
+      lastSession.startTime ||
+      lastSession.startedAt ||
+      lastSession.createdAt ||
+      lastSession.timestamp;
+
+    const dateStr = rawDate
+      ? new Date(rawDate).toISOString().slice(0, 10)
+      : 'unknown date';
+
+    const resolvedDistanceM =
+      dope && (dope.distanceM ?? dope.distance ?? null);
+
+    const elevationMil =
+      dope && (dope.elevationMil ?? dope.elevation ?? null);
+    const windageMil =
+      dope && (dope.windageMil ?? dope.windage ?? null);
+
+    // Environment
+    const env =
+      lastSession.environment ||
+      lastSession.env ||
+      lastSession.conditions ||
+      null;
+
+    const temp =
+      env?.temperatureC ??
+      env?.tempC ??
+      env?.temperature ??
+      null;
+    const pressure =
+      env?.pressureInHg ??
+      env?.pressureHpa ??
+      env?.pressure ??
+      null;
+    const humidity =
+      env?.humidityPercent ??
+      env?.humidity ??
+      null;
+    const windSpeed =
+      env?.windSpeedMps ??
+      env?.windSpeed ??
+      null;
+    const windDirClock =
+      env?.windDirectionClock ??
+      env?.windDirClock ??
+      env?.windClock ??
+      null;
+
+    // If no DOPE row at this exact distance, tell the user clearly
+    if (!dope) {
+      this.lastSettingsError =
+        `No DOPE saved at ${distanceM} m for this rifle @ venue.`;
+    }
+
+    this.lastSettingsResult = {
+      rifleName,
+      venueName,
+      sessionDate: dateStr,
+      distanceM: resolvedDistanceM ?? distanceM,
+      elevationMil: elevationMil ?? null,
+      windageMil: windageMil ?? null,
+      environment: {
+        temperatureC: temp ?? null,
+        pressureInHg: pressure ?? null,
+        humidityPercent: humidity ?? null,
+        windSpeedMps: windSpeed ?? null,
+        windDirectionClock: windDirClock ?? null,
+      },
+    };
+  } catch (err) {
+    console.error('Error running report:', err);
+    this.lastSettingsError = 'Error running report – see console for details.';
   }
+}
+
 
   /**
    * Find the DOPE entry closest to the requested distance.
    */
-  private findDopeForDistance(session: any, distanceM: number): any | null {
+ /**
+ * Find the DOPE entry for this session at the exact requested distance.
+ * If no exact entry exists, returns null (we do NOT guess).
+ */
+private findDopeForExactDistance(session: any, distanceM: number): any | null {
   const candidates: any[] = [];
 
   const pushArray = (arr: any) => {
@@ -313,13 +324,12 @@ export class AppComponent implements OnInit {
     }
   };
 
-  // Top-level arrays
+  // Top-level arrays where DOPE is often stored
   pushArray(session.distanceDopes);
   pushArray(session.distances);
   pushArray(session.distanceDope);
   pushArray(session.dopes);
 
-  // Some structures keep all DOPE in a single "dope" array or map
   if (Array.isArray(session.dope)) {
     pushArray(session.dope);
   }
@@ -346,11 +356,10 @@ export class AppComponent implements OnInit {
     return null;
   }
 
-  // Try to find the entry closest to requested distance
-  let best: any | null = null;
-  let bestDelta = Number.POSITIVE_INFINITY;
+  // EXact-match only – optional small tolerance for float noise
+  const TOL = 0.01; // 1 cm tolerance just in case of float rounding
 
-  for (const c of candidates) {
+  const match = candidates.find((c) => {
     const d =
       typeof c?.distanceM === 'number'
         ? c.distanceM
@@ -358,17 +367,13 @@ export class AppComponent implements OnInit {
         ? c.distance
         : null;
 
-    if (d == null) continue;
+    if (d == null) return false;
+    return Math.abs(d - distanceM) <= TOL;
+  });
 
-    const delta = Math.abs(d - distanceM);
-    if (delta < bestDelta) {
-      bestDelta = delta;
-      best = c;
-    }
-  }
-
-  return best;
+  return match || null;
 }
+
 
   /**
    * (Older helper, not used by the current UI but kept in case we need it later.)
