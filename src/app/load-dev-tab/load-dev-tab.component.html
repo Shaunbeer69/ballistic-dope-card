@@ -240,6 +240,11 @@
             e.g. 3 for 3-shot OCW groups per charge.
           </div>
         </div>
+
+        <!-- Ladder / OCW planner warnings -->
+        <div *ngIf="plannerError" class="mt-1 text-[10px] text-red-400">
+          {{ plannerError }}
+        </div>
       </div>
 
       <!-- Save / Cancel for project (this does the planning + table build) -->
@@ -268,12 +273,47 @@
 
     <!-- HISTORY SECTION: RIFLE (already selected) + LOADS -->
     <div class="space-y-2">
-      <div class="text-[12px] font-semibold text-gray-300 flex items-center gap-1">
-        <span>📁</span>
-        <span>History</span>
+      <div class="text-[12px] font-semibold text-gray-300 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1">
+          <span>📁</span>
+          <span>History</span>
+        </div>
+
+        <!-- Quick export from History -->
+        <button
+          type="button"
+          class="px-2 py-0.5 rounded-2xl border border-gray-500 text-[10px] text-gray-200 disabled:opacity-40"
+          (click)="exportSelectedProjectToPdf()"
+          [disabled]="!selectedProject"
+        >
+          Export PDF
+        </button>
       </div>
+
       <div class="text-[10px] text-gray-500">
-        Select an existing load development for this rifle to view results or continue adding data.
+        Filter and select an existing load development for this rifle to view results or continue
+        adding data.
+      </div>
+
+      <!-- Bullet / Powder filters -->
+      <div class="flex gap-2 text-[10px]">
+        <select
+          class="flex-1 bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
+          [(ngModel)]="powderFilter"
+          (ngModelChange)="onFilterChange()"
+        >
+          <option [ngValue]="null">All powders</option>
+          <option *ngFor="let p of availablePowders" [ngValue]="p">Powder: {{ p }}</option>
+        </select>
+
+        <select
+          class="flex-1 bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
+          [(ngModel)]="bulletFilter"
+          (ngModelChange)="onFilterChange()"
+        >
+          <option [ngValue]="null">All bullets</option>
+          <option *ngFor="let b of availableBullets" [ngValue]="b">Bullet: {{ b }}</option>
+        </select>
       </div>
 
       <!-- Project dropdown (hidden while New/Edit form is visible) -->
@@ -284,12 +324,25 @@
           (ngModelChange)="onProjectSelectChange()"
         >
           <option [ngValue]="null">Select load…</option>
-          <option *ngFor="let project of projects" [ngValue]="project.id">
+          <option
+            *ngFor="
+              let project of filteredProjects && filteredProjects.length
+                ? filteredProjects
+                : projects
+            "
+            [ngValue]="project.id"
+          >
             {{ project.name }}
             · {{ shortDate(project.dateStarted) }} ·
-            {{ project.type === 'ocw' ? 'OCW' : project.type === 'ladder' ? 'Ladder' : 'Other' }}
+            {{ project.type === 'ocw' ? 'OCW' : project.type === 'ladder' ? 'Ladder' : 'Other' }} ·
+            {{ isProjectComplete(project) ? '✅ Complete' : '⚠ Incomplete' }}
           </option>
         </select>
+      </div>
+
+      <!-- OCW group validation warning -->
+      <div *ngIf="ocwValidationWarning" class="text-[10px] text-amber-300">
+        {{ ocwValidationWarning }}
       </div>
     </div>
 

@@ -81,10 +81,14 @@ export class LoadDevTabComponent implements OnInit {
     this.backToMenu.emit();
   }
 
+  // Stub – not currently used, but kept so TS doesn’t complain if hooked later
   startOcwWizard() {
     throw new Error('Method not implemented.');
   }
 
+  /**
+   * Legacy/simple PDF export (not used by current HTML, but kept for backwards compat).
+   */
   exportProjectToPdf(): void {
     if (!this.selectedProject) {
       return;
@@ -127,7 +131,6 @@ export class LoadDevTabComponent implements OnInit {
     }
 
     if (project.dateStarted) {
-      // shortDate(...) already exists in your component and is used in the HTML
       const dateText = this.shortDate(project.dateStarted);
       doc.text(`Started: ${dateText}`, 14, y);
       y += 5;
@@ -138,23 +141,19 @@ export class LoadDevTabComponent implements OnInit {
     // Optional velocity vs charge chart using existing graphCoords
     this.rebuildGraphData();
     if (this.graphCoords && this.graphCoords.length) {
-      // Chart placement
       const chartLeft = 14;
       const chartTop = y;
-      const chartWidth = 180; // roughly full A4 width minus margins
+      const chartWidth = 180;
       const chartHeight = 50;
 
-      // Label
       doc.setFontSize(10);
       doc.text('Velocity vs charge', chartLeft, chartTop - 2);
 
-      // Border
       doc.setDrawColor(200);
       doc.rect(chartLeft, chartTop, chartWidth, chartHeight);
 
-      // Draw polyline based on graphCoords (x: 0..100, y: 0..60-like)
       if (this.graphCoords.length > 1) {
-        doc.setDrawColor(34, 197, 94); // emerald line
+        doc.setDrawColor(34, 197, 94);
         for (let i = 1; i < this.graphCoords.length; i++) {
           const prev = this.graphCoords[i - 1];
           const curr = this.graphCoords[i];
@@ -169,19 +168,16 @@ export class LoadDevTabComponent implements OnInit {
         }
       }
 
-      // Draw nodes
-      doc.setFillColor(250, 204, 21); // yellow-ish nodes
+      doc.setFillColor(250, 204, 21);
       for (const pt of this.graphCoords) {
         const px = chartLeft + (pt.x / 100) * chartWidth;
         const py = chartTop + (pt.y / 60) * chartHeight;
         doc.circle(px, py, 1.2, 'F');
       }
 
-      // Advance y below chart for the table
       y = chartTop + chartHeight + 8;
     }
 
-    // Build table rows from entriesForSelectedProject()
     const entries = this.entriesForSelectedProject();
     const rows = entries.map((entry: any) => {
       const stats = this.statsForEntry(entry);
@@ -194,14 +190,12 @@ export class LoadDevTabComponent implements OnInit {
       return [String(entry.chargeGr ?? ''), avg, es, sd, shots];
     });
 
-    // Safety: if no rows, still produce a tiny PDF
     if (!rows.length) {
       doc.text('No velocity data captured yet.', 14, y);
       doc.save(this.buildProjectFilename(project));
       return;
     }
 
-    // Table using jspdf-autotable
     autoTable(doc, {
       startY: y,
       head: [['Charge (gr)', 'Avg fps', 'ES', 'SD', 'Shots']],
@@ -210,7 +204,7 @@ export class LoadDevTabComponent implements OnInit {
         fontSize: 8
       },
       headStyles: {
-        fillColor: [34, 197, 94], // emerald-ish
+        fillColor: [34, 197, 94],
         textColor: [0, 0, 0]
       },
       alternateRowStyles: {
@@ -218,7 +212,6 @@ export class LoadDevTabComponent implements OnInit {
       }
     });
 
-    // Save file
     doc.save(this.buildProjectFilename(project));
   }
 
@@ -255,6 +248,19 @@ export class LoadDevTabComponent implements OnInit {
 
   // Post-save yellow banner message
   postSaveMessage: string | null = null;
+
+  // Planner warning text (ladder/OCW step consistency)
+  plannerError: string | null = null;
+
+  // History filters
+  powderFilter: string | null = null;
+  bulletFilter: string | null = null;
+  availablePowders: string[] = [];
+  availableBullets: string[] = [];
+  filteredProjects: LoadDevProject[] = [];
+
+  // OCW group validation warning
+  ocwValidationWarning: string | null = null;
 
   // Ladder wizard
   ladderWizardActive = false;
@@ -430,13 +436,11 @@ export class LoadDevTabComponent implements OnInit {
 
   private async savePdfNative(doc: jsPDF, filename: string): Promise<void> {
     try {
-      // Get base64 data (without the "data:application/pdf;base64," prefix)
       const dataUrl = doc.output('datauristring');
       const base64 = dataUrl.split(',')[1];
 
       const path = `gunstuff/${filename}`;
 
-      // Write to the app's Documents directory
       const result = await Filesystem.writeFile({
         path,
         data: base64,
@@ -444,7 +448,6 @@ export class LoadDevTabComponent implements OnInit {
         recursive: true
       });
 
-      // Open share sheet so you can send the PDF (WhatsApp, email, etc.)
       await Share.share({
         url: result.uri,
         title: filename,
@@ -456,7 +459,6 @@ export class LoadDevTabComponent implements OnInit {
         err
       );
 
-      // Fallback: if something goes wrong, try the normal download behaviour
       doc.save(filename);
     }
   }
@@ -464,7 +466,11 @@ export class LoadDevTabComponent implements OnInit {
   // ---------- rifle / project loading ----------
 
   onRifleChange(): void {
-    // When rifle changes, clear any selected project so user must choose / create one
+    // Reset filters when rifle changes
+    this.powderFilter = null;
+    this.bulletFilter = null;
+    this.filteredProjects = [];
+
     this.selectedProjectId = null;
     this.selectedProject = null;
     this.hasResultsForSelectedProject = false;
@@ -472,6 +478,7 @@ export class LoadDevTabComponent implements OnInit {
     this.showGraph = false;
     this.graphCoords = [];
     this.graphSvgPoints = '';
+    this.ocwValidationWarning = null;
 
     this.loadProjects();
   }
@@ -488,25 +495,27 @@ export class LoadDevTabComponent implements OnInit {
       this.hasResultsForSelectedProject = false;
       this.rebuildGraphData();
       this.resetWizard();
+      this.rebuildFilterOptions();
+      this.applyFilters();
+      this.ocwValidationWarning = null;
       return;
     }
 
-    // Load all projects for this rifle
     this.projects = this.data.getLoadDevProjectsForRifle(this.selectedRifleId);
 
-    // If we already have a selectedProjectId, try to restore it
+    // rebuild filter lists from projects
+    this.rebuildFilterOptions();
+    this.applyFilters();
+
     if (this.selectedProjectId != null) {
       this.selectedProject =
         this.projects.find(p => p.id === this.selectedProjectId) ?? null;
 
-      // If it no longer exists, clear the selection
       if (!this.selectedProject) {
         this.selectedProjectId = null;
       }
     }
 
-    // If no project is selected, keep everything clear –
-    // user must either Select load development... or press New.
     if (this.selectedProjectId == null) {
       this.selectedProject = null;
     }
@@ -516,17 +525,23 @@ export class LoadDevTabComponent implements OnInit {
     if (!this.graphCoords.length) {
       this.showGraph = false;
     }
+    this.recomputeOcwValidation();
     this.resetWizard();
   }
 
   private refreshSelectedProject(): void {
     if (!this.selectedRifleId || !this.selectedProjectId) return;
     this.projects = this.data.getLoadDevProjectsForRifle(this.selectedRifleId);
+
+    this.rebuildFilterOptions();
+    this.applyFilters();
+
     this.selectedProject =
       this.projects.find(p => p.id === this.selectedProjectId) ?? null;
     this.updateHasResultsFlag();
     this.rebuildGraphData();
     if (!this.graphCoords.length) this.showGraph = false;
+    this.recomputeOcwValidation();
   }
 
   onProjectSelectChange(): void {
@@ -536,6 +551,7 @@ export class LoadDevTabComponent implements OnInit {
       this.rebuildGraphData();
       this.showGraph = false;
       this.resetWizard();
+      this.ocwValidationWarning = null;
     } else {
       this.selectedProject =
         this.projects.find(p => p.id === this.selectedProjectId) ?? null;
@@ -543,6 +559,7 @@ export class LoadDevTabComponent implements OnInit {
       this.rebuildGraphData();
       if (!this.graphCoords.length) this.showGraph = false;
       this.resetWizard();
+      this.recomputeOcwValidation();
     }
   }
 
@@ -568,6 +585,107 @@ export class LoadDevTabComponent implements OnInit {
     this.resultsCollapsed = !this.resultsCollapsed;
   }
 
+  // ---------- filter helpers (powder / bullet) ----------
+
+  private rebuildFilterOptions(): void {
+    const powderSet = new Set<string>();
+    const bulletSet = new Set<string>();
+
+    for (const p of this.projects) {
+      const anyProject = p as any;
+      const powder = (anyProject.powder as string) || '';
+      const bullet = (anyProject.bullet as string) || '';
+
+      if (powder.trim()) {
+        powderSet.add(powder.trim());
+      }
+      if (bullet.trim()) {
+        bulletSet.add(bullet.trim());
+      }
+    }
+
+    this.availablePowders = Array.from(powderSet).sort();
+    this.availableBullets = Array.from(bulletSet).sort();
+  }
+
+  onFilterChange(): void {
+    this.applyFilters();
+  }
+
+  private applyFilters(): void {
+    if (!this.projects.length) {
+      this.filteredProjects = [];
+      return;
+    }
+
+    const pf = this.powderFilter;
+    const bf = this.bulletFilter;
+
+    if (!pf && !bf) {
+      // No active filters – use original list in HTML
+      this.filteredProjects = [];
+      return;
+    }
+
+    this.filteredProjects = this.projects.filter(p => {
+      const anyProject = p as any;
+      const projectPowder = (anyProject.powder as string) || null;
+      const projectBullet = (anyProject.bullet as string) || null;
+
+      const powderOk = pf ? projectPowder === pf : true;
+      const bulletOk = bf ? projectBullet === bf : true;
+
+      return powderOk && bulletOk;
+    });
+  }
+
+  // ---------- planner validation (ladder / OCW) ----------
+
+  /**
+   * Validates the ladder/OCW planner and sets plannerError.
+   * Returns true if planning is OK (or only a warning), false if we should block save.
+   */
+  private validatePlanner(): boolean {
+    this.plannerError = null;
+
+    if (this.projectForm.type !== 'ladder' && this.projectForm.type !== 'ocw') {
+      return true;
+    }
+
+    const { startChargeGr, endChargeGr, stepGr } = this.planner;
+
+    if (
+      startChargeGr == null ||
+      endChargeGr == null ||
+      stepGr == null ||
+      stepGr <= 0
+    ) {
+      this.plannerError =
+        'Enter Start, End and a positive Step value to plan your ladder / OCW.';
+      return false;
+    }
+
+    if (endChargeGr <= startChargeGr) {
+      this.plannerError =
+        'End charge must be higher than Start charge for a ladder / OCW.';
+      return false;
+    }
+
+    const span = endChargeGr - startChargeGr;
+    const stepsFloat = span / stepGr; // difference in steps (not including start)
+    const nearest = Math.round(stepsFloat);
+    const diff = Math.abs(stepsFloat - nearest);
+
+    if (diff > 1e-3) {
+      // Just a warning – we still allow save & plan
+      this.plannerError =
+        'Warning: (End - Start) is not an exact multiple of Step. Last charge will not land exactly on End.';
+      return true;
+    }
+
+    return true;
+  }
+
   // ---------- project CRUD ----------
 
   newProject(): void {
@@ -576,7 +694,6 @@ export class LoadDevTabComponent implements OnInit {
       return;
     }
 
-    // Clear any currently selected project / results / graph
     this.selectedProject = null;
     this.selectedProjectId = null;
     this.hasResultsForSelectedProject = false;
@@ -588,12 +705,12 @@ export class LoadDevTabComponent implements OnInit {
     this.editingProject = null;
     this.projectForm = this.createEmptyProjectForm();
     this.projectForm.rifleId = this.selectedRifleId;
-    // FORCE LADDER TYPE FOR NEW PROJECTS (LADDER ONLY FOR NOW)
     this.projectForm.type = 'ladder';
     this.planner = this.createEmptyPlannerForm();
     this.projectFormVisible = true;
     this.postSaveMessage = null;
     this.showNotesPanel = false;
+    this.plannerError = null;
   }
 
   cancelProjectForm(): void {
@@ -602,12 +719,12 @@ export class LoadDevTabComponent implements OnInit {
     this.projectForm = this.createEmptyProjectForm();
     this.planner = this.createEmptyPlannerForm();
     this.showNotesPanel = false;
+    this.plannerError = null;
   }
 
   private createLadderEntriesFromPlanner(projectId: number): void {
     const type = this.projectForm.type;
 
-    // Only create entries for ladder or OCW projects
     if (type !== 'ladder' && type !== 'ocw') return;
 
     const { distanceM, startChargeGr, endChargeGr, stepGr, shotsPerGroup } =
@@ -625,8 +742,6 @@ export class LoadDevTabComponent implements OnInit {
 
     const dist = distanceM ?? undefined;
 
-    // For ladder: default 1 shot per step
-    // For OCW: use "shots per group" if given, otherwise leave undefined
     const defaultShots: number | undefined =
       type === 'ocw' ? shotsPerGroup ?? undefined : 1;
 
@@ -671,35 +786,57 @@ export class LoadDevTabComponent implements OnInit {
 
     this.postSaveMessage = null;
 
+    if (!this.editingProject) {
+      // For new ladder/OCW projects, validate planner
+      const plannerOk = this.validatePlanner();
+      if (!plannerOk) {
+        // plannerError already set with message
+        return;
+      }
+    }
+
     if (this.editingProject) {
-      const updated: LoadDevProject = {
+      const updated = {
         ...this.editingProject,
         rifleId: this.selectedRifleId,
         name: this.projectForm.name.trim(),
         type,
-        notes: this.projectForm.notes.trim()
-      };
+        notes: this.projectForm.notes.trim(),
+        // store basic powder/bullet meta on project for filtering
+        powder: this.projectForm.powder.trim() || undefined,
+        bullet: this.projectForm.bullet.trim() || undefined,
+        bulletWeightGr: this.projectForm.bulletWeightGr ?? undefined,
+        brass: this.projectForm.brass.trim() || undefined,
+        oal: this.projectForm.oal ?? undefined,
+        distanceM: this.projectForm.distanceM ?? undefined
+      } as LoadDevProject;
+
       this.data.updateLoadDevProject(updated);
       this.selectedProjectId = updated.id;
 
       this.postSaveMessage =
         'Load development updated. Use the wizard to enter velocities, view the graph and see the highlighted nodes.';
     } else {
-      const newProject: LoadDevProject = {
+      const newProject = {
         id: Date.now(),
         rifleId: this.selectedRifleId,
         name: this.projectForm.name.trim(),
         type,
         notes: this.projectForm.notes.trim() || undefined,
         dateStarted: new Date().toISOString(),
-        entries: []
-      };
+        entries: [],
+        powder: this.projectForm.powder.trim() || undefined,
+        bullet: this.projectForm.bullet.trim() || undefined,
+        bulletWeightGr: this.projectForm.bulletWeightGr ?? undefined,
+        brass: this.projectForm.brass.trim() || undefined,
+        oal: this.projectForm.oal ?? undefined,
+        distanceM: this.projectForm.distanceM ?? undefined
+      } as LoadDevProject;
+
       this.data.updateLoadDevProject(newProject);
       this.selectedProjectId = newProject.id;
 
-      // Create ladder/OCW entries from planner (charges + default shots)
       this.createLadderEntriesFromPlanner(newProject.id);
-      // Also create a session linked to this load dev
       this.data.createSessionForLoadDevProject(newProject);
 
       this.postSaveMessage =
@@ -717,6 +854,8 @@ export class LoadDevTabComponent implements OnInit {
     this.projectForm = this.createEmptyProjectForm();
     this.planner = this.createEmptyPlannerForm();
     this.showNotesPanel = false;
+    this.plannerError = null;
+
     this.loadProjects();
     this.resetWizard();
   }
@@ -731,14 +870,7 @@ export class LoadDevTabComponent implements OnInit {
     this.loadProjects();
   }
 
-  /**
-   * Export the currently selected project's table to a printable page.
-   * User can then use "Save as PDF" in the browser print dialog.
-   */
-
-  // ✅ ONLY THE PDF EXPORT SECTION WAS MODIFIED, EVERYTHING ELSE IS UNTOUCHED
-
-  // ---------- EXPORT PDF ----------
+  // ---------- EXPORT PDF (used by History + bottom Export button) ----------
 
   exportSelectedProjectToPdf(): void {
     if (!this.selectedProject) {
@@ -821,9 +953,7 @@ export class LoadDevTabComponent implements OnInit {
     doc.text('Velocity vs Charge (RAW SHOTS)', chartLeft, chartTop - 3);
 
     const n = entries.length;
-
-    // 🔹 Leave ~1 cm padding inside the chart on left & right
-    const innerPadX = 10; // mm ≈ 1 cm
+    const innerPadX = 10;
     const usableWidth = Math.max(chartWidth - innerPadX * 2, 0);
     const xStep = n > 1 ? usableWidth / (n - 1) : 0;
 
@@ -839,7 +969,6 @@ export class LoadDevTabComponent implements OnInit {
       const values = this.parseVelocityInput(entry.velocityInput);
       if (!values.length) return;
 
-      // 🔹 X now starts innerPadX inside the chart and ends innerPadX before the right border
       const baseX = chartLeft + innerPadX + i * xStep;
       const colour = palette[i % palette.length];
 
@@ -850,15 +979,12 @@ export class LoadDevTabComponent implements OnInit {
       let maxY: number | null = null;
       let sum = 0;
 
-      // ✅ DRAW RAW SHOT DOTS (SMALLER)
       values.forEach(v => {
         const yVal =
           chartTop + chartHeight - ((v - minV) / rangeV) * chartHeight;
 
-        // ✅ SMALLER DOT
         doc.circle(baseX, yVal, 0.7, 'F');
 
-        // ✅ VELOCITY LABEL (CLEAR + OFFSET)
         const label = String(Math.round(v));
         doc.setFontSize(7);
         doc.text(label, baseX + 1.5, yVal - 1.5);
@@ -869,7 +995,6 @@ export class LoadDevTabComponent implements OnInit {
         maxY = maxY === null ? yVal : Math.max(maxY, yVal);
       });
 
-      // ✅ GREY CLUSTER RING
       if (minY !== null && maxY !== null && maxY > minY) {
         const centerY = (minY + maxY) / 2;
         const radius = (maxY - minY) / 2 + 1.5;
@@ -879,10 +1004,8 @@ export class LoadDevTabComponent implements OnInit {
         doc.circle(baseX, centerY, radius, 'S');
       }
 
-      // ✅ GROUP SIZE OVERLAY BAR (VISUAL TIGHTNESS INDICATOR)
       if (typeof entry.groupSize === 'number' && entry.groupSize > 0) {
-        // Scale group size visually (smaller = tighter)
-        const maxGroupVisual = 12; // affects visual height only
+        const maxGroupVisual = 12;
         const groupVisual = Math.min(entry.groupSize, maxGroupVisual);
 
         doc.setLineWidth(2);
@@ -896,7 +1019,6 @@ export class LoadDevTabComponent implements OnInit {
         );
       }
 
-      // ✅ POI OVERLAY TEXT ABOVE CLUSTER
       if (entry.poiNote) {
         doc.setFontSize(7);
         doc.setTextColor(colour.r, colour.g, colour.b);
@@ -906,10 +1028,9 @@ export class LoadDevTabComponent implements OnInit {
 
         doc.text(poiText, baseX - textWidth / 2, chartTop - 5);
 
-        doc.setTextColor(0, 0, 0); // reset back to black
+        doc.setTextColor(0, 0, 0);
       }
 
-      // ✅ CONNECT THIS CHARGE TO PREVIOUS CHARGE USING A LINE
       if (i > 0) {
         const prevEntry = entries[i - 1];
         const prevValues = this.parseVelocityInput(prevEntry.velocityInput);
@@ -933,12 +1054,11 @@ export class LoadDevTabComponent implements OnInit {
             ((currAvg - minV) / rangeV) * chartHeight;
 
           doc.setLineWidth(0.6);
-          doc.setDrawColor(colour.r, colour.g, colour.b); // ✅ SAME COLOUR AS SHOTS
+          doc.setDrawColor(colour.r, colour.g, colour.b);
           doc.line(prevX, prevY, currX, currY);
         }
       }
 
-      // ✅ CHARGE LABEL
       if (typeof entry.chargeGr === 'number') {
         const chargeText = entry.chargeGr.toFixed(1);
         doc.text(
@@ -959,7 +1079,7 @@ export class LoadDevTabComponent implements OnInit {
         entry.chargeGr ?? '',
         stats?.avg ? Math.round(stats.avg) : '',
         stats?.es ?? '',
-        stats?.sd ? stats.sd.toFixed(3) : '', // ✅ SD LIMITED TO 3 DECIMALS
+        stats?.sd ? stats.sd.toFixed(3) : '',
         entry.shotsFired ?? ''
       ];
     });
@@ -982,6 +1102,8 @@ export class LoadDevTabComponent implements OnInit {
       doc.save(filename);
     }
   }
+
+  // ---------- entry CRUD ----------
 
   cancelEntryForm(): void {
     this.entryFormVisible = false;
@@ -1100,13 +1222,10 @@ export class LoadDevTabComponent implements OnInit {
 
   // ---------- node detection & colouring ----------
 
-  // We treat a “node” as 3 or more neighbouring charges
-  // whose average velocities have SD < 10 fps.
   private computeNodesForSelectedProject(): Map<number, number> {
     const map = new Map<number, number>();
     const project = this.selectedProject;
 
-    // Only ladder projects get node highlighting
     if (!project || project.type !== 'ladder') {
       return map;
     }
@@ -1116,7 +1235,6 @@ export class LoadDevTabComponent implements OnInit {
       return map;
     }
 
-    // Attach stats and drop entries with no velocity data
     const withStats: NodeEntry[] = entries
       .map(e => {
         const stats = this.statsForEntry(e);
@@ -1128,29 +1246,24 @@ export class LoadDevTabComponent implements OnInit {
       return map;
     }
 
-    // Sort by charge so “neighbouring” really means neighbouring on the ladder
     const sorted = [...withStats].sort(
       (a, b) => (a.entry.chargeGr ?? 9999) - (b.entry.chargeGr ?? 9999)
     );
 
-    const NODE_SD_THRESHOLD = 10; // fps
+    const NODE_SD_THRESHOLD = 10;
     const groups: number[][] = [];
     let i = 0;
 
-    // Sliding window over sorted ladder
     while (i + 2 < sorted.length) {
-      // Start with a 3-shot window
       let window = [sorted[i], sorted[i + 1], sorted[i + 2]];
       let vals = window.map(w => w.stats.avg);
       let sd = this.computeSimpleSd(vals);
 
-      // If the 3-shot window is too “noisy”, move on
       if (sd >= NODE_SD_THRESHOLD) {
         i++;
         continue;
       }
 
-      // Try to extend the window while SD stays under threshold
       let j = i + 3;
       while (j < sorted.length) {
         const extended = [...window, sorted[j]];
@@ -1167,15 +1280,11 @@ export class LoadDevTabComponent implements OnInit {
         }
       }
 
-      // Record this group of entry IDs as one node
       const ids = window.map(w => w.entry.id);
       groups.push(ids);
-
-      // Skip past this node for the next search
       i = j;
     }
 
-    // Assign node index to each entry ID
     groups.forEach((ids, index) => {
       ids.forEach(id => map.set(id, index));
     });
@@ -1187,14 +1296,10 @@ export class LoadDevTabComponent implements OnInit {
     const map = this.computeNodesForSelectedProject();
     const idx = entry && entry.id != null ? map.get(entry.id) : undefined;
 
-    // No node -> no extra classes (row uses default styling)
     if (idx == null) {
       return {};
     }
 
-    // Node 0 = “best” node (first one found) – green
-    // Node 1 = second node – orange
-    // Node 2 = third node – red
     return {
       'bg-black text-white ring-4 ring-[#00ff00] shadow-[0_0_12px_#00ff00]':
         idx === 0,
@@ -1203,6 +1308,56 @@ export class LoadDevTabComponent implements OnInit {
       'bg-black text-white ring-4 ring-[#ff0000] shadow-[0_0_12px_#ff0000]':
         idx === 2
     };
+  }
+
+  // ---------- project completeness + OCW validation ----------
+
+  /**
+   * True if *all* entries in this project have at least one velocity value.
+   * Used to show ✅ Complete / ⚠ Incomplete in the History dropdown.
+   */
+  isProjectComplete(project: LoadDevProject): boolean {
+    if (!project || !project.entries?.length) return false;
+
+    return project.entries.every(e => {
+      const any = e as any;
+      const values = this.parseVelocityInput(any.velocityInput);
+      return values.length > 0;
+    });
+  }
+
+  /**
+   * Checks OCW projects for equal shot counts per group
+   * and sets ocwValidationWarning if they differ.
+   */
+  private recomputeOcwValidation(): void {
+    this.ocwValidationWarning = null;
+
+    if (!this.selectedProject || this.selectedProject.type !== 'ocw') {
+      return;
+    }
+
+    const entries = this.selectedProject.entries ?? [];
+    if (!entries.length) return;
+
+    const counts: number[] = [];
+
+    for (const entry of entries) {
+      const anyEntry = entry as any;
+      const values = this.parseVelocityInput(anyEntry.velocityInput);
+      if (!values.length) continue;
+      counts.push(values.length);
+    }
+
+    if (counts.length < 2) return;
+
+    const first = counts[0];
+    const mismatch = counts.some(c => c !== first);
+
+    if (mismatch) {
+      this.ocwValidationWarning =
+        'OCW warning: groups have different numbers of shots. For clean OCW analysis, keep the same shot count per charge.';
+    }
   }
 
   // ---------- helpers for wizard / velocity input ----------
@@ -1305,7 +1460,6 @@ export class LoadDevTabComponent implements OnInit {
       return;
     }
 
-    // Wizard is valid for ladder and OCW
     if (
       this.selectedProject.type !== 'ladder' &&
       this.selectedProject.type !== 'ocw'
@@ -1402,7 +1556,6 @@ export class LoadDevTabComponent implements OnInit {
         return;
       }
 
-      // For OCW: enforce planned shots per charge if we have it
       if (this.selectedProject.type === 'ocw') {
         const plannedShots =
           this.velocityEditEntry.shotsFired ??
@@ -1432,7 +1585,6 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   skipVelocityAndNext(): void {
-    // no save, just move on to the next charge
     this.goToNextWizardEntry();
   }
 
@@ -1535,6 +1687,8 @@ export class LoadDevTabComponent implements OnInit {
     this.ladderWizardIndex = 0;
 
     this.postSaveMessage = null;
+    this.plannerError = null;
+    this.ocwValidationWarning = null;
     this.resetWizard();
   }
 }
