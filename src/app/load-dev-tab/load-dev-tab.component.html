@@ -469,8 +469,8 @@
           </table>
         </div>
 
-        <!-- Bottom action bar: Delete + Back -->
-        <div class="mt-3 flex items-center justify-between">
+        <!-- Bottom action bar: Delete + Export + Back -->
+        <div class="mt-3 flex items-center justify-between gap-2">
           <button
             type="button"
             class="px-3 py-1.5 rounded-2xl bg-red-700 text-red-50 text-[11px]"
@@ -481,22 +481,21 @@
 
           <button
             type="button"
+            class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black text-[11px] font-semibold"
+            (click)="exportSelectedProjectToPdf()"
+          >
+            Export
+          </button>
+
+          <button
+            type="button"
             class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black font-semibold text-[11px]"
             (click)="onBackFromLoadDev()"
           >
             Back
           </button>
         </div>
-      </div>
-    </ng-container>
+      </div></ng-container
+    >
   </div>
-</div>
-<div class="p-3 flex justify-end">
-  <button
-    type="button"
-    class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black text-[11px] font-semibold"
-    (click)="onBackFromHistory()"
-  >
-    Back
-  </button>
 </div>
