@@ -56,7 +56,6 @@ interface PlannerForm {
   shotsPerGroup: number | null; // OCW: how many shots per step
 }
 
-
 interface VelocityStats {
   avg: number;
   es: number;
@@ -76,161 +75,152 @@ interface NodeEntry {
   templateUrl: './load-dev-tab.component.html'
 })
 export class LoadDevTabComponent implements OnInit {
+  @Output() backToMenu = new EventEmitter<void>();
 
-  
-@Output() backToMenu = new EventEmitter<void>();
-
-onBackFromHistory() {
-   this.backToMenu.emit();
-}
-startOcwWizard() {
-throw new Error('Method not implemented.');
-
-}
-
-exportProjectToPdf(): void {
-  if (!this.selectedProject) {
-    return;
+  onBackFromHistory() {
+    this.backToMenu.emit();
   }
 
-  const project: any = this.selectedProject;
-  const rifle =
-    this.rifles && this.selectedRifleId
-      ? this.rifles.find((r: any) => r.id === this.selectedRifleId)
-      : null;
-
-  const doc = new jsPDF();
-
-  let y = 14;
-
-  // Title
-  doc.setFontSize(14);
-  doc.text('Load development', 14, y);
-  y += 8;
-
-  // Meta info
-  doc.setFontSize(10);
-  doc.text(`Rifle: ${rifle?.name || '—'}`, 14, y);
-  y += 5;
-
-  if (project.name) {
-    doc.text(`Load: ${project.name}`, 14, y);
-    y += 5;
+  startOcwWizard() {
+    throw new Error('Method not implemented.');
   }
 
-  if (project.type) {
-    const typeLabel =
-      project.type === 'ladder'
-        ? 'Ladder'
-        : project.type === 'ocw'
-        ? 'OCW'
-        : project.type;
-    doc.text(`Type: ${typeLabel}`, 14, y);
-    y += 5;
-  }
+  exportProjectToPdf(): void {
+    if (!this.selectedProject) {
+      return;
+    }
 
-  if (project.dateStarted) {
-    // shortDate(...) already exists in your component and is used in the HTML
-    const dateText = this.shortDate(project.dateStarted);
-    doc.text(`Started: ${dateText}`, 14, y);
-    y += 5;
-  }
+    const project: any = this.selectedProject;
+    const rifle =
+      this.rifles && this.selectedRifleId
+        ? this.rifles.find((r: any) => r.id === this.selectedRifleId)
+        : null;
 
-  y += 4;
+    const doc = new jsPDF();
 
-  // Optional velocity vs charge chart using existing graphCoords
-  this.rebuildGraphData();
-  if (this.graphCoords && this.graphCoords.length) {
-    // Chart placement
-    const chartLeft = 14;
-    const chartTop = y;
-    const chartWidth = 180; // roughly full A4 width minus margins
-    const chartHeight = 50;
+    let y = 14;
 
-    // Label
+    // Title
+    doc.setFontSize(14);
+    doc.text('Load development', 14, y);
+    y += 8;
+
+    // Meta info
     doc.setFontSize(10);
-    doc.text('Velocity vs charge', chartLeft, chartTop - 2);
+    doc.text(`Rifle: ${rifle?.name || '—'}`, 14, y);
+    y += 5;
 
-    // Border
-    doc.setDrawColor(200);
-    doc.rect(chartLeft, chartTop, chartWidth, chartHeight);
+    if (project.name) {
+      doc.text(`Load: ${project.name}`, 14, y);
+      y += 5;
+    }
 
-    // Draw polyline based on graphCoords (x: 0..100, y: 0..60-like)
-    if (this.graphCoords.length > 1) {
-      doc.setDrawColor(34, 197, 94); // emerald line
-      for (let i = 1; i < this.graphCoords.length; i++) {
-        const prev = this.graphCoords[i - 1];
-        const curr = this.graphCoords[i];
+    if (project.type) {
+      const typeLabel =
+        project.type === 'ladder'
+          ? 'Ladder'
+          : project.type === 'ocw'
+          ? 'OCW'
+          : project.type;
+      doc.text(`Type: ${typeLabel}`, 14, y);
+      y += 5;
+    }
 
-        const prevX = chartLeft + (prev.x / 100) * chartWidth;
-        const prevY = chartTop + (prev.y / 60) * chartHeight;
+    if (project.dateStarted) {
+      // shortDate(...) already exists in your component and is used in the HTML
+      const dateText = this.shortDate(project.dateStarted);
+      doc.text(`Started: ${dateText}`, 14, y);
+      y += 5;
+    }
 
-        const currX = chartLeft + (curr.x / 100) * chartWidth;
-        const currY = chartTop + (curr.y / 60) * chartHeight;
+    y += 4;
 
-        doc.line(prevX, prevY, currX, currY);
+    // Optional velocity vs charge chart using existing graphCoords
+    this.rebuildGraphData();
+    if (this.graphCoords && this.graphCoords.length) {
+      // Chart placement
+      const chartLeft = 14;
+      const chartTop = y;
+      const chartWidth = 180; // roughly full A4 width minus margins
+      const chartHeight = 50;
+
+      // Label
+      doc.setFontSize(10);
+      doc.text('Velocity vs charge', chartLeft, chartTop - 2);
+
+      // Border
+      doc.setDrawColor(200);
+      doc.rect(chartLeft, chartTop, chartWidth, chartHeight);
+
+      // Draw polyline based on graphCoords (x: 0..100, y: 0..60-like)
+      if (this.graphCoords.length > 1) {
+        doc.setDrawColor(34, 197, 94); // emerald line
+        for (let i = 1; i < this.graphCoords.length; i++) {
+          const prev = this.graphCoords[i - 1];
+          const curr = this.graphCoords[i];
+
+          const prevX = chartLeft + (prev.x / 100) * chartWidth;
+          const prevY = chartTop + (prev.y / 60) * chartHeight;
+
+          const currX = chartLeft + (curr.x / 100) * chartWidth;
+          const currY = chartTop + (curr.y / 60) * chartHeight;
+
+          doc.line(prevX, prevY, currX, currY);
+        }
       }
+
+      // Draw nodes
+      doc.setFillColor(250, 204, 21); // yellow-ish nodes
+      for (const pt of this.graphCoords) {
+        const px = chartLeft + (pt.x / 100) * chartWidth;
+        const py = chartTop + (pt.y / 60) * chartHeight;
+        doc.circle(px, py, 1.2, 'F');
+      }
+
+      // Advance y below chart for the table
+      y = chartTop + chartHeight + 8;
     }
 
-    // Draw nodes
-    doc.setFillColor(250, 204, 21); // yellow-ish nodes
-    for (const pt of this.graphCoords) {
-      const px = chartLeft + (pt.x / 100) * chartWidth;
-      const py = chartTop + (pt.y / 60) * chartHeight;
-      doc.circle(px, py, 1.2, 'F');
+    // Build table rows from entriesForSelectedProject()
+    const entries = this.entriesForSelectedProject();
+    const rows = entries.map((entry: any) => {
+      const stats = this.statsForEntry(entry);
+      const avg = stats && stats.avg != null ? stats.avg.toFixed(0) : '—';
+      const es = stats && stats.es != null ? stats.es.toFixed(0) : '—';
+      const sd = stats && stats.sd != null ? stats.sd.toFixed(1) : '—';
+      const shots =
+        entry.shotsFired != null ? String(entry.shotsFired) : '—';
+
+      return [String(entry.chargeGr ?? ''), avg, es, sd, shots];
+    });
+
+    // Safety: if no rows, still produce a tiny PDF
+    if (!rows.length) {
+      doc.text('No velocity data captured yet.', 14, y);
+      doc.save(this.buildProjectFilename(project));
+      return;
     }
 
-    // Advance y below chart for the table
-    y = chartTop + chartHeight + 8;
-  }
+    // Table using jspdf-autotable
+    autoTable(doc, {
+      startY: y,
+      head: [['Charge (gr)', 'Avg fps', 'ES', 'SD', 'Shots']],
+      body: rows,
+      styles: {
+        fontSize: 8
+      },
+      headStyles: {
+        fillColor: [34, 197, 94], // emerald-ish
+        textColor: [0, 0, 0]
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245]
+      }
+    });
 
-  // Build table rows from entriesForSelectedProject()
-  const entries = this.entriesForSelectedProject();
-  const rows = entries.map((entry: any) => {
-    const stats = this.statsForEntry(entry);
-    const avg = stats && stats.avg != null ? stats.avg.toFixed(0) : '—';
-    const es = stats && stats.es != null ? stats.es.toFixed(0) : '—';
-    const sd = stats && stats.sd != null ? stats.sd.toFixed(1) : '—';
-    const shots =
-      entry.shotsFired != null ? String(entry.shotsFired) : '—';
-
-    return [
-      String(entry.chargeGr ?? ''),
-      avg,
-      es,
-      sd,
-      shots,
-    ];
-  });
-
-  // Safety: if no rows, still produce a tiny PDF
-  if (!rows.length) {
-    doc.text('No velocity data captured yet.', 14, y);
+    // Save file
     doc.save(this.buildProjectFilename(project));
-    return;
   }
-
-  // Table using jspdf-autotable
-  autoTable(doc, {
-    startY: y,
-    head: [['Charge (gr)', 'Avg fps', 'ES', 'SD', 'Shots']],
-    body: rows,
-    styles: {
-      fontSize: 8,
-    },
-    headStyles: {
-      fillColor: [34, 197, 94], // emerald-ish
-      textColor: [0, 0, 0],
-    },
-    alternateRowStyles: {
-      fillColor: [245, 245, 245],
-    },
-  });
-
-  // Save file
-  doc.save(this.buildProjectFilename(project));
-}
-
 
   // Rifles
   rifles: Rifle[] = [];
@@ -256,7 +246,8 @@ exportProjectToPdf(): void {
   entryFormVisible = false;
   editingEntry: LoadDevEntry | null = null;
   entryForm: EntryForm = this.createEmptyEntryForm();
-  entrySortMode: 'default' | 'chargeAsc' | 'groupAsc' | 'groupDesc' = 'default';
+  entrySortMode: 'default' | 'chargeAsc' | 'groupAsc' | 'groupDesc' =
+    'default';
 
   // Results visibility
   resultsCollapsed = false;
@@ -311,21 +302,21 @@ exportProjectToPdf(): void {
       distanceM: null
     };
   }
+
   private buildProjectFilename(project: any): string {
     const base = (project?.name || 'load-development').toString();
     const safe = base.replace(/[^\w\d\-]+/g, '_');
     return safe + '.pdf';
   }
-// Simple SD helper just for node detection
-private computeNodeWindowSd(values: number[]): number {
-  if (!values.length) return 0;
-  const n = values.length;
-  const mean = values.reduce((s, v) => s + v, 0) / n;
-  const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / n;
-  return Math.sqrt(variance);
-}
 
-
+  // Simple SD helper just for node detection
+  private computeNodeWindowSd(values: number[]): number {
+    if (!values.length) return 0;
+    const n = values.length;
+    const mean = values.reduce((s, v) => s + v, 0) / n;
+    const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / n;
+    return Math.sqrt(variance);
+  }
 
   private createEmptyEntryForm(): EntryForm {
     return {
@@ -347,16 +338,15 @@ private computeNodeWindowSd(values: number[]): number {
     };
   }
 
- private createEmptyPlannerForm(): PlannerForm {
-  return {
-    distanceM: null,
-    startChargeGr: null,
-    endChargeGr: null,
-    stepGr: null,
-    shotsPerGroup: null
-  };
-}
-
+  private createEmptyPlannerForm(): PlannerForm {
+    return {
+      distanceM: null,
+      startChargeGr: null,
+      endChargeGr: null,
+      stepGr: null,
+      shotsPerGroup: null
+    };
+  }
 
   shortDate(value: string | Date | null | undefined): string {
     if (!value) return '';
@@ -437,36 +427,39 @@ private computeNodeWindowSd(values: number[]): number {
   toggleNotesPanel(): void {
     this.showNotesPanel = !this.showNotesPanel;
   }
-private async savePdfNative(doc: jsPDF, filename: string): Promise<void> {
-  try {
-    // Get base64 data (without the "data:application/pdf;base64," prefix)
-    const dataUrl = doc.output('datauristring');
-    const base64 = dataUrl.split(',')[1];
 
-    const path = `gunstuff/${filename}`;
+  private async savePdfNative(doc: jsPDF, filename: string): Promise<void> {
+    try {
+      // Get base64 data (without the "data:application/pdf;base64," prefix)
+      const dataUrl = doc.output('datauristring');
+      const base64 = dataUrl.split(',')[1];
 
-    // Write to the app's Documents directory
-    const result = await Filesystem.writeFile({
-      path,
-      data: base64,
-      directory: Directory.Documents,
-      recursive: true
-    });
+      const path = `gunstuff/${filename}`;
 
-    // Open share sheet so you can send the PDF (WhatsApp, email, etc.)
-    await Share.share({
-      url: result.uri,
-      title: filename,
-      text: 'Load development report'
-    });
-  } catch (err) {
-    console.error('Native PDF save failed, falling back to browser save:', err);
+      // Write to the app's Documents directory
+      const result = await Filesystem.writeFile({
+        path,
+        data: base64,
+        directory: Directory.Documents,
+        recursive: true
+      });
 
+      // Open share sheet so you can send the PDF (WhatsApp, email, etc.)
+      await Share.share({
+        url: result.uri,
+        title: filename,
+        text: 'Load development report'
+      });
+    } catch (err) {
+      console.error(
+        'Native PDF save failed, falling back to browser save:',
+        err
+      );
 
-    // Fallback: if something goes wrong, try the normal download behaviour
-    doc.save(filename);
+      // Fallback: if something goes wrong, try the normal download behaviour
+      doc.save(filename);
+    }
   }
-}
 
   // ---------- rifle / project loading ----------
 
@@ -612,127 +605,121 @@ private async savePdfNative(doc: jsPDF, filename: string): Promise<void> {
   }
 
   private createLadderEntriesFromPlanner(projectId: number): void {
-  const type = this.projectForm.type;
+    const type = this.projectForm.type;
 
-  // Only create entries for ladder or OCW projects
-  if (type !== 'ladder' && type !== 'ocw') return;
+    // Only create entries for ladder or OCW projects
+    if (type !== 'ladder' && type !== 'ocw') return;
 
-  const {
-    distanceM,
-    startChargeGr,
-    endChargeGr,
-    stepGr,
-    shotsPerGroup
-  } = this.planner;
+    const { distanceM, startChargeGr, endChargeGr, stepGr, shotsPerGroup } =
+      this.planner;
 
-  if (
-    startChargeGr == null ||
-    endChargeGr == null ||
-    stepGr == null ||
-    stepGr <= 0 ||
-    endChargeGr < startChargeGr
-  ) {
-    return;
+    if (
+      startChargeGr == null ||
+      endChargeGr == null ||
+      stepGr == null ||
+      stepGr <= 0 ||
+      endChargeGr < startChargeGr
+    ) {
+      return;
+    }
+
+    const dist = distanceM ?? undefined;
+
+    // For ladder: default 1 shot per step
+    // For OCW: use "shots per group" if given, otherwise leave undefined
+    const defaultShots: number | undefined =
+      type === 'ocw' ? shotsPerGroup ?? undefined : 1;
+
+    let charge = startChargeGr;
+    let localId = 1;
+
+    while (charge <= endChargeGr + 1e-6) {
+      const roundedCharge = Number(charge.toFixed(2));
+
+      const entry: LoadDevEntry = {
+        id: localId++,
+        loadLabel: '',
+        powder: undefined,
+        chargeGr: roundedCharge,
+        coal: undefined,
+        primer: undefined,
+        bullet: undefined,
+        bulletWeightGr: undefined,
+        bulletBc: undefined,
+        distanceM: dist,
+        shotsFired: defaultShots,
+        groupSize: undefined,
+        groupUnit: 'MOA',
+        poiNote: undefined,
+        notes: undefined
+      } as LoadDevEntry;
+
+      this.data.updateLoadDevEntry(projectId, entry);
+
+      charge = Number((charge + stepGr).toFixed(2));
+    }
   }
-
-  const dist = distanceM ?? undefined;
-
-  // For ladder: default 1 shot per step
-  // For OCW: use "shots per group" if given, otherwise leave undefined
-  const defaultShots: number | undefined =
-    type === 'ocw'
-      ? (shotsPerGroup ?? undefined)
-      : 1;
-
-  let charge = startChargeGr;
-  let localId = 1;
-
-  while (charge <= endChargeGr + 1e-6) {
-    const roundedCharge = Number(charge.toFixed(2));
-
-    const entry: LoadDevEntry = {
-      id: localId++,
-      loadLabel: '',
-      powder: undefined,
-      chargeGr: roundedCharge,
-      coal: undefined,
-      primer: undefined,
-      bullet: undefined,
-      bulletWeightGr: undefined,
-      bulletBc: undefined,
-      distanceM: dist,
-      shotsFired: defaultShots,
-      groupSize: undefined,
-      groupUnit: 'MOA',
-      poiNote: undefined,
-      notes: undefined
-    } as LoadDevEntry;
-
-    this.data.updateLoadDevEntry(projectId, entry);
-
-    charge = Number((charge + stepGr).toFixed(2));
-  }
-}
 
   saveProject(): void {
-  if (!this.selectedRifleId || !this.projectForm.name.trim()) {
-    alert('Please select rifle and enter a name for the load development.');
-    return;
-  }
+    if (!this.selectedRifleId || !this.projectForm.name.trim()) {
+      alert('Please select rifle and enter a name for the load development.');
+      return;
+    }
 
-  const type: LoadDevType = (this.projectForm.type as LoadDevType) || 'ladder';
+    const type: LoadDevType =
+      (this.projectForm.type as LoadDevType) || 'ladder';
 
-  this.postSaveMessage = null;
-
-  if (this.editingProject) {
-    const updated: LoadDevProject = {
-      ...this.editingProject,
-      rifleId: this.selectedRifleId,
-      name: this.projectForm.name.trim(),
-      type,
-      notes: this.projectForm.notes.trim()
-    };
-    this.data.updateLoadDevProject(updated);
-    this.selectedProjectId = updated.id;
-
-    this.postSaveMessage =
-      'Load development updated. Use the wizard to enter velocities, view the graph and see the highlighted nodes.';
-  } else {
-    const newProject: LoadDevProject = {
-      id: Date.now(),
-      rifleId: this.selectedRifleId,
-      name: this.projectForm.name.trim(),
-      type,
-      notes: this.projectForm.notes.trim() || undefined,
-      dateStarted: new Date().toISOString(),
-      entries: []
-    };
-    this.data.updateLoadDevProject(newProject);
-    this.selectedProjectId = newProject.id;
-
-    // Create ladder/OCW entries from planner (charges + default shots)
-    this.createLadderEntriesFromPlanner(newProject.id);
-    // Also create a session linked to this load dev
-    this.data.createSessionForLoadDevProject(newProject);
-
-    this.postSaveMessage =
-      type === 'ocw'
-        ? 'OCW planned and saved. Go shoot your groups, then come back here and use the OCW wizard or Edit buttons to enter velocities.'
-        : 'Ladder test planned and saved. Go shoot the ladder, then come back here and use the wizard or Edit buttons to enter velocities and view the graph with node highlights.';
-  }
-
-  setTimeout(() => {
     this.postSaveMessage = null;
-  }, 15000);
 
-  this.projectFormVisible = false;
-  this.editingProject = null;
-  this.projectForm = this.createEmptyProjectForm();
-  this.planner = this.createEmptyPlannerForm();
-  this.showNotesPanel = false;
-  this.loadProjects();
-  this.resetWizard();
-}
+    if (this.editingProject) {
+      const updated: LoadDevProject = {
+        ...this.editingProject,
+        rifleId: this.selectedRifleId,
+        name: this.projectForm.name.trim(),
+        type,
+        notes: this.projectForm.notes.trim()
+      };
+      this.data.updateLoadDevProject(updated);
+      this.selectedProjectId = updated.id;
+
+      this.postSaveMessage =
+        'Load development updated. Use the wizard to enter velocities, view the graph and see the highlighted nodes.';
+    } else {
+      const newProject: LoadDevProject = {
+        id: Date.now(),
+        rifleId: this.selectedRifleId,
+        name: this.projectForm.name.trim(),
+        type,
+        notes: this.projectForm.notes.trim() || undefined,
+        dateStarted: new Date().toISOString(),
+        entries: []
+      };
+      this.data.updateLoadDevProject(newProject);
+      this.selectedProjectId = newProject.id;
+
+      // Create ladder/OCW entries from planner (charges + default shots)
+      this.createLadderEntriesFromPlanner(newProject.id);
+      // Also create a session linked to this load dev
+      this.data.createSessionForLoadDevProject(newProject);
+
+      this.postSaveMessage =
+        type === 'ocw'
+          ? 'OCW planned and saved. Go shoot your groups, then come back here and use the OCW wizard or Edit buttons to enter velocities.'
+          : 'Ladder test planned and saved. Go shoot the ladder, then come back here and use the wizard or Edit buttons to enter velocities and view the graph with node highlights.';
+    }
+
+    setTimeout(() => {
+      this.postSaveMessage = null;
+    }, 15000);
+
+    this.projectFormVisible = false;
+    this.editingProject = null;
+    this.projectForm = this.createEmptyProjectForm();
+    this.planner = this.createEmptyPlannerForm();
+    this.showNotesPanel = false;
+    this.loadProjects();
+    this.resetWizard();
+  }
 
   deleteProject(project: LoadDevProject): void {
     if (!confirm(`Delete project "${project.name}"?`)) return;
@@ -743,258 +730,258 @@ private async savePdfNative(doc: jsPDF, filename: string): Promise<void> {
     }
     this.loadProjects();
   }
+
   /**
    * Export the currently selected project's table to a printable page.
    * User can then use "Save as PDF" in the browser print dialog.
    */
-  
- // ✅ ONLY THE PDF EXPORT SECTION WAS MODIFIED, EVERYTHING ELSE IS UNTOUCHED
 
-// ---------- EXPORT PDF ----------
+  // ✅ ONLY THE PDF EXPORT SECTION WAS MODIFIED, EVERYTHING ELSE IS UNTOUCHED
 
-exportSelectedProjectToPdf(): void {
-  if (!this.selectedProject) {
-    alert('Select a load development first.');
-    return;
-  }
+  // ---------- EXPORT PDF ----------
 
-  const project: any = this.selectedProject;
-  const rifle =
-    this.rifles && this.selectedRifleId
-      ? this.rifles.find(r => r.id === this.selectedRifleId)
-      : null;
+  exportSelectedProjectToPdf(): void {
+    if (!this.selectedProject) {
+      alert('Select a load development first.');
+      return;
+    }
 
-  const entries: any[] = this.entriesForSelectedProject() || [];
-  if (!entries.length) {
-    alert('No entries to export yet.');
-    return;
-  }
+    const project: any = this.selectedProject;
+    const rifle =
+      this.rifles && this.selectedRifleId
+        ? this.rifles.find(r => r.id === this.selectedRifleId)
+        : null;
 
-  const allShotValues: number[] = [];
+    const entries: any[] = this.entriesForSelectedProject() || [];
+    if (!entries.length) {
+      alert('No entries to export yet.');
+      return;
+    }
 
-  entries.forEach(e => {
-    const values = this.parseVelocityInput(e.velocityInput);
-    values.forEach(v => allShotValues.push(v));
-  });
+    const allShotValues: number[] = [];
 
-  if (!allShotValues.length) {
-    alert('No velocity data captured yet.');
-    return;
-  }
+    entries.forEach(e => {
+      const values = this.parseVelocityInput(e.velocityInput);
+      values.forEach(v => allShotValues.push(v));
+    });
 
-  const minV = Math.min(...allShotValues);
-  const maxV = Math.max(...allShotValues);
-  const rangeV = maxV - minV || 1;
+    if (!allShotValues.length) {
+      alert('No velocity data captured yet.');
+      return;
+    }
 
-  const doc = new jsPDF('p', 'mm', 'a4');
-  const pageWidth = doc.internal.pageSize.getWidth();
+    const minV = Math.min(...allShotValues);
+    const maxV = Math.max(...allShotValues);
+    const rangeV = maxV - minV || 1;
 
-  // -------- BRAND BAR --------
-  doc.setFillColor(0, 0, 0);
-  doc.rect(0, 0, pageWidth, 10, 'F');
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
 
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(11);
-  doc.text('GUNSTUFF', 8, 6);
-  doc.setFontSize(8);
-  doc.text('Ballistics', 8, 9);
+    // -------- BRAND BAR --------
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, pageWidth, 10, 'F');
 
-  doc.setTextColor(0, 0, 0);
-  let y = 18;
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.text('GUNSTUFF', 8, 6);
+    doc.setFontSize(8);
+    doc.text('Ballistics', 8, 9);
 
-  // -------- META --------
-  doc.setFontSize(13);
-  doc.text(project.name || 'Load development', 14, y);
-  y += 7;
+    doc.setTextColor(0, 0, 0);
+    let y = 18;
 
-  doc.setFontSize(10);
-  doc.text(`Rifle: ${rifle?.name || '—'}`, 14, y);
-  y += 5;
+    // -------- META --------
+    doc.setFontSize(13);
+    doc.text(project.name || 'Load development', 14, y);
+    y += 7;
 
-  doc.text(`Type: ${(project.type as string).toUpperCase()}`, 14, y);
-  y += 5;
+    doc.setFontSize(10);
+    doc.text(`Rifle: ${rifle?.name || '—'}`, 14, y);
+    y += 5;
 
-  if (project.dateStarted) {
-    doc.text(`Date: ${this.shortDate(project.dateStarted)}`, 14, y);
-    y += 6;
-  }
+    doc.text(`Type: ${(project.type as string).toUpperCase()}`, 14, y);
+    y += 5;
 
-  y += 4;
+    if (project.dateStarted) {
+      doc.text(`Date: ${this.shortDate(project.dateStarted)}`, 14, y);
+      y += 6;
+    }
 
-  // -------- MAIN SHOT-ONLY CHART --------
-  const chartLeft = 18;
-  const chartWidth = pageWidth - 36;
-  const chartTop = y;
-  const chartHeight = 55;
+    y += 4;
 
-  doc.setDrawColor(200);
-  doc.rect(chartLeft, chartTop, chartWidth, chartHeight);
-  doc.setFontSize(10);
-  doc.text('Velocity vs Charge (RAW SHOTS)', chartLeft, chartTop - 3);
+    // -------- MAIN SHOT-ONLY CHART --------
+    const chartLeft = 18;
+    const chartWidth = pageWidth - 36;
+    const chartTop = y;
+    const chartHeight = 55;
 
-  const n = entries.length;
-  const xStep = n > 1 ? chartWidth / (n - 1) : 0;
+    doc.setDrawColor(200);
+    doc.rect(chartLeft, chartTop, chartWidth, chartHeight);
+    doc.setFontSize(10);
+    doc.text('Velocity vs Charge (RAW SHOTS)', chartLeft, chartTop - 3);
 
-  const palette = [
-    { r: 255, g: 99, b: 132 },
-    { r: 54, g: 162, b: 235 },
-    { r: 255, g: 206, b: 86 },
-    { r: 75, g: 192, b: 192 },
-    { r: 153, g: 102, b: 255 }
-  ];
+    const n = entries.length;
 
-  entries.forEach((entry, i) => {
-  const values = this.parseVelocityInput(entry.velocityInput);
-  if (!values.length) return;
+    // 🔹 Leave ~1 cm padding inside the chart on left & right
+    const innerPadX = 10; // mm ≈ 1 cm
+    const usableWidth = Math.max(chartWidth - innerPadX * 2, 0);
+    const xStep = n > 1 ? usableWidth / (n - 1) : 0;
 
-  const baseX = chartLeft + i * xStep;
-  const colour = palette[i % palette.length];
+    const palette = [
+      { r: 255, g: 99, b: 132 },
+      { r: 54, g: 162, b: 235 },
+      { r: 255, g: 206, b: 86 },
+      { r: 75, g: 192, b: 192 },
+      { r: 153, g: 102, b: 255 }
+    ];
 
-  doc.setDrawColor(colour.r, colour.g, colour.b);
-  doc.setFillColor(colour.r, colour.g, colour.b);
+    entries.forEach((entry, i) => {
+      const values = this.parseVelocityInput(entry.velocityInput);
+      if (!values.length) return;
 
-  let minY: number | null = null;
-  let maxY: number | null = null;
-  let sum = 0;
+      // 🔹 X now starts innerPadX inside the chart and ends innerPadX before the right border
+      const baseX = chartLeft + innerPadX + i * xStep;
+      const colour = palette[i % palette.length];
 
-  // ✅ DRAW RAW SHOT DOTS (SMALLER)
-  values.forEach(v => {
-    const yVal =
-      chartTop + chartHeight - ((v - minV) / rangeV) * chartHeight;
+      doc.setDrawColor(colour.r, colour.g, colour.b);
+      doc.setFillColor(colour.r, colour.g, colour.b);
 
-    // ✅ SMALLER DOT
-    doc.circle(baseX, yVal, 0.7, 'F');
+      let minY: number | null = null;
+      let maxY: number | null = null;
+      let sum = 0;
 
-    // ✅ VELOCITY LABEL (CLEAR + OFFSET)
-    const label = String(Math.round(v));
-    doc.setFontSize(7);
-    doc.text(label, baseX + 1.5, yVal - 1.5);
+      // ✅ DRAW RAW SHOT DOTS (SMALLER)
+      values.forEach(v => {
+        const yVal =
+          chartTop + chartHeight - ((v - minV) / rangeV) * chartHeight;
 
-    sum += v;
+        // ✅ SMALLER DOT
+        doc.circle(baseX, yVal, 0.7, 'F');
 
-    minY = minY === null ? yVal : Math.min(minY, yVal);
-    maxY = maxY === null ? yVal : Math.max(maxY, yVal);
-  });
+        // ✅ VELOCITY LABEL (CLEAR + OFFSET)
+        const label = String(Math.round(v));
+        doc.setFontSize(7);
+        doc.text(label, baseX + 1.5, yVal - 1.5);
 
-  // ✅ GREY CLUSTER RING
-  if (minY !== null && maxY !== null && maxY > minY) {
-    const centerY = (minY + maxY) / 2;
-    const radius = (maxY - minY) / 2 + 1.5;
+        sum += v;
 
-    doc.setDrawColor(180, 180, 180);
-    doc.setLineWidth(0.3);
-    doc.circle(baseX, centerY, radius, 'S');
-  }
-// ✅ GROUP SIZE OVERLAY BAR (VISUAL TIGHTNESS INDICATOR)
-if (typeof entry.groupSize === 'number' && entry.groupSize > 0) {
-  // Scale group size visually (smaller = tighter)
-  const maxGroupVisual = 12; // affects visual height only
-  const groupVisual =
-    Math.min(entry.groupSize, maxGroupVisual);
+        minY = minY === null ? yVal : Math.min(minY, yVal);
+        maxY = maxY === null ? yVal : Math.max(maxY, yVal);
+      });
 
-  doc.setLineWidth(2);
-  doc.setDrawColor(colour.r, colour.g, colour.b);
+      // ✅ GREY CLUSTER RING
+      if (minY !== null && maxY !== null && maxY > minY) {
+        const centerY = (minY + maxY) / 2;
+        const radius = (maxY - minY) / 2 + 1.5;
 
-  doc.line(
-    baseX,
-    chartTop + chartHeight + 6,
-    baseX,
-    chartTop + chartHeight + 6 + groupVisual
-  );
-}
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(0.3);
+        doc.circle(baseX, centerY, radius, 'S');
+      }
 
-// ✅ POI OVERLAY TEXT ABOVE CLUSTER
-if (entry.poiNote) {
-  doc.setFontSize(7);
-  doc.setTextColor(colour.r, colour.g, colour.b);
+      // ✅ GROUP SIZE OVERLAY BAR (VISUAL TIGHTNESS INDICATOR)
+      if (typeof entry.groupSize === 'number' && entry.groupSize > 0) {
+        // Scale group size visually (smaller = tighter)
+        const maxGroupVisual = 12; // affects visual height only
+        const groupVisual = Math.min(entry.groupSize, maxGroupVisual);
 
-  const poiText = `POI: ${entry.poiNote}`;
-  const textWidth = doc.getTextWidth(poiText);
+        doc.setLineWidth(2);
+        doc.setDrawColor(colour.r, colour.g, colour.b);
 
-  doc.text(
-    poiText,
-    baseX - textWidth / 2,
-    chartTop - 5
-  );
+        doc.line(
+          baseX,
+          chartTop + chartHeight + 6,
+          baseX,
+          chartTop + chartHeight + 6 + groupVisual
+        );
+      }
 
-  doc.setTextColor(0, 0, 0); // reset back to black
-}
+      // ✅ POI OVERLAY TEXT ABOVE CLUSTER
+      if (entry.poiNote) {
+        doc.setFontSize(7);
+        doc.setTextColor(colour.r, colour.g, colour.b);
 
-  // ✅ CONNECT THIS CHARGE TO PREVIOUS CHARGE USING A LINE
-  if (i > 0) {
-    const prevEntry = entries[i - 1];
-    const prevValues = this.parseVelocityInput(prevEntry.velocityInput);
+        const poiText = `POI: ${entry.poiNote}`;
+        const textWidth = doc.getTextWidth(poiText);
 
-    if (prevValues.length) {
-      const prevAvg =
-        prevValues.reduce((a, b) => a + b, 0) / prevValues.length;
-      const currAvg = sum / values.length;
+        doc.text(poiText, baseX - textWidth / 2, chartTop - 5);
 
-      const prevX = chartLeft + (i - 1) * xStep;
-      const currX = baseX;
+        doc.setTextColor(0, 0, 0); // reset back to black
+      }
 
-      const prevY =
-        chartTop +
-        chartHeight -
-        ((prevAvg - minV) / rangeV) * chartHeight;
+      // ✅ CONNECT THIS CHARGE TO PREVIOUS CHARGE USING A LINE
+      if (i > 0) {
+        const prevEntry = entries[i - 1];
+        const prevValues = this.parseVelocityInput(prevEntry.velocityInput);
 
-      const currY =
-        chartTop +
-        chartHeight -
-        ((currAvg - minV) / rangeV) * chartHeight;
+        if (prevValues.length) {
+          const prevAvg =
+            prevValues.reduce((a, b) => a + b, 0) / prevValues.length;
+          const currAvg = sum / values.length;
 
-      doc.setLineWidth(0.6);
-      doc.setDrawColor(colour.r, colour.g, colour.b); // ✅ SAME COLOUR AS SHOTS
-      doc.line(prevX, prevY, currX, currY);
+          const prevX = chartLeft + innerPadX + (i - 1) * xStep;
+          const currX = baseX;
+
+          const prevY =
+            chartTop +
+            chartHeight -
+            ((prevAvg - minV) / rangeV) * chartHeight;
+
+          const currY =
+            chartTop +
+            chartHeight -
+            ((currAvg - minV) / rangeV) * chartHeight;
+
+          doc.setLineWidth(0.6);
+          doc.setDrawColor(colour.r, colour.g, colour.b); // ✅ SAME COLOUR AS SHOTS
+          doc.line(prevX, prevY, currX, currY);
+        }
+      }
+
+      // ✅ CHARGE LABEL
+      if (typeof entry.chargeGr === 'number') {
+        const chargeText = entry.chargeGr.toFixed(1);
+        doc.text(
+          chargeText,
+          baseX - doc.getTextWidth(chargeText) / 2,
+          chartTop + chartHeight + 4
+        );
+      }
+    });
+
+    y = chartTop + chartHeight + 16;
+
+    // -------- TABLE --------
+    const tableBody = entries.map((entry: any, idx: number) => {
+      const stats = this.statsForEntry(entry);
+      return [
+        idx + 1,
+        entry.chargeGr ?? '',
+        stats?.avg ? Math.round(stats.avg) : '',
+        stats?.es ?? '',
+        stats?.sd ? stats.sd.toFixed(3) : '', // ✅ SD LIMITED TO 3 DECIMALS
+        entry.shotsFired ?? ''
+      ];
+    });
+
+    autoTable(doc, {
+      startY: y,
+      head: [['#', 'Charge (gr)', 'Avg', 'ES', 'SD', 'Shots']],
+      body: tableBody,
+      styles: { fontSize: 8 }
+    });
+
+    const filename =
+      (project.name || 'load-development')
+        .toString()
+        .replace(/[^a-z0-9\-]+/gi, '_') + '.pdf';
+
+    if (Capacitor.isNativePlatform()) {
+      this.savePdfNative(doc, filename);
+    } else {
+      doc.save(filename);
     }
   }
-
-  // ✅ CHARGE LABEL
-  if (typeof entry.chargeGr === 'number') {
-    const chargeText = entry.chargeGr.toFixed(1);
-    doc.text(
-      chargeText,
-      baseX - doc.getTextWidth(chargeText) / 2,
-      chartTop + chartHeight + 4
-    );
-  }
-});
-
-  y = chartTop + chartHeight + 16;
-
-  // -------- TABLE --------
-  const tableBody = entries.map((entry: any, idx: number) => {
-    const stats = this.statsForEntry(entry);
-    return [
-      idx + 1,
-      entry.chargeGr ?? '',
-      stats?.avg ? Math.round(stats.avg) : '',
-      stats?.es ?? '',
-      stats?.sd ? stats.sd.toFixed(3) : '',   // ✅ SD LIMITED TO 3 DECIMALS
-      entry.shotsFired ?? ''
-    ];
-  });
-
-  autoTable(doc, {
-    startY: y,
-    head: [['#', 'Charge (gr)', 'Avg', 'ES', 'SD', 'Shots']],
-    body: tableBody,
-    styles: { fontSize: 8 }
-  });
-
-  const filename =
-    (project.name || 'load-development')
-      .toString()
-      .replace(/[^a-z0-9\-]+/gi, '_') + '.pdf';
-
-  if (Capacitor.isNativePlatform()) {
-    this.savePdfNative(doc, filename);
-  } else {
-    doc.save(filename);
-  }
-}
-
-
 
   cancelEntryForm(): void {
     this.entryFormVisible = false;
@@ -1113,112 +1100,110 @@ if (entry.poiNote) {
 
   // ---------- node detection & colouring ----------
 
-// ---------- node detection & colouring ----------
+  // We treat a “node” as 3 or more neighbouring charges
+  // whose average velocities have SD < 10 fps.
+  private computeNodesForSelectedProject(): Map<number, number> {
+    const map = new Map<number, number>();
+    const project = this.selectedProject;
 
-// We treat a “node” as 3 or more neighbouring charges
-// whose average velocities have SD < 10 fps.
-private computeNodesForSelectedProject(): Map<number, number> {
-  const map = new Map<number, number>();
-  const project = this.selectedProject;
-
-  // Only ladder projects get node highlighting
-  if (!project || project.type !== 'ladder') {
-    return map;
-  }
-
-  const entries = project.entries ?? [];
-  if (entries.length < 3) {
-    return map;
-  }
-
-  // Attach stats and drop entries with no velocity data
-  const withStats: NodeEntry[] = entries
-    .map(e => {
-      const stats = this.statsForEntry(e);
-      return stats ? { entry: e, stats } : null;
-    })
-    .filter((x): x is NodeEntry => !!x);
-
-  if (withStats.length < 3) {
-    return map;
-  }
-
-  // Sort by charge so “neighbouring” really means neighbouring on the ladder
-  const sorted = [...withStats].sort(
-    (a, b) => (a.entry.chargeGr ?? 9999) - (b.entry.chargeGr ?? 9999)
-  );
-
-  const NODE_SD_THRESHOLD = 10; // fps
-  const groups: number[][] = [];
-  let i = 0;
-
-  // Sliding window over sorted ladder
-  while (i + 2 < sorted.length) {
-    // Start with a 3-shot window
-    let window = [sorted[i], sorted[i + 1], sorted[i + 2]];
-    let vals = window.map(w => w.stats.avg);
-    let sd = this.computeSimpleSd(vals);
-
-    // If the 3-shot window is too “noisy”, move on
-    if (sd >= NODE_SD_THRESHOLD) {
-      i++;
-      continue;
+    // Only ladder projects get node highlighting
+    if (!project || project.type !== 'ladder') {
+      return map;
     }
 
-    // Try to extend the window while SD stays under threshold
-    let j = i + 3;
-    while (j < sorted.length) {
-      const extended = [...window, sorted[j]];
-      const extVals = extended.map(w => w.stats.avg);
-      const extSd = this.computeSimpleSd(extVals);
+    const entries = project.entries ?? [];
+    if (entries.length < 3) {
+      return map;
+    }
 
-      if (extSd < NODE_SD_THRESHOLD) {
-        window = extended;
-        vals = extVals;
-        sd = extSd;
-        j++;
-      } else {
-        break;
+    // Attach stats and drop entries with no velocity data
+    const withStats: NodeEntry[] = entries
+      .map(e => {
+        const stats = this.statsForEntry(e);
+        return stats ? { entry: e, stats } : null;
+      })
+      .filter((x): x is NodeEntry => !!x);
+
+    if (withStats.length < 3) {
+      return map;
+    }
+
+    // Sort by charge so “neighbouring” really means neighbouring on the ladder
+    const sorted = [...withStats].sort(
+      (a, b) => (a.entry.chargeGr ?? 9999) - (b.entry.chargeGr ?? 9999)
+    );
+
+    const NODE_SD_THRESHOLD = 10; // fps
+    const groups: number[][] = [];
+    let i = 0;
+
+    // Sliding window over sorted ladder
+    while (i + 2 < sorted.length) {
+      // Start with a 3-shot window
+      let window = [sorted[i], sorted[i + 1], sorted[i + 2]];
+      let vals = window.map(w => w.stats.avg);
+      let sd = this.computeSimpleSd(vals);
+
+      // If the 3-shot window is too “noisy”, move on
+      if (sd >= NODE_SD_THRESHOLD) {
+        i++;
+        continue;
       }
+
+      // Try to extend the window while SD stays under threshold
+      let j = i + 3;
+      while (j < sorted.length) {
+        const extended = [...window, sorted[j]];
+        const extVals = extended.map(w => w.stats.avg);
+        const extSd = this.computeSimpleSd(extVals);
+
+        if (extSd < NODE_SD_THRESHOLD) {
+          window = extended;
+          vals = extVals;
+          sd = extSd;
+          j++;
+        } else {
+          break;
+        }
+      }
+
+      // Record this group of entry IDs as one node
+      const ids = window.map(w => w.entry.id);
+      groups.push(ids);
+
+      // Skip past this node for the next search
+      i = j;
     }
 
-    // Record this group of entry IDs as one node
-    const ids = window.map(w => w.entry.id);
-    groups.push(ids);
+    // Assign node index to each entry ID
+    groups.forEach((ids, index) => {
+      ids.forEach(id => map.set(id, index));
+    });
 
-    // Skip past this node for the next search
-    i = j;
+    return map;
   }
 
-  // Assign node index to each entry ID
-  groups.forEach((ids, index) => {
-    ids.forEach(id => map.set(id, index));
-  });
+  nodeCssClass(entry: LoadDevEntry) {
+    const map = this.computeNodesForSelectedProject();
+    const idx = entry && entry.id != null ? map.get(entry.id) : undefined;
 
-  return map;
-}
+    // No node -> no extra classes (row uses default styling)
+    if (idx == null) {
+      return {};
+    }
 
-nodeCssClass(entry: LoadDevEntry) {
-  const map = this.computeNodesForSelectedProject();
-  const idx = entry && entry.id != null ? map.get(entry.id) : undefined;
-
-  // No node -> no extra classes (row uses default styling)
-  if (idx == null) {
-    return {};
+    // Node 0 = “best” node (first one found) – green
+    // Node 1 = second node – orange
+    // Node 2 = third node – red
+    return {
+      'bg-black text-white ring-4 ring-[#00ff00] shadow-[0_0_12px_#00ff00]':
+        idx === 0,
+      'bg-black text-white ring-4 ring-[#ff9900] shadow-[0_0_12px_#ff9900]':
+        idx === 1,
+      'bg-black text-white ring-4 ring-[#ff0000] shadow-[0_0_12px_#ff0000]':
+        idx === 2
+    };
   }
-
-  // Node 0 = “best” node (first one found) – green
-  // Node 1 = second node – orange
-  // Node 2 = third node – red
-  return {
-    'bg-black text-white ring-4 ring-[#00ff00] shadow-[0_0_12px_#00ff00]':
-      idx === 0,
-    'bg-black text-white ring-4 ring-[#ff9900] shadow-[0_0_12px_#ff9900]':
-      idx === 1,
-    'bg-black text-white ring-4 ring-[#ff0000] shadow-[0_0_12px_#ff0000]':
-      idx === 2
-  };
-}
 
   // ---------- helpers for wizard / velocity input ----------
 
@@ -1235,18 +1220,18 @@ nodeCssClass(entry: LoadDevEntry) {
   }
 
   private appendVelocityToEntry(entry: LoadDevEntry, value: number): void {
-  if (!this.selectedProject) return;
+    if (!this.selectedProject) return;
 
-  const any = entry as any;
-  const existing = this.parseVelocityInput(any.velocityInput);
-  const updated = [...existing, value];
+    const any = entry as any;
+    const existing = this.parseVelocityInput(any.velocityInput);
+    const updated = [...existing, value];
 
-  any.velocityInput = updated.join(' ');
-  entry.shotsFired = updated.length;
+    any.velocityInput = updated.join(' ');
+    entry.shotsFired = updated.length;
 
-  this.data.updateLoadDevEntry(this.selectedProject.id, entry);
-  this.refreshSelectedProject();
-}
+    this.data.updateLoadDevEntry(this.selectedProject.id, entry);
+    this.refreshSelectedProject();
+  }
 
   // ---------- graph data builder ----------
 
@@ -1286,7 +1271,12 @@ nodeCssClass(entry: LoadDevEntry) {
 
     const n = pts.length;
     const span = this.graphMaxVel - this.graphMinVel || 1;
-    const coords: { x: number; y: number; charge: number; avg: number }[] = [];
+    const coords: {
+      x: number;
+      y: number;
+      charge: number;
+      avg: number;
+    }[] = [];
 
     for (let i = 0; i < n; i++) {
       const p = pts[i];
@@ -1310,44 +1300,45 @@ nodeCssClass(entry: LoadDevEntry) {
   // ---------- ladder wizard ----------
 
   startLadderWizard(): void {
-  if (!this.selectedProject) {
-    alert('Select a load development first.');
-    return;
-  }
+    if (!this.selectedProject) {
+      alert('Select a load development first.');
+      return;
+    }
 
-  // Wizard is valid for ladder and OCW
-  if (
-    this.selectedProject.type !== 'ladder' &&
-    this.selectedProject.type !== 'ocw'
-  ) {
-    alert('The velocity wizard is only available for ladder and OCW developments.');
-    return;
-  }
+    // Wizard is valid for ladder and OCW
+    if (
+      this.selectedProject.type !== 'ladder' &&
+      this.selectedProject.type !== 'ocw'
+    ) {
+      alert(
+        'The velocity wizard is only available for ladder and OCW developments.'
+      );
+      return;
+    }
 
-  if (this.allEntriesHaveVelocity()) {
-    alert(
-      'All steps already have velocities. Use the Edit buttons for changes.'
+    if (this.allEntriesHaveVelocity()) {
+      alert(
+        'All steps already have velocities. Use the Edit buttons for changes.'
+      );
+      return;
+    }
+
+    const entries = [...(this.selectedProject.entries ?? [])].sort(
+      (a, b) => (a.chargeGr ?? 9999) - (b.chargeGr ?? 9999)
     );
-    return;
+
+    if (!entries.length) {
+      alert('No entries created for this development yet.');
+      return;
+    }
+
+    this.ladderWizardEntries = entries;
+    this.ladderWizardIndex = 0;
+    this.ladderWizardActive = true;
+    this.singleVelocityEditActive = false;
+
+    this.setWizardCurrentEntry();
   }
-
-  const entries = [...(this.selectedProject.entries ?? [])].sort(
-    (a, b) => (a.chargeGr ?? 9999) - (b.chargeGr ?? 9999)
-  );
-
-  if (!entries.length) {
-    alert('No entries created for this development yet.');
-    return;
-  }
-
-  this.ladderWizardEntries = entries;
-  this.ladderWizardIndex = 0;
-  this.ladderWizardActive = true;
-  this.singleVelocityEditActive = false;
-
-  this.setWizardCurrentEntry();
-}
-
 
   private setWizardCurrentEntry(): void {
     if (!this.ladderWizardActive) return;
@@ -1397,52 +1388,57 @@ nodeCssClass(entry: LoadDevEntry) {
   }
 
   saveVelocityAndNext(): void {
-  if (!this.selectedProject || !this.velocityEditEntry) return;
+    if (!this.selectedProject || !this.velocityEditEntry) return;
 
-  const raw = this.velocityEditValue ?? '';
-  const trimmed = raw.toString().trim();
+    const raw = this.velocityEditValue ?? '';
+    const trimmed = raw.toString().trim();
 
-  if (trimmed) {
-    const values = this.parseVelocityInput(trimmed);
-    if (!values.length) {
-      alert(
-        'Enter one or more numeric velocities, separated by spaces or commas.'
-      );
-      return;
-    }
-
-    // For OCW: enforce planned shots per charge if we have it
-    if (this.selectedProject.type === 'ocw') {
-      const plannedShots =
-        this.velocityEditEntry.shotsFired ?? this.planner.shotsPerGroup ?? null;
-
-      if (plannedShots && values.length !== plannedShots) {
+    if (trimmed) {
+      const values = this.parseVelocityInput(trimmed);
+      if (!values.length) {
         alert(
-          `You planned ${plannedShots} shots for this charge. Enter exactly ${plannedShots} velocities, or leave the field blank and press Skip if you have not shot this group yet.`
+          'Enter one or more numeric velocities, separated by spaces or commas.'
         );
         return;
       }
+
+      // For OCW: enforce planned shots per charge if we have it
+      if (this.selectedProject.type === 'ocw') {
+        const plannedShots =
+          this.velocityEditEntry.shotsFired ??
+          this.planner.shotsPerGroup ??
+          null;
+
+        if (plannedShots && values.length !== plannedShots) {
+          alert(
+            `You planned ${plannedShots} shots for this charge. Enter exactly ${plannedShots} velocities, or leave the field blank and press Skip if you have not shot this group yet.`
+          );
+          return;
+        }
+      }
+
+      const any = this.velocityEditEntry as any;
+      any.velocityInput = values.join(' ');
+      this.velocityEditEntry.shotsFired = values.length;
+
+      this.data.updateLoadDevEntry(
+        this.selectedProject.id,
+        this.velocityEditEntry
+      );
+      this.refreshSelectedProject();
     }
 
-    const any = this.velocityEditEntry as any;
-    any.velocityInput = values.join(' ');
-    this.velocityEditEntry.shotsFired = values.length;
-
-    this.data.updateLoadDevEntry(this.selectedProject.id, this.velocityEditEntry);
-    this.refreshSelectedProject();
+    this.goToNextWizardEntry();
   }
 
-  this.goToNextWizardEntry();
-}
+  skipVelocityAndNext(): void {
+    // no save, just move on to the next charge
+    this.goToNextWizardEntry();
+  }
 
-skipVelocityAndNext(): void {
-  // no save, just move on to the next charge
-  this.goToNextWizardEntry();
-}
-
-cancelLadderWizard(): void {
-  this.finishLadderWizard();
-}
+  cancelLadderWizard(): void {
+    this.finishLadderWizard();
+  }
 
   // ---------- single-row velocity edit (replace set) ----------
 
@@ -1467,7 +1463,10 @@ cancelLadderWizard(): void {
       const any = this.velocityEditEntry as any;
       any.velocityInput = undefined;
       this.velocityEditEntry.shotsFired = undefined;
-      this.data.updateLoadDevEntry(this.selectedProject.id, this.velocityEditEntry);
+      this.data.updateLoadDevEntry(
+        this.selectedProject.id,
+        this.velocityEditEntry
+      );
       this.refreshSelectedProject();
       this.singleVelocityEditActive = false;
       this.cancelVelocityEdit();
@@ -1486,7 +1485,10 @@ cancelLadderWizard(): void {
     any.velocityInput = values.join(' ');
     this.velocityEditEntry.shotsFired = values.length;
 
-    this.data.updateLoadDevEntry(this.selectedProject.id, this.velocityEditEntry);
+    this.data.updateLoadDevEntry(
+      this.selectedProject.id,
+      this.velocityEditEntry
+    );
     this.refreshSelectedProject();
 
     this.singleVelocityEditActive = false;
