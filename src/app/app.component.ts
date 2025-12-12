@@ -1,6 +1,9 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 import { RiflesTabComponent } from './rifles-tab/rifles-tab.component';
 import { VenuesTabComponent } from './venues-tab/venues-tab.component';
@@ -40,6 +43,7 @@ interface LastSettingsResult {
     windDirectionClock: number | null;
   } | null;
 }
+
 interface DistanceHistoryEntry {
   sessionDate: string;
   distanceM: number;
@@ -89,6 +93,9 @@ export class AppComponent implements OnInit {
   currentTab: 'menu' | 'sessions' | 'rifles' | 'venues' | 'history' | 'loadDev' =
     'menu';
 
+  // bottom icon bar state (no logic tied yet, just to keep template happy)
+  activeTab: 'start' | 'rifles' | 'venues' | 'tools' = 'start';
+
   activeRifleName: string | null = null;
   activeVenueName: string | null = null;
   recentSessionsCount = 0;
@@ -97,14 +104,8 @@ export class AppComponent implements OnInit {
   /** Cached sessions so Reports doesn't have to keep hitting DataService. */
   private allSessions: any[] = [];
 
-  onBackFromWindEffect(): void {
-    // Close the full-screen wind tool and go back to the normal menu
-    this.selectedTool = null;
-    this.currentTab = 'menu';
-  }
-
   // REPORTS STATE
-    showReportsForm = false;
+  showReportsForm = false;
   reportRequest: ReportRequest = {
     type: 'recent',
     rifleId: null,
@@ -119,7 +120,7 @@ export class AppComponent implements OnInit {
   lastSettingsResult: LastSettingsResult | null = null;
   lastSettingsError: string | null = null;
 
-  // 🔴 NEW: multi-distance + wind trend
+  // Multi-distance + wind trend
   readonly REPORT_DISTANCES: number[] = [300, 600, 800, 900];
   multiDistanceSummary: MultiDistanceDopeSummary[] = [];
   windTrendSummary: WindTrendSummary | null = null;
@@ -127,7 +128,7 @@ export class AppComponent implements OnInit {
   riflesOptions: any[] = [];
   venuesOptions: any[] = [];
 
-  // 🔴 NEW: full history grouped by distance
+  // Full distance history at this venue
   distanceHistoryGroups: DistanceHistoryGroup[] = [];
   expandedDistanceM: number | null = null;
 
@@ -144,265 +145,444 @@ export class AppComponent implements OnInit {
   private dataService: DataService = inject(DataService);
   kestrel: KestrelService = inject(KestrelService);
 
+  // ---------- lifecycle ----------
+
   ngOnInit(): void {
     this.loadCoreData();
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    this.initKestrelSubscription();
   }
 
   private loadCoreData(): void {
-    try {
-      const rifles = this.dataService.getRifles();
-      const venues = this.dataService.getVenues();
-      const sessions = this.dataService.getSessions?.() ?? [];
+    this.allSessions = this.dataService.getSessions();
 
-      this.riflesOptions = rifles || [];
-      this.venuesOptions = venues || [];
+    const rifles = this.dataService.getRifles();
+    const venues = this.dataService.getVenues();
 
-      this.allSessions = sessions || [];
+    this.riflesOptions = rifles.map((r) => ({ id: r.id, name: r.name }));
+    this.venuesOptions = venues.map((v) => ({ id: v.id, name: v.name }));
 
-      this.recentSessionsCount = sessions.length;
-      this.recentLoadDevCount = 0;
+    this.recentSessionsCount = this.allSessions.length;
 
-      this.activeRifleName = rifles?.length ? rifles[0].name : null;
-      this.activeVenueName = venues?.length ? venues[0].name : null;
-    } catch (err) {
-      console.error('Error loading core data in AppComponent:', err);
-    }
+    const loadDevs = this.dataService.getLoadDevProjectsForRifle
+      ? rifles.reduce((sum, r) => {
+          const projects = this.dataService.getLoadDevProjectsForRifle(r.id);
+          return sum + projects.length;
+        }, 0)
+      : 0;
+    this.recentLoadDevCount = loadDevs;
   }
 
-  setTab(tab: 'menu' | 'sessions' | 'rifles' | 'venues' | 'history' | 'loadDev'): void {
-    this.currentTab = tab;
+  private initKestrelSubscription(): void {
+    this.kestrel.kestrelData$.subscribe((snapshot) => {
+      this.kestrelData = snapshot;
+    });
+  }
 
-    if (tab !== 'menu') {
-      this.showReportsForm = false;
-      this.showTools = false;
-      this.selectedTool = null;
-    }
+  // ---------- tab navigation ----------
+
+  setTab(
+    tab: 'menu' | 'sessions' | 'rifles' | 'venues' | 'history' | 'loadDev'
+  ): void {
+    this.currentTab = tab;
+    this.selectedTool = null;
+    this.showTools = false;
+    this.showReportsForm = false;
   }
 
   goToSessionsTab(): void {
     this.setTab('sessions');
   }
 
-  toggleReportsForm(): void {
-    // Opening reports hides tools so they don't overlap visually
-    this.showTools = false;
-    this.showReportsForm = !this.showReportsForm;
+  // called by session-tab backToMenu output in template
+  onBackFromSessions(): void {
+    this.setTab('menu');
   }
 
-  /**
-   * MAIN REPORT ACTION
-   *
-   * Scenario: when we arrive at a venue, we want to know what our settings were
-   * last time there: windage, elevation & conditions at a chosen distance.
-   */
-  submitReportRequest(): void {
-  // Clear previous state
-  this.lastSettingsResult = null;
-  this.lastSettingsError = null;
-  this.multiDistanceSummary = [];
-  this.windTrendSummary = null;
-  
+  // history-tab jumpToHistory uses setTab directly in template
 
-  
-// 🔴 NEW:
-  this.distanceHistoryGroups = [];
-  this.expandedDistanceM = null;
-  try {
-    
-    const rifleId = this.reportRequest.rifleId;
-    const venueId = this.reportRequest.venueId;
-    const distanceM = this.reportDistanceM;
+  // ---------- wind effect full-screen back ----------
 
-    if (!rifleId || !venueId || distanceM == null) {
-      this.lastSettingsError = 'Please select rifle, venue and distance first.';
-      return;
+  onBackFromWindEffect(): void {
+    // Close the full-screen wind tool and go back to the normal menu
+    this.selectedTool = null;
+    this.currentTab = 'menu';
+  }
+
+  // ---------- bottom icon bar ----------
+
+  setActiveTab(tab: 'start' | 'rifles' | 'venues' | 'tools'): void {
+    this.activeTab = tab;
+    // We leave behaviour simple: content still controlled
+    // by the text buttons and tools button in the menu.
+    // (You can wire this harder later if you want icons to also switch tabs.)
+  }
+
+  // ---------- reports UI handlers ----------
+
+  toggleReportsForm(): void {
+    this.showReportsForm = !this.showReportsForm;
+    if (this.showReportsForm) {
+      this.showTools = false;
+      this.selectedTool = null;
+    } else {
+      // clear report state when collapsing
+      this.lastSettingsResult = null;
+      this.lastSettingsError = null;
+      this.multiDistanceSummary = [];
+      this.windTrendSummary = null;
+      this.distanceHistoryGroups = [];
+      this.expandedDistanceM = null;
+    }
+  }
+
+  private getFilteredSessionsForReport(): any[] {
+    let sessions = [...this.allSessions];
+
+    // filter by rifle
+    if (this.reportRequest.rifleId) {
+      const rifleIdNum = Number(this.reportRequest.rifleId);
+      if (!Number.isNaN(rifleIdNum)) {
+        sessions = sessions.filter((s) => s.rifleId === rifleIdNum);
+      }
     }
 
-    const sessions =
-      (this.allSessions && this.allSessions.length
-        ? this.allSessions
-        : this.dataService.getSessions?.() ?? []) || [];
-
-    if (!sessions.length) {
-      this.lastSettingsError = 'No sessions found in History yet.';
-      return;
-
-      
+    // filter by venue
+    if (this.reportRequest.venueId) {
+      const venueIdNum = Number(this.reportRequest.venueId);
+      if (!Number.isNaN(venueIdNum)) {
+        sessions = sessions.filter((s) => s.venueId === venueIdNum);
+      }
     }
 
-    // Filter by rifle + venue
-    const matching = sessions.filter((s: any) => {
-      const sRifleId = s.rifleId || s.rifle?.id || s.rifleKey || null;
-      const sVenueId = s.venueId || s.venue?.id || s.venueKey || null;
-      return sRifleId === rifleId && sVenueId === venueId;
+    // filter by date range (if type is dateRange)
+    if (this.reportRequest.type === 'dateRange') {
+      const from = this.reportRequest.dateFrom
+        ? new Date(this.reportRequest.dateFrom).getTime()
+        : null;
+      const to = this.reportRequest.dateTo
+        ? new Date(this.reportRequest.dateTo).getTime()
+        : null;
+
+      sessions = sessions.filter((s) => {
+        const rawDate =
+          s.date ||
+          s.sessionDate ||
+          s.startTime ||
+          s.startedAt ||
+          s.createdAt ||
+          s.timestamp;
+        if (!rawDate) return false;
+
+        const t = new Date(rawDate).getTime();
+        if (Number.isNaN(t)) return false;
+
+        if (from !== null && t < from) return false;
+        if (to !== null && t > to) return false;
+        return true;
+      });
+    }
+
+    // sort oldest → newest
+    sessions.sort((a, b) => {
+      const getTime = (x: any) => {
+        const raw =
+          x.date ||
+          x.sessionDate ||
+          x.startTime ||
+          x.startedAt ||
+          x.createdAt ||
+          x.timestamp;
+        return raw ? new Date(raw).getTime() : 0;
+      };
+      return getTime(a) - getTime(b);
     });
 
-    if (!matching.length) {
-      this.lastSettingsError = 'No previous sessions for this rifle @ venue.';
+    if (this.reportRequest.limit && this.reportRequest.limit > 0) {
+      sessions = sessions.slice(-this.reportRequest.limit);
+    }
+
+    return sessions;
+  }
+
+  submitReportRequest(): void {
+    this.lastSettingsError = null;
+    this.lastSettingsResult = null;
+    this.multiDistanceSummary = [];
+    this.windTrendSummary = null;
+    this.distanceHistoryGroups = [];
+    this.expandedDistanceM = null;
+
+    const sessions = this.getFilteredSessionsForReport();
+    if (!sessions.length) {
+      this.lastSettingsError =
+        'No sessions found for this filter yet. Shoot a session first.';
       return;
     }
 
-    // Latest matching session
-    const lastSession = matching[matching.length - 1];
-
-    // 🔑 EXACT distance only – no nearest match
-    const dope = this.findDopeForExactDistance(lastSession, distanceM);
-
-    // Rifle / venue names
-    const rifleNameFromSession =
-      lastSession.rifleName ||
-      lastSession.rifle?.name ||
-      lastSession.rifleLabel;
-    const venueNameFromSession =
-      lastSession.venueName ||
-      lastSession.venue?.name ||
-      lastSession.venueLabel;
-
-    const rifleName =
-      rifleNameFromSession ||
-      this.findNameById(this.riflesOptions, rifleId) ||
-      'Unknown rifle';
-
-    const venueName =
-      venueNameFromSession ||
-      this.findNameById(this.venuesOptions, venueId) ||
-      'Unknown venue';
-
-    // Date
-    const rawDate =
-      lastSession.sessionDate ||
-      lastSession.date ||
-      lastSession.startTime ||
-      lastSession.startedAt ||
-      lastSession.createdAt ||
-      lastSession.timestamp;
-
-    const dateStr = rawDate
-      ? new Date(rawDate).toISOString().slice(0, 10)
-      : 'unknown date';
-
-    const resolvedDistanceM =
-      dope && (dope.distanceM ?? dope.distance ?? null);
-
-    const elevationMil =
-      dope && (dope.elevationMil ?? dope.elevation ?? null);
-    const windageMil =
-      dope && (dope.windageMil ?? dope.windage ?? null);
-
-    // Environment
-    const env =
-      lastSession.environment ||
-      lastSession.env ||
-      lastSession.conditions ||
-      null;
-
-    const temp =
-      env?.temperatureC ??
-      env?.tempC ??
-      env?.temperature ??
-      null;
-    const pressure =
-      env?.pressureInHg ??
-      env?.pressureHpa ??
-      env?.pressure ??
-      null;
-    const humidity =
-      env?.humidityPercent ??
-      env?.humidity ??
-      null;
-    const windSpeed =
-      env?.windSpeedMps ??
-      env?.windSpeed ??
-      null;
-    const windDirClock =
-      env?.windDirectionClock ??
-      env?.windDirClock ??
-      env?.windClock ??
-      null;
-
-    // If no DOPE row at this exact distance, tell the user clearly
-    if (!dope) {
-      this.lastSettingsError =
-        `No DOPE saved at ${distanceM} m for this rifle @ venue.`;
+    // ✅ NEW BEHAVIOUR:
+    // If distance is blank/0, show ALL available distances (grouped) instead of erroring.
+    if (!this.reportDistanceM || this.reportDistanceM <= 0) {
+      this.distanceHistoryGroups = this.buildDistanceHistoryGroupsAllDistances(
+        sessions
+      );
+      if (!this.distanceHistoryGroups.length) {
+        this.lastSettingsError =
+          'No DOPE distances found in the filtered sessions.';
+      }
+      return;
     }
 
-    this.lastSettingsResult = {
-      rifleName,
-      venueName,
-      sessionDate: dateStr,
-      distanceM: resolvedDistanceM ?? distanceM,
-      elevationMil: elevationMil ?? null,
-      windageMil: windageMil ?? null,
-      environment: {
-        temperatureC: temp ?? null,
-        pressureInHg: pressure ?? null,
-        humidityPercent: humidity ?? null,
-        windSpeedMps: windSpeed ?? null,
-        windDirectionClock: windDirClock ?? null,
-      },
-    };
+    const distanceM = this.reportDistanceM;
 
-    // 🔁 Build multi-distance view & wind trend (using all matching sessions)
+    // 1) Last settings at this exact distance
+    const last = this.findLastSettingsForDistance(sessions, distanceM);
+    if (!last) {
+      this.lastSettingsError =
+        'No DOPE found for this distance in the filtered sessions.';
+      return;
+    }
+    this.lastSettingsResult = last;
+
+    // 2) Quick DOPE view at key distances
     this.multiDistanceSummary = this.buildMultiDistanceSummary(
-      matching,
+      sessions,
       this.REPORT_DISTANCES
     );
-    this.windTrendSummary = this.buildWindTrendSummary(
-      matching,
-      distanceM
-    );
-        // 🔁 Build full distance history groups for this rifle @ venue
-    this.distanceHistoryGroups = this.buildDistanceHistoryGroups(matching);
 
-  } catch (err) {
-    console.error('Error running report:', err);
-    this.lastSettingsError = 'Error running report – see console for details.';
+    // 3) Wind trend at this distance
+    this.windTrendSummary = this.buildWindTrendSummary(sessions, distanceM);
+
+    // 4) Full distance history groups (ALL distances, comprehensive)
+this.distanceHistoryGroups = this.buildDistanceHistoryGroupsAllDistances(sessions);
+
+// Optional: auto-expand the selected distance group (nice UX)
+this.expandedDistanceM = distanceM;
+
+    ;
   }
-}
-private buildDistanceHistoryGroups(
-  sessions: any[]
-): DistanceHistoryGroup[] {
-  const byDistance = new Map<number, DistanceHistoryEntry[]>();
 
-  for (const s of sessions) {
-    const rawDate =
-      s.sessionDate ||
-      s.date ||
-      s.startTime ||
-      s.startedAt ||
-      s.createdAt ||
-      s.timestamp;
+  private findLastSettingsForDistance(
+    sessions: any[],
+    distanceM: number
+  ): LastSettingsResult | null {
+    for (let i = sessions.length - 1; i >= 0; i--) {
+      const s = sessions[i];
+      const dope = this.findDopeForExactDistance(s, distanceM);
+      if (!dope) continue;
 
-    const dateStr = rawDate
-      ? new Date(rawDate).toISOString().slice(0, 10)
-      : 'unknown date';
+      const rifleName =
+        this.dataService.getRifleById?.(s.rifleId)?.name || 'Unknown rifle';
+      const venueName =
+        this.dataService.getVenueById?.(s.venueId)?.name || 'Unknown venue';
 
-    const dopes: any[] = [];
+      const rawDate =
+        s.sessionDate ||
+        s.date ||
+        s.startTime ||
+        s.startedAt ||
+        s.createdAt ||
+        s.timestamp;
+      const dateStr = rawDate
+        ? new Date(rawDate).toISOString().slice(0, 10)
+        : 'Unknown date';
+
+      const env = s.environment || {};
+
+      const elevationMil =
+        dope.elevationMil ?? dope.elevation ?? dope.elevationClicks ?? null;
+      const windageMil =
+        dope.windageMil ?? dope.windage ?? dope.windClicks ?? null;
+
+      const result: LastSettingsResult = {
+        rifleName,
+        venueName,
+        sessionDate: dateStr,
+        distanceM: dope.distanceM ?? dope.distance ?? null,
+        elevationMil:
+          typeof elevationMil === 'number' && !Number.isNaN(elevationMil)
+            ? elevationMil
+            : null,
+        windageMil:
+          typeof windageMil === 'number' && !Number.isNaN(windageMil)
+            ? windageMil
+            : null,
+        environment: {
+          temperatureC:
+            typeof env.temperatureC === 'number' ? env.temperatureC : null,
+          pressureInHg:
+            typeof env.pressureInHg === 'number' ? env.pressureInHg : null,
+          humidityPercent:
+            typeof env.humidityPercent === 'number'
+              ? env.humidityPercent
+              : null,
+          windSpeedMps:
+            typeof env.windSpeedMps === 'number' ? env.windSpeedMps : null,
+          windDirectionClock:
+            typeof env.windDirectionClock === 'number'
+              ? env.windDirectionClock
+              : null,
+        },
+      };
+
+      return result;
+    }
+
+    return null;
+  }
+
+  private buildDistanceHistoryGroups(
+    sessions: any[],
+    distanceM: number
+  ): DistanceHistoryGroup[] {
+    const groupsMap = new Map<number, DistanceHistoryEntry[]>();
+
+    for (const s of sessions) {
+      const dope = this.findDopeForExactDistance(s, distanceM);
+      if (!dope) continue;
+
+      const rawDate =
+        s.sessionDate ||
+        s.date ||
+        s.startTime ||
+        s.startedAt ||
+        s.createdAt ||
+        s.timestamp;
+      const dateStr = rawDate
+        ? new Date(rawDate).toISOString().slice(0, 10)
+        : 'Unknown date';
+
+      const d =
+        typeof dope.distanceM === 'number'
+          ? dope.distanceM
+          : typeof dope.distance === 'number'
+          ? dope.distance
+          : distanceM;
+
+      const elevationMil =
+        dope.elevationMil ?? dope.elevation ?? dope.elevationClicks ?? null;
+      const windageMil =
+        dope.windageMil ?? dope.windage ?? dope.windClicks ?? null;
+
+      const entry: DistanceHistoryEntry = {
+        sessionDate: dateStr,
+        distanceM: d,
+        elevationMil:
+          typeof elevationMil === 'number' && !Number.isNaN(elevationMil)
+            ? elevationMil
+            : null,
+        windageMil:
+          typeof windageMil === 'number' && !Number.isNaN(windageMil)
+            ? windageMil
+            : null,
+      };
+
+      const list = groupsMap.get(d) ?? [];
+      list.push(entry);
+      groupsMap.set(d, list);
+    }
+
+    const groups: DistanceHistoryGroup[] = [];
+    for (const [d, entries] of groupsMap.entries()) {
+      entries.sort((a, b) => (a.sessionDate > b.sessionDate ? 1 : -1));
+      groups.push({ distanceM: d, entries });
+    }
+
+    groups.sort((a, b) => a.distanceM - b.distanceM);
+    return groups;
+  }
+
+  // ✅ NEW helper: build groups across ALL distances in the filtered sessions
+  private buildDistanceHistoryGroupsAllDistances(
+    sessions: any[]
+  ): DistanceHistoryGroup[] {
+    const groupsMap = new Map<number, DistanceHistoryEntry[]>();
+
+    for (const s of sessions) {
+      const dopes = this.extractAllDopeEntries(s);
+
+      if (!dopes.length) continue;
+
+      const rawDate =
+        s.sessionDate ||
+        s.date ||
+        s.startTime ||
+        s.startedAt ||
+        s.createdAt ||
+        s.timestamp;
+      const dateStr = rawDate
+        ? new Date(rawDate).toISOString().slice(0, 10)
+        : 'Unknown date';
+
+      for (const dope of dopes) {
+        const d =
+          typeof dope.distanceM === 'number'
+            ? dope.distanceM
+            : typeof dope.distance === 'number'
+            ? dope.distance
+            : null;
+
+        if (d == null || Number.isNaN(d)) continue;
+
+        const elevationMil =
+          dope.elevationMil ?? dope.elevation ?? dope.elevationClicks ?? null;
+        const windageMil =
+          dope.windageMil ?? dope.windage ?? dope.windClicks ?? null;
+
+        const entry: DistanceHistoryEntry = {
+          sessionDate: dateStr,
+          distanceM: d,
+          elevationMil:
+            typeof elevationMil === 'number' && !Number.isNaN(elevationMil)
+              ? elevationMil
+              : null,
+          windageMil:
+            typeof windageMil === 'number' && !Number.isNaN(windageMil)
+              ? windageMil
+              : null,
+        };
+
+        const list = groupsMap.get(d) ?? [];
+        list.push(entry);
+        groupsMap.set(d, list);
+      }
+    }
+
+    const groups: DistanceHistoryGroup[] = [];
+    for (const [d, entries] of groupsMap.entries()) {
+      entries.sort((a, b) => (a.sessionDate > b.sessionDate ? 1 : -1));
+      groups.push({ distanceM: d, entries });
+    }
+
+    groups.sort((a, b) => a.distanceM - b.distanceM);
+    return groups;
+  }
+
+  // ✅ NEW helper: extract all dope candidates from a session (top-level + subRanges)
+  private extractAllDopeEntries(session: any): any[] {
+    const candidates: any[] = [];
 
     const pushArray = (arr: any) => {
       if (Array.isArray(arr)) {
-        dopes.push(...arr);
+        candidates.push(...arr);
       }
     };
 
-    // Same places we search for DOPE elsewhere
-    pushArray(s.distanceDopes);
-    pushArray(s.distances);
-    pushArray(s.distanceDope);
-    pushArray(s.dopes);
-    if (Array.isArray(s.dope)) {
-      pushArray(s.dope);
+    // top-level arrays where DOPE might live
+    pushArray(session.distanceDopes);
+    pushArray(session.distances);
+    pushArray(session.distanceDope);
+    pushArray(session.dopes);
+
+    if (Array.isArray(session.dope)) {
+      pushArray(session.dope);
     }
-    if (s.dopeMap && typeof s.dopeMap === 'object') {
-      pushArray(Object.values(s.dopeMap));
+    if (session.dopeMap && typeof session.dopeMap === 'object') {
+      pushArray(Object.values(session.dopeMap));
     }
 
-    if (Array.isArray(s.subRanges)) {
-      for (const sr of s.subRanges) {
+    // sub-ranges
+    if (Array.isArray(session.subRanges)) {
+      for (const sr of session.subRanges) {
         pushArray(sr.distanceDopes);
         pushArray(sr.distances);
         pushArray(sr.distanceDope);
@@ -415,135 +595,74 @@ private buildDistanceHistoryGroups(
       }
     }
 
-    // For each DOPE entry, group by distance
-    for (const d of dopes) {
-      const dist =
-        typeof d?.distanceM === 'number'
-          ? d.distanceM
-          : typeof d?.distance === 'number'
-          ? d.distance
+    // Keep only entries that actually have a distance field
+    return candidates.filter((c) => {
+      const d =
+        typeof c?.distanceM === 'number'
+          ? c.distanceM
+          : typeof c?.distance === 'number'
+          ? c.distance
           : null;
-
-      if (dist == null) continue;
-
-      // Round to whole meters so 599.9 vs 600.0 don't create separate groups
-      const distKey = Math.round(dist);
-
-      const elevationMil =
-        typeof d.elevationMil === 'number'
-          ? d.elevationMil
-          : typeof d.elevation === 'number'
-          ? d.elevation
-          : null;
-
-      const windageMil =
-        typeof d.windageMil === 'number'
-          ? d.windageMil
-          : typeof d.windage === 'number'
-          ? d.windage
-          : null;
-
-      const entry: DistanceHistoryEntry = {
-        sessionDate: dateStr,
-        distanceM: distKey,
-        elevationMil,
-        windageMil,
-      };
-
-      const list = byDistance.get(distKey) || [];
-      list.push(entry);
-      byDistance.set(distKey, list);
-    }
-  }
-
-  // Build sorted groups (distance ascending, entries newest-first)
-  const groups: DistanceHistoryGroup[] = [];
-
-  const distances = Array.from(byDistance.keys()).sort((a, b) => a - b);
-
-  for (const d of distances) {
-    const entries = byDistance.get(d) || [];
-    // Newest first by date string (ISO-like format we used)
-    const sorted = entries.slice().sort((a, b) =>
-      b.sessionDate.localeCompare(a.sessionDate)
-    );
-    groups.push({
-      distanceM: d,
-      entries: sorted,
+      return d != null && !Number.isNaN(d);
     });
   }
 
-  return groups;
-}
+  private findDopeForExactDistance(session: any, distanceM: number): any | null {
+    const candidates: any[] = [];
 
-
-
-  /**
-   * Find the DOPE entry closest to the requested distance.
-   */
- /**
- * Find the DOPE entry for this session at the exact requested distance.
- * If no exact entry exists, returns null (we do NOT guess).
- */
-private findDopeForExactDistance(session: any, distanceM: number): any | null {
-  const candidates: any[] = [];
-
-  const pushArray = (arr: any) => {
-    if (Array.isArray(arr)) {
-      candidates.push(...arr);
-    }
-  };
-
-  // Top-level arrays where DOPE is often stored
-  pushArray(session.distanceDopes);
-  pushArray(session.distances);
-  pushArray(session.distanceDope);
-  pushArray(session.dopes);
-
-  if (Array.isArray(session.dope)) {
-    pushArray(session.dope);
-  }
-  if (session.dopeMap && typeof session.dopeMap === 'object') {
-    pushArray(Object.values(session.dopeMap));
-  }
-
-  // Sub-ranges
-  if (Array.isArray(session.subRanges)) {
-    for (const sr of session.subRanges) {
-      pushArray(sr.distanceDopes);
-      pushArray(sr.distances);
-      pushArray(sr.distanceDope);
-      if (Array.isArray(sr.dope)) {
-        pushArray(sr.dope);
+    const pushArray = (arr: any) => {
+      if (Array.isArray(arr)) {
+        candidates.push(...arr);
       }
-      if (sr.dopeMap && typeof sr.dopeMap === 'object') {
-        pushArray(Object.values(sr.dopeMap));
+    };
+
+    // top-level arrays where DOPE might live
+    pushArray(session.distanceDopes);
+    pushArray(session.distances);
+    pushArray(session.distanceDope);
+    pushArray(session.dopes);
+
+    if (Array.isArray(session.dope)) {
+      pushArray(session.dope);
+    }
+    if (session.dopeMap && typeof session.dopeMap === 'object') {
+      pushArray(Object.values(session.dopeMap));
+    }
+
+    // sub-ranges
+    if (Array.isArray(session.subRanges)) {
+      for (const sr of session.subRanges) {
+        pushArray(sr.distanceDopes);
+        pushArray(sr.distances);
+        pushArray(sr.distanceDope);
+        if (Array.isArray(sr.dope)) {
+          pushArray(sr.dope);
+        }
+        if (sr.dopeMap && typeof sr.dopeMap === 'object') {
+          pushArray(Object.values(sr.dopeMap));
+        }
       }
     }
+
+    if (!candidates.length) {
+      return null;
+    }
+
+    const TOL = 0.01; // allow tiny float noise
+
+    const match = candidates.find((c) => {
+      const d =
+        typeof c?.distanceM === 'number'
+          ? c.distanceM
+          : typeof c?.distance === 'number'
+          ? c.distance
+          : null;
+      if (d == null) return false;
+      return Math.abs(d - distanceM) <= TOL;
+    });
+
+    return match || null;
   }
-
-  if (!candidates.length) {
-    return null;
-  }
-
-  // EXact-match only – optional small tolerance for float noise
-  const TOL = 0.01; // 1 cm tolerance just in case of float rounding
-
-  const match = candidates.find((c) => {
-    const d =
-      typeof c?.distanceM === 'number'
-        ? c.distanceM
-        : typeof c?.distance === 'number'
-        ? c.distance
-        : null;
-
-    if (d == null) return false;
-    return Math.abs(d - distanceM) <= TOL;
-  });
-
-  return match || null;
-}
-
 
   /**
    * (Older helper, not used by the current UI but kept in case we need it later.)
@@ -597,7 +716,7 @@ private findDopeForExactDistance(session: any, distanceM: number): any | null {
 
     for (const c of withDistance) {
       const d =
-        typeof c.distanceM === 'number' ? c.distanceM : (c.distance as number);
+        typeof c.distanceM === 'number' ? c.distanceM : c.distance;
       const delta = Math.abs(d - target);
       if (delta < bestDelta) {
         bestDelta = delta;
@@ -608,13 +727,7 @@ private findDopeForExactDistance(session: any, distanceM: number): any | null {
     return best;
   }
 
-  private findNameById(list: any[], id: string | null | undefined): string | null {
-    if (!id || !Array.isArray(list)) {
-      return null;
-    }
-    const match = list.find((x) => x.id === id);
-    return match?.name ?? null;
-  }
+  // ---------- tools / Kestrel / converter ----------
 
   openTools(): void {
     this.showTools = !this.showTools;
@@ -625,11 +738,13 @@ private findDopeForExactDistance(session: any, distanceM: number): any | null {
   }
 
   onConverterToolClick(): void {
-    this.selectedTool = this.selectedTool === 'converter' ? null : 'converter';
+    this.selectedTool =
+      this.selectedTool === 'converter' ? null : 'converter';
   }
 
   onWindEffectToolClick(): void {
-    this.selectedTool = this.selectedTool === 'windEffect' ? null : 'windEffect';
+    this.selectedTool =
+      this.selectedTool === 'windEffect' ? null : 'windEffect';
   }
 
   get converterOutput(): number | null {
@@ -646,125 +761,225 @@ private findDopeForExactDistance(session: any, distanceM: number): any | null {
       return Math.round((value / 3.43775) * 1000) / 1000;
     }
 
-    // Simple assumptions for clicks conversions – adjust later if needed
+    // clicks conversions – simple assumptions
     if (this.converterMode === 'clicksToMil') {
-      const mil = value / 10; // 0.1 mil per click example
+      const mil = value / 10; // 0.1 mil per click
       return Math.round(mil * 1000) / 1000;
     }
 
     if (this.converterMode === 'clicksToMoa') {
-      const moa = value / 4; // ¼ MOA per click example
+      const moa = value / 4; // ¼ MOA per click
       return Math.round(moa * 1000) / 1000;
     }
 
     return null;
   }
-private buildMultiDistanceSummary(
-  sessions: any[],
-  distances: number[]
-): MultiDistanceDopeSummary[] {
-  const result: MultiDistanceDopeSummary[] = [];
 
-  // Go newest → oldest for each distance and stop on first hit
-  for (const d of distances) {
-    let found: MultiDistanceDopeSummary | null = null;
+  private buildMultiDistanceSummary(
+    sessions: any[],
+    distances: number[]
+  ): MultiDistanceDopeSummary[] {
+    const result: MultiDistanceDopeSummary[] = [];
 
-    for (let i = sessions.length - 1; i >= 0; i--) {
-      const s = sessions[i];
-      const dope = this.findDopeForExactDistance(s, d);
+    // Newest → oldest per distance, stop on first hit
+    for (const d of distances) {
+      let found: MultiDistanceDopeSummary | null = null;
+
+      for (let i = sessions.length - 1; i >= 0; i--) {
+        const s = sessions[i];
+        const dope = this.findDopeForExactDistance(s, d);
+        if (!dope) continue;
+
+        const rawDate =
+          s.sessionDate ||
+          s.date ||
+          s.startTime ||
+          s.startedAt ||
+          s.createdAt ||
+          s.timestamp;
+
+        const dateStr = rawDate
+          ? new Date(rawDate).toISOString().slice(0, 10)
+          : null;
+
+        const elevationMil =
+          dope.elevationMil ?? dope.elevation ?? null;
+        const windageMil =
+          dope.windageMil ?? dope.windage ?? null;
+
+        found = {
+          distanceM: d,
+          elevationMil,
+          windageMil,
+          sessionDate: dateStr,
+        };
+        break;
+      }
+
+      if (found) {
+        result.push(found);
+      }
+    }
+
+    return result;
+  }
+
+  private buildWindTrendSummary(
+    sessions: any[],
+    distanceM: number
+  ): WindTrendSummary | null {
+    let sum = 0;
+    let count = 0;
+
+    for (const s of sessions) {
+      const dope = this.findDopeForExactDistance(s, distanceM);
       if (!dope) continue;
 
-      const rawDate =
-        s.sessionDate ||
-        s.date ||
-        s.startTime ||
-        s.startedAt ||
-        s.createdAt ||
-        s.timestamp;
+      const w =
+        typeof dope.windageMil === 'number'
+          ? dope.windageMil
+          : typeof dope.windage === 'number'
+          ? dope.windage
+          : null;
 
-      const dateStr = rawDate
-        ? new Date(rawDate).toISOString().slice(0, 10)
-        : null;
-
-      const elevationMil =
-        dope.elevationMil ?? dope.elevation ?? null;
-      const windageMil =
-        dope.windageMil ?? dope.windage ?? null;
-
-      found = {
-        distanceM: d,
-        elevationMil,
-        windageMil,
-        sessionDate: dateStr,
-      };
-      break;
+      if (typeof w === 'number' && !Number.isNaN(w)) {
+        sum += w;
+        count++;
+      }
     }
 
-    if (found) {
-      result.push(found);
+    if (!count) {
+      return null;
+    }
+
+    const avg = sum / count;
+    const absAvg = Math.abs(avg);
+
+    let directionLabel = 'No clear bias';
+
+    if (absAvg < 0.05) {
+      directionLabel = 'No clear left/right trend';
+    } else if (avg > 0) {
+      directionLabel = `Left → Right (avg +${avg.toFixed(2)} mil)`;
+    } else if (avg < 0) {
+      directionLabel = `Right → Left (avg ${avg.toFixed(2)} mil)`;
+    }
+
+    return {
+      distanceM,
+      avgWindageMil: avg,
+      sampleCount: count,
+      directionLabel,
+    };
+  }
+
+  useLastSettingsInNewSession(): void {
+    if (!this.lastSettingsResult) {
+      this.lastSettingsError = 'Run a report first before using settings.';
+      return;
+    }
+
+    // For now we just jump to Sessions tab.
+    // Later we can pre-fill form via shared service/localStorage.
+    this.setTab('sessions');
+  }
+
+  // ---------- JSON load-dev backup (backup / export icon) ----------
+
+  async exportLoadDevBackup(): Promise<void> {
+    const rifles = this.riflesOptions || [];
+    if (!rifles.length) {
+      alert('No rifles found – nothing to backup yet.');
+      return;
+    }
+
+    const venues = this.venuesOptions || [];
+    const loadDevProjects: any[] = [];
+
+    // Collect all Load Development projects across all rifles
+    for (const r of rifles) {
+      const projectsForRifle =
+        this.dataService.getLoadDevProjectsForRifle?.(r.id) ?? [];
+      loadDevProjects.push(...projectsForRifle);
+    }
+
+    if (!loadDevProjects.length) {
+      alert('No load development projects found to export yet.');
+      return;
+    }
+
+    const sessions =
+      (this.allSessions && this.allSessions.length
+        ? this.allSessions
+        : this.dataService.getSessions?.() ?? []) || [];
+
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      source: 'Gunstuff Ballistics',
+      rifles,
+      venues,
+      loadDevProjects,
+      sessions,
+    };
+
+    const json = JSON.stringify(payload, null, 2);
+    const filename =
+      'gunstuff-loaddev-backup-' +
+      new Date().toISOString().slice(0, 10) +
+      '.json';
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const jsonBase64 = btoa(unescape(encodeURIComponent(json)));
+        const path = `gunstuff/${filename}`;
+
+        // write base64 data
+        await Filesystem.writeFile({
+          path,
+          data: jsonBase64,
+          directory: Directory.Data,
+          recursive: true,
+        });
+
+        // get a sharable URI
+        const uriResult = await Filesystem.getUri({
+          path,
+          directory: Directory.Data,
+        });
+
+        await Share.share({
+          title: filename,
+          text: 'Gunstuff load development backup',
+          url: uriResult.uri,
+        });
+
+        alert('Backup saved and ready to share.');
+      } catch (err) {
+        console.error('Native backup export failed:', err);
+        alert(
+          'Native backup export failed. Check storage permissions or try again.'
+        );
+      }
+    } else {
+      // Browser – download as a JSON file
+      try {
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Browser backup export failed:', err);
+        alert('Browser backup export failed.');
+      }
     }
   }
 
-  return result;
-}
-private buildWindTrendSummary(
-  sessions: any[],
-  distanceM: number
-): WindTrendSummary | null {
-  let sum = 0;
-  let count = 0;
-
-  for (const s of sessions) {
-    const dope = this.findDopeForExactDistance(s, distanceM);
-    if (!dope) continue;
-
-    const w =
-      typeof dope.windageMil === 'number'
-        ? dope.windageMil
-        : typeof dope.windage === 'number'
-        ? dope.windage
-        : null;
-
-    if (typeof w === 'number' && !Number.isNaN(w)) {
-      sum += w;
-      count++;
-    }
-  }
-
-  if (!count) {
-    return null;
-  }
-
-  const avg = sum / count;
-  const absAvg = Math.abs(avg);
-
-  let directionLabel = 'No clear bias';
-
-  if (absAvg < 0.05) {
-    directionLabel = 'No clear left/right trend';
-  } else if (avg > 0) {
-    directionLabel = `Left → Right (avg +${avg.toFixed(2)} mil)`;
-  } else if (avg < 0) {
-    directionLabel = `Right → Left (avg ${avg.toFixed(2)} mil)`;
-  }
-
-  return {
-    distanceM,
-    avgWindageMil: avg,
-    sampleCount: count,
-    directionLabel,
-  };
-}
-useLastSettingsInNewSession(): void {
-  if (!this.lastSettingsResult) {
-    this.lastSettingsError = 'Run a report first before using settings.';
-    return;
-  }
-
-  // For now: just jump to Sessions tab.
-  // Later we can pre-fill the session form via a shared service/localStorage.
-  this.setTab('sessions');
-}
+  // ---------- Kestrel button ----------
 
   async onKestrelButtonClick(): Promise<void> {
     if (this.selectedTool === 'kestrel') {
@@ -772,6 +987,13 @@ useLastSettingsInNewSession(): void {
       return;
     }
     this.selectedTool = 'kestrel';
+
+    try {
+      await BleClient.initialize();
+    } catch {
+      // ignore if already initialised
+    }
+
     await this.kestrel.connectKestrelBluetooth();
     this.kestrelData = this.kestrel.kestrelData$.getValue();
   }

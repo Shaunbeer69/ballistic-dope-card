@@ -1,11 +1,49 @@
-/* stylelint-disable at-rule-no-unknown */
-/* You can add global styles to this file, and also import other style files */
-/* vscode-disable unknownAtRules *
-
+/* vscode-disable unknownAtRules */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
+html,
 body {
-  @apply bg-slate-900;
+  height: 100%;
+  margin: 0;
+  background-color: #111827;  /* same dark blue as your main screen */
+}
+
+/* ensure the Angular root fills the screen and uses the same bg */
+app-root {
+  display: block;
+  min-height: 100vh;
+  background-color: #111827;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Global app background – use the same navy you use in the app */
+body {
+  background-color: #050b1a; /* or your existing main background */
+}
+
+/* Root container – will hold main content + bottom nav */
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #050b1a; /* same as body */
+}
+
+/* The scrollable/main part of the screen */
+.app-main {
+  flex: 1 1 auto;
+}
+
+/* Bottom nav: same background as main so it visually “joins” */
+.app-bottom-nav {
+  flex-shrink: 0;
+  background-color: #050b1a; /* NOT black */
+  /* optional: remove borders if you have any */
+  border-top: none;
 }
