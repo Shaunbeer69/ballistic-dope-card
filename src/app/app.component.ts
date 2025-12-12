@@ -234,6 +234,32 @@ export class AppComponent implements OnInit {
       this.expandedDistanceM = null;
     }
   }
+backToToolsAndResetReports(): void {
+  // Reset report filters to defaults
+  this.reportRequest = {
+    type: 'recent',
+    rifleId: null,
+    venueId: null,
+    dateFrom: null,
+    dateTo: null,
+    limit: 10,
+  };
+
+  this.reportDistanceM = null;
+
+  // Clear report results
+  this.lastSettingsResult = null;
+  this.lastSettingsError = null;
+  this.multiDistanceSummary = [];
+  this.windTrendSummary = null;
+  this.distanceHistoryGroups = [];
+  this.expandedDistanceM = null;
+
+  // Navigate back to Tools & utilities (expanded)
+  this.showReportsForm = false;
+  this.selectedTool = null;
+  this.openTools(); // <-- expands Tools (same logic as everywhere else)
+}
 
   private getFilteredSessionsForReport(): any[] {
     let sessions = [...this.allSessions];
@@ -311,6 +337,13 @@ export class AppComponent implements OnInit {
     this.windTrendSummary = null;
     this.distanceHistoryGroups = [];
     this.expandedDistanceM = null;
+    
+// Require Venue + Rifle
+if (!this.reportRequest.venueId || !this.reportRequest.rifleId) {
+  this.lastSettingsError = 'Please select a Venue and a Rifle first.';
+  return;
+}
+
 
     const sessions = this.getFilteredSessionsForReport();
     if (!sessions.length) {
