@@ -226,7 +226,7 @@
                     *ngIf="multiDistanceSummary.length"
                     class="mt-2 text-[10px] text-gray-200 bg-black/30 rounded-lg p-2"
                   >
-                    <div class="font-semibold mb-1">Quick DOPE view (last used)</div>
+                    <div class="text-[11px] font-semibold mb-1">Quick DOPE view (last used)</div>
                     <table class="w-full text-[10px]">
                       <thead class="text-gray-400 border-b border-gray-700">
                         <tr>
@@ -255,7 +255,7 @@
               </div>
               <!-- Full distance history at this venue -->
               <div *ngIf="showReportsForm && !showTools && distanceHistoryGroups.length">
-                <div class="font-semibold mb-1">
+                <div class="text-[11px] font-semibold mb-1">
                   Distance history at this venue (for selected rifle)
                 </div>
 
@@ -267,7 +267,7 @@
                     <!-- Header / collapsed row -->
                     <button
                       type="button"
-                      class="w-full flex items-center justify-between px-2 py-1 bg-black/40"
+                      class="w-full flex items-center justify-between px-2 py-1.5 bg-black/40 text-[11px]"
                       (click)="
                         expandedDistanceM =
                           expandedDistanceM === group.distanceM ? null : group.distanceM
@@ -275,7 +275,7 @@
                     >
                       <div>
                         <span class="font-semibold">{{ group.distanceM }} m</span>
-                        <span class="text-gray-400 ml-1">
+                        <span class="text-gray-400 ml-1 text-[10px]">
                           ({{ group.entries.length }} occurrence{{
                             group.entries.length > 1 ? 's' : ''
                           }})
@@ -291,7 +291,7 @@
                       *ngIf="expandedDistanceM === group.distanceM"
                       class="bg-black/60 px-2 pb-2 pt-1"
                     >
-                      <table class="w-full text-[10px]">
+                      <table class="w-full text-[11px]">
                         <thead class="text-gray-400 border-b border-gray-700">
                           <tr>
                             <th class="text-left pb-1">Date</th>
@@ -302,8 +302,8 @@
                         <tbody>
                           <tr *ngFor="let entry of group.entries" class="border-b border-gray-800">
                             <td class="py-0.5 font-mono">{{ entry.sessionDate }}</td>
-                            <td class="py-0.5">{{ entry.elevationMil ?? '-' }}</td>
-                            <td class="py-0.5">{{ entry.windageMil ?? '-' }}</td>
+                            <td class="py-1">{{ entry.elevationMil ?? '-' }}</td>
+                            <td class="py-1">{{ entry.windageMil ?? '-' }}</td>
                           </tr>
                         </tbody>
                       </table>
