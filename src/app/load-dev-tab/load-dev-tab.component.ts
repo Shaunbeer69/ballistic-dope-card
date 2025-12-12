@@ -408,31 +408,48 @@ export class LoadDevTabComponent implements OnInit {
     this.showNotesPanel = !this.showNotesPanel;
   }
 
-  private async savePdfNative(doc: jsPDF, filename: string): Promise<void> {
-    try {
-      const dataUrl = doc.output('datauristring');
-      const base64 = dataUrl.split(',')[1];
-      const path = `gunstuff/${filename}`;
+  async savePdfNative(doc: jsPDF, filename?: string): Promise<void> {
+  try {
+    const safeName =
+      filename || `gunstuff-loaddev-${Date.now()}.pdf`;
 
-      const result = await Filesystem.writeFile({
-  path,
-  data: base64,
-  directory: Directory.Data,   // ✔ Works on Android 13+
-  recursive: true
-});
+    // Convert jsPDF -> ArrayBuffer -> base64
+    const arrayBuffer = doc.output('arraybuffer') as ArrayBuffer;
+    const bytes = new Uint8Array(arrayBuffer);
 
-
-await Share.share({
-  title: filename,
-  text: 'Gunstuff Load Development Backup',
-  url: result.uri
-});
-
-    } catch (err) {
-      console.error('Native PDF save failed:', err);
-      doc.save(filename);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
     }
+    const base64 = btoa(binary);
+
+    if (Capacitor.isNativePlatform()) {
+      await Filesystem.writeFile({
+        path: safeName,
+        data: base64,
+        directory: Directory.Documents,
+      });
+
+      const uri = await Filesystem.getUri({
+        path: safeName,
+        directory: Directory.Documents,
+      });
+
+      await Share.share({
+        title: safeName,
+        text: 'Gunstuff Load Development PDF',
+        url: uri.uri,
+      });
+    } else {
+      // Browser fallback
+      doc.save(safeName);
+    }
+  } catch (err) {
+    console.error('PDF export failed:', err);
+    alert('Sharing failed. Please try again.');
   }
+}
 
   // ---------- loading ----------
 
@@ -996,7 +1013,8 @@ await Share.share({
         .replace(/[^a-z0-9\-]+/gi, '_') + '.pdf';
 
     if (Capacitor.isNativePlatform()) {
-      this.savePdfNative(doc, filename);
+      this.savePdfNative(doc);
+
     } else {
       doc.save(filename);
     }

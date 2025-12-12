@@ -337,7 +337,7 @@ backToToolsAndResetReports(): void {
     this.windTrendSummary = null;
     this.distanceHistoryGroups = [];
     this.expandedDistanceM = null;
-    
+
 // Require Venue + Rifle
 if (!this.reportRequest.venueId || !this.reportRequest.rifleId) {
   this.lastSettingsError = 'Please select a Venue and a Rifle first.';
@@ -920,35 +920,27 @@ this.expandedDistanceM = distanceM;
   // ---------- JSON load-dev backup (backup / export icon) ----------
 
   async exportLoadDevBackup(): Promise<void> {
-    const rifles = this.riflesOptions || [];
-    if (!rifles.length) {
-      alert('No rifles found – nothing to backup yet.');
-      return;
-    }
+  try {
+    const rifles = this.dataService.getRifles();
+    const venues = this.dataService.getVenues();
 
-    const venues = this.venuesOptions || [];
     const loadDevProjects: any[] = [];
-
-    // Collect all Load Development projects across all rifles
     for (const r of rifles) {
-      const projectsForRifle =
+      const projects =
         this.dataService.getLoadDevProjectsForRifle?.(r.id) ?? [];
-      loadDevProjects.push(...projectsForRifle);
+      loadDevProjects.push(...projects);
     }
 
     if (!loadDevProjects.length) {
-      alert('No load development projects found to export yet.');
+      alert('No load development projects found.');
       return;
     }
 
     const sessions =
-      (this.allSessions && this.allSessions.length
-        ? this.allSessions
-        : this.dataService.getSessions?.() ?? []) || [];
+      this.dataService.getSessions?.() ?? [];
 
     const payload = {
       exportedAt: new Date().toISOString(),
-      source: 'Gunstuff Ballistics',
       rifles,
       venues,
       loadDevProjects,
@@ -957,60 +949,44 @@ this.expandedDistanceM = distanceM;
 
     const json = JSON.stringify(payload, null, 2);
     const filename =
-      'gunstuff-loaddev-backup-' +
-      new Date().toISOString().slice(0, 10) +
-      '.json';
+      `gunstuff-loaddev-backup-${new Date().toISOString().slice(0, 10)}.json`;
 
     if (Capacitor.isNativePlatform()) {
-      try {
-        const jsonBase64 = btoa(unescape(encodeURIComponent(json)));
-        const path = `gunstuff/${filename}`;
+     await Filesystem.writeFile({
+  path: filename,
+  data: json,
 
-        // write base64 data
-        await Filesystem.writeFile({
-          path,
-          data: jsonBase64,
-          directory: Directory.Data,
-          recursive: true,
-        });
+  directory: Directory.Documents,
+});
 
-        // get a sharable URI
-        const uriResult = await Filesystem.getUri({
-          path,
-          directory: Directory.Data,
-        });
 
-        await Share.share({
-          title: filename,
-          text: 'Gunstuff load development backup',
-          url: uriResult.uri,
-        });
+      const uri = await Filesystem.getUri({
+        path: filename,
+        directory: Directory.Documents,
+      });
 
-        alert('Backup saved and ready to share.');
-      } catch (err) {
-        console.error('Native backup export failed:', err);
-        alert(
-          'Native backup export failed. Check storage permissions or try again.'
-        );
-      }
+      await Share.share({
+        title: filename,
+        text: 'Gunstuff Load Development Backup',
+        url: uri.uri,
+      });
     } else {
-      // Browser – download as a JSON file
-      try {
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error('Browser backup export failed:', err);
-        alert('Browser backup export failed.');
-      }
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
+  } catch (err) {
+    console.error('Export failed:', err);
+    alert('Sharing failed. Please try again.');
   }
+}
+
 
   // ---------- Kestrel button ----------
 
