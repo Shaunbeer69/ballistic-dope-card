@@ -1,4 +1,4 @@
-<div class="h-100 w-100 bg-[#111827] text-white mx-auto overflow-y-auto pb-16">
+<div class="min-h-screen w-full bg-[#111827] text-white mx-auto overflow-y-auto pb-16">
   <!-- Phone frame -->
   <div class="w-full max-w-sm flex flex-col">
     <!-- APP TITLE -->
@@ -15,14 +15,13 @@
     <div class="flex-1 flex flex-col mt-4 overflow-y-auto pb-[140px]">
       <!-- MENU TAB CONTENT -->
       <ng-container *ngIf="currentTab === 'menu'; else otherTabs">
+        <!-- WIND EFFECT TOOL FULLSCREEN INSIDE MENU -->
         <ng-container *ngIf="selectedTool === 'windEffect'; else normalMenu">
           <div class="rounded-3xl p-2 flex-1 flex flex-col">
-            <!-- Wind tool content fills the middle -->
             <div class="flex-1 overflow-y-auto">
               <app-wind-effect-tool></app-wind-effect-tool>
             </div>
 
-            <!-- Bottom back button -->
             <div class="mt-3 flex justify-end">
               <button
                 class="px-4 py-1.5 rounded-full bg-orange-500 text-[11px] text-black font-semibold shadow hover:bg-orange-400 active:bg-orange-600 transition"
@@ -37,28 +36,34 @@
         <!-- NORMAL MENU CONTENT -->
         <ng-template #normalMenu>
           <div class="space-y-3">
-            <!-- MAIN ACTION BUTTONS (status card removed) -->
-            <div class="rounded-3xl p-3 shadow space-y-2">
-              <div class="space-y-2 mt-1">
+            <!-- MAIN ACTION BUTTONS (square tiles) -->
+            <div class="rounded-3xl p-3 shadow space-y-3">
+              <div class="grid grid-cols-2 gap-3 mt-1">
+                <!-- Start Session -->
                 <button
-                  class="w-full px-3 py-2 rounded-2xl bg-gray-700 text-[13px] text-gray-100 shadow hover:bg-orange-400 active:bg-orange-600 transition"
+                  class="w-full aspect-square rounded-2xl bg-gray-700 text-gray-100 shadow hover:bg-orange-400 active:bg-orange-600 transition flex flex-col items-center justify-center gap-2"
                   (click)="goToSessionsTab()"
                 >
-                  Start Session
+                  <div class="text-3xl leading-none">🎯</div>
+                  <div class="text-[12px] font-semibold text-center px-2">Start Session</div>
                 </button>
 
+                <!-- Session Summaries -->
                 <button
-                  class="w-full px-3 py-2 rounded-2xl bg-gray-700 text-[13px] text-gray-100 shadow-inner hover:bg-orange-400 active:bg-orange-600 transition"
+                  class="w-full aspect-square rounded-2xl bg-gray-700 text-gray-100 shadow hover:bg-orange-400 active:bg-orange-600 transition flex flex-col items-center justify-center gap-2"
                   (click)="toggleReportsForm()"
                 >
-                  Session Summaries
+                  <div class="text-3xl leading-none">📊</div>
+                  <div class="text-[12px] font-semibold text-center px-2">Session Summaries</div>
                 </button>
 
+                <!-- Tools & utilities (full width) -->
                 <button
-                  class="w-full px-3 py-2 rounded-2xl bg-gray-700 text-[13px] text-gray-100 shadow-inner hover:bg-orange-400 active:bg-orange-600 transition"
+                  class="col-span-2 w-full rounded-2xl bg-gray-700 text-gray-100 shadow hover:bg-orange-400 active:bg-orange-600 transition flex items-center justify-center gap-3 py-5"
                   (click)="openTools()"
                 >
-                  Tools & utilities
+                  <div class="text-3xl leading-none">🧰</div>
+                  <div class="text-[13px] font-semibold">Tools & utilities</div>
                 </button>
               </div>
 
@@ -111,7 +116,6 @@
                     />
                   </div>
 
-                  <!-- Run button -->
                   <button
                     class="mt-1 px-3 py-1 text-[10px] rounded bg-orange-500 text-black font-semibold w-full"
                     (click)="submitReportRequest()"
@@ -119,12 +123,10 @@
                     Run report
                   </button>
 
-                  <!-- Error message -->
                   <div *ngIf="lastSettingsError" class="mt-2 text-[11px] text-red-400">
                     {{ lastSettingsError }}
                   </div>
 
-                  <!-- Result card -->
                   <div
                     *ngIf="lastSettingsResult"
                     class="mt-3 rounded-xl border border-gray-700 bg-black/40 p-2 space-y-1"
@@ -147,40 +149,39 @@
                     <div class="grid grid-cols-2 gap-1 text-[10px] text-gray-200 mt-1">
                       <div>
                         Elevation:
-                        <span class="font-semibold">
-                          {{ lastSettingsResult.elevationMil ?? '-' }} mil
-                        </span>
+                        <span class="font-semibold"
+                          >{{ lastSettingsResult.elevationMil ?? '-' }} mil</span
+                        >
                       </div>
                       <div>
                         Windage:
-                        <span class="font-semibold">
-                          {{ lastSettingsResult.windageMil ?? '-' }} mil
-                        </span>
+                        <span class="font-semibold"
+                          >{{ lastSettingsResult.windageMil ?? '-' }} mil</span
+                        >
                       </div>
                     </div>
 
-                    <!-- Environment block -->
                     <div
                       *ngIf="lastSettingsResult.environment"
                       class="mt-2 text-[10px] text-gray-300 space-y-0.5"
                     >
                       <div>
                         Temp:
-                        <span class="font-semibold">
-                          {{ lastSettingsResult.environment.temperatureC ?? '-' }} °C
-                        </span>
+                        <span class="font-semibold"
+                          >{{ lastSettingsResult.environment.temperatureC ?? '-' }} °C</span
+                        >
                       </div>
                       <div>
                         Pressure:
-                        <span class="font-semibold">
-                          {{ lastSettingsResult.environment.pressureInHg ?? '-' }}
-                        </span>
+                        <span class="font-semibold">{{
+                          lastSettingsResult.environment.pressureInHg ?? '-'
+                        }}</span>
                       </div>
                       <div>
                         Humidity:
-                        <span class="font-semibold">
-                          {{ lastSettingsResult.environment.humidityPercent ?? '-' }} %
-                        </span>
+                        <span class="font-semibold"
+                          >{{ lastSettingsResult.environment.humidityPercent ?? '-' }} %</span
+                        >
                       </div>
                       <div>
                         Wind:
@@ -191,7 +192,6 @@
                       </div>
                     </div>
 
-                    <!-- One-tap recall -->
                     <button
                       class="mt-2 w-full px-3 py-1 text-[10px] rounded bg-gray-200 text-black font-semibold"
                       (click)="useLastSettingsInNewSession()"
@@ -200,7 +200,6 @@
                     </button>
                   </div>
 
-                  <!-- Wind trend -->
                   <div
                     *ngIf="windTrendSummary"
                     class="mt-2 text-[10px] text-gray-300 bg-black/30 rounded-lg px-2 py-1"
@@ -216,7 +215,6 @@
                     </div>
                   </div>
 
-                  <!-- Multi-distance quick view -->
                   <div
                     *ngIf="multiDistanceSummary.length"
                     class="mt-2 text-[10px] text-gray-200 bg-black/30 rounded-lg p-2"
@@ -248,6 +246,7 @@
                   </div>
                 </div>
               </div>
+
               <!-- Full distance history at this venue -->
               <div *ngIf="showReportsForm && !showTools && distanceHistoryGroups.length">
                 <div class="text-[11px] font-semibold mb-1">
@@ -259,7 +258,6 @@
                     *ngFor="let group of distanceHistoryGroups"
                     class="border border-gray-700 rounded-md overflow-hidden"
                   >
-                    <!-- Header / collapsed row -->
                     <button
                       type="button"
                       class="w-full flex items-center justify-between px-2 py-1.5 bg-black/40 text-[11px]"
@@ -281,7 +279,6 @@
                       </div>
                     </button>
 
-                    <!-- Expanded entries -->
                     <div
                       *ngIf="expandedDistanceM === group.distanceM"
                       class="bg-black/60 px-2 pb-2 pt-1"
@@ -305,7 +302,7 @@
                     </div>
                   </div>
                 </div>
-                <!-- Back button (go back to Tools & utilities expanded) -->
+
                 <div class="mt-3 flex justify-end">
                   <button
                     type="button"
@@ -557,8 +554,6 @@
                   *ngIf="selectedTool !== 'kestrel' && selectedTool !== 'converter'"
                   class="mt-3flex justify-start gap-10"
                 >
-                  <!-- Wind tool icon -->
-
                   <!-- Load Development tool icon (bullet) -->
                   <div class="flex flex-col items-center">
                     <button
@@ -589,30 +584,7 @@
 	c0,4.14,1.612,8.033,4.54,10.96l33.941,33.941c3.021,3.022,6.991,4.533,10.96,4.533s7.938-1.511,10.96-4.533l185.996-185.996
 	l0.354,0.354c3.021,3.022,6.991,4.533,10.96,4.533s7.938-1.511,10.96-4.533l77.111-77.111l83.131,55.421
 	c2.975,1.984,6.936,1.592,9.463-0.937l16.97-16.971c2.929-2.929,2.929-7.678,0-10.606l-79.55-79.55l6.364-6.364l79.55,79.55
-	c1.464,1.464,3.384,2.197,5.303,2.197s3.839-0.732,5.303-2.197l16.971-16.971C491.817,205.44,492.209,201.479,490.226,198.505z
-	 M49.794,456.543c-0.036,0.036-0.146,0.146-0.354,0.146s-0.317-0.11-0.354-0.146l-33.941-33.941
-	C15.11,422.566,15,422.456,15,422.249c0-0.207,0.11-0.317,0.146-0.354l16.291-16.29l6.01,6.011c1.464,1.465,3.384,2.197,5.303,2.197
-	c1.919,0,3.839-0.732,5.303-2.197c2.929-2.929,2.929-7.677,0-10.606l-6.01-6.011l6.364-6.364l6.01,6.01
-	c1.464,1.464,3.384,2.197,5.303,2.197s3.839-0.732,5.303-2.197c2.929-2.929,2.929-7.678,0-10.606l-6.01-6.01l6.364-6.364l6.011,6.01
-c1.464,1.465,3.384,2.197,5.303,2.197s3.839-0.732,5.303-2.197c2.929-2.929,2.929-7.678,0-10.606l-6.011-6.01l6.364-6.364l6.01,6.01
-c1.464,1.464,3.384,2.197,5.303,2.197s3.839-0.732,5.303-2.197c2.929-2.929,2.929-7.678,0-10.606l-6.01-6.01l6.364-6.364l6.01,6.01
-c1.464,1.464,3.384,2.197,5.303,2.197s3.839-0.732,5.303-2.197c2.929-2.929,2.929-7.678,0-10.606l-6.01-6.01l6.364-6.364l6.01,6.01
-c1.464,1.464,3.384,2.197,5.303,2.197s3.839-0.732,5.303-2.197c2.929-2.929,2.929-7.678,0-10.606l-6.01-6.01l6.364-6.364l6.01,6.01
-c1.464,1.464,3.384,2.197,5.303,2.197s3.839-0.732,5.303-2.197c2.929-2.929,2.929-7.678,0-10.606l-6.01-6.01l6.364-6.364l6.011,6.011
-c1.464,1.465,3.384,2.197,5.303,2.197c1.919,0,3.839-0.732,5.303-2.197c2.929-2.929,2.929-7.677,0-10.606l-6.01-6.011l6.364-6.364
-l6.01,6.01c1.464,1.464,3.384,2.197,5.303,2.197s3.839-0.732,5.303-2.197c2.929-2.929,2.929-7.678,0-10.606l-6.01-6.01
-l6.364-6.364l6.011,6.01c1.464,1.465,3.384,2.197,5.303,2.197s3.839-0.732,5.303-2.197c2.929-2.929,2.929-7.678,0-10.606l-6.011-6.01
-l6.364-6.364l0.354,0.354c6.043,6.044,15.877,6.044,21.92,0l73.893-73.893l12.021,12.021l-73.893,73.893
-c-6.043,6.043-6.043,15.876,0,21.92l0.354,0.354L49.794,456.543z M432.118,243.926l-83.131-55.421
-c-2.974-1.983-6.936-1.591-9.463,0.937l-81.459,81.459c-0.036,0.036-0.146,0.146-0.354,0.146s-0.317-0.11-0.354-0.146l-5.64-5.64
-c-0.006-0.006-0.01-0.012-0.016-0.018s-0.012-0.01-0.018-0.016l-5.639-5.639c-0.195-0.195-0.195-0.513,0-0.708l79.196-79.196
-c1.407-1.406,2.197-3.314,2.197-5.303s-0.79-3.897-2.197-5.303l-22.627-22.627c-1.464-1.465-3.384-2.197-5.303-2.197
-s-3.839,0.732-5.303,2.197l-79.196,79.196c-0.195,0.194-0.512,0.194-0.707,0l-5.637-5.637c-0.007-0.006-0.012-0.014-0.018-0.02
-s-0.014-0.012-0.02-0.018l-5.637-5.637c-0.195-0.195-0.195-0.512,0-0.708l86.469-86.469c2.639-2.639,2.936-6.817,0.697-9.803
-l-20.341-27.121l1.411-1.411l34.294,34.294c2.928,2.929,7.677,2.929,10.606,0l6.011-6.01l119.501,119.501L432.118,243.926z
-	 M467.015,209.029l-79.55-79.55c-2.929-2.929-7.678-2.929-10.606,0l-11.667,11.667l-34.648-34.648l22.981-22.981
-	c1.407-1.406,2.197-3.314,2.197-5.303s-0.79-3.897-2.197-5.303l-34.294-34.295l1.411-1.411l40.051,30.038
-c2.985,2.239,7.164,1.943,9.803-0.697l0.354-0.354l39.426,39.427l64.06,96.089L467.015,209.029z"
+	c1.464,1.464,3.384,2.197,5.303,2.197s3.839-0.732,5.303-2.197l16.971-16.971C491.817,205.44,492.209,201.479,490.226,198.505z"
                         />
                       </svg>
                     </button>
@@ -668,25 +640,41 @@ c2.985,2.239,7.164,1.943,9.803-0.697l0.354-0.354l39.426,39.427l64.06,96.089L467.
     >
       <!-- Home -->
       <button class="flex flex-col items-center justify-center text-xs" (click)="setTab('menu')">
-        <span class="text-lg">🏠</span>
+        <span
+          class="text-lg leading-none px-2 py-1 rounded-xl"
+          [ngClass]="currentTab === 'menu' ? 'bg-orange-500 text-black' : ''"
+          >🏠</span
+        >
         <span>Home</span>
       </button>
 
       <!-- Venues -->
       <button class="flex flex-col items-center justify-center text-xs" (click)="setTab('venues')">
-        <span class="text-lg">📍</span>
+        <span
+          class="text-lg leading-none px-2 py-1 rounded-xl"
+          [ngClass]="currentTab === 'venues' ? 'bg-orange-500 text-black' : ''"
+          >📍</span
+        >
         <span>Venues</span>
       </button>
 
       <!-- Rifles -->
       <button class="flex flex-col items-center justify-center text-xs" (click)="setTab('rifles')">
-        <span class="text-lg">🔫</span>
+        <span
+          class="text-lg leading-none px-2 py-1 rounded-xl"
+          [ngClass]="currentTab === 'rifles' ? 'bg-orange-500 text-black' : ''"
+          >🔫</span
+        >
         <span>Rifles</span>
       </button>
 
-      <!-- History (sessions) -->
+      <!-- History -->
       <button class="flex flex-col items-center justify-center text-xs" (click)="setTab('history')">
-        <span class="text-lg">🧾</span>
+        <span
+          class="text-lg leading-none px-2 py-1 rounded-xl"
+          [ngClass]="currentTab === 'history' ? 'bg-orange-500 text-black' : ''"
+          >🧾</span
+        >
         <span>History</span>
       </button>
     </div>
