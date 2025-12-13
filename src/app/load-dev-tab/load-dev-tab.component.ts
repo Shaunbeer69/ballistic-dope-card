@@ -408,46 +408,35 @@ export class LoadDevTabComponent implements OnInit {
     this.showNotesPanel = !this.showNotesPanel;
   }
 
-  async savePdfNative(doc: jsPDF, filename?: string): Promise<void> {
+  private async savePdfNative(doc: jsPDF, filename: string): Promise<void> {
   try {
-    const safeName =
-      filename || `gunstuff-loaddev-${Date.now()}.pdf`;
+    const dataUrl = doc.output('datauristring');
+    const base64 = dataUrl.split(',')[1];
+    const path = `gunstuff/${filename}`;
 
-    // Convert jsPDF -> ArrayBuffer -> base64
-    const arrayBuffer = doc.output('arraybuffer') as ArrayBuffer;
-    const bytes = new Uint8Array(arrayBuffer);
+    // Save the PDF (Base64) into app storage
+    await Filesystem.writeFile({
+      path,
+      data: base64,
+      directory: Directory.Data,
+      recursive: true,
+    });
 
-    let binary = '';
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-    }
-    const base64 = btoa(binary);
+    // Get a shareable URI
+    const uriResult = await Filesystem.getUri({
+      path,
+      directory: Directory.Data,
+    });
 
-    if (Capacitor.isNativePlatform()) {
-      await Filesystem.writeFile({
-        path: safeName,
-        data: base64,
-        directory: Directory.Documents,
-      });
-
-      const uri = await Filesystem.getUri({
-        path: safeName,
-        directory: Directory.Documents,
-      });
-
-      await Share.share({
-        title: safeName,
-        text: 'Gunstuff Load Development PDF',
-        url: uri.uri,
-      });
-    } else {
-      // Browser fallback
-      doc.save(safeName);
-    }
+    await Share.share({
+      title: filename,
+      text: 'Gunstuff Load Development PDF',
+      url: uriResult.uri,
+    });
   } catch (err) {
-    console.error('PDF export failed:', err);
-    alert('Sharing failed. Please try again.');
+    console.error('Native PDF save failed:', err);
+    // Fallback: at least download/save in browser-style if possible
+    doc.save(filename);
   }
 }
 
@@ -1012,12 +1001,12 @@ export class LoadDevTabComponent implements OnInit {
         .toString()
         .replace(/[^a-z0-9\-]+/gi, '_') + '.pdf';
 
-    if (Capacitor.isNativePlatform()) {
-      this.savePdfNative(doc);
+  if (Capacitor.isNativePlatform()) {
+  this.savePdfNative(doc, filename);
+} else {
+  doc.save(filename);
+}
 
-    } else {
-      doc.save(filename);
-    }
   }
 
   // ---------- entry CRUD ----------

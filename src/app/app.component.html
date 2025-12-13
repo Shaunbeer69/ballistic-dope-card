@@ -17,11 +17,6 @@
       <ng-container *ngIf="currentTab === 'menu'; else otherTabs">
         <ng-container *ngIf="selectedTool === 'windEffect'; else normalMenu">
           <div class="rounded-3xl p-2 flex-1 flex flex-col">
-            <!-- Top header: centered title -->
-            <div class="flex items-center justify-center mb-2 px-1">
-              <div class="text-[11px] font-semibold text-gray-100">Wind effect</div>
-            </div>
-
             <!-- Wind tool content fills the middle -->
             <div class="flex-1 overflow-y-auto">
               <app-wind-effect-tool></app-wind-effect-tool>

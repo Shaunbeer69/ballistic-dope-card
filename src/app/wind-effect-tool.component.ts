@@ -393,40 +393,39 @@ export class WindEffectToolComponent implements OnInit {
 
   // --------------------------------
   // Red POI dot (visual only)
-  // --------------------------------
-  private updatePoiFromDrift(): void {
-    const centerX = 50;
-    const centerY = 50;
+private updatePoiFromDrift(): void {
+  const centerX = 50;
+  const centerY = 50;
 
-    const mils = this.milDrift;
-    if (!mils) {
-      this.poiX = centerX;
-      this.poiY = centerY;
-      return;
-    }
-
-    // VISUAL exaggeration only – does not change numbers
-    const visualScale = 2;
-    const pixelsPerMil = 6;
-    const maxRadius = 36;
-
-    const rawRadius =
-      Math.abs(mils) * visualScale * pixelsPerMil;
-    const radius = Math.min(rawRadius, maxRadius);
-
-    // downwind direction from top
-    const downwindTopDeg = this.arrowAngleDeg;
-    const rad =
-      ((downwindTopDeg - 90) * Math.PI) / 180;
-
-    this.poiX = centerX + radius * Math.cos(rad);
-    this.poiY = centerY + radius * Math.sin(rad);
+  const mils = this.milDrift;
+  if (!mils) {
+    this.poiX = centerX;
+    this.poiY = centerY;
+    return;
   }
 
-  // --------------------------------
-  // Back button (if used in template)
-  // --------------------------------
-  goBack(): void {
-    this.router.navigate(['/']);
-  }
+  // Visual exaggeration only
+  const visualScale = 2;
+  const pixelsPerMil = 6;
+  const maxRadius = 36;
+
+  const rawRadius = Math.abs(mils) * visualScale * pixelsPerMil;
+  const radius = Math.min(rawRadius, maxRadius);
+
+  // arrowAngleDeg is WIND-FROM (0=12 o'clock, 90=3 o'clock)
+  // bullet should drift DOWNWIND = wind-from + 180
+  const downwindTopDeg = (this.arrowAngleDeg + 180) % 360;
+
+  // IMPORTANT: use the SAME mapping as buildHourMarkers()
+  const rad = (downwindTopDeg * Math.PI) / 180;
+
+  this.poiX = centerX + radius * Math.sin(rad);
+  this.poiY = centerY - radius * Math.cos(rad);
 }
+
+  
+// --------------------------------
+// Back button (if used in template)
+// --------------------------------
+}
+

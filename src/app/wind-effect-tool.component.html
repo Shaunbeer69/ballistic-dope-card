@@ -1,5 +1,4 @@
 <div class="w-full h-full flex flex-col gap-3 text-gray-100 text-[11px]">
-
   <!-- Choose rifle -->
   <div class="bg-gray-900/70 border border-gray-700 rounded-xl p-2">
     <div class="text-[9px] text-gray-400 mb-1">Rifle</div>
@@ -10,7 +9,7 @@
     >
       <option [ngValue]="null">Choose rifle</option>
       <option *ngFor="let r of rifles" [ngValue]="r.id ?? r.rifleId">
-        {{ r.name || r.label || ('Rifle ' + (r.id ?? r.rifleId)) }}
+        {{ r.name || r.label || 'Rifle ' + (r.id ?? r.rifleId) }}
       </option>
     </select>
   </div>
@@ -49,20 +48,22 @@
   </div>
 
   <!-- Wind speed -->
+  <!-- Wind speed -->
   <div class="bg-gray-900/70 border border-gray-700 rounded-xl p-2">
-    <div class="text-[10px] text-gray-300 mb-1">Wind speed</div>
-
     <div class="flex items-center gap-2">
+      <span class="text-[10px] text-gray-300 whitespace-nowrap"> Wind speed </span>
+
       <input
         type="number"
         [ngModel]="windSpeedInput"
         (ngModelChange)="onWindSpeedInputChange($event)"
-        class="w-24 bg-black border border-gray-700 rounded-lg px-2 py-1 text-[11px]"
+        class="w-20 bg-black border border-gray-700 rounded-lg px-2 py-0.5 text-[11px]"
       />
+
       <select
         [ngModel]="windUnit"
         (ngModelChange)="onWindUnitChange($event)"
-        class="w-24 bg-black border border-gray-700 rounded-lg px-1 py-1 text-[10px]"
+        class="w-20 bg-black border border-gray-700 rounded-lg px-1 py-0.5 text-[10px]"
       >
         <option value="mph">mph</option>
         <option value="kmh">km/h</option>
@@ -82,15 +83,18 @@
     (pointerleave)="endDrag($event)"
   >
     <svg viewBox="0 0 100 100" class="w-full h-full">
-
       <!-- Outer & inner rings -->
       <circle
-        cx="50" cy="50" r="40"
+        cx="50"
+        cy="50"
+        r="40"
         class="fill-[#020617] stroke-gray-600"
         stroke-width="1.5"
       ></circle>
       <circle
-        cx="50" cy="50" r="22"
+        cx="50"
+        cy="50"
+        r="22"
         class="fill-[#020617] stroke-gray-700"
         stroke-width="0.8"
       ></circle>
@@ -102,9 +106,12 @@
       <!-- Hour ticks + labels -->
       <ng-container *ngFor="let h of hours">
         <line
-          [attr.x1]="h.tickX1" [attr.y1]="h.tickY1"
-          [attr.x2]="h.tickX2" [attr.y2]="h.tickY2"
-          class="stroke-gray-500" stroke-width="0.6"
+          [attr.x1]="h.tickX1"
+          [attr.y1]="h.tickY1"
+          [attr.x2]="h.tickX2"
+          [attr.y2]="h.tickY2"
+          class="stroke-gray-500"
+          stroke-width="0.6"
         ></line>
 
         <text
@@ -113,34 +120,29 @@
           text-anchor="middle"
           alignment-baseline="middle"
           class="fill-gray-300"
-          font-size="6">
+          font-size="6"
+        >
           {{ h.hour }}
         </text>
       </ng-container>
 
       <!-- ORANGE arrow – tail on outer ring, tip toward center -->
-      <g [attr.transform]="'rotate(' + (arrowAngleDeg + 180) + ' 50 50)'">
+      <g [attr.transform]="'rotate(' + arrowAngleDeg + ' 50 50)'">
         <line
-          x1="50" y1="16"
-          x2="50" y2="36"
+          x1="50"
+          y1="16"
+          x2="50"
+          y2="36"
           class="stroke-orange-400"
           stroke-width="2.8"
           stroke-linecap="round"
         ></line>
 
-        <polygon
-          points="50,40 46,34 54,34"
-          class="fill-orange-400"
-        ></polygon>
+        <polygon points="50,40 46,34 54,34" class="fill-orange-400"></polygon>
       </g>
 
       <!-- POI dot (red) – position driven by drift -->
-      <circle
-        [attr.cx]="poiX"
-        [attr.cy]="poiY"
-        r="2.3"
-        class="fill-red-500"
-      ></circle>
+      <circle [attr.cx]="poiX" [attr.cy]="poiY" r="2.3" class="fill-red-500"></circle>
     </svg>
   </div>
 
@@ -149,12 +151,8 @@
     <!-- Mil + cm -->
     <div class="bg-gray-900/90 border border-emerald-500/70 rounded-xl px-2 py-1">
       <div class="flex items-center text-[9px] font-semibold">
-        <span class="flex-1 text-emerald-400">
-          Drift (mil)
-        </span>
-        <span class="flex-1 text-emerald-300 text-right">
-          Drift (cm)
-        </span>
+        <span class="flex-1 text-emerald-400"> Drift (mil) </span>
+        <span class="flex-1 text-emerald-300 text-right"> Drift (cm) </span>
       </div>
       <div class="h-px bg-gray-800 my-0.5"></div>
       <div class="flex items-baseline text-[12px] text-gray-50 font-bold">
@@ -171,12 +169,8 @@
     <!-- MOA + inch -->
     <div class="bg-gray-900/90 border border-sky-500/70 rounded-xl px-2 py-1">
       <div class="flex items-center text-[9px] font-semibold">
-        <span class="flex-1 text-sky-400">
-          Drift (MOA)
-        </span>
-        <span class="flex-1 text-sky-300 text-right">
-          Drift (inch)
-        </span>
+        <span class="flex-1 text-sky-400"> Drift (MOA) </span>
+        <span class="flex-1 text-sky-300 text-right"> Drift (inch) </span>
       </div>
       <div class="h-px bg-gray-800 my-0.5"></div>
       <div class="flex items-baseline text-[12px] text-gray-50 font-bold">
@@ -190,5 +184,4 @@
       </div>
     </div>
   </div>
-
 </div>
