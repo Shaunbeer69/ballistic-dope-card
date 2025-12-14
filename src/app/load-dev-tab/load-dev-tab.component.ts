@@ -1128,76 +1128,89 @@ export class LoadDevTabComponent implements OnInit {
 
   // ---------- node detection & colouring ----------
 
-  private computeNodesForSelectedProject(): Map<number, number> {
-    const map = new Map<number, number>();
-    const project = this.selectedProject;
+  // ---------- node detection & colouring ----------
 
-    if (!project || project.type !== 'ladder') {
-      return map;
-    }
 
-    const entries = project.entries ?? [];
-    if (entries.length < 3) {
-      return map;
-    }
+// ---------- node detection & colouring ----------
 
-    const withStats: NodeEntry[] = entries
-      .map(e => {
-        const stats = this.statsForEntry(e);
-        return stats ? { entry: e, stats } : null;
-      })
-      .filter((x): x is NodeEntry => !!x);
+private computeNodesForSelectedProject(): Map<number, number> {
+  const map = new Map<number, number>();
+  const project = this.selectedProject;
 
-    if (withStats.length < 3) {
-      return map;
-    }
+  // Ladder only
+  if (!project || project.type !== 'ladder') return map;
 
-    const sorted = [...withStats].sort(
-      (a, b) => (a.entry.chargeGr ?? 9999) - (b.entry.chargeGr ?? 9999)
-    );
+  const entries = (project.entries ?? [])
+    .filter(e => typeof e.chargeGr === 'number' && isFinite(e.chargeGr))
+    .slice()
+    .sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
 
-    const NODE_SD_THRESHOLD = 10;
-    const groups: number[][] = [];
-    let i = 0;
+  if (entries.length < 3) return map;
 
-    while (i + 2 < sorted.length) {
-      let window = [sorted[i], sorted[i + 1], sorted[i + 2]];
-      let vals = window.map(w => w.stats.avg);
-      let sd = this.computeSimpleSd(vals);
+  // Your rule: highlight only if window SD is <10 and >3
+  const SD_MIN = 3;
+  const SD_MAX = 10;
+  const WINDOW = 3;
 
-      if (sd >= NODE_SD_THRESHOLD) {
-        i++;
-        continue;
-      }
+  // Helper: get the avg velocity we should use for ladder SD
+  const avgVel = (e: any): number | null => {
+    // Prefer stats avg if available (works whether you store a list or a single value)
+    const st = this.statsForEntry?.(e);
+    const v = st?.avg ?? e.velocityAvg ?? e.velocityFps ?? e.velocity ?? null;
+    return (typeof v === 'number' && isFinite(v)) ? v : null;
+  };
 
-      let j = i + 3;
-      while (j < sorted.length) {
-        const extended = [...window, sorted[j]];
-        const extVals = extended.map(w => w.stats.avg);
-        const extSd = this.computeSimpleSd(extVals);
+  // sample SD (n-1) like your usual stats
+  const sdOf = (vals: number[]): number => {
+    const n = vals.length;
+    if (n < 2) return NaN;
+    const mean = vals.reduce((s, x) => s + x, 0) / n;
+    const varSum = vals.reduce((s, x) => s + (x - mean) * (x - mean), 0);
+    return Math.sqrt(varSum / (n - 1));
+  };
 
-        if (extSd < NODE_SD_THRESHOLD) {
-          window = extended;
-          vals = extVals;
-          sd = extSd;
-          j++;
-        } else {
-          break;
-        }
-      }
+  // Build “qualifying windows” of 3 consecutive charges
+  const qualifyingIds = new Set<number>();
 
-      const ids = window.map(w => w.entry.id);
-      groups.push(ids);
 
-      i = j;
-    }
+  for (let i = 0; i <= entries.length - WINDOW; i++) {
+    const win = entries.slice(i, i + WINDOW);
 
-    groups.forEach((ids, index) => {
-      ids.forEach(id => map.set(id, index));
-    });
+    const vels = win.map(avgVel);
+    if (vels.some(v => v == null)) continue;
 
-    return map;
+   const sd = sdOf(vels as number[]);
+const es = Math.max(...(vels as number[])) - Math.min(...(vels as number[]));
+
+if (sd <= SD_MAX && es <= SD_MAX) {
+  win.forEach(e => qualifyingIds.add(e.id));
+}
+
   }
+
+  // Group consecutive qualifying rows into coloured groups
+  let groupIndex = -1;
+  let inRun = false;
+
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    const isQ = qualifyingIds.has(e.id);
+
+    if (isQ && !inRun) {
+      groupIndex++;
+      inRun = true;
+    } else if (!isQ && inRun) {
+      inRun = false;
+    }
+
+    if (isQ) {
+      map.set(e.id, groupIndex);
+    }
+  }
+
+  return map;
+}
+
 
   nodeCssClass(entry: LoadDevEntry) {
     const map = this.computeNodesForSelectedProject();
