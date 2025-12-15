@@ -1,8 +1,16 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, OnInit, Output } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  EventEmitter,
+  OnInit,
+  Output,
+  ViewChild
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
+
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
 import jsPDF from 'jspdf';
@@ -55,7 +63,7 @@ interface PlannerForm {
   startChargeGr: number | null;
   endChargeGr: number | null;
   stepGr: number | null;
-  shotsPerGroup: number | null; // OCW: how many shots per step
+  shotsPerGroup: number | null;
 }
 
 interface VelocityStats {
@@ -77,18 +85,52 @@ interface NodeEntry {
   templateUrl: './load-dev-tab.component.html'
 })
 export class LoadDevTabComponent implements OnInit {
+  @ViewChild('velocityInputEl') velocityInputEl?: ElementRef<HTMLInputElement>;
+
   @Output() backToMenu = new EventEmitter<void>();
+
+  // ----------------------------
+  // Focus / highlight behaviour
+  // ----------------------------
+  /**
+   * Optional token you can use in HTML for a brief pulse:
+   * [ngClass]="velocityFocusToken ? 'ring-4 ring-sky-300/60' : ''"
+   */
+  velocityFocusToken = 0;
+
+  private focusVelocityInput(selectAll = true): void {
+    // Defer to allow Angular to render the next wizard row first.
+    setTimeout(() => {
+      const el = this.velocityInputEl?.nativeElement;
+      if (!el) return;
+
+      try {
+        el.focus({ preventScroll: false } as any);
+      } catch {
+        el.focus();
+      }
+
+      if (selectAll) {
+        try {
+          el.select();
+        } catch {
+          // ignore
+        }
+      }
+
+      // Optional “pulse” token if you decide to use it in HTML
+      this.velocityFocusToken++;
+    }, 0);
+  }
 
   // ---- navigation back from history/footer button ----
   onBackFromHistory(): void {
     this.backToMenu.emit();
   }
 
-  // ---- simple legacy "export project to PDF" used earlier (kept for compatibility) ----
+  // ---- legacy export (kept for compatibility) ----
   exportProjectToPdf(): void {
-    if (!this.selectedProject) {
-      return;
-    }
+    if (!this.selectedProject) return;
 
     const project: any = this.selectedProject;
     const rifle =
@@ -97,15 +139,12 @@ export class LoadDevTabComponent implements OnInit {
         : null;
 
     const doc = new jsPDF();
-
     let y = 14;
 
-    // Title
     doc.setFontSize(14);
     doc.text('Load development', 14, y);
     y += 8;
 
-    // Meta info
     doc.setFontSize(10);
     doc.text(`Rifle: ${rifle?.name || '—'}`, 14, y);
     y += 5;
@@ -127,16 +166,14 @@ export class LoadDevTabComponent implements OnInit {
     }
 
     if (project.dateStarted) {
-      const dateText = this.shortDate(project.dateStarted);
-      doc.text(`Started: ${dateText}`, 14, y);
+      doc.text(`Started: ${this.shortDate(project.dateStarted)}`, 14, y);
       y += 5;
     }
 
     y += 4;
 
-    // Optional velocity vs charge chart using existing graphCoords
     this.rebuildGraphData();
-    if (this.graphCoords && this.graphCoords.length) {
+    if (this.graphCoords.length) {
       const chartLeft = 14;
       const chartTop = y;
       const chartWidth = 180;
@@ -177,11 +214,10 @@ export class LoadDevTabComponent implements OnInit {
     const entries = this.entriesForSelectedProject();
     const rows = entries.map((entry: any) => {
       const stats = this.statsForEntry(entry);
-      const avg = stats && stats.avg != null ? stats.avg.toFixed(0) : '—';
-      const es = stats && stats.es != null ? stats.es.toFixed(0) : '—';
-      const sd = stats && stats.sd != null ? stats.sd.toFixed(1) : '—';
+      const avg = stats ? stats.avg.toFixed(0) : '—';
+      const es = stats ? stats.es.toFixed(0) : '—';
+      const sd = stats ? stats.sd.toFixed(1) : '—';
       const shots = entry.shotsFired != null ? String(entry.shotsFired) : '—';
-
       return [String(entry.chargeGr ?? ''), avg, es, sd, shots];
     });
 
@@ -195,23 +231,15 @@ export class LoadDevTabComponent implements OnInit {
       startY: y,
       head: [['Charge (gr)', 'Avg fps', 'ES', 'SD', 'Shots']],
       body: rows,
-      styles: {
-        fontSize: 8
-      },
-      headStyles: {
-        fillColor: [34, 197, 94],
-        textColor: [0, 0, 0]
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245]
-      }
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [34, 197, 94], textColor: [0, 0, 0] },
+      alternateRowStyles: { fillColor: [245, 245, 245] }
     });
 
     doc.save(this.buildProjectFilename(project));
   }
 
   // ---------- rifles / projects ----------
-
   rifles: Rifle[] = [];
   selectedRifleId: number | null = null;
 
@@ -249,7 +277,7 @@ export class LoadDevTabComponent implements OnInit {
   resultsCollapsed = false;
   hasResultsForSelectedProject = false;
 
-  // Post-save yellow banner
+  // Post-save banner
   postSaveMessage: string | null = null;
 
   // Ladder/OCW wizard
@@ -272,7 +300,6 @@ export class LoadDevTabComponent implements OnInit {
   constructor(private data: DataService) {}
 
   // ---------- lifecycle ----------
-
   ngOnInit(): void {
     this.rifles = this.data.getRifles();
     if (this.rifles.length > 0) {
@@ -282,7 +309,6 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   // ---------- helpers ----------
-
   private createEmptyProjectForm(): ProjectForm {
     return {
       rifleId: null,
@@ -338,15 +364,7 @@ export class LoadDevTabComponent implements OnInit {
     if (!value) return '';
     const d = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleDateString(undefined, {
-      year: '2-digit',
-      month: '2-digit',
-      day: '2-digit'
-    });
-  }
-
-  asDateString(value: string | Date | null | undefined): string {
-    return this.shortDate(value);
+    return d.toLocaleDateString(undefined, { year: '2-digit', month: '2-digit', day: '2-digit' });
   }
 
   projectTypeLabel(type: LoadDevType): string {
@@ -360,36 +378,6 @@ export class LoadDevTabComponent implements OnInit {
       default:
         return 'Other';
     }
-  }
-
-  getSelectedRifleName(): string {
-    if (!this.selectedRifleId) {
-      return 'No rifle selected';
-    }
-    const rifle = this.rifles.find(r => r.id === this.selectedRifleId);
-    if (rifle && rifle.name) return rifle.name;
-    return 'Rifle ' + this.selectedRifleId;
-  }
-
-  getSuggestedProjectName(): string {
-    const rifleName =
-      this.rifles.find(r => r.id === this.selectedRifleId)?.name || 'Load';
-    const typeLabel =
-      this.projectForm.type === 'ladder'
-        ? 'Ladder'
-        : this.projectForm.type === 'ocw'
-        ? 'OCW'
-        : 'Dev';
-
-    const powder = this.projectForm.powder?.trim()
-      ? ` ${this.projectForm.powder.trim()}`
-      : '';
-    const bulletPart =
-      this.projectForm.bulletWeightGr && this.projectForm.bullet?.trim()
-        ? ` ${this.projectForm.bulletWeightGr}gr ${this.projectForm.bullet.trim()}`
-        : '';
-
-    return `${rifleName} ${typeLabel}${powder}${bulletPart}`.trim();
   }
 
   get devTypeDescription(): string | null {
@@ -413,7 +401,6 @@ export class LoadDevTabComponent implements OnInit {
       const base64 = dataUrl.split(',')[1];
       const path = `gunstuff/${filename}`;
 
-      // Save the PDF (Base64) into app storage
       await Filesystem.writeFile({
         path,
         data: base64,
@@ -421,11 +408,7 @@ export class LoadDevTabComponent implements OnInit {
         recursive: true
       });
 
-      // Get a shareable URI
-      const uriResult = await Filesystem.getUri({
-        path,
-        directory: Directory.Data
-      });
+      const uriResult = await Filesystem.getUri({ path, directory: Directory.Data });
 
       await Share.share({
         title: filename,
@@ -434,30 +417,35 @@ export class LoadDevTabComponent implements OnInit {
       });
     } catch (err) {
       console.error('Native PDF save failed:', err);
-      // Fallback: at least download/save in browser-style if possible
       doc.save(filename);
     }
   }
 
   // ---------- loading ----------
-
   onRifleChange(): void {
     this.selectedProjectId = null;
     this.selectedProject = null;
+
     this.hasResultsForSelectedProject = false;
     this.resultsCollapsed = false;
+
     this.showGraph = false;
     this.graphCoords = [];
     this.graphSvgPoints = '';
+
+    this.resetWizard();
     this.loadProjects();
   }
 
   private resetWizard(): void {
     this.showGraph = false;
+
     this.ladderWizardActive = false;
     this.singleVelocityEditActive = false;
+
     this.velocityEditEntry = null;
     this.velocityEditValue = '';
+
     this.ladderWizardEntries = [];
     this.ladderWizardIndex = 0;
   }
@@ -467,12 +455,15 @@ export class LoadDevTabComponent implements OnInit {
       this.projects = [];
       this.selectedProject = null;
       this.selectedProjectId = null;
+
       this.hasResultsForSelectedProject = false;
-      this.rebuildGraphData();
-      this.resetWizard();
+
       this.availablePowders = [];
       this.availableBullets = [];
       this.filteredProjects = null;
+
+      this.rebuildGraphData();
+      this.resetWizard();
       return;
     }
 
@@ -496,16 +487,20 @@ export class LoadDevTabComponent implements OnInit {
     this.updateHasResultsFlag();
     this.rebuildGraphData();
     if (!this.graphCoords.length) this.showGraph = false;
+
     this.resetWizard();
   }
 
   private refreshSelectedProject(): void {
     if (!this.selectedRifleId || !this.selectedProjectId) return;
+
     this.projects = this.data.getLoadDevProjectsForRifle(this.selectedRifleId);
     this.selectedProject =
       this.projects.find(p => p.id === this.selectedProjectId) ?? null;
+
     this.rebuildFilterOptions();
     this.applyProjectFilters();
+
     this.updateHasResultsFlag();
     this.rebuildGraphData();
     if (!this.graphCoords.length) this.showGraph = false;
@@ -518,14 +513,17 @@ export class LoadDevTabComponent implements OnInit {
       this.rebuildGraphData();
       this.showGraph = false;
       this.resetWizard();
-    } else {
-      this.selectedProject =
-        this.projects.find(p => p.id === this.selectedProjectId) ?? null;
-      this.updateHasResultsFlag();
-      this.rebuildGraphData();
-      if (!this.graphCoords.length) this.showGraph = false;
-      this.resetWizard();
+      return;
     }
+
+    this.selectedProject =
+      this.projects.find(p => p.id === this.selectedProjectId) ?? null;
+
+    this.updateHasResultsFlag();
+    this.rebuildGraphData();
+    if (!this.graphCoords.length) this.showGraph = false;
+
+    this.resetWizard();
   }
 
   openSelectedProject(): void {
@@ -552,7 +550,6 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   // ---------- filters ----------
-
   private rebuildFilterOptions(): void {
     const powders = new Set<string>();
     const bullets = new Set<string>();
@@ -561,12 +558,8 @@ export class LoadDevTabComponent implements OnInit {
       if (!p.entries) continue;
       for (const e of p.entries) {
         const any = e as any;
-        if (any.powder && typeof any.powder === 'string') {
-          powders.add(any.powder.trim());
-        }
-        if (any.bullet && typeof any.bullet === 'string') {
-          bullets.add(any.bullet.trim());
-        }
+        if (typeof any.powder === 'string' && any.powder.trim()) powders.add(any.powder.trim());
+        if (typeof any.bullet === 'string' && any.bullet.trim()) bullets.add(any.bullet.trim());
       }
     }
 
@@ -603,7 +596,6 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   // ---------- project CRUD ----------
-
   newProject(): void {
     if (!this.selectedRifleId) {
       alert('Select rifle first');
@@ -612,8 +604,10 @@ export class LoadDevTabComponent implements OnInit {
 
     this.selectedProject = null;
     this.selectedProjectId = null;
+
     this.hasResultsForSelectedProject = false;
     this.resultsCollapsed = false;
+
     this.showGraph = false;
     this.graphCoords = [];
     this.graphSvgPoints = '';
@@ -622,19 +616,25 @@ export class LoadDevTabComponent implements OnInit {
     this.projectForm = this.createEmptyProjectForm();
     this.projectForm.rifleId = this.selectedRifleId;
     this.projectForm.type = 'ladder';
+
     this.planner = this.createEmptyPlannerForm();
     this.plannerError = null;
+
     this.projectFormVisible = true;
     this.postSaveMessage = null;
     this.showNotesPanel = false;
+
+    this.resetWizard();
   }
 
   cancelProjectForm(): void {
     this.projectFormVisible = false;
     this.editingProject = null;
     this.projectForm = this.createEmptyProjectForm();
+
     this.planner = this.createEmptyPlannerForm();
     this.plannerError = null;
+
     this.showNotesPanel = false;
   }
 
@@ -644,17 +644,10 @@ export class LoadDevTabComponent implements OnInit {
 
     this.plannerError = null;
 
-    const { distanceM, startChargeGr, endChargeGr, stepGr, shotsPerGroup } =
-      this.planner;
+    const { distanceM, startChargeGr, endChargeGr, stepGr, shotsPerGroup } = this.planner;
 
-    if (
-      startChargeGr == null ||
-      endChargeGr == null ||
-      stepGr == null ||
-      stepGr <= 0
-    ) {
-      this.plannerError =
-        'Enter start, end and a positive step size for the charge ladder.';
+    if (startChargeGr == null || endChargeGr == null || stepGr == null || stepGr <= 0) {
+      this.plannerError = 'Enter start, end and a positive step size for the charge ladder.';
       return;
     }
 
@@ -669,11 +662,11 @@ export class LoadDevTabComponent implements OnInit {
     if (Math.abs(stepsFloat - stepsInt) > 1e-6) {
       this.plannerError =
         'Warning: step does not divide evenly into the window – last charge may be partial.';
+      // NOTE: Not returning here: still allow generation.
     }
 
     const dist = distanceM ?? undefined;
-    const defaultShots: number | undefined =
-      type === 'ocw' ? shotsPerGroup ?? undefined : 1;
+    const defaultShots: number | undefined = type === 'ocw' ? shotsPerGroup ?? undefined : 1;
 
     let charge = startChargeGr;
     let localId = 1;
@@ -711,7 +704,6 @@ export class LoadDevTabComponent implements OnInit {
     }
 
     const type: LoadDevType = (this.projectForm.type as LoadDevType) || 'ladder';
-
     this.postSaveMessage = null;
 
     if (this.editingProject) {
@@ -749,32 +741,34 @@ export class LoadDevTabComponent implements OnInit {
           : 'Ladder test planned and saved. Go shoot the ladder, then come back here and use the wizard or Edit buttons to enter velocities and view the graph with node highlights.';
     }
 
-    setTimeout(() => {
-      this.postSaveMessage = null;
-    }, 15000);
+    setTimeout(() => (this.postSaveMessage = null), 15000);
 
     this.projectFormVisible = false;
     this.editingProject = null;
+
     this.projectForm = this.createEmptyProjectForm();
     this.planner = this.createEmptyPlannerForm();
     this.plannerError = null;
     this.showNotesPanel = false;
+
     this.loadProjects();
     this.resetWizard();
   }
 
   deleteProject(project: LoadDevProject): void {
     if (!confirm(`Delete project "${project.name}"?`)) return;
+
     this.data.deleteLoadDevProject(project.id);
+
     if (this.selectedProjectId === project.id) {
       this.selectedProject = null;
       this.selectedProjectId = null;
     }
+
     this.loadProjects();
   }
 
   // ---------- EXPORT PDF (enhanced shot chart) ----------
-
   exportSelectedProjectToPdf(): void {
     if (!this.selectedProject) {
       alert('Select a load development first.');
@@ -794,7 +788,6 @@ export class LoadDevTabComponent implements OnInit {
     }
 
     const allShotValues: number[] = [];
-
     entries.forEach(e => {
       const values = this.parseVelocityInput((e as any).velocityInput);
       values.forEach(v => allShotValues.push(v));
@@ -812,7 +805,6 @@ export class LoadDevTabComponent implements OnInit {
     const doc = new jsPDF('p', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Brand bar
     doc.setFillColor(0, 0, 0);
     doc.rect(0, 0, pageWidth, 10, 'F');
 
@@ -825,7 +817,6 @@ export class LoadDevTabComponent implements OnInit {
     doc.setTextColor(0, 0, 0);
     let y = 18;
 
-    // Meta
     doc.setFontSize(13);
     doc.text(project.name || 'Load development', 14, y);
     y += 7;
@@ -844,7 +835,6 @@ export class LoadDevTabComponent implements OnInit {
 
     y += 4;
 
-    // Main chart
     const chartLeft = 18;
     const chartWidth = pageWidth - 36;
     const chartTop = y;
@@ -884,9 +874,7 @@ export class LoadDevTabComponent implements OnInit {
       let sum = 0;
 
       values.forEach(v => {
-        const yVal =
-          chartTop + chartHeight - ((v - minV) / rangeV) * chartHeight;
-
+        const yVal = chartTop + chartHeight - ((v - minV) / rangeV) * chartHeight;
         doc.circle(baseX, yVal, 0.7, 'F');
 
         const label = String(Math.round(v));
@@ -894,7 +882,6 @@ export class LoadDevTabComponent implements OnInit {
         doc.text(label, baseX + 1.5, yVal - 1.5);
 
         sum += v;
-
         minY = minY === null ? yVal : Math.min(minY, yVal);
         maxY = maxY === null ? yVal : Math.max(maxY, yVal);
       });
@@ -929,8 +916,8 @@ export class LoadDevTabComponent implements OnInit {
 
         const poiText = `POI: ${any.poiNote}`;
         const textWidth = doc.getTextWidth(poiText);
-
         doc.text(poiText, baseX - textWidth / 2, chartTop - 5);
+
         doc.setTextColor(0, 0, 0);
       }
 
@@ -939,19 +926,14 @@ export class LoadDevTabComponent implements OnInit {
         const prevValues = this.parseVelocityInput(prevEntry.velocityInput);
 
         if (prevValues.length) {
-          const prevAvg =
-            prevValues.reduce((a: number, b: number) => a + b, 0) /
-            prevValues.length;
+          const prevAvg = prevValues.reduce((a: number, b: number) => a + b, 0) / prevValues.length;
           const currAvg = sum / values.length;
 
           const prevX = chartLeft + innerPadX + (i - 1) * xStep;
           const currX = baseX;
 
-          const prevY =
-            chartTop + chartHeight - ((prevAvg - minV) / rangeV) * chartHeight;
-
-          const currY =
-            chartTop + chartHeight - ((currAvg - minV) / rangeV) * chartHeight;
+          const prevY = chartTop + chartHeight - ((prevAvg - minV) / rangeV) * chartHeight;
+          const currY = chartTop + chartHeight - ((currAvg - minV) / rangeV) * chartHeight;
 
           doc.setLineWidth(0.6);
           doc.setDrawColor(colour.r, colour.g, colour.b);
@@ -961,11 +943,7 @@ export class LoadDevTabComponent implements OnInit {
 
       if (typeof any.chargeGr === 'number') {
         const chargeText = any.chargeGr.toFixed(1);
-        doc.text(
-          chargeText,
-          baseX - doc.getTextWidth(chargeText) / 2,
-          chartTop + chartHeight + 4
-        );
+        doc.text(chargeText, baseX - doc.getTextWidth(chargeText) / 2, chartTop + chartHeight + 4);
       }
     });
 
@@ -1001,7 +979,6 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   // ---------- entry helpers ----------
-
   formatGroupSize(entry: LoadDevEntry): string {
     const any = entry as any;
     if (typeof any.groupSize !== 'number' || !isFinite(any.groupSize)) return '—';
@@ -1009,8 +986,7 @@ export class LoadDevTabComponent implements OnInit {
     return `${any.groupSize.toFixed(2)} ${unit}`;
   }
 
-  // ---------- entry CRUD ----------
-
+  // ---------- entry CRUD (kept even if not shown in your current HTML) ----------
   newEntry(): void {
     if (!this.selectedProject) {
       alert('Select a load development first.');
@@ -1060,7 +1036,6 @@ export class LoadDevTabComponent implements OnInit {
       return;
     }
 
-    // ✅ FIX: allow velocityInput even if LoadDevEntry type doesn't declare it.
     const payload: (Partial<LoadDevEntry> & { velocityInput?: string }) = {
       loadLabel: f.loadLabel.trim() || undefined,
       powder: f.powder.trim() || undefined,
@@ -1106,12 +1081,10 @@ export class LoadDevTabComponent implements OnInit {
     if (!this.selectedProject) return [];
     const list = [...(this.selectedProject.entries ?? [])];
 
-    // OCW: always sort by best (lowest) SD first, so the highlighted rows make sense.
     if (this.selectedProject.type === 'ocw') {
       return this.sortOcwEntriesBySd(list);
     }
 
-    // Ladder / others: keep user's chosen sorting.
     switch (this.entrySortMode) {
       case 'chargeAsc':
         return list.sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
@@ -1121,13 +1094,11 @@ export class LoadDevTabComponent implements OnInit {
         return list.sort((a, b) => (b.groupSize ?? 0) - (a.groupSize ?? 0));
       case 'default':
       default:
-        // Default = charge ascending (predictable)
         return list.sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
     }
   }
 
   // ---------- velocity stats & parsing ----------
-
   private parseVelocityInput(raw: string | undefined | null): number[] {
     if (!raw) return [];
     return raw
@@ -1142,15 +1113,31 @@ export class LoadDevTabComponent implements OnInit {
     return this.computeVelocityStats(values);
   }
 
-  // --- OCW ranking helpers ----------------------------------------------------
+  private computeVelocityStats(values: number[]): VelocityStats | null {
+    if (!values.length) return null;
+
+    const n = values.length;
+    const avg = values.reduce((a, b) => a + b, 0) / n;
+    const sorted = [...values].sort((a, b) => a - b);
+    const es = sorted[n - 1] - sorted[0];
+
+    // population SD (consistent with your previous code)
+    const variance = values.reduce((sum, v) => sum + (v - avg) ** 2, 0) / n;
+    const sd = Math.sqrt(variance);
+
+    return { avg, es, sd, n };
+  }
+
+  // --- OCW ranking helpers ---
   private sortOcwEntriesBySd(entries: LoadDevEntry[]): LoadDevEntry[] {
-    // We compute SD on the fly using statsForEntry(). Lower SD is better.
     const sdCache = new Map<string, number>();
     const getSd = (e: LoadDevEntry): number => {
       const key = String((e as any).id ?? '');
       if (sdCache.has(key)) return sdCache.get(key)!;
+
       const s = this.statsForEntry(e)?.sd;
       const v = typeof s === 'number' && isFinite(s) ? s : Number.POSITIVE_INFINITY;
+
       sdCache.set(key, v);
       return v;
     };
@@ -1160,7 +1147,6 @@ export class LoadDevTabComponent implements OnInit {
       const sb = getSd(b);
       if (sa !== sb) return sa - sb;
 
-      // Tie-breaker: charge
       const ca = Number((a as any).chargeGr ?? 0);
       const cb = Number((b as any).chargeGr ?? 0);
       if (ca !== cb) return ca - cb;
@@ -1171,12 +1157,6 @@ export class LoadDevTabComponent implements OnInit {
     });
   }
 
-  /**
-   * Returns a simple rank label for OCW rows:
-   * - "best"  : lowest SD
-   * - "second": 2nd lowest SD
-   * - "third" : 3rd lowest SD
-   */
   ocwRankForEntry(entry: LoadDevEntry): 'best' | 'second' | 'third' | null {
     if (!this.selectedProject || this.selectedProject.type !== 'ocw') return null;
 
@@ -1195,7 +1175,6 @@ export class LoadDevTabComponent implements OnInit {
     return null;
   }
 
-  /** Used in template for OCW row highlighting. */
   ocwSdCssClass(entry: LoadDevEntry): string {
     const r = this.ocwRankForEntry(entry);
     if (r === 'best') return 'bg-emerald-900/30 ring-1 ring-emerald-500/50';
@@ -1204,31 +1183,16 @@ export class LoadDevTabComponent implements OnInit {
     return '';
   }
 
-  private computeVelocityStats(values: number[]): VelocityStats | null {
-    if (!values.length) return null;
-
-    const n = values.length;
-    const avg = values.reduce((a, b) => a + b, 0) / n;
-    const sorted = [...values].sort((a, b) => a - b);
-    const es = sorted[n - 1] - sorted[0];
-    const variance = values.reduce((sum, v) => sum + (v - avg) ** 2, 0) / n;
-    const sd = Math.sqrt(variance);
-
-    return { avg, es, sd, n };
-  }
-
   // ---------- node detection & colouring (ladder) ----------
-
   private findNodes(entries: LoadDevEntry[]): NodeEntry[] {
-    const nodes: NodeEntry[] = [];
-
     const valid = entries
       .map(e => ({ entry: e, stats: this.statsForEntry(e) }))
       .filter(x => x.stats != null) as NodeEntry[];
 
-    if (valid.length < 3) return nodes;
+    if (valid.length < 3) return [];
 
-    // Simple heuristic: if SD is low and adjacent velocities are close, call it a node-ish point.
+    const nodes: NodeEntry[] = [];
+
     for (let i = 1; i < valid.length - 1; i++) {
       const prev = valid[i - 1];
       const cur = valid[i];
@@ -1238,9 +1202,7 @@ export class LoadDevTabComponent implements OnInit {
       const dv1 = Math.abs(cur.stats.avg - prev.stats.avg);
       const dv2 = Math.abs(next.stats.avg - cur.stats.avg);
 
-      if (sd <= 12 && dv1 <= 15 && dv2 <= 15) {
-        nodes.push(cur);
-      }
+      if (sd <= 12 && dv1 <= 15 && dv2 <= 15) nodes.push(cur);
     }
 
     return nodes;
@@ -1248,17 +1210,13 @@ export class LoadDevTabComponent implements OnInit {
 
   nodeCssClass(entry: LoadDevEntry): string {
     if (!this.selectedProject || this.selectedProject.type !== 'ladder') return '';
-    const entries = this.entriesForSelectedProject();
-    const nodes = this.findNodes(entries);
-
-    const id = entry.id;
-    const isNode = nodes.some(n => n.entry.id === id);
-
-    return isNode ? 'bg-emerald-900/25 ring-1 ring-emerald-400/40' : '';
+    const nodes = this.findNodes(this.entriesForSelectedProject());
+    return nodes.some(n => n.entry.id === entry.id)
+      ? 'bg-emerald-900/25 ring-1 ring-emerald-400/40'
+      : '';
   }
 
   // ---------- velocities completeness ----------
-
   private allEntriesHaveVelocity(): boolean {
     if (!this.selectedProject?.entries?.length) return false;
 
@@ -1269,31 +1227,14 @@ export class LoadDevTabComponent implements OnInit {
     });
   }
 
-  private appendVelocityToEntry(entry: LoadDevEntry, value: number): void {
-    if (!this.selectedProject) return;
-
-    const any = entry as any;
-    const existing = this.parseVelocityInput(any.velocityInput);
-    const updated = [...existing, value];
-
-    any.velocityInput = updated.join(' ');
-    entry.shotsFired = updated.length;
-
-    this.data.updateLoadDevEntry(this.selectedProject.id, entry);
-    this.refreshSelectedProject();
-  }
-
   // ---------- graph data ----------
-
   private rebuildGraphData(): void {
     this.graphCoords = [];
     this.graphSvgPoints = '';
     this.graphMinVel = 0;
     this.graphMaxVel = 0;
 
-    if (!this.selectedProject || !this.selectedProject.entries?.length) {
-      return;
-    }
+    if (!this.selectedProject || !this.selectedProject.entries?.length) return;
 
     const pts: { charge: number; avg: number }[] = [];
 
@@ -1310,6 +1251,7 @@ export class LoadDevTabComponent implements OnInit {
 
     let min = pts[0].avg;
     let max = pts[0].avg;
+
     for (const p of pts) {
       if (p.avg < min) min = p.avg;
       if (p.avg > max) max = p.avg;
@@ -1321,8 +1263,8 @@ export class LoadDevTabComponent implements OnInit {
 
     const n = pts.length;
     const span = this.graphMaxVel - this.graphMinVel || 1;
-    const coords: { x: number; y: number; charge: number; avg: number }[] = [];
 
+    const coords: { x: number; y: number; charge: number; avg: number }[] = [];
     for (let i = 0; i < n; i++) {
       const p = pts[i];
       const x = n === 1 ? 50 : (i / (n - 1)) * 100;
@@ -1343,17 +1285,13 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   // ---------- ladder / OCW wizard ----------
-
   startLadderWizard(): void {
     if (!this.selectedProject) {
       alert('Select a load development first.');
       return;
     }
 
-    if (
-      this.selectedProject.type !== 'ladder' &&
-      this.selectedProject.type !== 'ocw'
-    ) {
+    if (this.selectedProject.type !== 'ladder' && this.selectedProject.type !== 'ocw') {
       alert('The velocity wizard is only available for ladder and OCW developments.');
       return;
     }
@@ -1375,6 +1313,7 @@ export class LoadDevTabComponent implements OnInit {
     this.ladderWizardEntries = entries;
     this.ladderWizardIndex = 0;
     this.ladderWizardActive = true;
+
     this.singleVelocityEditActive = false;
 
     this.setWizardCurrentEntry();
@@ -1391,6 +1330,9 @@ export class LoadDevTabComponent implements OnInit {
     this.velocityEditEntry = this.ladderWizardEntries[this.ladderWizardIndex];
     const any = this.velocityEditEntry as any;
     this.velocityEditValue = any.velocityInput ?? '';
+
+    // ✅ requirement: cursor jumps into field and value is highlighted
+    this.focusVelocityInput(true);
   }
 
   private finishLadderWizard(): void {
@@ -1420,9 +1362,13 @@ export class LoadDevTabComponent implements OnInit {
 
     this.ladderWizardEntries = sorted;
     this.ladderWizardIndex = currentIndex + 1;
+
     this.velocityEditEntry = sorted[this.ladderWizardIndex];
     const any = this.velocityEditEntry as any;
     this.velocityEditValue = any.velocityInput ?? '';
+
+    // ✅ requirement: focus/highlight next step
+    this.focusVelocityInput(true);
   }
 
   saveVelocityAndNext(): void {
@@ -1435,19 +1381,20 @@ export class LoadDevTabComponent implements OnInit {
       const values = this.parseVelocityInput(trimmed);
       if (!values.length) {
         alert('Enter one or more numeric velocities, separated by spaces or commas.');
+        // keep focus where user is typing
+        this.focusVelocityInput(true);
         return;
       }
 
       if (this.selectedProject.type === 'ocw') {
         const plannedShots =
-          this.velocityEditEntry.shotsFired ??
-          this.planner.shotsPerGroup ??
-          null;
+          this.velocityEditEntry.shotsFired ?? this.planner.shotsPerGroup ?? null;
 
         if (plannedShots && values.length !== plannedShots) {
           alert(
             `You planned ${plannedShots} shots for this charge. Enter exactly ${plannedShots} velocities, or leave the field blank and press Skip if you have not shot this group yet.`
           );
+          this.focusVelocityInput(true);
           return;
         }
       }
@@ -1464,6 +1411,7 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   skipVelocityAndNext(): void {
+    // ✅ requirement: move to next and focus/highlight
     this.goToNextWizardEntry();
   }
 
@@ -1472,13 +1420,17 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   // ---------- single-row velocity edit ----------
-
   editVelocityForEntry(entry: LoadDevEntry): void {
     this.ladderWizardActive = false;
+
     this.singleVelocityEditActive = true;
     this.velocityEditEntry = entry;
+
     const any = entry as any;
     this.velocityEditValue = any.velocityInput ?? '';
+
+    // ✅ requirement: cursor jumps into field and value is highlighted
+    this.focusVelocityInput(true);
   }
 
   saveSingleVelocity(): void {
@@ -1494,16 +1446,20 @@ export class LoadDevTabComponent implements OnInit {
       const any = this.velocityEditEntry as any;
       any.velocityInput = undefined;
       this.velocityEditEntry.shotsFired = undefined;
+
       this.data.updateLoadDevEntry(this.selectedProject.id, this.velocityEditEntry);
       this.refreshSelectedProject();
+
       this.singleVelocityEditActive = false;
-      this.cancelVelocityEdit();
+      this.velocityEditEntry = null;
+      this.velocityEditValue = '';
       return;
     }
 
     const values = this.parseVelocityInput(trimmed);
     if (!values.length) {
       alert('Enter one or more numeric velocities, separated by spaces or commas.');
+      this.focusVelocityInput(true);
       return;
     }
 
@@ -1515,25 +1471,17 @@ export class LoadDevTabComponent implements OnInit {
     this.refreshSelectedProject();
 
     this.singleVelocityEditActive = false;
-    this.cancelVelocityEdit();
+    this.velocityEditEntry = null;
+    this.velocityEditValue = '';
   }
 
   cancelSingleVelocityEdit(): void {
     this.singleVelocityEditActive = false;
-    this.cancelVelocityEdit();
-  }
-
-  private cancelVelocityEdit(): void {
-    if (this.ladderWizardActive) {
-      this.finishLadderWizard();
-    } else {
-      this.velocityEditEntry = null;
-      this.velocityEditValue = '';
-    }
+    this.velocityEditEntry = null;
+    this.velocityEditValue = '';
   }
 
   // ---------- OCW completeness helper ----------
-
   private updateOcwValidationWarning(): void {
     const project = this.selectedProject;
 
@@ -1561,18 +1509,14 @@ export class LoadDevTabComponent implements OnInit {
       if (n > 0) shotCounts.add(n);
     }
 
-    if (shotCounts.size > 1) {
-      this.ocwValidationWarning =
-        'OCW groups do not all have the same number of shots. For good OCW analysis, keep group sizes consistent (e.g. 3 or 5 shots per charge).';
-    } else {
-      this.ocwValidationWarning = null;
-    }
+    this.ocwValidationWarning =
+      shotCounts.size > 1
+        ? 'OCW groups do not all have the same number of shots. For good OCW analysis, keep group sizes consistent (e.g. 3 or 5 shots per charge).'
+        : null;
   }
 
   isProjectComplete(project: LoadDevProject): boolean {
-    if (!project.entries || !project.entries.length) {
-      return false;
-    }
+    if (!project.entries || !project.entries.length) return false;
 
     return project.entries.every(e => {
       const any = e as any;
@@ -1582,10 +1526,10 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   // ---------- back out of load dev tab ----------
-
   onBackFromLoadDev(): void {
     this.selectedProjectId = null;
     this.selectedProject = null;
+
     this.projectFormVisible = false;
     this.editingProject = null;
 
@@ -1594,6 +1538,7 @@ export class LoadDevTabComponent implements OnInit {
 
     this.hasResultsForSelectedProject = false;
     this.resultsCollapsed = false;
+
     this.showGraph = false;
     this.graphCoords = [];
     this.graphSvgPoints = '';
@@ -1607,6 +1552,7 @@ export class LoadDevTabComponent implements OnInit {
     this.ladderWizardIndex = 0;
 
     this.postSaveMessage = null;
+
     this.resetWizard();
   }
 }
