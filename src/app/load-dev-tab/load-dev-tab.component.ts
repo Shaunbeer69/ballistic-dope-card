@@ -180,8 +180,7 @@ export class LoadDevTabComponent implements OnInit {
       const avg = stats && stats.avg != null ? stats.avg.toFixed(0) : '—';
       const es = stats && stats.es != null ? stats.es.toFixed(0) : '—';
       const sd = stats && stats.sd != null ? stats.sd.toFixed(1) : '—';
-      const shots =
-        entry.shotsFired != null ? String(entry.shotsFired) : '—';
+      const shots = entry.shotsFired != null ? String(entry.shotsFired) : '—';
 
       return [String(entry.chargeGr ?? ''), avg, es, sd, shots];
     });
@@ -409,36 +408,36 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   private async savePdfNative(doc: jsPDF, filename: string): Promise<void> {
-  try {
-    const dataUrl = doc.output('datauristring');
-    const base64 = dataUrl.split(',')[1];
-    const path = `gunstuff/${filename}`;
+    try {
+      const dataUrl = doc.output('datauristring');
+      const base64 = dataUrl.split(',')[1];
+      const path = `gunstuff/${filename}`;
 
-    // Save the PDF (Base64) into app storage
-    await Filesystem.writeFile({
-      path,
-      data: base64,
-      directory: Directory.Data,
-      recursive: true,
-    });
+      // Save the PDF (Base64) into app storage
+      await Filesystem.writeFile({
+        path,
+        data: base64,
+        directory: Directory.Data,
+        recursive: true
+      });
 
-    // Get a shareable URI
-    const uriResult = await Filesystem.getUri({
-      path,
-      directory: Directory.Data,
-    });
+      // Get a shareable URI
+      const uriResult = await Filesystem.getUri({
+        path,
+        directory: Directory.Data
+      });
 
-    await Share.share({
-      title: filename,
-      text: 'Gunstuff Load Development PDF',
-      url: uriResult.uri,
-    });
-  } catch (err) {
-    console.error('Native PDF save failed:', err);
-    // Fallback: at least download/save in browser-style if possible
-    doc.save(filename);
+      await Share.share({
+        title: filename,
+        text: 'Gunstuff Load Development PDF',
+        url: uriResult.uri
+      });
+    } catch (err) {
+      console.error('Native PDF save failed:', err);
+      // Fallback: at least download/save in browser-style if possible
+      doc.save(filename);
+    }
   }
-}
 
   // ---------- loading ----------
 
@@ -711,8 +710,7 @@ export class LoadDevTabComponent implements OnInit {
       return;
     }
 
-    const type: LoadDevType =
-      (this.projectForm.type as LoadDevType) || 'ladder';
+    const type: LoadDevType = (this.projectForm.type as LoadDevType) || 'ladder';
 
     this.postSaveMessage = null;
 
@@ -950,14 +948,10 @@ export class LoadDevTabComponent implements OnInit {
           const currX = baseX;
 
           const prevY =
-            chartTop +
-            chartHeight -
-            ((prevAvg - minV) / rangeV) * chartHeight;
+            chartTop + chartHeight - ((prevAvg - minV) / rangeV) * chartHeight;
 
           const currY =
-            chartTop +
-            chartHeight -
-            ((currAvg - minV) / rangeV) * chartHeight;
+            chartTop + chartHeight - ((currAvg - minV) / rangeV) * chartHeight;
 
           doc.setLineWidth(0.6);
           doc.setDrawColor(colour.r, colour.g, colour.b);
@@ -975,41 +969,81 @@ export class LoadDevTabComponent implements OnInit {
       }
     });
 
-    y = chartTop + chartHeight + 16;
-
-    const tableBody = entries.map((entry: any, idx: number) => {
-      const stats = this.statsForEntry(entry);
-      return [
-        idx + 1,
-        entry.chargeGr ?? '',
-        stats?.avg ? Math.round(stats.avg) : '',
-        stats?.es ?? '',
-        stats?.sd ? stats.sd.toFixed(3) : '',
-        entry.shotsFired ?? ''
-      ];
-    });
+    y = chartTop + chartHeight + 18;
 
     autoTable(doc, {
       startY: y,
-      head: [['#', 'Charge (gr)', 'Avg', 'ES', 'SD', 'Shots']],
-      body: tableBody,
-      styles: { fontSize: 8 }
+      head: [['Charge', 'Avg', 'ES', 'SD', 'Shots', 'Group', 'POI']],
+      body: entries.map((e: any) => {
+        const stats = this.statsForEntry(e);
+        return [
+          (e.chargeGr ?? '').toString(),
+          stats ? stats.avg.toFixed(0) : '—',
+          stats ? stats.es.toFixed(0) : '—',
+          stats ? stats.sd.toFixed(1) : '—',
+          (e.shotsFired ?? '—').toString(),
+          this.formatGroupSize(e),
+          (e.poiNote ?? '—').toString()
+        ];
+      }),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [34, 197, 94], textColor: [0, 0, 0] },
+      alternateRowStyles: { fillColor: [245, 245, 245] }
     });
 
-    const filename =
-      (project.name || 'load-development')
-        .toString()
-        .replace(/[^a-z0-9\-]+/gi, '_') + '.pdf';
+    const filename = this.buildProjectFilename(project);
 
-  if (Capacitor.isNativePlatform()) {
-  this.savePdfNative(doc, filename);
-} else {
-  doc.save(filename);
-}
+    if (Capacitor.isNativePlatform()) {
+      void this.savePdfNative(doc, filename);
+    } else {
+      doc.save(filename);
+    }
+  }
 
+  // ---------- entry helpers ----------
+
+  formatGroupSize(entry: LoadDevEntry): string {
+    const any = entry as any;
+    if (typeof any.groupSize !== 'number' || !isFinite(any.groupSize)) return '—';
+    const unit = (any.groupUnit as string) || 'MOA';
+    return `${any.groupSize.toFixed(2)} ${unit}`;
   }
 
   // ---------- entry CRUD ----------
+
+  newEntry(): void {
+    if (!this.selectedProject) {
+      alert('Select a load development first.');
+      return;
+    }
+    this.entryFormVisible = true;
+    this.editingEntry = null;
+    this.entryForm = this.createEmptyEntryForm();
+  }
+
+  editEntry(entry: LoadDevEntry): void {
+    this.entryFormVisible = true;
+    this.editingEntry = entry;
+    const any = entry as any;
+
+    this.entryForm = {
+      loadLabel: any.loadLabel ?? '',
+      powder: any.powder ?? '',
+      chargeGr: any.chargeGr ?? null,
+      coal: any.coal ?? '',
+      primer: any.primer ?? '',
+      bullet: any.bullet ?? '',
+      bulletWeightGr: any.bulletWeightGr ?? null,
+      bulletBc: any.bulletBc ?? '',
+      distanceM: any.distanceM ?? null,
+      shotsFired: any.shotsFired ?? null,
+      groupSize: any.groupSize ?? null,
+      groupUnit: (any.groupUnit as GroupSizeUnit) ?? 'MOA',
+      velocityInput: any.velocityInput ?? '',
+      poiNote: any.poiNote ?? '',
+      notes: any.notes ?? ''
+    };
+  }
 
   cancelEntryForm(): void {
     this.entryFormVisible = false;
@@ -1017,26 +1051,31 @@ export class LoadDevTabComponent implements OnInit {
     this.entryForm = this.createEmptyEntryForm();
   }
 
-  saveEntry(): void {
+  saveEntryForm(): void {
     if (!this.selectedProject) return;
 
     const f = this.entryForm;
+    if (f.chargeGr == null) {
+      alert('Charge (gr) is required.');
+      return;
+    }
 
-    const payload: any = {
-      loadLabel: f.loadLabel || undefined,
-      powder: f.powder || undefined,
-      chargeGr: f.chargeGr ?? undefined,
-      coal: f.coal || undefined,
-      primer: f.primer || undefined,
-      bullet: f.bullet || undefined,
+    // ✅ FIX: allow velocityInput even if LoadDevEntry type doesn't declare it.
+    const payload: (Partial<LoadDevEntry> & { velocityInput?: string }) = {
+      loadLabel: f.loadLabel.trim() || undefined,
+      powder: f.powder.trim() || undefined,
+      chargeGr: f.chargeGr,
+      coal: f.coal.trim() || undefined,
+      primer: f.primer.trim() || undefined,
+      bullet: f.bullet.trim() || undefined,
       bulletWeightGr: f.bulletWeightGr ?? undefined,
-      bulletBc: f.bulletBc || undefined,
+      bulletBc: f.bulletBc.trim() || undefined,
       distanceM: f.distanceM ?? undefined,
       shotsFired: f.shotsFired ?? undefined,
       groupSize: f.groupSize ?? undefined,
-      groupUnit: f.groupUnit,
-      poiNote: f.poiNote || undefined,
-      notes: f.notes || undefined,
+      groupUnit: f.groupUnit ?? 'MOA',
+      poiNote: f.poiNote.trim() || undefined,
+      notes: f.notes.trim() || undefined,
       velocityInput: f.velocityInput.trim() || undefined
     };
 
@@ -1045,10 +1084,8 @@ export class LoadDevTabComponent implements OnInit {
       this.data.updateLoadDevEntry(this.selectedProject.id, updated);
     } else {
       const existing = this.selectedProject.entries ?? [];
-      const newId = existing.length
-        ? Math.max(...existing.map(x => x.id)) + 1
-        : 1;
-      const newEntry: LoadDevEntry = { id: newId, ...payload };
+      const newId = existing.length ? Math.max(...existing.map(x => x.id)) + 1 : 1;
+      const newEntry: LoadDevEntry = { id: newId, ...payload } as LoadDevEntry;
       this.data.updateLoadDevEntry(this.selectedProject.id, newEntry);
     }
 
@@ -1067,23 +1104,25 @@ export class LoadDevTabComponent implements OnInit {
 
   entriesForSelectedProject(): LoadDevEntry[] {
     if (!this.selectedProject) return [];
-    const list = [...this.selectedProject.entries];
+    const list = [...(this.selectedProject.entries ?? [])];
 
+    // OCW: always sort by best (lowest) SD first, so the highlighted rows make sense.
+    if (this.selectedProject.type === 'ocw') {
+      return this.sortOcwEntriesBySd(list);
+    }
+
+    // Ladder / others: keep user's chosen sorting.
     switch (this.entrySortMode) {
       case 'chargeAsc':
-        return list.sort(
-          (a, b) => (a.chargeGr ?? 9999) - (b.chargeGr ?? 9999)
-        );
+        return list.sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
       case 'groupAsc':
-        return list.sort(
-          (a, b) => (a.groupSize ?? 9999) - (b.groupSize ?? 9999)
-        );
+        return list.sort((a, b) => (a.groupSize ?? 0) - (b.groupSize ?? 0));
       case 'groupDesc':
-        return list.sort(
-          (a, b) => (b.groupSize ?? -9999) - (a.groupSize ?? -9999)
-        );
+        return list.sort((a, b) => (b.groupSize ?? 0) - (a.groupSize ?? 0));
+      case 'default':
       default:
-        return list;
+        // Default = charge ascending (predictable)
+        return list.sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
     }
   }
 
@@ -1103,6 +1142,68 @@ export class LoadDevTabComponent implements OnInit {
     return this.computeVelocityStats(values);
   }
 
+  // --- OCW ranking helpers ----------------------------------------------------
+  private sortOcwEntriesBySd(entries: LoadDevEntry[]): LoadDevEntry[] {
+    // We compute SD on the fly using statsForEntry(). Lower SD is better.
+    const sdCache = new Map<string, number>();
+    const getSd = (e: LoadDevEntry): number => {
+      const key = String((e as any).id ?? '');
+      if (sdCache.has(key)) return sdCache.get(key)!;
+      const s = this.statsForEntry(e)?.sd;
+      const v = typeof s === 'number' && isFinite(s) ? s : Number.POSITIVE_INFINITY;
+      sdCache.set(key, v);
+      return v;
+    };
+
+    return [...entries].sort((a, b) => {
+      const sa = getSd(a);
+      const sb = getSd(b);
+      if (sa !== sb) return sa - sb;
+
+      // Tie-breaker: charge
+      const ca = Number((a as any).chargeGr ?? 0);
+      const cb = Number((b as any).chargeGr ?? 0);
+      if (ca !== cb) return ca - cb;
+
+      const ia = String((a as any).id ?? '');
+      const ib = String((b as any).id ?? '');
+      return ia.localeCompare(ib);
+    });
+  }
+
+  /**
+   * Returns a simple rank label for OCW rows:
+   * - "best"  : lowest SD
+   * - "second": 2nd lowest SD
+   * - "third" : 3rd lowest SD
+   */
+  ocwRankForEntry(entry: LoadDevEntry): 'best' | 'second' | 'third' | null {
+    if (!this.selectedProject || this.selectedProject.type !== 'ocw') return null;
+
+    const ranked = this.sortOcwEntriesBySd(this.selectedProject.entries ?? []).filter(e => {
+      const s = this.statsForEntry(e)?.sd;
+      return typeof s === 'number' && isFinite(s);
+    });
+
+    if (ranked.length < 1) return null;
+
+    const id = String((entry as any).id ?? '');
+    if (id === String((ranked[0] as any).id ?? '')) return 'best';
+    if (ranked.length >= 2 && id === String((ranked[1] as any).id ?? '')) return 'second';
+    if (ranked.length >= 3 && id === String((ranked[2] as any).id ?? '')) return 'third';
+
+    return null;
+  }
+
+  /** Used in template for OCW row highlighting. */
+  ocwSdCssClass(entry: LoadDevEntry): string {
+    const r = this.ocwRankForEntry(entry);
+    if (r === 'best') return 'bg-emerald-900/30 ring-1 ring-emerald-500/50';
+    if (r === 'second') return 'bg-amber-900/25 ring-1 ring-amber-500/40';
+    if (r === 'third') return 'bg-rose-900/25 ring-1 ring-rose-500/40';
+    return '';
+  }
+
   private computeVelocityStats(values: number[]): VelocityStats | null {
     if (!values.length) return null;
 
@@ -1110,132 +1211,56 @@ export class LoadDevTabComponent implements OnInit {
     const avg = values.reduce((a, b) => a + b, 0) / n;
     const sorted = [...values].sort((a, b) => a - b);
     const es = sorted[n - 1] - sorted[0];
-    const variance =
-      values.reduce((sum, v) => sum + (v - avg) ** 2, 0) / n;
+    const variance = values.reduce((sum, v) => sum + (v - avg) ** 2, 0) / n;
     const sd = Math.sqrt(variance);
 
     return { avg, es, sd, n };
   }
 
-  private computeSimpleSd(values: number[]): number {
-    if (!values.length) return 0;
-    const n = values.length;
-    const mean = values.reduce((s, v) => s + v, 0) / n;
-    const variance =
-      values.reduce((s, v) => s + (v - mean) ** 2, 0) / n;
-    return Math.sqrt(variance);
-  }
+  // ---------- node detection & colouring (ladder) ----------
 
-  // ---------- node detection & colouring ----------
+  private findNodes(entries: LoadDevEntry[]): NodeEntry[] {
+    const nodes: NodeEntry[] = [];
 
-  // ---------- node detection & colouring ----------
+    const valid = entries
+      .map(e => ({ entry: e, stats: this.statsForEntry(e) }))
+      .filter(x => x.stats != null) as NodeEntry[];
 
+    if (valid.length < 3) return nodes;
 
-// ---------- node detection & colouring ----------
+    // Simple heuristic: if SD is low and adjacent velocities are close, call it a node-ish point.
+    for (let i = 1; i < valid.length - 1; i++) {
+      const prev = valid[i - 1];
+      const cur = valid[i];
+      const next = valid[i + 1];
 
-private computeNodesForSelectedProject(): Map<number, number> {
-  const map = new Map<number, number>();
-  const project = this.selectedProject;
+      const sd = cur.stats.sd;
+      const dv1 = Math.abs(cur.stats.avg - prev.stats.avg);
+      const dv2 = Math.abs(next.stats.avg - cur.stats.avg);
 
-  // Ladder only
-  if (!project || project.type !== 'ladder') return map;
-
-  const entries = (project.entries ?? [])
-    .filter(e => typeof e.chargeGr === 'number' && isFinite(e.chargeGr))
-    .slice()
-    .sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
-
-  if (entries.length < 3) return map;
-
-  // Your rule: highlight only if window SD is <10 and >3
-  const SD_MIN = 3;
-  const SD_MAX = 10;
-  const WINDOW = 3;
-
-  // Helper: get the avg velocity we should use for ladder SD
-  const avgVel = (e: any): number | null => {
-    // Prefer stats avg if available (works whether you store a list or a single value)
-    const st = this.statsForEntry?.(e);
-    const v = st?.avg ?? e.velocityAvg ?? e.velocityFps ?? e.velocity ?? null;
-    return (typeof v === 'number' && isFinite(v)) ? v : null;
-  };
-
-  // sample SD (n-1) like your usual stats
-  const sdOf = (vals: number[]): number => {
-    const n = vals.length;
-    if (n < 2) return NaN;
-    const mean = vals.reduce((s, x) => s + x, 0) / n;
-    const varSum = vals.reduce((s, x) => s + (x - mean) * (x - mean), 0);
-    return Math.sqrt(varSum / (n - 1));
-  };
-
-  // Build “qualifying windows” of 3 consecutive charges
-  const qualifyingIds = new Set<number>();
-
-
-  for (let i = 0; i <= entries.length - WINDOW; i++) {
-    const win = entries.slice(i, i + WINDOW);
-
-    const vels = win.map(avgVel);
-    if (vels.some(v => v == null)) continue;
-
-   const sd = sdOf(vels as number[]);
-const es = Math.max(...(vels as number[])) - Math.min(...(vels as number[]));
-
-if (sd <= SD_MAX && es <= SD_MAX) {
-  win.forEach(e => qualifyingIds.add(e.id));
-}
-
-  }
-
-  // Group consecutive qualifying rows into coloured groups
-  let groupIndex = -1;
-  let inRun = false;
-
-  for (let i = 0; i < entries.length; i++) {
-    const e = entries[i];
-    const isQ = qualifyingIds.has(e.id);
-
-    if (isQ && !inRun) {
-      groupIndex++;
-      inRun = true;
-    } else if (!isQ && inRun) {
-      inRun = false;
+      if (sd <= 12 && dv1 <= 15 && dv2 <= 15) {
+        nodes.push(cur);
+      }
     }
 
-    if (isQ) {
-      map.set(e.id, groupIndex);
-    }
+    return nodes;
   }
 
-  return map;
-}
+  nodeCssClass(entry: LoadDevEntry): string {
+    if (!this.selectedProject || this.selectedProject.type !== 'ladder') return '';
+    const entries = this.entriesForSelectedProject();
+    const nodes = this.findNodes(entries);
 
+    const id = entry.id;
+    const isNode = nodes.some(n => n.entry.id === id);
 
-  nodeCssClass(entry: LoadDevEntry) {
-    const map = this.computeNodesForSelectedProject();
-    const idx = entry && entry.id != null ? map.get(entry.id) : undefined;
-
-    if (idx == null) {
-      return {};
-    }
-
-    return {
-      'bg-black text-white ring-4 ring-[#00ff00] shadow-[0_0_12px_#00ff00]':
-        idx === 0,
-      'bg-black text-white ring-4 ring-[#ff9900] shadow-[0_0_12px_#ff9900]':
-        idx === 1,
-      'bg-black text-white ring-4 ring-[#ff0000] shadow-[0_0_12px_#ff0000]':
-        idx === 2
-    };
+    return isNode ? 'bg-emerald-900/25 ring-1 ring-emerald-400/40' : '';
   }
 
-  // ---------- helpers for wizard / velocity input ----------
+  // ---------- velocities completeness ----------
 
-  allEntriesHaveVelocity(): boolean {
-    if (!this.selectedProject || !this.selectedProject.entries?.length) {
-      return false;
-    }
+  private allEntriesHaveVelocity(): boolean {
+    if (!this.selectedProject?.entries?.length) return false;
 
     return this.selectedProject.entries.every(e => {
       const any = e as any;
@@ -1296,12 +1321,7 @@ if (sd <= SD_MAX && es <= SD_MAX) {
 
     const n = pts.length;
     const span = this.graphMaxVel - this.graphMinVel || 1;
-    const coords: {
-      x: number;
-      y: number;
-      charge: number;
-      avg: number;
-    }[] = [];
+    const coords: { x: number; y: number; charge: number; avg: number }[] = [];
 
     for (let i = 0; i < n; i++) {
       const p = pts[i];
@@ -1334,16 +1354,12 @@ if (sd <= SD_MAX && es <= SD_MAX) {
       this.selectedProject.type !== 'ladder' &&
       this.selectedProject.type !== 'ocw'
     ) {
-      alert(
-        'The velocity wizard is only available for ladder and OCW developments.'
-      );
+      alert('The velocity wizard is only available for ladder and OCW developments.');
       return;
     }
 
     if (this.allEntriesHaveVelocity()) {
-      alert(
-        'All steps already have velocities. Use the Edit buttons for changes.'
-      );
+      alert('All steps already have velocities. Use the Edit buttons for changes.');
       return;
     }
 
@@ -1395,9 +1411,7 @@ if (sd <= SD_MAX && es <= SD_MAX) {
       (a, b) => (a.chargeGr ?? 9999) - (b.chargeGr ?? 9999)
     );
 
-    const currentIndex = sorted.findIndex(
-      e => e.id === this.velocityEditEntry!.id
-    );
+    const currentIndex = sorted.findIndex(e => e.id === this.velocityEditEntry!.id);
 
     if (currentIndex < 0 || currentIndex + 1 >= sorted.length) {
       this.finishLadderWizard();
@@ -1420,9 +1434,7 @@ if (sd <= SD_MAX && es <= SD_MAX) {
     if (trimmed) {
       const values = this.parseVelocityInput(trimmed);
       if (!values.length) {
-        alert(
-          'Enter one or more numeric velocities, separated by spaces or commas.'
-        );
+        alert('Enter one or more numeric velocities, separated by spaces or commas.');
         return;
       }
 
@@ -1444,10 +1456,7 @@ if (sd <= SD_MAX && es <= SD_MAX) {
       any.velocityInput = values.join(' ');
       this.velocityEditEntry.shotsFired = values.length;
 
-      this.data.updateLoadDevEntry(
-        this.selectedProject.id,
-        this.velocityEditEntry
-      );
+      this.data.updateLoadDevEntry(this.selectedProject.id, this.velocityEditEntry);
       this.refreshSelectedProject();
     }
 
@@ -1485,10 +1494,7 @@ if (sd <= SD_MAX && es <= SD_MAX) {
       const any = this.velocityEditEntry as any;
       any.velocityInput = undefined;
       this.velocityEditEntry.shotsFired = undefined;
-      this.data.updateLoadDevEntry(
-        this.selectedProject.id,
-        this.velocityEditEntry
-      );
+      this.data.updateLoadDevEntry(this.selectedProject.id, this.velocityEditEntry);
       this.refreshSelectedProject();
       this.singleVelocityEditActive = false;
       this.cancelVelocityEdit();
@@ -1497,9 +1503,7 @@ if (sd <= SD_MAX && es <= SD_MAX) {
 
     const values = this.parseVelocityInput(trimmed);
     if (!values.length) {
-      alert(
-        'Enter one or more numeric velocities, separated by spaces or commas.'
-      );
+      alert('Enter one or more numeric velocities, separated by spaces or commas.');
       return;
     }
 
@@ -1507,10 +1511,7 @@ if (sd <= SD_MAX && es <= SD_MAX) {
     any.velocityInput = values.join(' ');
     this.velocityEditEntry.shotsFired = values.length;
 
-    this.data.updateLoadDevEntry(
-      this.selectedProject.id,
-      this.velocityEditEntry
-    );
+    this.data.updateLoadDevEntry(this.selectedProject.id, this.velocityEditEntry);
     this.refreshSelectedProject();
 
     this.singleVelocityEditActive = false;
@@ -1548,8 +1549,7 @@ if (sd <= SD_MAX && es <= SD_MAX) {
     });
 
     if (!entriesWithVel.length) {
-      this.ocwValidationWarning =
-        'No velocities captured yet for OCW groups.';
+      this.ocwValidationWarning = 'No velocities captured yet for OCW groups.';
       return;
     }
 

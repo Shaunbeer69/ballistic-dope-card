@@ -282,151 +282,131 @@
         <!-- Quick export from History -->
         <button
           type="button"
-          class="px-2 py-0.5 rounded-2xl border border-gray-500 text-[10px] text-gray-200 disabled:opacity-40"
+          class="px-3 py-1 rounded-full bg-white text-black font-semibold text-[11px] border border-gray-300"
           (click)="exportSelectedProjectToPdf()"
-          [disabled]="!selectedProject"
         >
           Export PDF
         </button>
       </div>
 
-      <div class="text-[10px] text-gray-500">
-        Filter and select an existing load development for this rifle to view results or continue
-        adding data.
-      </div>
-
-      <!-- Bullet / Powder filters -->
-      <div class="flex gap-2 text-[10px]">
+      <!-- Filters -->
+      <div class="grid grid-cols-2 gap-2">
         <select
-          class="flex-1 bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
+          class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-xs text-gray-100"
           [(ngModel)]="powderFilter"
           (ngModelChange)="onFilterChange()"
         >
           <option [ngValue]="null">All powders</option>
-          <option *ngFor="let p of availablePowders" [ngValue]="p">Powder: {{ p }}</option>
+          <option *ngFor="let p of availablePowders" [ngValue]="p">
+            {{ p }}
+          </option>
         </select>
 
         <select
-          class="flex-1 bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
+          class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-xs text-gray-100"
           [(ngModel)]="bulletFilter"
           (ngModelChange)="onFilterChange()"
         >
           <option [ngValue]="null">All bullets</option>
-          <option *ngFor="let b of availableBullets" [ngValue]="b">Bullet: {{ b }}</option>
-        </select>
-      </div>
-
-      <!-- Project dropdown (hidden while New/Edit form is visible) -->
-      <div class="mt-1" *ngIf="!projectFormVisible">
-        <select
-          class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-[11px] text-gray-100"
-          [(ngModel)]="selectedProjectId"
-          (ngModelChange)="onProjectSelectChange()"
-        >
-          <option [ngValue]="null">Select load…</option>
-          <option
-            *ngFor="
-              let project of filteredProjects && filteredProjects.length
-                ? filteredProjects
-                : projects
-            "
-            [ngValue]="project.id"
-          >
-            {{ project.name }}
-            · {{ shortDate(project.dateStarted) }} ·
-            {{ project.type === 'ocw' ? 'OCW' : project.type === 'ladder' ? 'Ladder' : 'Other' }} ·
-            {{ isProjectComplete(project) ? '✅ Complete' : '⚠ Incomplete' }}
+          <option *ngFor="let b of availableBullets" [ngValue]="b">
+            {{ b }}
           </option>
         </select>
       </div>
 
-      <!-- OCW group validation warning -->
-      <div *ngIf="ocwValidationWarning" class="text-[10px] text-amber-300">
-        {{ ocwValidationWarning }}
-      </div>
-    </div>
+      <!-- Project selector -->
+      <div class="flex items-center gap-2">
+        <select
+          class="flex-1 bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-xs text-gray-100"
+          [(ngModel)]="selectedProjectId"
+          (ngModelChange)="onProjectSelectChange()"
+        >
+          <option [ngValue]="null">Select load development…</option>
 
-    <!-- Below here should be hidden while New form is open -->
-    <ng-container *ngIf="selectedProject && !projectFormVisible">
-      <!-- Graph + Hide results buttons -->
-      <div class="mt-3 flex items-center justify-end gap-2 text-[11px]">
+          <option *ngFor="let p of filteredProjects ?? projects" [ngValue]="p.id">
+            {{ p.name }} • {{ shortDate(p.dateStarted) }} •
+            {{ projectTypeLabel(p.type) }}
+            <ng-container *ngIf="isProjectComplete(p)">✅</ng-container>
+          </option>
+        </select>
+
         <button
           type="button"
-          class="px-3 py-1.5 rounded-2xl bg-emerald-600 text-black font-semibold disabled:opacity-40"
+          class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black font-semibold text-[11px]"
+          (click)="openSelectedProject()"
+        >
+          Open
+        </button>
+      </div>
+
+      <!-- Quick actions row -->
+      <div class="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black font-semibold text-[11px]"
           (click)="toggleGraph()"
-          [disabled]="!graphCoords.length"
         >
           {{ showGraph ? 'Hide graph' : 'Show graph' }}
         </button>
 
         <button
-          *ngIf="hasResultsForSelectedProject"
           type="button"
-          class="px-3 py-1.5 rounded-2xl bg-gray-800 text-gray-100 border border-gray-700"
+          class="px-3 py-1.5 rounded-2xl bg-gray-700 text-gray-100 text-[11px]"
           (click)="toggleResultsCollapsed()"
         >
           {{ resultsCollapsed ? 'Show results' : 'Hide results' }}
         </button>
       </div>
 
-      <!-- Ladder / OCW Velocity Wizard Panel -->
+      <!-- OCW validation warning -->
+      <div
+        *ngIf="ocwValidationWarning"
+        class="mt-2 text-[10px] rounded-2xl bg-amber-500/10 border border-amber-400/60 text-amber-200 px-2 py-1.5"
+      >
+        {{ ocwValidationWarning }}
+      </div>
+
+      <!-- WIZARD (only visible while active) -->
       <div
         *ngIf="ladderWizardActive && velocityEditEntry"
-        class="mt-3 border border-amber-400/70 bg-black/70 rounded-2xl p-3 space-y-2"
+        class="mt-3 border border-sky-400/70 bg-black/70 rounded-2xl p-3 space-y-2"
       >
-        <div class="text-[11px] text-amber-200 font-semibold">
-          {{
-            selectedProject && selectedProject.type === 'ocw'
-              ? 'OCW velocity wizard'
-              : 'Ladder wizard'
-          }}
-          – step {{ ladderWizardIndex + 1 }} of {{ ladderWizardEntries.length }}
-        </div>
-        <div class="text-[10px] text-gray-300">Charge {{ velocityEditEntry.chargeGr }} gr</div>
-        <div
-          *ngIf="selectedProject && selectedProject.type === 'ocw'"
-          class="text-[10px] text-gray-400"
-        >
-          Enter all velocities for this group ({{
-            velocityEditEntry.shotsFired || planner.shotsPerGroup || '?'
-          }}
-          shots), separated by spaces or commas. Leave blank and press Skip if you haven't shot this
-          group yet.
+        <div class="text-[11px] text-sky-200">
+          Edit velocity for
+          <span class="font-semibold"> {{ velocityEditEntry.chargeGr }} gr </span>
         </div>
 
         <input
           type="text"
-          class="w-full bg-black/60 border border-amber-400/60 rounded-2xl px-2 py-1.5 text-xs text-amber-50"
+          class="w-full bg-black/60 border border-sky-400/60 rounded-2xl px-2 py-1.5 text-xs text-sky-50"
           [(ngModel)]="velocityEditValue"
         />
-        <div class="flex justify-end gap-2 text-[10px]">
+
+        <div class="flex justify-end gap-2">
           <button
-            type="button"
+            class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black font-semibold"
+            (click)="saveVelocityAndNext()"
+          >
+            Save &amp; next
+          </button>
+          <button
             class="px-3 py-1.5 rounded-2xl bg-gray-700 text-gray-100"
             (click)="skipVelocityAndNext()"
           >
             Skip
           </button>
           <button
-            type="button"
-            class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black font-semibold"
-            (click)="saveVelocityAndNext()"
-          >
-            Save &amp; Next
-          </button>
-          <button
-            type="button"
             class="px-3 py-1.5 rounded-2xl bg-red-700 text-red-50"
             (click)="cancelLadderWizard()"
           >
-            Close
+            Cancel
           </button>
         </div>
       </div>
 
-      <!-- Single-row Velocity Edit Panel -->
+      <!-- SINGLE EDIT -->
       <div
-        *ngIf="!ladderWizardActive && singleVelocityEditActive && velocityEditEntry"
+        *ngIf="singleVelocityEditActive && velocityEditEntry"
         class="mt-3 border border-sky-400/70 bg-black/70 rounded-2xl p-3 space-y-2"
       >
         <div class="text-[11px] text-sky-200">
@@ -506,45 +486,129 @@
         <div class="overflow-x-auto rounded-2xl border border-gray-800 bg-black/60">
           <table class="min-w-full text-[11px]">
             <thead class="bg-gray-900/70 text-gray-300">
-              <tr>
+              <tr *ngIf="selectedProject?.type === 'ocw'; else ladderHead">
                 <th class="px-2 py-1 text-left">Charge (gr)</th>
-                <th class="px-2 py-1 text-left">Velocity (avg)</th>
-                <th class="px-2 py-1 text-left">Shots</th>
-                <th class="px-2 py-1 text-right">Actions</th>
+                <th class="px-2 py-1 text-left">Vel (avg)</th>
+                <th class="px-2 py-1 text-left">SD</th>
+                <th class="px-2 py-1 text-left">ES</th>
+                <th class="px-2 py-1 text-right">Group size</th>
               </tr>
+
+              <ng-template #ladderHead>
+                <tr>
+                  <th class="px-2 py-1 text-left">Charge (gr)</th>
+                  <th class="px-2 py-1 text-left">Velocity (avg)</th>
+                  <th class="px-2 py-1 text-left">Shots</th>
+                  <th class="px-2 py-1 text-right">Actions</th>
+                </tr>
+              </ng-template>
             </thead>
 
             <tbody>
-              <tr *ngFor="let entry of entriesForSelectedProject()" [ngClass]="nodeCssClass(entry)">
-                <td class="px-2 py-1 text-gray-100">{{ entry.chargeGr }}</td>
+              <!-- OCW: 2-line rows (metrics, then actions) -->
+              <ng-container *ngIf="selectedProject?.type === 'ocw'; else ladderBody">
+                <ng-container *ngFor="let entry of entriesForSelectedProject()">
+                  <!-- Line 1: metrics -->
+                  <tr [ngClass]="ocwSdCssClass(entry)">
+                    <td class="px-2 py-1 text-gray-100">{{ entry.chargeGr }}</td>
 
-                <td class="px-2 py-1 text-gray-100">
-                  <ng-container *ngIf="statsForEntry(entry) as s; else none">
-                    {{ s.avg | number : '1.0-0' }}
-                  </ng-container>
-                  <ng-template #none>—</ng-template>
-                </td>
+                    <td class="px-2 py-1 text-gray-100">
+                      <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl">
+                        {{ s.avg | number : '1.0-0' }}
+                      </ng-container>
+                    </td>
 
-                <td class="px-2 py-1 text-gray-100">{{ entry.shotsFired ?? '—' }}</td>
+                    <td class="px-2 py-1 text-gray-100">
+                      <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl">
+                        {{ s.sd | number : '1.1-1' }}
+                      </ng-container>
+                    </td>
 
-                <td class="px-2 py-1 text-right whitespace-nowrap">
-                  <button
-                    class="text-[10px] px-2 py-0.5 rounded-full bg-sky-600/90 text-black mr-1"
-                    (click)="editVelocityForEntry(entry)"
-                  >
-                    Edit
-                  </button>
+                    <td class="px-2 py-1 text-gray-100">
+                      <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl">
+                        {{ s.es | number : '1.0-0' }}
+                      </ng-container>
+                    </td>
 
-                  <button
-                    class="text-[10px] px-2 py-0.5 rounded-full bg-red-700/90 text-red-50"
-                    (click)="deleteEntry(entry)"
-                  >
-                    Del
-                  </button>
-                </td>
-              </tr>
+                    <td class="px-2 py-1 text-right text-gray-100">
+                      {{ formatGroupSize(entry) }}
+                    </td>
+                  </tr>
+
+                  <!-- Line 2: actions -->
+                  <tr class="border-t border-gray-800 bg-black/40">
+                    <td colspan="5" class="px-2 py-1.5 text-right whitespace-nowrap">
+                      <button
+                        class="text-[10px] px-3 py-0.5 rounded-full bg-sky-600/90 text-black mr-2"
+                        (click)="editVelocityForEntry(entry)"
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        class="text-[10px] px-3 py-0.5 rounded-full bg-red-700/90 text-red-50"
+                        (click)="deleteEntry(entry)"
+                      >
+                        Del
+                      </button>
+                    </td>
+                  </tr>
+                </ng-container>
+
+                <ng-template #dashTpl>—</ng-template>
+              </ng-container>
+
+              <!-- Ladder: single-line rows -->
+              <ng-template #ladderBody>
+                <tr
+                  *ngFor="let entry of entriesForSelectedProject()"
+                  [ngClass]="nodeCssClass(entry)"
+                >
+                  <td class="px-2 py-1 text-gray-100">{{ entry.chargeGr }}</td>
+
+                  <td class="px-2 py-1 text-gray-100">
+                    <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl2">
+                      {{ s.avg | number : '1.0-0' }}
+                    </ng-container>
+                    <ng-template #dashTpl2>—</ng-template>
+                  </td>
+
+                  <td class="px-2 py-1 text-gray-100">{{ entry.shotsFired ?? '—' }}</td>
+
+                  <td class="px-2 py-1 text-right whitespace-nowrap">
+                    <button
+                      class="text-[10px] px-2 py-0.5 rounded-full bg-sky-600/90 text-black mr-1"
+                      (click)="editVelocityForEntry(entry)"
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      class="text-[10px] px-2 py-0.5 rounded-full bg-red-700/90 text-red-50"
+                      (click)="deleteEntry(entry)"
+                    >
+                      Del
+                    </button>
+                  </td>
+                </tr>
+              </ng-template>
             </tbody>
           </table>
+        </div>
+
+        <!-- OCW hint (explains SD colour ranking) -->
+        <div
+          *ngIf="selectedProject?.type === 'ocw'"
+          class="mt-3 text-[10px] rounded-2xl bg-emerald-500/10 border border-emerald-400/40 text-gray-200 px-2 py-2"
+        >
+          <div class="font-semibold text-emerald-200 mb-0.5">How to use this:</div>
+          <div>
+            The <span class="font-semibold text-emerald-200">green</span> SD row is currently the
+            most consistent (best SD). Next: keep the charge the same and fine-tune
+            <span class="font-semibold">seating depth</span> (and/or neck tension) to tighten
+            groups. <span class="text-amber-200">Orange</span> is second-best,
+            <span class="text-red-200">red</span> is third.
+          </div>
         </div>
 
         <!-- Bottom action bar: Export + Delete + Back -->
@@ -557,28 +621,31 @@
             Export
           </button>
 
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              class="px-3 py-1.5 rounded-2xl bg-red-700 text-red-50 text-[11px]"
-              (click)="deleteProject(selectedProject)"
-            >
-              Delete
-            </button>
+          <ng-container *ngIf="selectedProject as sp">
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="px-3 py-1.5 rounded-2xl bg-red-700 text-red-50 text-[11px]"
+                (click)="deleteProject(sp)"
+              >
+                Delete
+              </button>
 
-            <button
-              type="button"
-              class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black font-semibold text-[11px]"
-              (click)="onBackFromLoadDev()"
-            >
-              Back
-            </button>
-          </div>
+              <button
+                type="button"
+                class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black font-semibold text-[11px]"
+                (click)="onBackFromLoadDev()"
+              >
+                Back
+              </button>
+            </div>
+          </ng-container>
         </div>
       </div>
-    </ng-container>
+    </div>
   </div>
 </div>
+
 <div class="p-3 flex justify-end">
   <button
     type="button"
