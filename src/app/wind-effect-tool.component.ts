@@ -156,22 +156,28 @@ export class WindEffectToolComponent implements OnInit {
     const v = Number(raw);
     this.windSpeedInput =
       Number.isFinite(v) && v >= 0 ? v : 0;
+
     this.windSpeedMph = this.toMph(
       this.windSpeedInput,
       this.windUnit
     );
+
     this.updatePoiFromDrift();
   }
 
   onWindUnitChange(unit: WindUnit): void {
     if (unit === this.windUnit) return;
 
+    // keep internal mph stable, just convert display
     const speedMph = this.windSpeedMph;
     this.windUnit = unit;
     this.windSpeedInput = this.fromMph(
       speedMph,
       this.windUnit
     );
+
+    // ensure dot + numbers refresh immediately
+    this.updatePoiFromDrift();
   }
 
   private updateWindSpeedInputFromMph(): void {
@@ -315,12 +321,6 @@ export class WindEffectToolComponent implements OnInit {
     return { factorAbs };
   }
 
-  /** head/tail component: +1 at 12 (headwind), -1 at 6 (tailwind) */
-  private getHeadTailSigned(): number {
-    const rad = (this.arrowAngleDeg * Math.PI) / 180;
-    return Math.cos(rad);
-  }
-
   // --------------------------------
   // Ballistic core: TOF & drift
   // --------------------------------
@@ -368,54 +368,6 @@ export class WindEffectToolComponent implements OnInit {
     return lateralFeet * 12;
   }
 
-  /**
-   * Head/tail wind vertical effect in MIL.
-   * +mil = more drop (headwind) => POI down.
-   * -mil = less drop (tailwind) => POI up.
-   *
-   * Uses the SAME MV/BC/TOF ruleset you already have, with a small coupling term.
-   */
-  private computeHeadTailMil(): number {
-    if (
-      !this.windSpeedMph ||
-      this.rangeMeters <= 0 ||
-      this.muzzleVelocityFps <= 0
-    ) {
-      return 0;
-    }
-
-    const headSigned = this.getHeadTailSigned();
-    if (!headSigned) return 0;
-
-    const distFt = this.metersToFeet(this.rangeMeters);
-    if (!distFt) return 0;
-
-    const tof = this.timeOfFlightSeconds;
-    if (!tof) return 0;
-
-    const bc = this.ballisticCoeff || 0.5;
-    const bcFactor = 0.5 / bc;
-
-    // wind component along bore line in fps (signed)
-    const headFps = this.mphToFps(this.windSpeedMph) * headSigned;
-
-    // Coupling factor (tuned mild; scales with BC)
-    const k = 0.35 * bcFactor;
-
-    // fractional TOF change approx (headwind increases TOF, tailwind decreases)
-    const frac = (headFps / Math.max(300, this.muzzleVelocityFps)) * k;
-
-    // delta TOF (seconds)
-    const dT = tof * frac;
-
-    // gravity drop difference approximation: drop = 0.5*g*t^2 => dDrop ≈ g*t*dT
-    const g = 32.174; // ft/s^2
-    const dDropFt = g * tof * dT;
-
-    // Convert to mil: angle(rad) ≈ drop/dist => mil ≈ (drop/dist)*1000
-    return (dDropFt / distFt) * 1000;
-  }
-
   // Exposed to template
   get driftInches(): number {
     return this.computeLateralInches();
@@ -448,54 +400,34 @@ export class WindEffectToolComponent implements OnInit {
   // --------------------------------
   // Red POI dot (visual only)
   // --------------------------------
-  private updatePoiFromDrift(): void {
+  updatePoiFromDrift(): void {
+
     const centerX = 50;
     const centerY = 50;
 
     const mils = this.milDrift;
-    const headTailMil = this.computeHeadTailMil();
-
-    if (!mils && !headTailMil) {
+    if (!mils) {
       this.poiX = centerX;
       this.poiY = centerY;
       return;
     }
 
-    // Visual exaggeration only
+    // Visual exaggeration only (same exaggeration in every direction)
     const visualScale = 2;
     const pixelsPerMil = 6;
     const maxRadius = 36;
 
-    // --- KEEP YOUR EXISTING CIRCLE/DOWNWIND BEHAVIOUR FOR CROSSWIND ---
     const rawRadius = Math.abs(mils) * visualScale * pixelsPerMil;
     const radius = Math.min(rawRadius, maxRadius);
 
-    // Convert wind-from → downwind direction
+    // Wind-from -> downwind direction (where bullet drifts)
     const downwindTopDeg = (this.arrowAngleDeg + 180) % 360;
 
-    // SVG: 0° is right, so rotate by -90
-    const rad = ((downwindTopDeg - 90) * Math.PI) / 180;
+    // SAME mapping as buildHourMarkers(): x uses sin, y uses -cos
+    const rad = (downwindTopDeg * Math.PI) / 180;
 
-    let x = centerX + radius * Math.cos(rad);
-    let y = centerY + radius * Math.sin(rad);
-
-    // --- ADD HEAD/TAIL VERTICAL OFFSET (does NOT change left/right logic) ---
-    const dy = headTailMil * visualScale * pixelsPerMil; // +down on screen
-    y += dy;
-
-    // Clamp final point to keep it inside the dial
-    const dxFromCenter = x - centerX;
-    const dyFromCenter = y - centerY;
-    const mag = Math.hypot(dxFromCenter, dyFromCenter);
-
-    if (mag > maxRadius && mag > 0) {
-      const s = maxRadius / mag;
-      x = centerX + dxFromCenter * s;
-      y = centerY + dyFromCenter * s;
-    }
-
-    this.poiX = x;
-    this.poiY = y;
+    this.poiX = centerX + radius * Math.sin(rad);
+    this.poiY = centerY - radius * Math.cos(rad);
   }
 
   // --------------------------------
