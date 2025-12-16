@@ -281,12 +281,14 @@
             <span>History</span>
           </div>
 
-          <!-- Export removed (keep layout spacing identical) -->
-          <div
-            class="px-3 py-1 rounded-full bg-white text-black font-semibold text-[11px] border border-gray-300 invisible pointer-events-none select-none"
+          <button
+            type="button"
+            class="px-3 py-1 rounded-full bg-white text-black font-semibold border border-gray-300 text-[11px] active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100"
+            (click)="exportPdf()"
+            [disabled]="!hasResultsForSelectedProject || resultsCollapsed"
           >
             Export PDF
-          </div>
+          </button>
         </div>
 
         <!-- Filters -->
@@ -439,6 +441,7 @@
 
         <!-- RESULTS -->
         <div
+          #pdfContent
           *ngIf="hasResultsForSelectedProject && !resultsCollapsed"
           class="mt-3 border border-gray-800 bg-black/70 rounded-2xl p-3 space-y-2"
         >

@@ -8,6 +8,10 @@ import {
   ViewChild
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import jsPDF from 'jspdf';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 import {
   Rifle,
@@ -79,6 +83,8 @@ interface NodeEntry {
 })
 export class LoadDevTabComponent implements OnInit {
   @ViewChild('velocityInputEl') velocityInputEl?: ElementRef<HTMLInputElement>;
+  @ViewChild('pdfContent') pdfContent?: ElementRef<HTMLElement>;
+
 
   @Output() backToMenu = new EventEmitter<void>();
 
@@ -114,6 +120,212 @@ export class LoadDevTabComponent implements OnInit {
   onBackFromHistory(): void {
     this.backToMenu.emit();
   }
+// ---------- PDF export (Graph + table inside #pdfContent) ----------
+async exportPdf(): Promise<void> {
+  try {
+    
+    if (!this.selectedProject) {
+      alert('Select a load development first.');
+      return;
+    }
+
+ // Always rebuild graph data for export (even if the UI graph is hidden)
+this.rebuildGraphData();
+
+// Export the graph if we have at least 2 points (a real line)
+const includeGraph = (this.graphCoords?.length ?? 0) >= 2;
+
+
+    this.postSaveMessage = 'Building PDF...';
+
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 28;
+    let y = margin;
+
+    // Header
+    const rifleName =
+      this.rifles?.find(r => r.id === this.selectedRifleId)?.name ?? `Rifle ${this.selectedRifleId ?? ''}`;
+    const projectName = this.selectedProject.name ?? 'Load development';
+
+    doc.setFontSize(14);
+    doc.text(`${projectName}`, margin, y);
+    y += 16;
+
+    doc.setFontSize(10);
+    doc.text(`Rifle: ${rifleName}`, margin, y);
+    y += 12;
+
+    doc.text(`Type: ${this.projectTypeLabel(this.selectedProject.type)}`, margin, y);
+    y += 18;
+
+    // ----- Graph (vector drawn from graphCoords) -----
+    if (includeGraph) {
+
+      const chartX = margin;
+      const chartY = y;
+      const chartW = pageW - margin * 2;
+      const chartH = 160;
+
+      // Frame
+      doc.setLineWidth(1);
+      doc.rect(chartX, chartY, chartW, chartH);
+
+      // Build min/max from graphCoords.avg
+      const xs = this.graphCoords.map(p => p.charge);
+      const ys = this.graphCoords.map(p => p.avg);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+
+      const padY = (maxY - minY) * 0.08 || 10;
+      const y0 = minY - padY;
+      const y1 = maxY + padY;
+
+      const sx = (v: number) =>
+        chartX + ((v - minX) / (maxX - minX || 1)) * chartW;
+      const sy = (v: number) =>
+        chartY + chartH - ((v - y0) / (y1 - y0 || 1)) * chartH;
+
+      // Title
+      doc.setFontSize(11);
+      doc.text('Velocity vs charge', chartX, chartY - 6);
+
+      // Polyline
+      doc.setLineWidth(1.5);
+
+      for (let i = 0; i < this.graphCoords.length - 1; i++) {
+        const a = this.graphCoords[i];
+        const b = this.graphCoords[i + 1];
+        doc.line(sx(a.charge), sy(a.avg), sx(b.charge), sy(b.avg));
+      }
+
+    // Points + labels (charge above, velocity below)
+doc.setLineWidth(1);
+doc.setFontSize(8);
+
+for (const p of this.graphCoords) {
+  const px = sx(p.charge);
+  const py = sy(p.avg);
+
+  doc.circle(px, py, 2, 'S');
+
+  const chargeTxt = `${p.charge.toFixed(2)}`;
+  const velTxt = `${Math.round(p.avg)}`;
+
+  const chargeX = px - (chargeTxt.length * 2.2);
+  const velX = px - (velTxt.length * 2.2);
+
+  const topY = Math.max(chartY + 10, py - 6);
+  const botY = Math.min(chartY + chartH - 4, py + 12);
+
+  doc.text(chargeTxt, chargeX, topY);
+  doc.text(velTxt, velX, botY);
+}
+
+      // Axis labels (simple)
+      doc.setFontSize(9);
+      doc.text(`${minX.toFixed(2)} gr`, chartX, chartY + chartH + 12);
+      doc.text(`${maxX.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
+      doc.text(`${Math.round(maxY)} fps`, chartX + chartW - 55, chartY + 10);
+
+      y += chartH + 26;
+    }
+
+    // ----- Table (real data, not screenshot) -----
+    const entries = this.entriesForSelectedProject();
+    doc.setFontSize(11);
+    doc.text('Data', margin, y);
+    y += 12;
+
+    doc.setFontSize(9);
+
+    const isOcw = this.selectedProject.type === 'ocw';
+    const cols = isOcw
+      ? ['Charge', 'Avg', 'SD', 'ES', 'Group']
+      : ['Charge', 'Avg', 'Shots'];
+
+    const colX = [margin, margin + 90, margin + 160, margin + 220, margin + 280];
+
+    // Header row
+    cols.forEach((c, i) => doc.text(c, colX[i], y));
+    y += 10;
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageW - margin, y);
+    y += 12;
+
+    const lineH = 12;
+
+    for (const e of entries) {
+      // page break
+      if (y > doc.internal.pageSize.getHeight() - 50) {
+        doc.addPage();
+        y = margin;
+      }
+
+      const s = this.statsForEntry(e);
+
+      doc.text(`${e.chargeGr ?? ''}`, colX[0], y);
+
+      doc.text(s ? `${Math.round(s.avg)}` : '—', colX[1], y);
+
+      if (isOcw) {
+        doc.text(s ? `${s.sd.toFixed(1)}` : '—', colX[2], y);
+        doc.text(s ? `${Math.round(s.es)}` : '—', colX[3], y);
+        doc.text(this.formatGroupSize(e), colX[4], y);
+      } else {
+        doc.text(`${(e as any).shotsFired ?? '—'}`, colX[2], y);
+      }
+
+      y += lineH;
+    }
+
+    // ----- Save: Android uses Filesystem + Share, browser uses download -----
+    const safe = (s: string) =>
+      s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    const fileName = `loaddev-${safe(rifleName)}-${safe(projectName)}.pdf`;
+
+    const pdfBase64 = doc.output('datauristring').split(',')[1];
+
+    if (Capacitor.isNativePlatform()) {
+      const res = await Filesystem.writeFile({
+        path: fileName,
+        data: pdfBase64,
+        directory: Directory.Documents
+      });
+
+      await Share.share({
+        title: 'Load Development PDF',
+        text: fileName,
+        url: res.uri
+      });
+
+      this.postSaveMessage = 'Saved + shared ✅';
+      setTimeout(() => (this.postSaveMessage = null), 2000);
+    } else {
+      // Browser fallback
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      this.postSaveMessage = 'Downloaded ✅';
+      setTimeout(() => (this.postSaveMessage = null), 2000);
+    }
+  } catch (e) {
+    console.error('PDF export failed', e);
+    this.postSaveMessage = 'Export failed (check console).';
+    setTimeout(() => (this.postSaveMessage = null), 4000);
+  }
+}
 
   // ---------- rifles / projects ----------
   rifles: Rifle[] = [];
