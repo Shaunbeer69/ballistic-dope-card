@@ -9,6 +9,13 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
 import {
   Rifle,
   LoadDevProject,
@@ -79,9 +86,12 @@ interface NodeEntry {
 })
 export class LoadDevTabComponent implements OnInit {
   @ViewChild('velocityInputEl') velocityInputEl?: ElementRef<HTMLInputElement>;
+
   @Output() backToMenu = new EventEmitter<void>();
 
-  // Optional token you can use in HTML for a brief pulse
+  // ----------------------------
+  // Focus / highlight behaviour
+  // ----------------------------
   velocityFocusToken = 0;
 
   private focusVelocityInput(selectAll = true): void {
@@ -105,6 +115,11 @@ export class LoadDevTabComponent implements OnInit {
 
       this.velocityFocusToken++;
     }, 0);
+  }
+
+  // ---- navigation back from history/footer button ----
+  onBackFromHistory(): void {
+    this.backToMenu.emit();
   }
 
   // ---------- rifles / projects ----------
@@ -191,11 +206,6 @@ export class LoadDevTabComponent implements OnInit {
       distanceM: null
     };
   }
-poiNote(entry: LoadDevEntry): string {
-  const any = entry as any;
-  const v = (any?.poiNote ?? '').toString().trim();
-  return v ? v : '—';
-}
 
   private createEmptyEntryForm(): EntryForm {
     return {
@@ -254,9 +264,9 @@ poiNote(entry: LoadDevEntry): string {
   get devTypeDescription(): string | null {
     switch (this.projectForm.type) {
       case 'ladder':
-        return 'Ladder test: single shots with small powder charge steps.';
+        return `Ladder test: single shots with small powder charge steps. You look for a "flat spot" in velocity (low SD/ES) across 3 or more neighbouring charges – that usually indicates a stable node.`;
       case 'ocw':
-        return 'OCW (Optimal Charge Weight): 3–5 shot groups over a small charge window.';
+        return `OCW (Optimal Charge Weight): 3–5 shot groups over a small charge window. You look for a range of charges where point of impact stays very similar while groups remain tight – that indicates a forgiving accuracy node.`;
       default:
         return null;
     }
@@ -264,6 +274,39 @@ poiNote(entry: LoadDevEntry): string {
 
   toggleNotesPanel(): void {
     this.showNotesPanel = !this.showNotesPanel;
+  }
+
+  private buildProjectFilename(project: any): string {
+    const base = (project?.name || 'load-development').toString();
+    const safe = base.replace(/[^\w\d\-]+/g, '_');
+    return safe + '.pdf';
+  }
+
+  // ✅ FIX: must be Promise<void>
+  private async savePdfNative(doc: jsPDF, filename: string): Promise<void> {
+    try {
+      const dataUrl = doc.output('datauristring');
+      const base64 = dataUrl.split(',')[1];
+      const path = `gunstuff/${filename}`;
+
+      await Filesystem.writeFile({
+        path,
+        data: base64,
+        directory: Directory.Data,
+        recursive: true
+      });
+
+      const uriResult = await Filesystem.getUri({ path, directory: Directory.Data });
+
+      await Share.share({
+        title: filename,
+        text: 'Gunstuff Load Development PDF',
+        url: uriResult.uri
+      });
+    } catch (err) {
+      console.error('Native PDF save failed:', err);
+      doc.save(filename);
+    }
   }
 
   // ---------- loading ----------
@@ -501,6 +544,15 @@ poiNote(entry: LoadDevEntry): string {
       return;
     }
 
+    const span = endChargeGr - startChargeGr;
+    const stepsFloat = span / stepGr;
+    const stepsInt = Math.round(stepsFloat);
+    if (Math.abs(stepsFloat - stepsInt) > 1e-6) {
+      this.plannerError =
+        'Warning: step does not divide evenly into the window – last charge may be partial.';
+      // Still allow generation
+    }
+
     const dist = distanceM ?? undefined;
     const defaultShots: number | undefined = type === 'ocw' ? shotsPerGroup ?? undefined : 1;
 
@@ -553,7 +605,8 @@ poiNote(entry: LoadDevEntry): string {
       this.data.updateLoadDevProject(updated);
       this.selectedProjectId = updated.id;
 
-      this.postSaveMessage = 'Load development updated.';
+      this.postSaveMessage =
+        'Load development updated. Use the wizard to enter velocities, view the graph and see the highlighted nodes.';
     } else {
       const newProject: LoadDevProject = {
         id: Date.now(),
@@ -570,10 +623,13 @@ poiNote(entry: LoadDevEntry): string {
       this.createLadderEntriesFromPlanner(newProject.id);
       this.data.createSessionForLoadDevProject(newProject);
 
-      this.postSaveMessage = 'Load development planned and saved.';
+      this.postSaveMessage =
+        type === 'ocw'
+          ? 'OCW planned and saved. Go shoot your groups, then come back here and use the OCW wizard or Edit buttons to enter velocities.'
+          : 'Ladder test planned and saved. Go shoot the ladder, then come back here and use the wizard or Edit buttons to enter velocities and view the graph with node highlights.';
     }
 
-    setTimeout(() => (this.postSaveMessage = null), 8000);
+    setTimeout(() => (this.postSaveMessage = null), 15000);
 
     this.projectFormVisible = false;
     this.editingProject = null;
@@ -600,7 +656,217 @@ poiNote(entry: LoadDevEntry): string {
     this.loadProjects();
   }
 
-  // ---------- entry helpers ----------
+  // ---------- EXPORT PDF (enhanced shot chart) ----------
+  exportSelectedProjectToPdf(): void {
+    if (!this.selectedProject) {
+      alert('Select a load development first.');
+      return;
+    }
+
+    const project: any = this.selectedProject;
+    const rifle =
+      this.rifles && this.selectedRifleId
+        ? this.rifles.find(r => r.id === this.selectedRifleId)
+        : null;
+
+    const entries: any[] = this.entriesForSelectedProject() || [];
+    if (!entries.length) {
+      alert('No entries to export yet.');
+      return;
+    }
+
+    const allShotValues: number[] = [];
+    entries.forEach(e => {
+      const values = this.parseVelocityInput((e as any).velocityInput);
+      values.forEach(v => allShotValues.push(v));
+    });
+
+    if (!allShotValues.length) {
+      alert('No velocity data captured yet.');
+      return;
+    }
+
+    const minV = Math.min(...allShotValues);
+    const maxV = Math.max(...allShotValues);
+    const rangeV = maxV - minV || 1;
+
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, pageWidth, 10, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.text('GUNSTUFF', 8, 6);
+    doc.setFontSize(8);
+    doc.text('Ballistics', 8, 9);
+
+    doc.setTextColor(0, 0, 0);
+    let y = 18;
+
+    doc.setFontSize(13);
+    doc.text(project.name || 'Load development', 14, y);
+    y += 7;
+
+    doc.setFontSize(10);
+    doc.text(`Rifle: ${rifle?.name || '—'}`, 14, y);
+    y += 5;
+
+    doc.text(`Type: ${(project.type as string).toUpperCase()}`, 14, y);
+    y += 5;
+
+    if (project.dateStarted) {
+      doc.text(`Date: ${this.shortDate(project.dateStarted)}`, 14, y);
+      y += 6;
+    }
+
+    y += 4;
+
+    const chartLeft = 18;
+    const chartWidth = pageWidth - 36;
+    const chartTop = y;
+    const chartHeight = 55;
+
+    doc.setDrawColor(200);
+    doc.rect(chartLeft, chartTop, chartWidth, chartHeight);
+    doc.setFontSize(10);
+    doc.text('Velocity vs Charge (RAW SHOTS)', chartLeft, chartTop - 3);
+
+    const n = entries.length;
+    const innerPadX = 10;
+    const usableWidth = Math.max(chartWidth - innerPadX * 2, 0);
+    const xStep = n > 1 ? usableWidth / (n - 1) : 0;
+
+    const palette = [
+      { r: 255, g: 99, b: 132 },
+      { r: 54, g: 162, b: 235 },
+      { r: 255, g: 206, b: 86 },
+      { r: 75, g: 192, b: 192 },
+      { r: 153, g: 102, b: 255 }
+    ];
+
+    entries.forEach((entry, i) => {
+      const any = entry as any;
+      const values = this.parseVelocityInput(any.velocityInput);
+      if (!values.length) return;
+
+      const baseX = chartLeft + innerPadX + i * xStep;
+      const colour = palette[i % palette.length];
+
+      doc.setDrawColor(colour.r, colour.g, colour.b);
+      doc.setFillColor(colour.r, colour.g, colour.b);
+
+      let minY: number | null = null;
+      let maxY: number | null = null;
+      let sum = 0;
+
+      values.forEach(v => {
+        const yVal = chartTop + chartHeight - ((v - minV) / rangeV) * chartHeight;
+        doc.circle(baseX, yVal, 0.7, 'F');
+
+        const label = String(Math.round(v));
+        doc.setFontSize(7);
+        doc.text(label, baseX + 1.5, yVal - 1.5);
+
+        sum += v;
+        minY = minY === null ? yVal : Math.min(minY, yVal);
+        maxY = maxY === null ? yVal : Math.max(maxY, yVal);
+      });
+
+      if (minY !== null && maxY !== null && maxY > minY) {
+        const centerY = (minY + maxY) / 2;
+        const radius = (maxY - minY) / 2 + 1.5;
+
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(0.3);
+        doc.circle(baseX, centerY, radius, 'S');
+      }
+
+      if (typeof any.groupSize === 'number' && any.groupSize > 0) {
+        const maxGroupVisual = 12;
+        const groupVisual = Math.min(any.groupSize, maxGroupVisual);
+
+        doc.setLineWidth(2);
+        doc.setDrawColor(colour.r, colour.g, colour.b);
+
+        doc.line(
+          baseX,
+          chartTop + chartHeight + 6,
+          baseX,
+          chartTop + chartHeight + 6 + groupVisual
+        );
+      }
+
+      if (any.poiNote) {
+        doc.setFontSize(7);
+        doc.setTextColor(colour.r, colour.g, colour.b);
+
+        const poiText = `POI: ${any.poiNote}`;
+        const textWidth = doc.getTextWidth(poiText);
+        doc.text(poiText, baseX - textWidth / 2, chartTop - 5);
+
+        doc.setTextColor(0, 0, 0);
+      }
+
+      if (i > 0) {
+        const prevEntry = entries[i - 1] as any;
+        const prevValues = this.parseVelocityInput(prevEntry.velocityInput);
+
+        if (prevValues.length) {
+          const prevAvg = prevValues.reduce((a: number, b: number) => a + b, 0) / prevValues.length;
+          const currAvg = sum / values.length;
+
+          const prevX = chartLeft + innerPadX + (i - 1) * xStep;
+          const currX = baseX;
+
+          const prevY = chartTop + chartHeight - ((prevAvg - minV) / rangeV) * chartHeight;
+          const currY = chartTop + chartHeight - ((currAvg - minV) / rangeV) * chartHeight;
+
+          doc.setLineWidth(0.6);
+          doc.setDrawColor(colour.r, colour.g, colour.b);
+          doc.line(prevX, prevY, currX, currY);
+        }
+      }
+
+      if (typeof any.chargeGr === 'number') {
+        const chargeText = any.chargeGr.toFixed(1);
+        doc.text(chargeText, baseX - doc.getTextWidth(chargeText) / 2, chartTop + chartHeight + 4);
+      }
+    });
+
+    y = chartTop + chartHeight + 18;
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Charge', 'Avg', 'ES', 'SD', 'Shots', 'Group', 'POI']],
+      body: entries.map((e: any) => {
+        const stats = this.statsForEntry(e);
+        return [
+          (e.chargeGr ?? '').toString(),
+          stats ? stats.avg.toFixed(0) : '—',
+          stats ? stats.es.toFixed(0) : '—',
+          stats ? stats.sd.toFixed(1) : '—',
+          (e.shotsFired ?? '—').toString(),
+          this.formatGroupSize(e),
+          (e.poiNote ?? '—').toString()
+        ];
+      }),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [34, 197, 94], textColor: [0, 0, 0] },
+      alternateRowStyles: { fillColor: [245, 245, 245] }
+    });
+
+    const filename = this.buildProjectFilename(project);
+
+    if (Capacitor.isNativePlatform()) {
+      void this.savePdfNative(doc, filename);
+    } else {
+      doc.save(filename);
+    }
+  }
+
+  // ✅ MUST be public + inside class (template calls this)
   formatGroupSize(entry: LoadDevEntry): string {
     const any = entry as any;
     if (typeof any.groupSize !== 'number' || !isFinite(any.groupSize)) return '—';
@@ -707,7 +973,17 @@ poiNote(entry: LoadDevEntry): string {
       return this.sortOcwEntriesBySd(list);
     }
 
-    return list.sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
+    switch (this.entrySortMode) {
+      case 'chargeAsc':
+        return list.sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
+      case 'groupAsc':
+        return list.sort((a, b) => (a.groupSize ?? 0) - (b.groupSize ?? 0));
+      case 'groupDesc':
+        return list.sort((a, b) => (b.groupSize ?? 0) - (a.groupSize ?? 0));
+      case 'default':
+      default:
+        return list.sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
+    }
   }
 
   // ---------- velocity stats & parsing ----------
@@ -739,7 +1015,6 @@ poiNote(entry: LoadDevEntry): string {
     return { avg, es, sd, n };
   }
 
-  // --- OCW ranking helpers ---
   private sortOcwEntriesBySd(entries: LoadDevEntry[]): LoadDevEntry[] {
     const sdCache = new Map<string, number>();
     const getSd = (e: LoadDevEntry): number => {
@@ -794,7 +1069,6 @@ poiNote(entry: LoadDevEntry): string {
     return '';
   }
 
-  // ---------- node detection & colouring (ladder) ----------
   private findNodes(entries: LoadDevEntry[]): NodeEntry[] {
     const valid = entries
       .map(e => ({ entry: e, stats: this.statsForEntry(e) }))
@@ -827,7 +1101,6 @@ poiNote(entry: LoadDevEntry): string {
       : '';
   }
 
-  // ---------- velocities completeness ----------
   private allEntriesHaveVelocity(): boolean {
     if (!this.selectedProject?.entries?.length) return false;
 
@@ -838,7 +1111,6 @@ poiNote(entry: LoadDevEntry): string {
     });
   }
 
-  // ---------- graph data ----------
   private rebuildGraphData(): void {
     this.graphCoords = [];
     this.graphSvgPoints = '';
@@ -895,7 +1167,6 @@ poiNote(entry: LoadDevEntry): string {
     this.showGraph = !this.showGraph;
   }
 
-  // ---------- ladder / OCW wizard ----------
   startLadderWizard(): void {
     if (!this.selectedProject) {
       alert('Select a load development first.');
@@ -908,7 +1179,7 @@ poiNote(entry: LoadDevEntry): string {
     }
 
     if (this.allEntriesHaveVelocity()) {
-      alert('All steps already have velocities. Use Edit vel for changes.');
+      alert('All steps already have velocities. Use the Edit buttons for changes.');
       return;
     }
 
@@ -994,6 +1265,19 @@ poiNote(entry: LoadDevEntry): string {
         return;
       }
 
+      if (this.selectedProject.type === 'ocw') {
+        const plannedShots =
+          this.velocityEditEntry.shotsFired ?? this.planner.shotsPerGroup ?? null;
+
+        if (plannedShots && values.length !== plannedShots) {
+          alert(
+            `You planned ${plannedShots} shots for this charge. Enter exactly ${plannedShots} velocities, or leave the field blank and press Skip if you have not shot this group yet.`
+          );
+          this.focusVelocityInput(true);
+          return;
+        }
+      }
+
       const any = this.velocityEditEntry as any;
       any.velocityInput = values.join(' ');
       this.velocityEditEntry.shotsFired = values.length;
@@ -1013,7 +1297,6 @@ poiNote(entry: LoadDevEntry): string {
     this.finishLadderWizard();
   }
 
-  // ---------- single-row velocity edit ----------
   editVelocityForEntry(entry: LoadDevEntry): void {
     this.ladderWizardActive = false;
 
@@ -1074,7 +1357,6 @@ poiNote(entry: LoadDevEntry): string {
     this.velocityEditValue = '';
   }
 
-  // ---------- OCW completeness helper ----------
   private updateOcwValidationWarning(): void {
     const project = this.selectedProject;
 
@@ -1104,11 +1386,20 @@ poiNote(entry: LoadDevEntry): string {
 
     this.ocwValidationWarning =
       shotCounts.size > 1
-        ? 'OCW groups do not all have the same number of shots.'
+        ? 'OCW groups do not all have the same number of shots. For good OCW analysis, keep group sizes consistent (e.g. 3 or 5 shots per charge).'
         : null;
   }
 
-  // ---------- back out of load dev tab ----------
+  isProjectComplete(project: LoadDevProject): boolean {
+    if (!project.entries || !project.entries.length) return false;
+
+    return project.entries.every(e => {
+      const any = e as any;
+      const vals = this.parseVelocityInput(any.velocityInput);
+      return vals.length > 0;
+    });
+  }
+
   onBackFromLoadDev(): void {
     this.selectedProjectId = null;
     this.selectedProject = null;
@@ -1137,6 +1428,5 @@ poiNote(entry: LoadDevEntry): string {
     this.postSaveMessage = null;
 
     this.resetWizard();
-    this.backToMenu.emit();
   }
 }
