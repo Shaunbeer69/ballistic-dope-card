@@ -193,7 +193,6 @@ export class LoadDevTabComponent implements OnInit {
         const chartY = y;
         const chartW = pageW - margin * 2;
         const chartH = 180;
-
         const innerPad = 8; // keep shapes away from frame
         const xMin = chartX + innerPad;
         const xMax = chartX + chartW - innerPad;
@@ -269,16 +268,14 @@ export class LoadDevTabComponent implements OnInit {
             const minV = Math.min(...cleaned);
             const maxV = Math.max(...cleaned);
 
-            // small padding so ellipse doesn't touch dots
             const padV = Math.max(6, (maxV - minV) * 0.25);
             const top = Math.max(yMin, Math.min(yMax, sy(maxV + padV)));
             const bot = Math.max(yMin, Math.min(yMax, sy(minV - padV)));
 
             const cy = (top + bot) / 2;
             const ry = Math.max(6, Math.abs(bot - top) / 2);
-            const rx = 10; // constant-ish width so groups are readable
+            const rx = 10;
 
-            // Ellipse approx: draw as many short line segments
             const steps = 28;
             doc.setLineWidth(0.8);
             for (let i = 0; i <= steps; i++) {
@@ -306,7 +303,6 @@ export class LoadDevTabComponent implements OnInit {
             const px = Math.max(xMin, Math.min(xMax, sx(p.charge)));
             const py = Math.max(yMin, Math.min(yMax, sy(p.v)));
 
-            // dot
             doc.circle(px, py, 1.8, 'S');
 
             const shotNo = (p.shotIndex ?? 0) + 1;
@@ -322,7 +318,6 @@ export class LoadDevTabComponent implements OnInit {
             let tx = placeRight ? (px + dx) : (px + dx - textW);
             let ty = py + dy - 2;
 
-            // keep inside chart bounds
             if (tx < xMin + labelInsidePad) tx = xMin + labelInsidePad;
             if (tx > xMax - labelInsidePad - textW) tx = xMax - labelInsidePad - textW;
             if (ty < yMin + labelInsidePad) ty = yMin + labelInsidePad;
@@ -340,7 +335,7 @@ export class LoadDevTabComponent implements OnInit {
 
           y += chartH + 26;
         } else {
-          // ---- Ladder PDF rendering (existing avg line) ----
+          // ---- Ladder PDF rendering (avg line) ----
           doc.setLineWidth(1.5);
           for (let i = 0; i < this.graphCoords.length - 1; i++) {
             const a = this.graphCoords[i];
@@ -348,7 +343,6 @@ export class LoadDevTabComponent implements OnInit {
             doc.line(sx(a.charge), sy(a.avg), sx(b.charge), sy(b.avg));
           }
 
-          // Points + labels (charge above, velocity below)
           doc.setLineWidth(1);
           doc.setFontSize(8);
 
@@ -371,7 +365,6 @@ export class LoadDevTabComponent implements OnInit {
             doc.text(velTxt, velX, botY);
           }
 
-          // Axis labels
           doc.setFontSize(9);
           doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
           doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
@@ -381,7 +374,7 @@ export class LoadDevTabComponent implements OnInit {
         }
       }
 
-      // ----- Table (real data, not screenshot) -----
+      // ----- Table (real data) -----
       const entries = this.entriesForSelectedProject();
       doc.setFontSize(11);
       doc.text('Data', margin, y);
@@ -392,7 +385,6 @@ export class LoadDevTabComponent implements OnInit {
       const cols = isOcwProject ? ['Charge', 'Avg', 'SD', 'ES', 'Group'] : ['Charge', 'Avg', 'Shots'];
       const colX = [margin, margin + 90, margin + 160, margin + 220, margin + 280];
 
-      // Header row
       cols.forEach((c, i) => doc.text(c, colX[i], y));
       y += 10;
       doc.setLineWidth(0.5);
@@ -402,7 +394,6 @@ export class LoadDevTabComponent implements OnInit {
       const lineH = 12;
 
       for (const e of entries) {
-        // page break
         if (y > doc.internal.pageSize.getHeight() - 50) {
           doc.addPage();
           y = margin;
@@ -424,12 +415,10 @@ export class LoadDevTabComponent implements OnInit {
         y += lineH;
       }
 
-      // ----- Save: Android uses Filesystem + Share, browser uses download -----
       const safe = (s: string) =>
         s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
       const fileName = `loaddev-${safe(rifleName)}-${safe(projectName)}.pdf`;
-
       const pdfBase64 = doc.output('datauristring').split(',')[1];
 
       if (Capacitor.isNativePlatform()) {
@@ -448,7 +437,6 @@ export class LoadDevTabComponent implements OnInit {
         this.postSaveMessage = 'Saved + shared ✅';
         setTimeout(() => (this.postSaveMessage = null), 2000);
       } else {
-        // Browser fallback
         const blob = doc.output('blob');
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -638,15 +626,13 @@ export class LoadDevTabComponent implements OnInit {
       notes: notes || undefined
     });
 
-    // Visual confirmation
     this.postSaveMessage = 'Notes saved ✅';
     setTimeout(() => (this.postSaveMessage = null), 2000);
 
-    // Refresh UI from storage so it stays in sync
-    this.refreshSelectedProject();
-
-    // ✅ collapse notes so the Save button disappears
+    // ✅ Collapse notes after saving (so Save disappears)
     this.showNotesPanel = false;
+
+    this.refreshSelectedProject();
   }
 
   // ---------- loading ----------
@@ -905,7 +891,6 @@ export class LoadDevTabComponent implements OnInit {
     if (Math.abs(stepsFloat - stepsInt) > 1e-6) {
       this.plannerError =
         'Warning: step does not divide evenly into the window – last charge may be partial.';
-      // Still allow generation
     }
 
     const dist = distanceM ?? undefined;
@@ -1144,9 +1129,8 @@ export class LoadDevTabComponent implements OnInit {
   // ✅ NEW: only fixes *obvious* paste duplication like "a b c a b c"
   private fixObviousRepeatedPaste(values: number[]): number[] {
     const n = values.length;
-    if (n < 6) return values; // too small to safely infer repetition
+    if (n < 6) return values;
 
-    // Try repeat factors 2..4 (double/ triple/ quadruple paste)
     for (const factor of [2, 3, 4]) {
       if (n % factor !== 0) continue;
 
@@ -1283,16 +1267,13 @@ export class LoadDevTabComponent implements OnInit {
 
     if (!nodes.length) return '';
 
-    // index of this entry
     const idx = entries.findIndex(e => e.id === entry.id);
     if (idx < 0) return '';
 
-    // node indices
     const nodeIndices = nodes
       .map(n => entries.findIndex(e => e.id === n.entry.id))
       .filter(i => i >= 0);
 
-    // highlight node ±1 (full node band)
     const isInNodeBand = nodeIndices.some(i => Math.abs(i - idx) <= 1);
 
     return isInNodeBand
@@ -1315,7 +1296,6 @@ export class LoadDevTabComponent implements OnInit {
     this.ocwShotPoints = [];
     this.ocwGroupEllipses = [];
 
-    // Collect shot points per entry
     const groups: { entryId: number; charge: number; velocities: number[] }[] = [];
 
     for (const e of entries) {
@@ -1326,7 +1306,6 @@ export class LoadDevTabComponent implements OnInit {
       const rawVals = this.parseVelocityInput(any.velocityInput);
       if (!rawVals.length) continue;
 
-      // ✅ Fix obvious repeated paste (2x/3x/4x), otherwise keep ALL shots as entered
       const cleaned = this.fixObviousRepeatedPaste(rawVals);
 
       groups.push({
@@ -1338,7 +1317,6 @@ export class LoadDevTabComponent implements OnInit {
 
     if (!groups.length) return;
 
-    // X scaling by charge (true axis), and Y scaling by velocity min/max across ALL shots
     const charges = groups.map(g => g.charge);
     const minX = Math.min(...charges);
     const maxX = Math.max(...charges);
@@ -1364,7 +1342,6 @@ export class LoadDevTabComponent implements OnInit {
     const sy = (v: number) =>
       yBot - ((v - minV) / (maxV - minV || 1)) * (yBot - yTop);
 
-    // Scatter points with small deterministic jitter so shots don't overlap
     const pts: OcwShotPoint[] = [];
     for (const g of groups) {
       const baseX = sx(g.charge);
@@ -1372,8 +1349,7 @@ export class LoadDevTabComponent implements OnInit {
       for (let i = 0; i < g.velocities.length; i++) {
         const v = g.velocities[i];
 
-        // deterministic tiny jitter (no Math.random)
-        const jitter = ((i % 7) - 3) * 0.75; // -2.25 .. +2.25
+        const jitter = ((i % 7) - 3) * 0.75;
         const px = Math.max(x0, Math.min(x1, baseX + jitter));
         const py = Math.max(yTop, Math.min(yBot, sy(v)));
 
@@ -1390,7 +1366,6 @@ export class LoadDevTabComponent implements OnInit {
 
     this.ocwShotPoints = pts;
 
-    // Group ellipses around each charge's points
     const ellipses: OcwGroupEllipse[] = [];
     for (const g of groups) {
       const gPts = pts.filter(p => p.entryId === g.entryId);
@@ -1426,13 +1401,11 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   private rebuildGraphData(): void {
-    // reset
     this.graphCoords = [];
     this.graphSvgPoints = '';
     this.graphMinVel = 0;
     this.graphMaxVel = 0;
 
-    // reset OCW overlays too
     this.ocwShotPoints = [];
     this.ocwGroupEllipses = [];
 
@@ -1440,7 +1413,6 @@ export class LoadDevTabComponent implements OnInit {
 
     const entries = this.selectedProject.entries;
 
-    // ---- Ladder/avg-line data (existing behaviour, used by PDF export) ----
     const pts: { charge: number; avg: number }[] = [];
 
     for (const e of entries) {
@@ -1480,7 +1452,6 @@ export class LoadDevTabComponent implements OnInit {
       this.graphSvgPoints = coords.map(c => `${c.x},${c.y}`).join(' ');
     }
 
-    // ---- OCW shot scatter + group ellipses (screen) ----
     if (this.selectedProject.type === 'ocw') {
       const sorted = [...entries].sort((a, b) => (a.chargeGr ?? 9999) - (b.chargeGr ?? 9999));
       this.buildOcwShotAndGroupGeometry(sorted);
@@ -1535,8 +1506,8 @@ export class LoadDevTabComponent implements OnInit {
     if (!this.ladderWizardActive) return;
 
     if (this.ladderWizardIndex >= this.ladderWizardEntries.length) {
-      // ✅ Wizard completed (not canceled)
-      this.completeLadderWizard();
+      // ✅ Wizard finished naturally -> show brief Saved banner
+      this.finishLadderWizard(true);
       return;
     }
 
@@ -1547,30 +1518,23 @@ export class LoadDevTabComponent implements OnInit {
     this.focusVelocityInput(true);
   }
 
-  // ✅ called ONLY when wizard reaches the end
-  private completeLadderWizard(): void {
-    this.finishLadderWizard();
-
-    // ensure UI refresh (graph, results, etc.)
-    this.refreshSelectedProject();
-
-    // brief saved message
-    this.postSaveMessage = 'Saved ✅';
-    setTimeout(() => (this.postSaveMessage = null), 2000);
-  }
-
-  // internal end/reset (used by both completion + cancel)
-  private finishLadderWizard(): void {
+  // ✅ CHANGED: allow optional "saved" toast when the wizard completes
+  private finishLadderWizard(showSavedToast = false): void {
     this.ladderWizardActive = false;
     this.velocityEditEntry = null;
     this.velocityEditValue = '';
     this.ladderWizardEntries = [];
     this.ladderWizardIndex = 0;
+
+    if (showSavedToast) {
+      this.postSaveMessage = 'Saved ✅';
+      setTimeout(() => (this.postSaveMessage = null), 2000);
+    }
   }
 
   private goToNextWizardEntry(): void {
     if (!this.selectedProject || !this.velocityEditEntry) {
-      this.finishLadderWizard();
+      this.finishLadderWizard(false);
       return;
     }
 
@@ -1581,8 +1545,8 @@ export class LoadDevTabComponent implements OnInit {
     const currentIndex = sorted.findIndex(e => e.id === this.velocityEditEntry!.id);
 
     if (currentIndex < 0 || currentIndex + 1 >= sorted.length) {
-      // ✅ Wizard completed (not canceled)
-      this.completeLadderWizard();
+      // ✅ Natural end
+      this.finishLadderWizard(true);
       return;
     }
 
@@ -1639,8 +1603,8 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   cancelLadderWizard(): void {
-    // ✅ canceled: no "Saved ✅" message
-    this.finishLadderWizard();
+    // ✅ Cancel should NOT show "Saved"
+    this.finishLadderWizard(false);
   }
 
   editVelocityForEntry(entry: LoadDevEntry): void {
