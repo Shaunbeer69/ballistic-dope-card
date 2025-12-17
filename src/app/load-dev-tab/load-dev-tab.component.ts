@@ -299,19 +299,47 @@ const bot = Math.max(yMin, Math.min(yMax, sy(minV - padV)));
     }
 
     // 2) Shot dots (ALL)
-    doc.setLineWidth(1);
-    doc.setFontSize(8);
+  // 2) Shot dots (ALL) + labels (shot# + velocity)
+doc.setLineWidth(1);
+doc.setFontSize(8);
 
-    for (const p of this.ocwShotPoints) {
-      const px = sx(p.charge);
-      const py = sy(p.v);
+const labelPad = 6;      // distance from dot to label
+const labelInsidePad = 8; // keep labels inside chart border
 
-      doc.circle(px, py, 1.8, 'S');
+for (const p of this.ocwShotPoints) {
+  // clamp to chart inner box (use your xMin/xMax/yMin/yMax from earlier)
+  const px = Math.max(xMin, Math.min(xMax, sx(p.charge)));
+  const py = Math.max(yMin, Math.min(yMax, sy(p.v)));
 
-      // Optional tiny label: velocity near dot (comment out if too busy)
-      // const vt = `${Math.round(p.v)}`;
-      // doc.text(vt, px + 3, py - 2);
-    }
+  // dot
+  doc.circle(px, py, 1.8, 'S');
+
+  // label: "1:2810" (shotIndex is 0-based)
+  const shotNo = (p.shotIndex ?? 0) + 1;
+  const velTxt = `${Math.round(p.v)}`;
+  const txt = `${shotNo}:${velTxt}`;
+
+  // push labels left/right alternately so they sit OUTSIDE the group cluster
+  // (even shot numbers go right, odd go left)
+  const placeRight = (shotNo % 2) === 0;
+  const dx = placeRight ? labelPad : -labelPad;
+  const dy = ((shotNo % 3) - 1) * 6; // -6, 0, +6 (spreads labels a bit)
+
+  // estimate text width (simple)
+  const textW = txt.length * 4.2;
+
+  let tx = placeRight ? (px + dx) : (px + dx - textW);
+  let ty = py + dy - 2;
+
+  // keep label inside chart area
+  if (tx < xMin + labelInsidePad) tx = xMin + labelInsidePad;
+  if (tx > xMax - labelInsidePad - textW) tx = xMax - labelInsidePad - textW;
+  if (ty < yMin + labelInsidePad) ty = yMin + labelInsidePad;
+  if (ty > yMax - labelInsidePad) ty = yMax - labelInsidePad;
+
+  doc.text(txt, tx, ty);
+}
+
 
     // 3) Axis hints
     doc.setFontSize(9);
