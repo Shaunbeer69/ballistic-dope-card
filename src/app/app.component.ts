@@ -764,13 +764,15 @@ this.expandedDistanceM = distanceM;
 
   // ---------- tools / Kestrel / converter ----------
 
-  openTools(): void {
-    this.showTools = !this.showTools;
-    if (!this.showTools) {
-      this.selectedTool = null;
-    }
-    this.showReportsForm = false;
+openTools(): void {
+  this.showTools = !this.showTools;
+
+  if (!this.showTools) {
+    this.selectedTool = null;
   }
+
+  this.showReportsForm = false;
+}
 
   onConverterToolClick(): void {
     this.selectedTool =
