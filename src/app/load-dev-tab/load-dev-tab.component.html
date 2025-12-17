@@ -331,14 +331,6 @@
               <ng-container *ngIf="isProjectComplete(p)">✅</ng-container>
             </option>
           </select>
-
-          <button
-            type="button"
-            class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black font-semibold text-[11px]"
-            (click)="openSelectedProject()"
-          >
-            Open
-          </button>
         </div>
 
         <!-- Quick actions row -->
@@ -467,22 +459,47 @@
 
           <!-- GRAPH -->
           <div
-            *ngIf="showGraph && graphCoords.length"
+            *ngIf="showGraph && (graphCoords.length || ocwShotPoints.length)"
             class="mb-2 rounded-2xl border border-gray-800 bg-black/80 px-3 py-2"
           >
             <div class="text-[11px] text-gray-300 mb-1">Velocity vs charge</div>
 
             <svg viewBox="0 0 100 60" class="w-full h-40">
-              <polyline
-                [attr.points]="graphSvgPoints"
-                fill="none"
-                stroke="#22c55e"
-                stroke-width="1.5"
-              ></polyline>
+              <!-- LADDER (existing): polyline + points -->
+              <ng-container *ngIf="selectedProject?.type !== 'ocw'; else ocwGraph">
+                <polyline
+                  [attr.points]="graphSvgPoints"
+                  fill="none"
+                  stroke="#22c55e"
+                  stroke-width="1.5"
+                ></polyline>
 
-              <ng-container *ngFor="let p of graphCoords">
-                <circle [attr.cx]="p.x" [attr.cy]="p.y" r="1.7" fill="#facc15"></circle>
+                <ng-container *ngFor="let p of graphCoords">
+                  <circle [attr.cx]="p.x" [attr.cy]="p.y" r="1.7" fill="#facc15"></circle>
+                </ng-container>
               </ng-container>
+
+              <!-- OCW (new): all shots + group circles -->
+              <ng-template #ocwGraph>
+                <!-- circles around each charge group -->
+                <ng-container *ngFor="let g of ocwGroupEllipses">
+                  <ellipse
+                    [attr.cx]="g.cx"
+                    [attr.cy]="g.cy"
+                    [attr.rx]="g.rx"
+                    [attr.ry]="g.ry"
+                    fill="none"
+                    stroke="#facc15"
+                    stroke-width="0.8"
+                    opacity="0.9"
+                  ></ellipse>
+                </ng-container>
+
+                <!-- every shot plotted -->
+                <ng-container *ngFor="let s of ocwShotPoints">
+                  <circle [attr.cx]="s.x" [attr.cy]="s.y" r="1.4" fill="#22c55e"></circle>
+                </ng-container>
+              </ng-template>
             </svg>
           </div>
 
@@ -623,21 +640,12 @@
           </div>
 
           <ng-container *ngIf="selectedProject as sp">
-            <div class="flex items-center gap-2">
+            <div class="flex justify-end mt-4">
               <button
-                type="button"
-                class="px-3 py-1.5 rounded-2xl bg-red-700 text-red-50 text-[11px]"
-                (click)="deleteProject(sp)"
+                class="px-3 py-2 rounded-xl bg-red-600 text-white text-xs"
+                (click)="deleteProject(selectedProject!)"
               >
                 Delete
-              </button>
-
-              <button
-                type="button"
-                class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black font-semibold text-[11px]"
-                (click)="onBackFromLoadDev()"
-              >
-                Back
               </button>
             </div>
           </ng-container>

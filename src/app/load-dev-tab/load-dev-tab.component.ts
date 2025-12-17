@@ -75,6 +75,25 @@ interface NodeEntry {
   stats: VelocityStats;
 }
 
+// ---- OCW graph data (screen) ----
+interface OcwShotPoint {
+  x: number;          // svg coords (0..100)
+  y: number;          // svg coords (0..60)
+  charge: number;
+  v: number;
+  entryId: number;
+  shotIndex: number;  // 0..n-1
+}
+
+interface OcwGroupEllipse {
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  charge: number;
+  entryId: number;
+}
+
 @Component({
   selector: 'app-load-dev-tab',
   standalone: true,
@@ -84,7 +103,6 @@ interface NodeEntry {
 export class LoadDevTabComponent implements OnInit {
   @ViewChild('velocityInputEl') velocityInputEl?: ElementRef<HTMLInputElement>;
   @ViewChild('pdfContent') pdfContent?: ElementRef<HTMLElement>;
-
 
   @Output() backToMenu = new EventEmitter<void>();
 
@@ -120,212 +138,322 @@ export class LoadDevTabComponent implements OnInit {
   onBackFromHistory(): void {
     this.backToMenu.emit();
   }
-// ---------- PDF export (Graph + table inside #pdfContent) ----------
-async exportPdf(): Promise<void> {
-  try {
-    
-    if (!this.selectedProject) {
-      alert('Select a load development first.');
-      return;
+
+  // ---------- PDF export (Graph + table inside #pdfContent) ----------
+  async exportPdf(): Promise<void> {
+    try {
+      if (!this.selectedProject) {
+        alert('Select a load development first.');
+        return;
+      }
+
+      // Always rebuild graph data for export (even if the UI graph is hidden)
+      this.rebuildGraphData();
+
+      // Export the graph if we have at least 2 points (a real line)
+      // NOTE: We keep using graphCoords (avg line) for PDF to avoid breaking ladder export.
+      const includeGraph = (this.graphCoords?.length ?? 0) >= 2;
+
+      this.postSaveMessage = 'Building PDF...';
+
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+      const pageW = doc.internal.pageSize.getWidth();
+      const margin = 28;
+      let y = margin;
+
+      // Header
+      const rifleName =
+        this.rifles?.find(r => r.id === this.selectedRifleId)?.name ??
+        `Rifle ${this.selectedRifleId ?? ''}`;
+      const projectName = this.selectedProject.name ?? 'Load development';
+
+      doc.setFontSize(14);
+      doc.text(`${projectName}`, margin, y);
+      y += 16;
+
+      doc.setFontSize(10);
+      doc.text(`Rifle: ${rifleName}`, margin, y);
+      y += 12;
+
+      doc.text(`Type: ${this.projectTypeLabel(this.selectedProject.type)}`, margin, y);
+      y += 18;
+
+      // ----- Graph (vector drawn from graphCoords) -----
+     // ----- Graph (vector drawn) -----
+// Ladder: avg line from graphCoords
+// OCW: plot every shot + group ellipses from ocwShotPoints / ocwGroupEllipses
+const isOcwProject = this.selectedProject.type === 'ocw';
+
+const hasOcwShots = (this.ocwShotPoints?.length ?? 0) > 0;
+const includeLadderGraph = (this.graphCoords?.length ?? 0) >= 2;
+const includeAnyGraph = isOcwProject ? hasOcwShots : includeLadderGraph;
+
+if (includeAnyGraph) {
+  const chartX = margin;
+  const chartY = y;
+  const chartW = pageW - margin * 2;
+  const chartH = 180;
+const innerPad = 8; // keep shapes away from frame
+const xMin = chartX + innerPad;
+const xMax = chartX + chartW - innerPad;
+const yMin = chartY + innerPad;
+const yMax = chartY + chartH - innerPad;
+
+
+  // Frame
+  doc.setLineWidth(1);
+  doc.rect(chartX, chartY, chartW, chartH);
+
+  doc.setFontSize(11);
+  doc.text(isOcwProject ? 'OCW: velocities (all shots) vs charge' : 'Velocity vs charge', chartX, chartY - 6);
+
+  // Common scaling:
+  // X axis always uses charge min/max.
+  // Y axis:
+  //  - OCW uses ALL shot velocities min/max
+  //  - Ladder uses avg min/max from graphCoords
+  let minX = 0, maxX = 1;
+  let minY = 0, maxY = 1;
+
+  if (isOcwProject && hasOcwShots) {
+    const charges = this.ocwShotPoints.map(p => p.charge);
+    const vels = this.ocwShotPoints.map(p => p.v);
+
+    minX = Math.min(...charges);
+    maxX = Math.max(...charges);
+
+    minY = Math.min(...vels);
+    maxY = Math.max(...vels);
+
+    const padY = (maxY - minY) * 0.10 || 10;
+    minY -= padY;
+    maxY += padY;
+  } else {
+    const xs = this.graphCoords.map(p => p.charge);
+    const ys = this.graphCoords.map(p => p.avg);
+
+    minX = Math.min(...xs);
+    maxX = Math.max(...xs);
+
+    minY = Math.min(...ys);
+    maxY = Math.max(...ys);
+
+    const padY = (maxY - minY) * 0.08 || 10;
+    minY -= padY;
+    maxY += padY;
+  }
+
+  const sx = (charge: number) =>
+    chartX + ((charge - minX) / (maxX - minX || 1)) * chartW;
+
+  const sy = (vel: number) =>
+    chartY + chartH - ((vel - minY) / (maxY - minY || 1)) * chartH;
+
+  // ---- OCW PDF rendering: ellipses + ALL shot dots + labels ----
+  if (isOcwProject && hasOcwShots) {
+    // 1) Group ellipses (based on group bounds in data space)
+    // We rebuild ellipse bounds in PDF coords using the same entry grouping.
+    const entries = this.entriesForSelectedProject();
+    for (const e of entries) {
+      const charge = e.chargeGr;
+      if (charge == null) continue;
+
+      const any = e as any;
+      const rawVals = this.parseVelocityInput(any.velocityInput);
+      if (!rawVals.length) continue;
+
+      const cleaned = this.fixObviousRepeatedPaste(rawVals);
+      if (!cleaned.length) continue;
+
+    const x = Math.max(xMin, Math.min(xMax, sx(charge)));
+
+
+      const minV = Math.min(...cleaned);
+      const maxV = Math.max(...cleaned);
+
+      // small padding so ellipse doesn't touch dots
+      const padV = Math.max(6, (maxV - minV) * 0.25);
+     const top = Math.max(yMin, Math.min(yMax, sy(maxV + padV)));
+const bot = Math.max(yMin, Math.min(yMax, sy(minV - padV)));
+
+      const cy = (top + bot) / 2;
+      const ry = Math.max(6, Math.abs(bot - top) / 2);
+      const rx = 10; // constant-ish width so groups are readable
+
+      // Ellipse approx: draw as many short line segments (jsPDF has no native ellipse in older builds)
+      const steps = 28;
+      doc.setLineWidth(0.8);
+      for (let i = 0; i <= steps; i++) {
+        const t1 = (i / steps) * Math.PI * 2;
+        const t2 = ((i + 1) / steps) * Math.PI * 2;
+
+        const x1 = x + Math.cos(t1) * rx;
+        const y1 = cy + Math.sin(t1) * ry;
+
+        const x2 = x + Math.cos(t2) * rx;
+        const y2 = cy + Math.sin(t2) * ry;
+
+        doc.line(x1, y1, x2, y2);
+      }
     }
 
- // Always rebuild graph data for export (even if the UI graph is hidden)
-this.rebuildGraphData();
+    // 2) Shot dots (ALL)
+    doc.setLineWidth(1);
+    doc.setFontSize(8);
 
-// Export the graph if we have at least 2 points (a real line)
-const includeGraph = (this.graphCoords?.length ?? 0) >= 2;
+    for (const p of this.ocwShotPoints) {
+      const px = sx(p.charge);
+      const py = sy(p.v);
 
+      doc.circle(px, py, 1.8, 'S');
 
-    this.postSaveMessage = 'Building PDF...';
+      // Optional tiny label: velocity near dot (comment out if too busy)
+      // const vt = `${Math.round(p.v)}`;
+      // doc.text(vt, px + 3, py - 2);
+    }
 
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    // 3) Axis hints
+    doc.setFontSize(9);
+    doc.text(`${minX.toFixed(2)} gr`, chartX, chartY + chartH + 12);
+    doc.text(`${maxX.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
+    doc.text(`${Math.round(maxY)} fps`, chartX + chartW - 55, chartY + 10);
+    doc.text(`${Math.round(minY)} fps`, chartX + chartW - 55, chartY + chartH - 4);
 
-    const pageW = doc.internal.pageSize.getWidth();
-    const margin = 28;
-    let y = margin;
-
-    // Header
-    const rifleName =
-      this.rifles?.find(r => r.id === this.selectedRifleId)?.name ?? `Rifle ${this.selectedRifleId ?? ''}`;
-    const projectName = this.selectedProject.name ?? 'Load development';
-
-    doc.setFontSize(14);
-    doc.text(`${projectName}`, margin, y);
-    y += 16;
-
-    doc.setFontSize(10);
-    doc.text(`Rifle: ${rifleName}`, margin, y);
-    y += 12;
-
-    doc.text(`Type: ${this.projectTypeLabel(this.selectedProject.type)}`, margin, y);
-    y += 18;
-
-    // ----- Graph (vector drawn from graphCoords) -----
-    if (includeGraph) {
-
-      const chartX = margin;
-      const chartY = y;
-      const chartW = pageW - margin * 2;
-      const chartH = 160;
-
-      // Frame
-      doc.setLineWidth(1);
-      doc.rect(chartX, chartY, chartW, chartH);
-
-      // Build min/max from graphCoords.avg
-      const xs = this.graphCoords.map(p => p.charge);
-      const ys = this.graphCoords.map(p => p.avg);
-      const minX = Math.min(...xs);
-      const maxX = Math.max(...xs);
-      const minY = Math.min(...ys);
-      const maxY = Math.max(...ys);
-
-      const padY = (maxY - minY) * 0.08 || 10;
-      const y0 = minY - padY;
-      const y1 = maxY + padY;
-
-      const sx = (v: number) =>
-        chartX + ((v - minX) / (maxX - minX || 1)) * chartW;
-      const sy = (v: number) =>
-        chartY + chartH - ((v - y0) / (y1 - y0 || 1)) * chartH;
-
-      // Title
-      doc.setFontSize(11);
-      doc.text('Velocity vs charge', chartX, chartY - 6);
-
-      // Polyline
-      doc.setLineWidth(1.5);
-
-      for (let i = 0; i < this.graphCoords.length - 1; i++) {
-        const a = this.graphCoords[i];
-        const b = this.graphCoords[i + 1];
-        doc.line(sx(a.charge), sy(a.avg), sx(b.charge), sy(b.avg));
-      }
+    y += chartH + 26;
+  } else {
+    // ---- Ladder PDF rendering (existing avg line) ----
+    // Polyline
+    doc.setLineWidth(1.5);
+    for (let i = 0; i < this.graphCoords.length - 1; i++) {
+      const a = this.graphCoords[i];
+      const b = this.graphCoords[i + 1];
+      doc.line(sx(a.charge), sy(a.avg), sx(b.charge), sy(b.avg));
+    }
 
     // Points + labels (charge above, velocity below)
-doc.setLineWidth(1);
-doc.setFontSize(8);
+    doc.setLineWidth(1);
+    doc.setFontSize(8);
 
-for (const p of this.graphCoords) {
-  const px = sx(p.charge);
-  const py = sy(p.avg);
+    for (const p of this.graphCoords) {
+      const px = sx(p.charge);
+      const py = sy(p.avg);
 
-  doc.circle(px, py, 2, 'S');
+      doc.circle(px, py, 2, 'S');
 
-  const chargeTxt = `${p.charge.toFixed(2)}`;
-  const velTxt = `${Math.round(p.avg)}`;
+      const chargeTxt = `${p.charge.toFixed(2)}`;
+      const velTxt = `${Math.round(p.avg)}`;
 
-  const chargeX = px - (chargeTxt.length * 2.2);
-  const velX = px - (velTxt.length * 2.2);
+      const chargeX = px - (chargeTxt.length * 2.2);
+      const velX = px - (velTxt.length * 2.2);
 
-  const topY = Math.max(chartY + 10, py - 6);
-  const botY = Math.min(chartY + chartH - 4, py + 12);
+      const topY = Math.max(chartY + 10, py - 6);
+      const botY = Math.min(chartY + chartH - 4, py + 12);
 
-  doc.text(chargeTxt, chargeX, topY);
-  doc.text(velTxt, velX, botY);
-}
-
-      // Axis labels (simple)
-      doc.setFontSize(9);
-      doc.text(`${minX.toFixed(2)} gr`, chartX, chartY + chartH + 12);
-      doc.text(`${maxX.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
-      doc.text(`${Math.round(maxY)} fps`, chartX + chartW - 55, chartY + 10);
-
-      y += chartH + 26;
+      doc.text(chargeTxt, chargeX, topY);
+      doc.text(velTxt, velX, botY);
     }
 
-    // ----- Table (real data, not screenshot) -----
-    const entries = this.entriesForSelectedProject();
-    doc.setFontSize(11);
-    doc.text('Data', margin, y);
-    y += 12;
-
+    // Axis labels
     doc.setFontSize(9);
+    doc.text(`${minX.toFixed(2)} gr`, chartX, chartY + chartH + 12);
+    doc.text(`${maxX.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
+    doc.text(`${Math.round(maxY)} fps`, chartX + chartW - 55, chartY + 10);
 
-    const isOcw = this.selectedProject.type === 'ocw';
-    const cols = isOcw
-      ? ['Charge', 'Avg', 'SD', 'ES', 'Group']
-      : ['Charge', 'Avg', 'Shots'];
-
-    const colX = [margin, margin + 90, margin + 160, margin + 220, margin + 280];
-
-    // Header row
-    cols.forEach((c, i) => doc.text(c, colX[i], y));
-    y += 10;
-    doc.setLineWidth(0.5);
-    doc.line(margin, y, pageW - margin, y);
-    y += 12;
-
-    const lineH = 12;
-
-    for (const e of entries) {
-      // page break
-      if (y > doc.internal.pageSize.getHeight() - 50) {
-        doc.addPage();
-        y = margin;
-      }
-
-      const s = this.statsForEntry(e);
-
-      doc.text(`${e.chargeGr ?? ''}`, colX[0], y);
-
-      doc.text(s ? `${Math.round(s.avg)}` : '—', colX[1], y);
-
-      if (isOcw) {
-        doc.text(s ? `${s.sd.toFixed(1)}` : '—', colX[2], y);
-        doc.text(s ? `${Math.round(s.es)}` : '—', colX[3], y);
-        doc.text(this.formatGroupSize(e), colX[4], y);
-      } else {
-        doc.text(`${(e as any).shotsFired ?? '—'}`, colX[2], y);
-      }
-
-      y += lineH;
-    }
-
-    // ----- Save: Android uses Filesystem + Share, browser uses download -----
-    const safe = (s: string) =>
-      s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
-    const fileName = `loaddev-${safe(rifleName)}-${safe(projectName)}.pdf`;
-
-    const pdfBase64 = doc.output('datauristring').split(',')[1];
-
-    if (Capacitor.isNativePlatform()) {
-      const res = await Filesystem.writeFile({
-        path: fileName,
-        data: pdfBase64,
-        directory: Directory.Documents
-      });
-
-      await Share.share({
-        title: 'Load Development PDF',
-        text: fileName,
-        url: res.uri
-      });
-
-      this.postSaveMessage = 'Saved + shared ✅';
-      setTimeout(() => (this.postSaveMessage = null), 2000);
-    } else {
-      // Browser fallback
-      const blob = doc.output('blob');
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-
-      this.postSaveMessage = 'Downloaded ✅';
-      setTimeout(() => (this.postSaveMessage = null), 2000);
-    }
-  } catch (e) {
-    console.error('PDF export failed', e);
-    this.postSaveMessage = 'Export failed (check console).';
-    setTimeout(() => (this.postSaveMessage = null), 4000);
+    y += chartH + 26;
   }
 }
+
+
+      // ----- Table (real data, not screenshot) -----
+      const entries = this.entriesForSelectedProject();
+      doc.setFontSize(11);
+      doc.text('Data', margin, y);
+      y += 12;
+
+      doc.setFontSize(9);
+
+      
+      const cols = isOcwProject ? ['Charge', 'Avg', 'SD', 'ES', 'Group'] : ['Charge', 'Avg', 'Shots'];
+
+      const colX = [margin, margin + 90, margin + 160, margin + 220, margin + 280];
+
+      // Header row
+      cols.forEach((c, i) => doc.text(c, colX[i], y));
+      y += 10;
+      doc.setLineWidth(0.5);
+      doc.line(margin, y, pageW - margin, y);
+      y += 12;
+
+      const lineH = 12;
+
+      for (const e of entries) {
+        // page break
+        if (y > doc.internal.pageSize.getHeight() - 50) {
+          doc.addPage();
+          y = margin;
+        }
+
+        const s = this.statsForEntry(e);
+
+        doc.text(`${e.chargeGr ?? ''}`, colX[0], y);
+        doc.text(s ? `${Math.round(s.avg)}` : '—', colX[1], y);
+
+        if (isOcwProject) {
+          doc.text(s ? `${s.sd.toFixed(1)}` : '—', colX[2], y);
+          doc.text(s ? `${Math.round(s.es)}` : '—', colX[3], y);
+          doc.text(this.formatGroupSize(e), colX[4], y);
+        } else {
+          doc.text(`${(e as any).shotsFired ?? '—'}`, colX[2], y);
+        }
+
+        y += lineH;
+      }
+
+      // ----- Save: Android uses Filesystem + Share, browser uses download -----
+      const safe = (s: string) =>
+        s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+      const fileName = `loaddev-${safe(rifleName)}-${safe(projectName)}.pdf`;
+
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
+
+      if (Capacitor.isNativePlatform()) {
+        const res = await Filesystem.writeFile({
+          path: fileName,
+          data: pdfBase64,
+          directory: Directory.Documents
+        });
+
+        await Share.share({
+          title: 'Load Development PDF',
+          text: fileName,
+          url: res.uri
+        });
+
+        this.postSaveMessage = 'Saved + shared ✅';
+        setTimeout(() => (this.postSaveMessage = null), 2000);
+      } else {
+        // Browser fallback
+        const blob = doc.output('blob');
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        this.postSaveMessage = 'Downloaded ✅';
+        setTimeout(() => (this.postSaveMessage = null), 2000);
+      }
+    } catch (e) {
+      console.error('PDF export failed', e);
+      this.postSaveMessage = 'Export failed (check console).';
+      setTimeout(() => (this.postSaveMessage = null), 4000);
+    }
+  }
 
   // ---------- rifles / projects ----------
   rifles: Rifle[] = [];
@@ -378,12 +506,16 @@ for (const p of this.graphCoords) {
   // Single-row velocity edit
   singleVelocityEditActive = false;
 
-  // Graph
+  // Graph (existing ladder/avg line)
   showGraph = false;
   graphCoords: { x: number; y: number; charge: number; avg: number }[] = [];
   graphSvgPoints = '';
   graphMinVel = 0;
   graphMaxVel = 0;
+
+  // OCW shot scatter + group circles (screen)
+  ocwShotPoints: OcwShotPoint[] = [];
+  ocwGroupEllipses: OcwGroupEllipse[] = [];
 
   constructor(private data: DataService) {}
 
@@ -493,6 +625,9 @@ for (const p of this.graphCoords) {
     this.graphCoords = [];
     this.graphSvgPoints = '';
 
+    this.ocwShotPoints = [];
+    this.ocwGroupEllipses = [];
+
     this.resetWizard();
     this.loadProjects();
   }
@@ -546,7 +681,7 @@ for (const p of this.graphCoords) {
 
     this.updateHasResultsFlag();
     this.rebuildGraphData();
-    if (!this.graphCoords.length) this.showGraph = false;
+    if (!this.graphCoords.length && !this.ocwShotPoints.length) this.showGraph = false;
 
     this.resetWizard();
   }
@@ -563,7 +698,7 @@ for (const p of this.graphCoords) {
 
     this.updateHasResultsFlag();
     this.rebuildGraphData();
-    if (!this.graphCoords.length) this.showGraph = false;
+    if (!this.graphCoords.length && !this.ocwShotPoints.length) this.showGraph = false;
   }
 
   onProjectSelectChange(): void {
@@ -581,7 +716,7 @@ for (const p of this.graphCoords) {
 
     this.updateHasResultsFlag();
     this.rebuildGraphData();
-    if (!this.graphCoords.length) this.showGraph = false;
+    if (!this.graphCoords.length && !this.ocwShotPoints.length) this.showGraph = false;
 
     this.resetWizard();
   }
@@ -673,6 +808,9 @@ for (const p of this.graphCoords) {
     this.showGraph = false;
     this.graphCoords = [];
     this.graphSvgPoints = '';
+
+    this.ocwShotPoints = [];
+    this.ocwGroupEllipses = [];
 
     this.editingProject = null;
     this.projectForm = this.createEmptyProjectForm();
@@ -967,6 +1105,35 @@ for (const p of this.graphCoords) {
       .filter(v => Number.isFinite(v));
   }
 
+  // ✅ NEW: only fixes *obvious* paste duplication like "a b c a b c"
+  private fixObviousRepeatedPaste(values: number[]): number[] {
+    const n = values.length;
+    if (n < 6) return values; // too small to safely infer repetition
+
+    // Try repeat factors 2..4 (double/ triple/ quadruple paste)
+    for (const factor of [2, 3, 4]) {
+      if (n % factor !== 0) continue;
+
+      const chunkLen = n / factor;
+      if (chunkLen < 3) continue;
+
+      let ok = true;
+      for (let f = 1; f < factor; f++) {
+        for (let i = 0; i < chunkLen; i++) {
+          if (values[i] !== values[f * chunkLen + i]) {
+            ok = false;
+            break;
+          }
+        }
+        if (!ok) break;
+      }
+
+      if (ok) return values.slice(0, chunkLen);
+    }
+
+    return values;
+  }
+
   statsForEntry(entry: LoadDevEntry): VelocityStats | null {
     const any = entry as any;
     const values = this.parseVelocityInput(any.velocityInput);
@@ -1072,13 +1239,31 @@ for (const p of this.graphCoords) {
     return nodes;
   }
 
-  nodeCssClass(entry: LoadDevEntry): string {
-    if (!this.selectedProject || this.selectedProject.type !== 'ladder') return '';
-    const nodes = this.findNodes(this.entriesForSelectedProject());
-    return nodes.some(n => n.entry.id === entry.id)
-      ? 'bg-emerald-900/25 ring-1 ring-emerald-400/40'
-      : '';
-  }
+nodeCssClass(entry: LoadDevEntry): string {
+  if (!this.selectedProject || this.selectedProject.type !== 'ladder') return '';
+
+  const entries = this.entriesForSelectedProject();
+  const nodes = this.findNodes(entries);
+
+  if (!nodes.length) return '';
+
+  // index of this entry
+  const idx = entries.findIndex(e => e.id === entry.id);
+  if (idx < 0) return '';
+
+  // node indices
+  const nodeIndices = nodes
+    .map(n => entries.findIndex(e => e.id === n.entry.id))
+    .filter(i => i >= 0);
+
+  // highlight node ±1 (full node band)
+  const isInNodeBand = nodeIndices.some(i => Math.abs(i - idx) <= 1);
+
+  return isInNodeBand
+    ? 'bg-emerald-900/25 ring-1 ring-emerald-400/40'
+    : '';
+}
+
 
   private allEntriesHaveVelocity(): boolean {
     if (!this.selectedProject?.entries?.length) return false;
@@ -1090,56 +1275,187 @@ for (const p of this.graphCoords) {
     });
   }
 
+  // ---- OCW shot plotting + group ellipses (ALL SHOTS) ----
+  private buildOcwShotAndGroupGeometry(entries: LoadDevEntry[]): void {
+    this.ocwShotPoints = [];
+    this.ocwGroupEllipses = [];
+
+    // Collect shot points per entry
+    const groups: { entryId: number; charge: number; velocities: number[] }[] = [];
+
+    for (const e of entries) {
+      const charge = e.chargeGr;
+      if (charge == null) continue;
+
+      const any = e as any;
+      const rawVals = this.parseVelocityInput(any.velocityInput);
+      if (!rawVals.length) continue;
+
+      // ✅ Fix obvious repeated paste (2x/3x/4x), otherwise keep ALL shots as entered
+      const cleaned = this.fixObviousRepeatedPaste(rawVals);
+
+      groups.push({
+        entryId: (e as any).id ?? 0,
+        charge,
+        velocities: cleaned
+      });
+    }
+
+    if (!groups.length) return;
+
+    // X scaling by charge (true axis), and Y scaling by velocity min/max across ALL shots
+    const charges = groups.map(g => g.charge);
+    const minX = Math.min(...charges);
+    const maxX = Math.max(...charges);
+
+    const allVels: number[] = [];
+    for (const g of groups) allVels.push(...g.velocities);
+
+    let minV = Math.min(...allVels);
+    let maxV = Math.max(...allVels);
+
+    const padY = (maxV - minV) * 0.1 || 10;
+    minV -= padY;
+    maxV += padY;
+
+    const x0 = 10;
+    const x1 = 95;
+    const yTop = 8;
+    const yBot = 56;
+
+    const sx = (charge: number) =>
+      x0 + ((charge - minX) / (maxX - minX || 1)) * (x1 - x0);
+
+    const sy = (v: number) =>
+      yBot - ((v - minV) / (maxV - minV || 1)) * (yBot - yTop);
+
+    // Scatter points with small deterministic jitter so shots don't overlap
+    const pts: OcwShotPoint[] = [];
+    for (const g of groups) {
+      const baseX = sx(g.charge);
+
+      for (let i = 0; i < g.velocities.length; i++) {
+        const v = g.velocities[i];
+
+        // deterministic tiny jitter (no Math.random)
+        const jitter = ((i % 7) - 3) * 0.75; // -2.25 .. +2.25
+        const px = Math.max(x0, Math.min(x1, baseX + jitter));
+        const py = Math.max(yTop, Math.min(yBot, sy(v)));
+
+        pts.push({
+          x: px,
+          y: py,
+          charge: g.charge,
+          v,
+          entryId: g.entryId,
+          shotIndex: i
+        });
+      }
+    }
+
+    this.ocwShotPoints = pts;
+
+    // Group ellipses around each charge's points
+    const ellipses: OcwGroupEllipse[] = [];
+    for (const g of groups) {
+      const gPts = pts.filter(p => p.entryId === g.entryId);
+      if (!gPts.length) continue;
+
+      let minPx = gPts[0].x, maxPx = gPts[0].x, minPy = gPts[0].y, maxPy = gPts[0].y;
+      for (const p of gPts) {
+        if (p.x < minPx) minPx = p.x;
+        if (p.x > maxPx) maxPx = p.x;
+        if (p.y < minPy) minPy = p.y;
+        if (p.y > maxPy) maxPy = p.y;
+      }
+
+      const padX = 2.2;
+      const padY2 = 2.8;
+
+      const cx = (minPx + maxPx) / 2;
+      const cy = (minPy + maxPy) / 2;
+      const rx = Math.max(3.2, (maxPx - minPx) / 2 + padX);
+      const ry = Math.max(3.2, (maxPy - minPy) / 2 + padY2);
+
+      ellipses.push({
+        cx,
+        cy,
+        rx,
+        ry,
+        charge: g.charge,
+        entryId: g.entryId
+      });
+    }
+
+    this.ocwGroupEllipses = ellipses;
+  }
+
   private rebuildGraphData(): void {
+    // reset
     this.graphCoords = [];
     this.graphSvgPoints = '';
     this.graphMinVel = 0;
     this.graphMaxVel = 0;
 
+    // reset OCW overlays too
+    this.ocwShotPoints = [];
+    this.ocwGroupEllipses = [];
+
     if (!this.selectedProject || !this.selectedProject.entries?.length) return;
 
+    const entries = this.selectedProject.entries;
+
+    // ---- Ladder/avg-line data (existing behaviour, used by PDF export) ----
     const pts: { charge: number; avg: number }[] = [];
 
-    for (const e of this.selectedProject.entries) {
+    for (const e of entries) {
       if (e.chargeGr == null) continue;
       const stats = this.statsForEntry(e);
       if (!stats) continue;
       pts.push({ charge: e.chargeGr, avg: stats.avg });
     }
 
-    if (!pts.length) return;
+    if (pts.length) {
+      pts.sort((a, b) => a.charge - b.charge);
 
-    pts.sort((a, b) => a.charge - b.charge);
+      let min = pts[0].avg;
+      let max = pts[0].avg;
 
-    let min = pts[0].avg;
-    let max = pts[0].avg;
+      for (const p of pts) {
+        if (p.avg < min) min = p.avg;
+        if (p.avg > max) max = p.avg;
+      }
 
-    for (const p of pts) {
-      if (p.avg < min) min = p.avg;
-      if (p.avg > max) max = p.avg;
+      const padding = (max - min) * 0.1 || 10;
+      this.graphMinVel = min - padding;
+      this.graphMaxVel = max + padding;
+
+      const n = pts.length;
+      const span = this.graphMaxVel - this.graphMinVel || 1;
+
+      const coords: { x: number; y: number; charge: number; avg: number }[] = [];
+      for (let i = 0; i < n; i++) {
+        const p = pts[i];
+        const x = n === 1 ? 50 : (i / (n - 1)) * 100;
+        const y = 55 - ((p.avg - this.graphMinVel) / span) * 45;
+        coords.push({ x, y, charge: p.charge, avg: p.avg });
+      }
+
+      this.graphCoords = coords;
+      this.graphSvgPoints = coords.map(c => `${c.x},${c.y}`).join(' ');
     }
 
-    const padding = (max - min) * 0.1 || 10;
-    this.graphMinVel = min - padding;
-    this.graphMaxVel = max + padding;
-
-    const n = pts.length;
-    const span = this.graphMaxVel - this.graphMinVel || 1;
-
-    const coords: { x: number; y: number; charge: number; avg: number }[] = [];
-    for (let i = 0; i < n; i++) {
-      const p = pts[i];
-      const x = n === 1 ? 50 : (i / (n - 1)) * 100;
-      const y = 55 - ((p.avg - this.graphMinVel) / span) * 45;
-      coords.push({ x, y, charge: p.charge, avg: p.avg });
+    // ---- OCW shot scatter + group ellipses (screen) ----
+    if (this.selectedProject.type === 'ocw') {
+      const sorted = [...entries].sort((a, b) => (a.chargeGr ?? 9999) - (b.chargeGr ?? 9999));
+      this.buildOcwShotAndGroupGeometry(sorted);
     }
-
-    this.graphCoords = coords;
-    this.graphSvgPoints = coords.map(c => `${c.x},${c.y}`).join(' ');
   }
 
   toggleGraph(): void {
-    if (!this.graphCoords.length) {
+    const canShow = this.graphCoords.length > 0 || this.ocwShotPoints.length > 0;
+
+    if (!canShow) {
       alert('No velocity data to graph yet.');
       return;
     }
@@ -1395,6 +1711,9 @@ for (const p of this.graphCoords) {
     this.showGraph = false;
     this.graphCoords = [];
     this.graphSvgPoints = '';
+
+    this.ocwShotPoints = [];
+    this.ocwGroupEllipses = [];
 
     this.singleVelocityEditActive = false;
     this.velocityEditEntry = null;
