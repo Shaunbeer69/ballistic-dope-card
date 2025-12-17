@@ -2,7 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
 import { RiflesTabComponent } from './rifles-tab/rifles-tab.component';
@@ -921,98 +921,96 @@ this.expandedDistanceM = distanceM;
 
   // ---------- JSON load-dev backup (backup / export icon) ----------
 
-  async exportLoadDevBackup(): Promise<void> {
-    const rifles = this.riflesOptions || [];
-    if (!rifles.length) {
-      alert('No rifles found – nothing to backup yet.');
-      return;
+  // ---------- JSON load-dev backup (backup / export icon) ----------
+
+async exportLoadDevBackup(): Promise<void> {
+  const rifles = this.riflesOptions || [];
+  if (!rifles.length) {
+    alert('No rifles found – nothing to backup yet.');
+    return;
+  }
+
+  const venues = this.venuesOptions || [];
+  const loadDevProjects: any[] = [];
+
+  // Collect all Load Development projects across all rifles
+  for (const r of rifles) {
+    const projectsForRifle =
+      this.dataService.getLoadDevProjectsForRifle?.(r.id) ?? [];
+    loadDevProjects.push(...projectsForRifle);
+  }
+
+  if (!loadDevProjects.length) {
+    alert('No load development projects found to export yet.');
+    return;
+  }
+
+  const sessions =
+    (this.allSessions && this.allSessions.length
+      ? this.allSessions
+      : this.dataService.getSessions?.() ?? []) || [];
+
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    source: 'Gunstuff Ballistics',
+    rifles,
+    venues,
+    loadDevProjects,
+    sessions,
+  };
+
+  const json = JSON.stringify(payload, null, 2);
+  const filename =
+    'gunstuff-loaddev-backup-' +
+    new Date().toISOString().slice(0, 10) +
+    '.json';
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const path = filename;
+
+      await Filesystem.writeFile({
+        path,
+        data: json,
+        directory: Directory.Documents,
+        encoding: Encoding.UTF8,
+      });
+
+      const { uri } = await Filesystem.getUri({
+        path,
+        directory: Directory.Documents,
+      });
+
+      await Share.share({
+        title: 'Gunstuff Backup',
+        text: 'Gunstuff Ballistics backup file',
+        url: uri,
+      });
+
+      alert('Backup saved to Documents and ready to share.');
+    } catch (err) {
+      console.error('Native backup export failed:', err);
+      alert('Backup export failed on this device.');
     }
-
-    const venues = this.venuesOptions || [];
-    const loadDevProjects: any[] = [];
-
-    // Collect all Load Development projects across all rifles
-    for (const r of rifles) {
-      const projectsForRifle =
-        this.dataService.getLoadDevProjectsForRifle?.(r.id) ?? [];
-      loadDevProjects.push(...projectsForRifle);
-    }
-
-    if (!loadDevProjects.length) {
-      alert('No load development projects found to export yet.');
-      return;
-    }
-
-    const sessions =
-      (this.allSessions && this.allSessions.length
-        ? this.allSessions
-        : this.dataService.getSessions?.() ?? []) || [];
-
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      source: 'Gunstuff Ballistics',
-      rifles,
-      venues,
-      loadDevProjects,
-      sessions,
-    };
-
-    const json = JSON.stringify(payload, null, 2);
-    const filename =
-      'gunstuff-loaddev-backup-' +
-      new Date().toISOString().slice(0, 10) +
-      '.json';
-
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const jsonBase64 = btoa(unescape(encodeURIComponent(json)));
-        const path = `gunstuff/${filename}`;
-
-        // write base64 data
-        await Filesystem.writeFile({
-          path,
-          data: jsonBase64,
-          directory: Directory.Data,
-          recursive: true,
-        });
-
-        // get a sharable URI
-        const uriResult = await Filesystem.getUri({
-          path,
-          directory: Directory.Data,
-        });
-
-        await Share.share({
-          title: filename,
-          text: 'Gunstuff load development backup',
-          url: uriResult.uri,
-        });
-
-        alert('Backup saved and ready to share.');
-      } catch (err) {
-        console.error('Native backup export failed:', err);
-        alert(
-          'Native backup export failed. Check storage permissions or try again.'
-        );
-      }
-    } else {
-      // Browser – download as a JSON file
-      try {
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error('Browser backup export failed:', err);
-        alert('Browser backup export failed.');
-      }
+  } else {
+    // Browser – download as a JSON file
+    try {
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Browser backup export failed:', err);
+      alert('Browser backup export failed.');
     }
   }
+}
+
 
   // ---------- Kestrel button ----------
 
