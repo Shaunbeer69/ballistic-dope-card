@@ -179,216 +179,207 @@ export class LoadDevTabComponent implements OnInit {
       doc.text(`Type: ${this.projectTypeLabel(this.selectedProject.type)}`, margin, y);
       y += 18;
 
-      // ----- Graph (vector drawn from graphCoords) -----
-     // ----- Graph (vector drawn) -----
-// Ladder: avg line from graphCoords
-// OCW: plot every shot + group ellipses from ocwShotPoints / ocwGroupEllipses
-const isOcwProject = this.selectedProject.type === 'ocw';
+      // ----- Graph (vector drawn) -----
+      // Ladder: avg line from graphCoords
+      // OCW: plot every shot + group ellipses from ocwShotPoints / ocwGroupEllipses
+      const isOcwProject = this.selectedProject.type === 'ocw';
 
-const hasOcwShots = (this.ocwShotPoints?.length ?? 0) > 0;
-const includeLadderGraph = (this.graphCoords?.length ?? 0) >= 2;
-const includeAnyGraph = isOcwProject ? hasOcwShots : includeLadderGraph;
+      const hasOcwShots = (this.ocwShotPoints?.length ?? 0) > 0;
+      const includeLadderGraph = (this.graphCoords?.length ?? 0) >= 2;
+      const includeAnyGraph = isOcwProject ? hasOcwShots : includeLadderGraph;
 
-if (includeAnyGraph) {
-  const chartX = margin;
-  const chartY = y;
-  const chartW = pageW - margin * 2;
-  const chartH = 180;
-const innerPad = 8; // keep shapes away from frame
-const xMin = chartX + innerPad;
-const xMax = chartX + chartW - innerPad;
-const yMin = chartY + innerPad;
-const yMax = chartY + chartH - innerPad;
+      if (includeAnyGraph) {
+        const chartX = margin;
+        const chartY = y;
+        const chartW = pageW - margin * 2;
+        const chartH = 180;
 
+        const innerPad = 8; // keep shapes away from frame
+        const xMin = chartX + innerPad;
+        const xMax = chartX + chartW - innerPad;
+        const yMin = chartY + innerPad;
+        const yMax = chartY + chartH - innerPad;
 
-  // Frame
-  doc.setLineWidth(1);
-  doc.rect(chartX, chartY, chartW, chartH);
+        // Frame
+        doc.setLineWidth(1);
+        doc.rect(chartX, chartY, chartW, chartH);
 
-  doc.setFontSize(11);
-  doc.text(isOcwProject ? 'OCW: velocities (all shots) vs charge' : 'Velocity vs charge', chartX, chartY - 6);
+        doc.setFontSize(11);
+        doc.text(isOcwProject ? 'OCW: velocities (all shots) vs charge' : 'Velocity vs charge', chartX, chartY - 6);
 
-  // Common scaling:
-  // X axis always uses charge min/max.
-  // Y axis:
-  //  - OCW uses ALL shot velocities min/max
-  //  - Ladder uses avg min/max from graphCoords
-  let minX = 0, maxX = 1;
-  let minY = 0, maxY = 1;
+        // Common scaling:
+        // X axis always uses charge min/max.
+        // Y axis:
+        //  - OCW uses ALL shot velocities min/max
+        //  - Ladder uses avg min/max from graphCoords
+        let minXv = 0, maxXv = 1;
+        let minYv = 0, maxYv = 1;
 
-  if (isOcwProject && hasOcwShots) {
-    const charges = this.ocwShotPoints.map(p => p.charge);
-    const vels = this.ocwShotPoints.map(p => p.v);
+        if (isOcwProject && hasOcwShots) {
+          const charges = this.ocwShotPoints.map(p => p.charge);
+          const vels = this.ocwShotPoints.map(p => p.v);
 
-    minX = Math.min(...charges);
-    maxX = Math.max(...charges);
+          minXv = Math.min(...charges);
+          maxXv = Math.max(...charges);
 
-    minY = Math.min(...vels);
-    maxY = Math.max(...vels);
+          minYv = Math.min(...vels);
+          maxYv = Math.max(...vels);
 
-    const padY = (maxY - minY) * 0.10 || 10;
-    minY -= padY;
-    maxY += padY;
-  } else {
-    const xs = this.graphCoords.map(p => p.charge);
-    const ys = this.graphCoords.map(p => p.avg);
+          const padY = (maxYv - minYv) * 0.10 || 10;
+          minYv -= padY;
+          maxYv += padY;
+        } else {
+          const xs = this.graphCoords.map(p => p.charge);
+          const ys = this.graphCoords.map(p => p.avg);
 
-    minX = Math.min(...xs);
-    maxX = Math.max(...xs);
+          minXv = Math.min(...xs);
+          maxXv = Math.max(...xs);
 
-    minY = Math.min(...ys);
-    maxY = Math.max(...ys);
+          minYv = Math.min(...ys);
+          maxYv = Math.max(...ys);
 
-    const padY = (maxY - minY) * 0.08 || 10;
-    minY -= padY;
-    maxY += padY;
-  }
+          const padY = (maxYv - minYv) * 0.08 || 10;
+          minYv -= padY;
+          maxYv += padY;
+        }
 
-  const sx = (charge: number) =>
-    chartX + ((charge - minX) / (maxX - minX || 1)) * chartW;
+        const sx = (charge: number) =>
+          chartX + ((charge - minXv) / (maxXv - minXv || 1)) * chartW;
 
-  const sy = (vel: number) =>
-    chartY + chartH - ((vel - minY) / (maxY - minY || 1)) * chartH;
+        const sy = (vel: number) =>
+          chartY + chartH - ((vel - minYv) / (maxYv - minYv || 1)) * chartH;
 
-  // ---- OCW PDF rendering: ellipses + ALL shot dots + labels ----
-  if (isOcwProject && hasOcwShots) {
-    // 1) Group ellipses (based on group bounds in data space)
-    // We rebuild ellipse bounds in PDF coords using the same entry grouping.
-    const entries = this.entriesForSelectedProject();
-    for (const e of entries) {
-      const charge = e.chargeGr;
-      if (charge == null) continue;
+        // ---- OCW PDF rendering: ellipses + ALL shot dots + labels ----
+        if (isOcwProject && hasOcwShots) {
+          // 1) Group ellipses (based on group bounds in data space)
+          const entries = this.entriesForSelectedProject();
+          for (const e of entries) {
+            const charge = e.chargeGr;
+            if (charge == null) continue;
 
-      const any = e as any;
-      const rawVals = this.parseVelocityInput(any.velocityInput);
-      if (!rawVals.length) continue;
+            const any = e as any;
+            const rawVals = this.parseVelocityInput(any.velocityInput);
+            if (!rawVals.length) continue;
 
-      const cleaned = this.fixObviousRepeatedPaste(rawVals);
-      if (!cleaned.length) continue;
+            const cleaned = this.fixObviousRepeatedPaste(rawVals);
+            if (!cleaned.length) continue;
 
-    const x = Math.max(xMin, Math.min(xMax, sx(charge)));
+            const x = Math.max(xMin, Math.min(xMax, sx(charge)));
 
+            const minV = Math.min(...cleaned);
+            const maxV = Math.max(...cleaned);
 
-      const minV = Math.min(...cleaned);
-      const maxV = Math.max(...cleaned);
+            // small padding so ellipse doesn't touch dots
+            const padV = Math.max(6, (maxV - minV) * 0.25);
+            const top = Math.max(yMin, Math.min(yMax, sy(maxV + padV)));
+            const bot = Math.max(yMin, Math.min(yMax, sy(minV - padV)));
 
-      // small padding so ellipse doesn't touch dots
-      const padV = Math.max(6, (maxV - minV) * 0.25);
-     const top = Math.max(yMin, Math.min(yMax, sy(maxV + padV)));
-const bot = Math.max(yMin, Math.min(yMax, sy(minV - padV)));
+            const cy = (top + bot) / 2;
+            const ry = Math.max(6, Math.abs(bot - top) / 2);
+            const rx = 10; // constant-ish width so groups are readable
 
-      const cy = (top + bot) / 2;
-      const ry = Math.max(6, Math.abs(bot - top) / 2);
-      const rx = 10; // constant-ish width so groups are readable
+            // Ellipse approx: draw as many short line segments
+            const steps = 28;
+            doc.setLineWidth(0.8);
+            for (let i = 0; i <= steps; i++) {
+              const t1 = (i / steps) * Math.PI * 2;
+              const t2 = ((i + 1) / steps) * Math.PI * 2;
 
-      // Ellipse approx: draw as many short line segments (jsPDF has no native ellipse in older builds)
-      const steps = 28;
-      doc.setLineWidth(0.8);
-      for (let i = 0; i <= steps; i++) {
-        const t1 = (i / steps) * Math.PI * 2;
-        const t2 = ((i + 1) / steps) * Math.PI * 2;
+              const x1 = x + Math.cos(t1) * rx;
+              const y1 = cy + Math.sin(t1) * ry;
 
-        const x1 = x + Math.cos(t1) * rx;
-        const y1 = cy + Math.sin(t1) * ry;
+              const x2 = x + Math.cos(t2) * rx;
+              const y2 = cy + Math.sin(t2) * ry;
 
-        const x2 = x + Math.cos(t2) * rx;
-        const y2 = cy + Math.sin(t2) * ry;
+              doc.line(x1, y1, x2, y2);
+            }
+          }
 
-        doc.line(x1, y1, x2, y2);
+          // 2) Shot dots (ALL) + labels
+          doc.setLineWidth(1);
+          doc.setFontSize(8);
+
+          const labelPad = 10;
+          const labelInsidePad = 8;
+
+          for (const p of this.ocwShotPoints) {
+            const px = Math.max(xMin, Math.min(xMax, sx(p.charge)));
+            const py = Math.max(yMin, Math.min(yMax, sy(p.v)));
+
+            // dot
+            doc.circle(px, py, 1.8, 'S');
+
+            const shotNo = (p.shotIndex ?? 0) + 1;
+            const velTxt = `${Math.round(p.v)}`;
+            const txt = `${shotNo}:${velTxt}`;
+
+            const placeRight = (shotNo % 2) === 0;
+            const dx = placeRight ? labelPad : -labelPad;
+            const dy = ((shotNo % 3) - 1) * 9;
+
+            const textW = txt.length * 4.2;
+
+            let tx = placeRight ? (px + dx) : (px + dx - textW);
+            let ty = py + dy - 2;
+
+            // keep inside chart bounds
+            if (tx < xMin + labelInsidePad) tx = xMin + labelInsidePad;
+            if (tx > xMax - labelInsidePad - textW) tx = xMax - labelInsidePad - textW;
+            if (ty < yMin + labelInsidePad) ty = yMin + labelInsidePad;
+            if (ty > yMax - labelInsidePad) ty = yMax - labelInsidePad;
+
+            doc.text(txt, tx, ty);
+          }
+
+          // 3) Axis hints
+          doc.setFontSize(9);
+          doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
+          doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
+          doc.text(`${Math.round(maxYv)} fps`, chartX + chartW - 55, chartY + 10);
+          doc.text(`${Math.round(minYv)} fps`, chartX + chartW - 55, chartY + chartH - 4);
+
+          y += chartH + 26;
+        } else {
+          // ---- Ladder PDF rendering (existing avg line) ----
+          doc.setLineWidth(1.5);
+          for (let i = 0; i < this.graphCoords.length - 1; i++) {
+            const a = this.graphCoords[i];
+            const b = this.graphCoords[i + 1];
+            doc.line(sx(a.charge), sy(a.avg), sx(b.charge), sy(b.avg));
+          }
+
+          // Points + labels (charge above, velocity below)
+          doc.setLineWidth(1);
+          doc.setFontSize(8);
+
+          for (const p of this.graphCoords) {
+            const px = sx(p.charge);
+            const py = sy(p.avg);
+
+            doc.circle(px, py, 2, 'S');
+
+            const chargeTxt = `${p.charge.toFixed(2)}`;
+            const velTxt = `${Math.round(p.avg)}`;
+
+            const chargeX = px - (chargeTxt.length * 2.2);
+            const velX = px - (velTxt.length * 2.2);
+
+            const topY = Math.max(chartY + 10, py - 6);
+            const botY = Math.min(chartY + chartH - 4, py + 12);
+
+            doc.text(chargeTxt, chargeX, topY);
+            doc.text(velTxt, velX, botY);
+          }
+
+          // Axis labels
+          doc.setFontSize(9);
+          doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
+          doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
+          doc.text(`${Math.round(maxYv)} fps`, chartX + chartW - 55, chartY + 10);
+
+          y += chartH + 26;
+        }
       }
-    }
-
-    // 2) Shot dots (ALL)
-// 2) Shot dots (ALL) + labels
-doc.setLineWidth(1);
-doc.setFontSize(8);
-
-const labelPad = 10;
-const labelInsidePad = 8;
-
-for (const p of this.ocwShotPoints) {
-  const px = Math.max(xMin, Math.min(xMax, sx(p.charge)));
-  const py = Math.max(yMin, Math.min(yMax, sy(p.v)));
-
-  // dot
-  doc.circle(px, py, 1.8, 'S');
-
-  // ✅ DEFINE shotNo HERE
-  const shotNo = (p.shotIndex ?? 0) + 1;
-  const velTxt = `${Math.round(p.v)}`;
-  const txt = `${shotNo}:${velTxt}`;
-
-  const placeRight = (shotNo % 2) === 0;
-  const dx = placeRight ? labelPad : -labelPad;
-  const dy = ((shotNo % 3) - 1) * 9;
-
-  const textW = txt.length * 4.2;
-
-  let tx = placeRight ? (px + dx) : (px + dx - textW);
-  let ty = py + dy - 2;
-
-  // keep inside chart bounds
-  if (tx < xMin + labelInsidePad) tx = xMin + labelInsidePad;
-  if (tx > xMax - labelInsidePad - textW) tx = xMax - labelInsidePad - textW;
-  if (ty < yMin + labelInsidePad) ty = yMin + labelInsidePad;
-  if (ty > yMax - labelInsidePad) ty = yMax - labelInsidePad;
-
-  // ✅ USE shotNo ONLY AFTER DECLARATION
-  doc.text(txt, tx, ty);
-}
-
-
-    // 3) Axis hints
-    doc.setFontSize(9);
-    doc.text(`${minX.toFixed(2)} gr`, chartX, chartY + chartH + 12);
-    doc.text(`${maxX.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
-    doc.text(`${Math.round(maxY)} fps`, chartX + chartW - 55, chartY + 10);
-    doc.text(`${Math.round(minY)} fps`, chartX + chartW - 55, chartY + chartH - 4);
-
-    y += chartH + 26;
-  } else {
-    // ---- Ladder PDF rendering (existing avg line) ----
-    // Polyline
-    doc.setLineWidth(1.5);
-    for (let i = 0; i < this.graphCoords.length - 1; i++) {
-      const a = this.graphCoords[i];
-      const b = this.graphCoords[i + 1];
-      doc.line(sx(a.charge), sy(a.avg), sx(b.charge), sy(b.avg));
-    }
-
-    // Points + labels (charge above, velocity below)
-    doc.setLineWidth(1);
-    doc.setFontSize(8);
-
-    for (const p of this.graphCoords) {
-      const px = sx(p.charge);
-      const py = sy(p.avg);
-
-      doc.circle(px, py, 2, 'S');
-
-      const chargeTxt = `${p.charge.toFixed(2)}`;
-      const velTxt = `${Math.round(p.avg)}`;
-
-      const chargeX = px - (chargeTxt.length * 2.2);
-      const velX = px - (velTxt.length * 2.2);
-
-      const topY = Math.max(chartY + 10, py - 6);
-      const botY = Math.min(chartY + chartH - 4, py + 12);
-
-      doc.text(chargeTxt, chargeX, topY);
-      doc.text(velTxt, velX, botY);
-    }
-
-    // Axis labels
-    doc.setFontSize(9);
-    doc.text(`${minX.toFixed(2)} gr`, chartX, chartY + chartH + 12);
-    doc.text(`${maxX.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
-    doc.text(`${Math.round(maxY)} fps`, chartX + chartW - 55, chartY + 10);
-
-    y += chartH + 26;
-  }
-}
-
 
       // ----- Table (real data, not screenshot) -----
       const entries = this.entriesForSelectedProject();
@@ -398,9 +389,7 @@ for (const p of this.ocwShotPoints) {
 
       doc.setFontSize(9);
 
-      
       const cols = isOcwProject ? ['Charge', 'Avg', 'SD', 'ES', 'Group'] : ['Charge', 'Avg', 'Shots'];
-
       const colX = [margin, margin + 90, margin + 160, margin + 220, margin + 280];
 
       // Header row
@@ -636,6 +625,28 @@ for (const p of this.ocwShotPoints) {
 
   toggleNotesPanel(): void {
     this.showNotesPanel = !this.showNotesPanel;
+  }
+
+  // Save notes for the currently selected project (called by HTML)
+  saveSelectedProjectNotes(): void {
+    if (!this.selectedProject) return;
+
+    const notes = (this.selectedProject.notes ?? '').toString().trim();
+
+    this.data.updateLoadDevProject({
+      ...this.selectedProject,
+      notes: notes || undefined
+    });
+
+    // Visual confirmation
+    this.postSaveMessage = 'Notes saved ✅';
+    setTimeout(() => (this.postSaveMessage = null), 2000);
+
+    // Refresh UI from storage so it stays in sync
+    this.refreshSelectedProject();
+
+    // ✅ collapse notes so the Save button disappears
+    this.showNotesPanel = false;
   }
 
   // ---------- loading ----------
@@ -1264,31 +1275,30 @@ for (const p of this.ocwShotPoints) {
     return nodes;
   }
 
-nodeCssClass(entry: LoadDevEntry): string {
-  if (!this.selectedProject || this.selectedProject.type !== 'ladder') return '';
+  nodeCssClass(entry: LoadDevEntry): string {
+    if (!this.selectedProject || this.selectedProject.type !== 'ladder') return '';
 
-  const entries = this.entriesForSelectedProject();
-  const nodes = this.findNodes(entries);
+    const entries = this.entriesForSelectedProject();
+    const nodes = this.findNodes(entries);
 
-  if (!nodes.length) return '';
+    if (!nodes.length) return '';
 
-  // index of this entry
-  const idx = entries.findIndex(e => e.id === entry.id);
-  if (idx < 0) return '';
+    // index of this entry
+    const idx = entries.findIndex(e => e.id === entry.id);
+    if (idx < 0) return '';
 
-  // node indices
-  const nodeIndices = nodes
-    .map(n => entries.findIndex(e => e.id === n.entry.id))
-    .filter(i => i >= 0);
+    // node indices
+    const nodeIndices = nodes
+      .map(n => entries.findIndex(e => e.id === n.entry.id))
+      .filter(i => i >= 0);
 
-  // highlight node ±1 (full node band)
-  const isInNodeBand = nodeIndices.some(i => Math.abs(i - idx) <= 1);
+    // highlight node ±1 (full node band)
+    const isInNodeBand = nodeIndices.some(i => Math.abs(i - idx) <= 1);
 
-  return isInNodeBand
-    ? 'bg-emerald-900/25 ring-1 ring-emerald-400/40'
-    : '';
-}
-
+    return isInNodeBand
+      ? 'bg-emerald-900/25 ring-1 ring-emerald-400/40'
+      : '';
+  }
 
   private allEntriesHaveVelocity(): boolean {
     if (!this.selectedProject?.entries?.length) return false;
@@ -1525,7 +1535,8 @@ nodeCssClass(entry: LoadDevEntry): string {
     if (!this.ladderWizardActive) return;
 
     if (this.ladderWizardIndex >= this.ladderWizardEntries.length) {
-      this.finishLadderWizard();
+      // ✅ Wizard completed (not canceled)
+      this.completeLadderWizard();
       return;
     }
 
@@ -1536,6 +1547,19 @@ nodeCssClass(entry: LoadDevEntry): string {
     this.focusVelocityInput(true);
   }
 
+  // ✅ called ONLY when wizard reaches the end
+  private completeLadderWizard(): void {
+    this.finishLadderWizard();
+
+    // ensure UI refresh (graph, results, etc.)
+    this.refreshSelectedProject();
+
+    // brief saved message
+    this.postSaveMessage = 'Saved ✅';
+    setTimeout(() => (this.postSaveMessage = null), 2000);
+  }
+
+  // internal end/reset (used by both completion + cancel)
   private finishLadderWizard(): void {
     this.ladderWizardActive = false;
     this.velocityEditEntry = null;
@@ -1557,7 +1581,8 @@ nodeCssClass(entry: LoadDevEntry): string {
     const currentIndex = sorted.findIndex(e => e.id === this.velocityEditEntry!.id);
 
     if (currentIndex < 0 || currentIndex + 1 >= sorted.length) {
-      this.finishLadderWizard();
+      // ✅ Wizard completed (not canceled)
+      this.completeLadderWizard();
       return;
     }
 
@@ -1614,6 +1639,7 @@ nodeCssClass(entry: LoadDevEntry): string {
   }
 
   cancelLadderWizard(): void {
+    // ✅ canceled: no "Saved ✅" message
     this.finishLadderWizard();
   }
 
