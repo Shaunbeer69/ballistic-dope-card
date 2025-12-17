@@ -186,33 +186,36 @@ export class DataService {
   }
 
   /**
-   * Convenience helper – create a "pending" History session
-   * for a load development project. This shows up in History
-   * (yellow row when `completed === false`) so the shooter can
-   * later enter velocities with the step wizard.
+   * Load development is already stored under `loadDevProjects`.
+   *
+   * This helper used to create an extra "pending" Session in History so
+   * it showed up as a yellow row. You asked to stop duplicating load dev
+   * into History, so this function now returns a non-persisted Session-like
+   * object for backwards compatibility, and DOES NOT write to `store.sessions`.
+   *
+   * If you don't need the return value anywhere, you can safely ignore it.
    */
+  createSessionForLoadDevProject(project: LoadDevProject): Session {
+    const title = project.name?.trim()
+      ? `Load dev: ${project.name.trim()}`
+      : 'Load development';
 
- createSessionForLoadDevProject(project: LoadDevProject): Session {
-  const title = project.name?.trim()
-    ? `Load dev: ${project.name.trim()}`
-    : 'Load development ladder';
+    // IMPORTANT: do NOT add to this.store.sessions
+    const session: Session = {
+      id: -Date.now(), // negative id indicates "virtual / not stored"
+      date: new Date().toISOString(),
+      rifleId: project.rifleId,
+      venueId: 0, // satisfies `number` type
+      title,
+      environment: {},
+      dope: [],
+      notes:
+        'Load development – planned here. Results are captured in Load Development (not History).',
+      completed: false
+    } as Session;
 
-  const session: Omit<Session, 'id'> = {
-    date: new Date().toISOString(),
-    rifleId: project.rifleId,
-    venueId: 0,  // ✅ satisfies `number` type
-    title,
-    environment: {},
-    dope: [],
-    notes:
-      'Load development ladder – after shooting, enter your actual velocities using the step wizard.',
-    completed: false
-  };
-
-  return this.addSession(session);
-}
-
-
+    return session;
+  }
 
   // ---------- Load Development Projects ----------
 
