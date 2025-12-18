@@ -334,6 +334,16 @@
             [(ngModel)]="selectedProjectId"
             (ngModelChange)="onProjectSelectChange()"
           >
+            <!-- ✅ Always available actions for selected project -->
+            <div *ngIf="selectedProject" class="flex justify-end mt-2">
+              <button
+                class="px-3 py-2 rounded-xl bg-red-600 text-white text-xs"
+                (click)="deleteProject(selectedProject)"
+              >
+                Delete selected
+              </button>
+            </div>
+
             <option [ngValue]="null">Select load development…</option>
 
             <option *ngFor="let p of filteredProjects ?? projects" [ngValue]="p.id">

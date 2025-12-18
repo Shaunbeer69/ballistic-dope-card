@@ -945,11 +945,33 @@ export class LoadDevTabComponent implements OnInit {
     if (!this.selectedRifleId || !this.projectForm.name.trim()) {
       alert('Please select rifle and enter a name for the load development.');
       return;
-    }
 
-    const type: LoadDevType = (this.projectForm.type as LoadDevType) || 'ladder';
+      
+    }
+const type: LoadDevType = (this.projectForm.type as LoadDevType) || 'ladder';
+this.postSaveMessage = null;
+
+// ✅ ADD THIS GUARD (prevents empty ladder/ocw projects)
+if (type === 'ladder' || type === 'ocw') {
+  const { startChargeGr, endChargeGr, stepGr } = this.planner;
+
+  if (startChargeGr == null || endChargeGr == null || stepGr == null || stepGr <= 0) {
+    alert('Please enter Start, End and a positive Step to plan the ladder/OCW charges.');
+    return;
+  }
+}
+if (type === 'ladder' || type === 'ocw') {
+  const { startChargeGr, endChargeGr } = this.planner;
+  if (startChargeGr != null && endChargeGr != null && endChargeGr < startChargeGr) {
+    alert('End charge must be greater than start charge.');
+    return;
+  }
+}
+
+    
     this.postSaveMessage = null;
 
+    
     if (this.editingProject) {
       const updated: LoadDevProject = {
         ...this.editingProject,
@@ -1018,6 +1040,7 @@ export class LoadDevTabComponent implements OnInit {
     if (typeof any.groupSize !== 'number' || !isFinite(any.groupSize)) return '—';
     const unit = (any.groupUnit as string) || 'MOA';
     return `${any.groupSize.toFixed(2)} ${unit}`;
+    
   }
 
   // ---------- entry CRUD ----------
