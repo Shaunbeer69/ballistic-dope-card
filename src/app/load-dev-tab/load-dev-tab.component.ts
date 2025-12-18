@@ -139,6 +139,29 @@ export class LoadDevTabComponent implements OnInit {
     this.backToMenu.emit();
   }
 
+  // ==========================
+  // MIC (future feature only)
+  // ==========================
+  // Shown next to the MIC button in HTML (NOT the top banner)
+  micInlineMessage: string | null = null;
+
+  onMicFuture(event?: Event): void {
+    try {
+      event?.preventDefault();
+      event?.stopPropagation();
+    } catch {
+      // ignore
+    }
+
+    // Future feature only — NO recording code.
+    this.micInlineMessage = '🎤 Voice notes: coming soon';
+
+    // Clear after a moment so it doesn’t stick
+    setTimeout(() => {
+      this.micInlineMessage = null;
+    }, 2200);
+  }
+
   // ---------- PDF export (Graph + table inside #pdfContent) ----------
   async exportPdf(): Promise<void> {
     try {
@@ -180,8 +203,6 @@ export class LoadDevTabComponent implements OnInit {
       y += 18;
 
       // ----- Graph (vector drawn) -----
-      // Ladder: avg line from graphCoords
-      // OCW: plot every shot + group ellipses from ocwShotPoints / ocwGroupEllipses
       const isOcwProject = this.selectedProject.type === 'ocw';
 
       const hasOcwShots = (this.ocwShotPoints?.length ?? 0) > 0;
@@ -193,7 +214,7 @@ export class LoadDevTabComponent implements OnInit {
         const chartY = y;
         const chartW = pageW - margin * 2;
         const chartH = 180;
-        const innerPad = 8; // keep shapes away from frame
+        const innerPad = 8;
         const xMin = chartX + innerPad;
         const xMax = chartX + chartW - innerPad;
         const yMin = chartY + innerPad;
@@ -206,11 +227,6 @@ export class LoadDevTabComponent implements OnInit {
         doc.setFontSize(11);
         doc.text(isOcwProject ? 'OCW: velocities (all shots) vs charge' : 'Velocity vs charge', chartX, chartY - 6);
 
-        // Common scaling:
-        // X axis always uses charge min/max.
-        // Y axis:
-        //  - OCW uses ALL shot velocities min/max
-        //  - Ladder uses avg min/max from graphCoords
         let minXv = 0, maxXv = 1;
         let minYv = 0, maxYv = 1;
 
@@ -248,9 +264,8 @@ export class LoadDevTabComponent implements OnInit {
         const sy = (vel: number) =>
           chartY + chartH - ((vel - minYv) / (maxYv - minYv || 1)) * chartH;
 
-        // ---- OCW PDF rendering: ellipses + ALL shot dots + labels ----
         if (isOcwProject && hasOcwShots) {
-          // 1) Group ellipses (based on group bounds in data space)
+          // Group ellipses
           const entries = this.entriesForSelectedProject();
           for (const e of entries) {
             const charge = e.chargeGr;
@@ -292,7 +307,7 @@ export class LoadDevTabComponent implements OnInit {
             }
           }
 
-          // 2) Shot dots (ALL) + labels
+          // Shot dots + labels
           doc.setLineWidth(1);
           doc.setFontSize(8);
 
@@ -326,7 +341,7 @@ export class LoadDevTabComponent implements OnInit {
             doc.text(txt, tx, ty);
           }
 
-          // 3) Axis hints
+          // Axis hints
           doc.setFontSize(9);
           doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
           doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
@@ -335,7 +350,7 @@ export class LoadDevTabComponent implements OnInit {
 
           y += chartH + 26;
         } else {
-          // ---- Ladder PDF rendering (avg line) ----
+          // Ladder avg line
           doc.setLineWidth(1.5);
           for (let i = 0; i < this.graphCoords.length - 1; i++) {
             const a = this.graphCoords[i];
@@ -495,7 +510,7 @@ export class LoadDevTabComponent implements OnInit {
   resultsCollapsed = false;
   hasResultsForSelectedProject = false;
 
-  // Post-save banner
+  // Post-save banner (top)
   postSaveMessage: string | null = null;
 
   // Ladder/OCW wizard
@@ -629,7 +644,7 @@ export class LoadDevTabComponent implements OnInit {
     this.postSaveMessage = 'Notes saved ✅';
     setTimeout(() => (this.postSaveMessage = null), 2000);
 
-    // ✅ Collapse notes after saving (so Save disappears)
+    // Collapse notes after saving
     this.showNotesPanel = false;
 
     this.refreshSelectedProject();
@@ -997,7 +1012,7 @@ export class LoadDevTabComponent implements OnInit {
     this.loadProjects();
   }
 
-  // ✅ MUST be public + inside class (template calls this)
+  // MUST be public (template calls this)
   formatGroupSize(entry: LoadDevEntry): string {
     const any = entry as any;
     if (typeof any.groupSize !== 'number' || !isFinite(any.groupSize)) return '—';
@@ -1126,7 +1141,7 @@ export class LoadDevTabComponent implements OnInit {
       .filter(v => Number.isFinite(v));
   }
 
-  // ✅ NEW: only fixes *obvious* paste duplication like "a b c a b c"
+  // only fixes obvious paste duplication like "a b c a b c"
   private fixObviousRepeatedPaste(values: number[]): number[] {
     const n = values.length;
     if (n < 6) return values;
@@ -1506,7 +1521,6 @@ export class LoadDevTabComponent implements OnInit {
     if (!this.ladderWizardActive) return;
 
     if (this.ladderWizardIndex >= this.ladderWizardEntries.length) {
-      // ✅ Wizard finished naturally -> show brief Saved banner
       this.finishLadderWizard(true);
       return;
     }
@@ -1518,7 +1532,6 @@ export class LoadDevTabComponent implements OnInit {
     this.focusVelocityInput(true);
   }
 
-  // ✅ CHANGED: allow optional "saved" toast when the wizard completes
   private finishLadderWizard(showSavedToast = false): void {
     this.ladderWizardActive = false;
     this.velocityEditEntry = null;
@@ -1545,7 +1558,6 @@ export class LoadDevTabComponent implements OnInit {
     const currentIndex = sorted.findIndex(e => e.id === this.velocityEditEntry!.id);
 
     if (currentIndex < 0 || currentIndex + 1 >= sorted.length) {
-      // ✅ Natural end
       this.finishLadderWizard(true);
       return;
     }
@@ -1603,7 +1615,6 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   cancelLadderWizard(): void {
-    // ✅ Cancel should NOT show "Saved"
     this.finishLadderWizard(false);
   }
 
