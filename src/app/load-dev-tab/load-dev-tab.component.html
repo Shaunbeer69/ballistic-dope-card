@@ -37,8 +37,8 @@
           </button>
         </div>
 
-        <!-- Small helper line to make purpose clear -->
-        <div class="text-[10px] text-gray-400">
+        <!-- Helper text UNDER the button -->
+        <div class="mt-1 text-[10px] text-gray-400">
           Start a new load development for the selected rifle, or edit an existing one below.
         </div>
       </div>
@@ -326,33 +326,24 @@
             </option>
           </select>
         </div>
-
         <!-- Project selector -->
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 min-w-0">
           <select
-            class="flex-1 bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-xs text-gray-100"
+            class="flex-1 min-w-0 w-full truncate bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 pr-8 text-xs text-gray-100"
             [(ngModel)]="selectedProjectId"
             (ngModelChange)="onProjectSelectChange()"
           >
-            <!-- ✅ Always available actions for selected project -->
-            <div *ngIf="selectedProject" class="flex justify-end mt-2">
-              <button
-                class="px-3 py-2 rounded-xl bg-red-600 text-white text-xs"
-                (click)="deleteProject(selectedProject)"
-              >
-                Delete selected
-              </button>
-            </div>
-
             <option [ngValue]="null">Select load development…</option>
 
             <option *ngFor="let p of filteredProjects ?? projects" [ngValue]="p.id">
-              {{ p.name }} • {{ shortDate(p.dateStarted) }} •
-              {{ projectTypeLabel(p.type) }}
+              {{ p.name }} • {{ shortDate(p.dateStarted) }} • {{ projectTypeLabel(p.type) }}
               <ng-container *ngIf="isProjectComplete(p)">✅</ng-container>
             </option>
           </select>
         </div>
+
+        <!-- ✅ Always available actions for selected project (OUTSIDE select) -->
+        <div *ngIf="selectedProject" class="flex justify-end mt-2"></div>
 
         <!-- Quick actions row -->
         <div class="flex items-center justify-between gap-2">
@@ -539,7 +530,7 @@
                 <ng-template #ladderHead>
                   <tr>
                     <th class="px-2 py-1 text-left">Charge (gr)</th>
-                    <th class="px-2 py-1 text-left">Velocity (avg)</th>
+                    <th class="px-2 py-1 text-left">Velocity</th>
                     <th class="px-2 py-1 text-left">Shots</th>
                     <th class="px-2 py-1 text-right">Actions</th>
                   </tr>
@@ -703,7 +694,7 @@
                 class="px-3 py-2 rounded-xl bg-red-600 text-white text-xs"
                 (click)="deleteProject(selectedProject!)"
               >
-                Delete
+                Delete Project
               </button>
             </div>
 
