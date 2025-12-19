@@ -3,7 +3,7 @@
   <div class="bg-gray-900/80 border border-gray-800 rounded-3xl p-3 shadow-lg shadow-black/40">
     <div class="text-xs font-semibold text-gray-100 mb-1">Rifle</div>
     <select
-      class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-xs text-gray-100"
+      class="w-full bg-black/40 border border-amber-400 rounded-2xl px-2 py-1.5 text-xs text-gray-100 ring-1 ring-amber-400/70 shadow-md shadow-amber-400/40"
       [(ngModel)]="selectedRifleId"
       (ngModelChange)="onRifleChange()"
     >
@@ -37,8 +37,8 @@
           </button>
         </div>
 
-        <!-- Helper text UNDER the button -->
-        <div class="mt-1 text-[10px] text-gray-400">
+        <!-- Small helper line to make purpose clear -->
+        <div class="text-[10px] text-gray-400">
           Start a new load development for the selected rifle, or edit an existing one below.
         </div>
       </div>
@@ -326,24 +326,42 @@
             </option>
           </select>
         </div>
+
         <!-- Project selector -->
-        <div class="flex items-center gap-2 min-w-0">
-          <select
-            class="flex-1 min-w-0 w-full truncate bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 pr-8 text-xs text-gray-100"
-            [(ngModel)]="selectedProjectId"
-            (ngModelChange)="onProjectSelectChange()"
-          >
-            <option [ngValue]="null">Select load development…</option>
+        <div class="flex flex-col gap-1">
+          <div class="relative flex items-center gap-2">
+            <!-- Native select (hidden text, still opens Android picker) -->
+            <select
+              class="flex-1 min-w-0 w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 pr-8 text-xs text-transparent"
+              [(ngModel)]="selectedProjectId"
+              (ngModelChange)="onProjectSelectChange()"
+            >
+              <option [ngValue]="null">Select load development…</option>
 
-            <option *ngFor="let p of filteredProjects ?? projects" [ngValue]="p.id">
-              {{ p.name }} • {{ shortDate(p.dateStarted) }} • {{ projectTypeLabel(p.type) }}
-              <ng-container *ngIf="isProjectComplete(p)">✅</ng-container>
-            </option>
-          </select>
+              <!-- ✅ FULL label WITH date (shows in the Android grey picker list) -->
+              <option *ngFor="let p of filteredProjects ?? projects" [ngValue]="p.id">
+                {{ p.name }} • {{ shortDate(p.dateStarted) }} • {{ projectTypeLabel(p.type) }}
+                <ng-container *ngIf="isProjectComplete(p)">✅</ng-container>
+              </option>
+            </select>
+
+            <!-- Overlay label (what you see when CLOSED; short + safe) -->
+            <span
+              class="pointer-events-none absolute left-3 right-8 top-1/2 -translate-y-1/2 text-xs text-gray-100 truncate"
+            >
+              <ng-container *ngIf="selectedProject; else noProject">
+                {{ selectedProject.name }} • {{ projectTypeLabel(selectedProject.type) }}
+                <ng-container *ngIf="isProjectComplete(selectedProject)">✅</ng-container>
+              </ng-container>
+              <ng-template #noProject>Select load development…</ng-template>
+            </span>
+          </div>
+
+          <!-- Keep this if you still want it visible under the box (optional) -->
+          <div *ngIf="selectedProject" class="text-[10px] text-gray-400 truncate">
+            Started: {{ shortDate(selectedProject.dateStarted) }}
+          </div>
         </div>
-
-        <!-- ✅ Always available actions for selected project (OUTSIDE select) -->
-        <div *ngIf="selectedProject" class="flex justify-end mt-2"></div>
 
         <!-- Quick actions row -->
         <div class="flex items-center justify-between gap-2">
@@ -521,7 +539,7 @@
               <thead class="bg-gray-900/70 text-gray-300">
                 <tr *ngIf="selectedProject?.type === 'ocw'; else ladderHead">
                   <th class="px-2 py-1 text-left">Charge (gr)</th>
-                  <th class="px-2 py-1 text-left">Vel (avg)</th>
+                  <th class="px-2 py-1 text-left">Vel</th>
                   <th class="px-2 py-1 text-left">SD</th>
                   <th class="px-2 py-1 text-left">ES</th>
                   <th class="px-2 py-1 text-right">Group size</th>
@@ -530,7 +548,7 @@
                 <ng-template #ladderHead>
                   <tr>
                     <th class="px-2 py-1 text-left">Charge (gr)</th>
-                    <th class="px-2 py-1 text-left">Velocity</th>
+                    <th class="px-2 py-1 text-left">Velocity (avg)</th>
                     <th class="px-2 py-1 text-left">Shots</th>
                     <th class="px-2 py-1 text-right">Actions</th>
                   </tr>
@@ -694,7 +712,7 @@
                 class="px-3 py-2 rounded-xl bg-red-600 text-white text-xs"
                 (click)="deleteProject(selectedProject!)"
               >
-                Delete Project
+                Delete
               </button>
             </div>
 
