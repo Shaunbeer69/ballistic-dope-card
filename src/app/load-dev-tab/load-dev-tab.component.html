@@ -163,7 +163,6 @@
               >
                 🎤
               </button>
-
               <!-- ✅ Inline message next to mic -->
               <span
                 *ngIf="micInlineMessage"
@@ -171,15 +170,6 @@
               >
                 {{ micInlineMessage }}
               </span>
-            </div>
-
-            <div *ngIf="showNotesPanel" class="mt-2">
-              <textarea
-                rows="2"
-                class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-gray-100 text-[11px]"
-                [(ngModel)]="projectForm.notes"
-                placeholder="Notes about this development…"
-              ></textarea>
             </div>
           </div>
         </div>
@@ -706,7 +696,44 @@
                   {{ micInlineMessage }}
                 </span>
               </div>
+              <button
+                class="px-3 py-2 rounded-xl bg-gray-700 text-white text-xs"
+                title="Take target photo"
+                (click)="onTargetPhotoClick($event)"
+              >
+                📷
+              </button>
 
+              <span
+                *ngIf="targetPhotoInlineMessage"
+                class="ml-1 text-[10px] rounded-xl bg-sky-500/10 border border-sky-400/60 text-sky-200 px-2 py-1"
+              >
+                {{ targetPhotoInlineMessage }}
+              </span>
+
+              <div *ngIf="showNotesPanel" class="mt-2">
+                <textarea
+                  rows="2"
+                  class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-gray-100 text-[11px]"
+                  [(ngModel)]="projectForm.notes"
+                  placeholder="Notes about this development…"
+                ></textarea>
+                <input
+                  #targetFileInput
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  class="hidden"
+                  (change)="onTargetFileChosen($event)"
+                />
+                <div *ngIf="targetPhotoDataUrl" class="mt-2">
+                  <img
+                    [src]="targetPhotoDataUrl"
+                    alt="Target photo"
+                    class="w-full rounded-2xl border border-gray-700"
+                  />
+                </div>
+              </div>
               <!-- Right: Delete -->
               <button
                 class="px-3 py-2 rounded-xl bg-red-600 text-white text-xs"

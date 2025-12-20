@@ -12,7 +12,6 @@ import jsPDF from 'jspdf';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
-
 import {
   Rifle,
   LoadDevProject,
@@ -22,6 +21,8 @@ import {
 } from '../models';
 
 import { DataService } from '../data.service';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+
 
 interface ProjectForm {
   rifleId: number | null;
@@ -103,6 +104,7 @@ interface OcwGroupEllipse {
 export class LoadDevTabComponent implements OnInit {
   @ViewChild('velocityInputEl') velocityInputEl?: ElementRef<HTMLInputElement>;
   @ViewChild('pdfContent') pdfContent?: ElementRef<HTMLElement>;
+@ViewChild('targetFileInput') targetFileInput?: ElementRef<HTMLInputElement>;
 
   @Output() backToMenu = new EventEmitter<void>();
 
@@ -160,7 +162,154 @@ export class LoadDevTabComponent implements OnInit {
     setTimeout(() => {
       this.micInlineMessage = null;
     }, 2200);
+    
   }
+// ==========================
+// TARGET PHOTO (camera)
+// ==========================
+// Thumbnail shown in UI
+targetPhotoDataUrl: string | null = null;
+// Inline status next to camera button (like MIC)
+targetPhotoInlineMessage: string | null = null;
+
+/** Pulls any previously-saved target photo from the selected project into the UI preview. */
+private syncTargetPhotoFromProject(): void {
+  try {
+    const any = this.selectedProject as any;
+    const base64 = (any?.targetPhotoBase64 ?? '').toString().trim();
+    const dataUrl = (any?.targetPhotoDataUrl ?? '').toString().trim();
+
+    if (dataUrl) {
+      this.targetPhotoDataUrl = dataUrl;
+      return;
+    }
+    if (base64) {
+      this.targetPhotoDataUrl = `data:image/jpeg;base64,${base64}`;
+      return;
+    }
+    this.targetPhotoDataUrl = null;
+  } catch {
+    this.targetPhotoDataUrl = null;
+  }
+}
+
+async onTargetPhotoClick(event?: Event): Promise<void> {
+  try {
+    event?.preventDefault();
+    event?.stopPropagation();
+  } catch {
+    // ignore
+  }
+
+  // Must have a project selected (so we can attach the image)
+  if (!this.selectedProject) {
+    this.targetPhotoInlineMessage = 'Select a load development first';
+    setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
+    return;
+  }
+
+  // Ensure preview reflects currently selected project
+  this.syncTargetPhotoFromProject();
+
+  // Web fallback: open file picker
+  if (!Capacitor.isNativePlatform()) {
+    this.targetPhotoInlineMessage = 'Choose a photo (web)';
+    setTimeout(() => (this.targetPhotoInlineMessage = null), 1600);
+    try {
+      this.targetFileInput?.nativeElement?.click();
+    } catch {
+      // ignore
+    }
+    return;
+  }
+
+  // Native: open camera
+  try {
+    const photo = await Camera.getPhoto({
+      quality: 85,
+      allowEditing: false,
+      resultType: CameraResultType.Base64,
+      source: CameraSource.Camera
+    });
+
+    const base64 = photo?.base64String;
+    if (!base64) {
+      this.targetPhotoInlineMessage = 'No photo captured';
+      setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
+      return;
+    }
+
+    // Show thumbnail in UI
+    this.targetPhotoDataUrl = `data:image/jpeg;base64,${base64}`;
+
+    // Attach to project (stored as base64 so it works offline)
+    (this.selectedProject as any).targetPhotoBase64 = base64;
+    (this.selectedProject as any).targetPhotoCapturedAt = new Date().toISOString();
+
+    // Persist using your existing project update path
+    try {
+      this.data.updateLoadDevProject({ ...(this.selectedProject as any) });
+      this.refreshSelectedProject();
+    } catch {
+      // ignore
+    }
+
+    // Keep preview in sync
+    this.syncTargetPhotoFromProject();
+
+    this.targetPhotoInlineMessage = '📷 Target photo saved';
+    setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
+  } catch (err: any) {
+    // Common: user cancelled
+    const msg = (err?.message ?? '').toString().toLowerCase();
+    if (msg.includes('cancel')) {
+      this.targetPhotoInlineMessage = 'Cancelled';
+    } else {
+      this.targetPhotoInlineMessage = 'Camera error';
+      console.error(err);
+    }
+    setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
+  }
+}
+
+// Web-only: accept chosen image file
+async onTargetFileChosen(event: Event): Promise<void> {
+  try {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (!file) return;
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ''));
+      reader.onerror = () => reject(new Error('File read failed'));
+      reader.readAsDataURL(file);
+    });
+
+    this.targetPhotoDataUrl = dataUrl;
+
+    // Store base64 on project for consistency
+    const base64 = dataUrl.split(',')[1] ?? '';
+    if (this.selectedProject && base64) {
+      (this.selectedProject as any).targetPhotoBase64 = base64;
+      (this.selectedProject as any).targetPhotoCapturedAt = new Date().toISOString();
+      try {
+        this.data.updateLoadDevProject({ ...(this.selectedProject as any) });
+        this.refreshSelectedProject();
+      } catch {
+        // ignore
+      }
+    }
+
+    // Keep preview in sync
+    this.syncTargetPhotoFromProject();
+
+    // reset input so selecting same file again still triggers change
+    input.value = '';
+  } catch {
+    // ignore
+  }
+}
 
   // ---------- PDF export (Graph + table inside #pdfContent) ----------
    // ---------- PDF export (Graph + table inside #pdfContent) ----------
@@ -947,6 +1096,7 @@ export class LoadDevTabComponent implements OnInit {
 
     this.selectedProject =
       this.projects.find(p => p.id === this.selectedProjectId) ?? null;
+this.syncTargetPhotoFromProject();
 
     this.updateHasResultsFlag();
     this.rebuildGraphData();
