@@ -466,6 +466,35 @@ export class LoadDevTabComponent implements OnInit {
 
         y += neededHeight;
       }
+      // ----- Comments (15 lines) -----
+      y += 14;
+
+      // If we are too low on the page, push comments to a new page
+      if (y > doc.internal.pageSize.getHeight() - 260) {
+        doc.addPage();
+        y = margin;
+      }
+
+      doc.setFontSize(11);
+      doc.setTextColor(0);
+      doc.text('Comments', margin, y);
+      y += 12;
+
+      // Make lines visible on Android viewers
+      doc.setLineWidth(0.8);
+      doc.setDrawColor(0);
+
+      const commentLineGap = 14;
+      for (let i = 0; i < 15; i++) {
+        doc.line(
+          margin,
+          y + i * commentLineGap,
+          pageW - margin,
+          y + i * commentLineGap
+        );
+      }
+
+      y += 15 * commentLineGap + 10;
 
       // ----- Save / Share -----
       const safeName = (projectName || 'load-dev')
