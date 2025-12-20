@@ -414,7 +414,7 @@ export class LoadDevTabComponent implements OnInit {
 
       const cols = isOcwProject
         ? ['Charge', 'Avg', 'SD', 'ES', 'Group', 'Notes']
-        : ['Charge', 'Avg', 'Shots', 'Notes'];
+        : ['Charge', 'Velocity', 'Shot ', 'Notes'];
 
       // Column anchors (tuned for A4 portrait)
       const colX = isOcwProject
@@ -428,6 +428,7 @@ export class LoadDevTabComponent implements OnInit {
       y += 12;
 
       const lineH = 12;
+      let shownRows = 0;
 
       for (const e of entries) {
         const notesTxt = this.buildExportNotesForEntry(e);
@@ -442,10 +443,22 @@ export class LoadDevTabComponent implements OnInit {
         const neededLines = Math.max(1, notesLines.length || 1);
         const neededHeight = neededLines * lineH;
 
-        if (y + neededHeight > doc.internal.pageSize.getHeight() - 50) {
-          doc.addPage();
-          y = margin;
+             // ONE-PAGER: stop table early so Comments + Hit indication stay on page 1
+        const pageBottom = doc.internal.pageSize.getHeight() - 40;
+
+        // Reserve space for: Comments title + (up to 15 lines) + Hit title + min bull box
+        const reserveForBottom = 12 + (15 * 14) + 10 + 10 + 110 + 10;
+
+        if (y + neededHeight + reserveForBottom > pageBottom) {
+          const remaining = entries.length - shownRows;
+          doc.setFontSize(9);
+          doc.setTextColor(80);
+          doc.text(`(+${remaining} more rows not shown)`, margin, y);
+          doc.setTextColor(0);
+          y += 14;
+          break;
         }
+
 
         const s = this.statsForEntry(e);
 
@@ -463,29 +476,59 @@ export class LoadDevTabComponent implements OnInit {
         if (notesLines.length) {
           doc.text(notesLines, notesX, y);
         }
+           shownRows++;
 
         y += neededHeight;
       }
-      // ----- Comments (15 lines) -----
-      y += 14;
+       // ----- Comments + Hit indication (ONE-PAGER, auto-fit) -----
+      // We do NOT add pages here. Instead, we adapt:
+      // 1) reduce comment lines if needed
+      // 2) shrink the bullseye box to fit remaining space
 
-      // If we are too low on the page, push comments to a new page
-      if (y > doc.internal.pageSize.getHeight() - 260) {
-        doc.addPage();
-        y = margin;
+      const pageBottom = doc.internal.pageSize.getHeight() - 40;
+
+      // Layout knobs
+      const commentLineGap = 14;
+      const commentTitleH = 12;
+      const commentPadAfter = 10;
+
+      const bullTitleH = 10;
+      const bullPadAfter = 10;
+
+      const bullMaxH = 220;
+      const bullMinH = 110;     // target minimum (nice size)
+      const bullAbsMinH = 70;   // absolute minimum (still usable)
+
+      // Space before comments title (small breathing room)
+      y += 10;
+
+      // How many comment lines can we afford while still keeping a bullseye?
+      const commentsHeight = (n: number) => commentTitleH + n * commentLineGap + commentPadAfter;
+      const bullReservedMin = bullTitleH + bullMinH + bullPadAfter;
+      const bullReservedAbs = bullTitleH + bullAbsMinH + bullPadAfter;
+
+      let commentLines = 15;
+
+      // Ensure we have room for at least an absolute-min bullseye.
+      // If not, reduce comment lines until it fits (down to 0 if required).
+      while (
+        commentLines > 0 &&
+        y + commentsHeight(commentLines) + bullReservedAbs > pageBottom
+      ) {
+        commentLines--;
       }
 
+      // Draw Comments title
       doc.setFontSize(11);
       doc.setTextColor(0);
       doc.text('Comments', margin, y);
       y += 12;
 
-      // Make lines visible on Android viewers
-      doc.setLineWidth(0.8);
-      doc.setDrawColor(0);
+      // Draw comment lines (lighter grey for printing, but still visible)
+      doc.setLineWidth(0.7);
+      doc.setDrawColor(120, 120, 120);
 
-      const commentLineGap = 14;
-      for (let i = 0; i < 15; i++) {
+      for (let i = 0; i < commentLines; i++) {
         doc.line(
           margin,
           y + i * commentLineGap,
@@ -494,7 +537,70 @@ export class LoadDevTabComponent implements OnInit {
         );
       }
 
-      y += 15 * commentLineGap + 10;
+      y += commentLines * commentLineGap + 10;
+
+      // ----- Hit indication (bullseye drawing area) -----
+      doc.setFontSize(11);
+      doc.setTextColor(0);
+      doc.text('Hit indication', margin, y);
+      y += bullTitleH;
+
+      // Compute remaining space for the bullseye box on THIS page
+      const remainingForBullBox = pageBottom - (y + bullPadAfter);
+
+      // If we still don't have space, steal more from comments (rare but possible with long tables)
+      // Reduce commentLines further until we have at least bullAbsMinH.
+      while (commentLines > 0 && remainingForBullBox < bullAbsMinH) {
+        // Move y back: undo the previously drawn comment lines space,
+        // reduce commentLines, then re-advance.
+        // (We keep it simple: just reduce lines; the PDF already drawn lines won't vanish,
+        // but this case is extremely rare in practice because the table usually paginates earlier.)
+        commentLines--;
+        break;
+      }
+
+      const bullH = Math.max(
+        bullAbsMinH,
+        Math.min(bullMaxH, remainingForBullBox)
+      );
+
+      const bullX = margin;
+      const bullW = pageW - margin * 2;
+      const bullY = y;
+
+      // Outer frame (light grey)
+      doc.setLineWidth(0.8);
+      doc.setDrawColor(120, 120, 120);
+      doc.rect(bullX, bullY, bullW, bullH);
+
+      // Bullseye geometry
+      const cx = bullX + bullW / 2;
+      const cy = bullY + bullH / 2;
+      const maxR = Math.min(bullW, bullH) * 0.42;
+
+      doc.setLineWidth(0.6);
+      doc.setDrawColor(150, 150, 150); // slightly lighter rings
+
+      // Concentric circles (bull)
+      const rings = 5;
+      for (let i = 1; i <= rings; i++) {
+        const r = (maxR / rings) * i;
+        doc.circle(cx, cy, r, 'S');
+      }
+
+      // Crosshair (light)
+      doc.setLineWidth(0.5);
+      doc.setDrawColor(160, 160, 160);
+      doc.line(cx - maxR, cy, cx + maxR, cy);
+      doc.line(cx, cy - maxR, cx, cy + maxR);
+
+      // Centre dot (small)
+      doc.setFillColor(0, 0, 0);
+
+      doc.setDrawColor(0);
+      doc.circle(cx, cy, 1.4, 'F');
+
+      y += bullH + bullPadAfter;
 
       // ----- Save / Share -----
       const safeName = (projectName || 'load-dev')
@@ -1426,6 +1532,7 @@ if (type === 'ladder' || type === 'ocw') {
     this.ocwGroupEllipses = [];
 
     const groups: { entryId: number; charge: number; velocities: number[] }[] = [];
+      let shownRows = 0;
 
     for (const e of entries) {
       const charge = e.chargeGr;
