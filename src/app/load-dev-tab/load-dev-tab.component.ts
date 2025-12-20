@@ -163,6 +163,7 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   // ---------- PDF export (Graph + table inside #pdfContent) ----------
+   // ---------- PDF export (Graph + table inside #pdfContent) ----------
   async exportPdf(): Promise<void> {
     try {
       if (!this.selectedProject) {
@@ -173,21 +174,15 @@ export class LoadDevTabComponent implements OnInit {
       // Always rebuild graph data for export (even if the UI graph is hidden)
       this.rebuildGraphData();
 
-      // Export the graph if we have at least 2 points (a real line)
-      // NOTE: We keep using graphCoords (avg line) for PDF to avoid breaking ladder export.
-      const includeGraph = (this.graphCoords?.length ?? 0) >= 2;
-
-      this.postSaveMessage = 'Building PDF...';
-
-      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'pt',
+        format: 'a4'
+      });
 
       const pageW = doc.internal.pageSize.getWidth();
-      const pageH = doc.internal.pageSize.getHeight();
-      const marginTop = 28;
-      const marginRight = 28;
-      const holePunchOffset = 56; // ~20mm for file holes
-      const marginLeft = 28 + holePunchOffset;
-      let y = marginTop;
+      const margin = 28;
+      let y = margin;
 
       // Header
       const rifleName =
@@ -196,27 +191,35 @@ export class LoadDevTabComponent implements OnInit {
       const projectName = this.selectedProject.name ?? 'Load development';
 
       doc.setFontSize(14);
-      doc.text(`${projectName}`, marginLeft, y);
+      doc.text(`${projectName}`, margin, y);
       y += 16;
 
       doc.setFontSize(10);
-      doc.text(`Rifle: ${rifleName}`, marginLeft, y);
+      doc.text(`Rifle: ${rifleName}`, margin, y);
       y += 12;
 
-      doc.text(`Type: ${this.projectTypeLabel(this.selectedProject.type)}`, marginLeft, y);
-      y += 18;
+      // Project notes (exported)
+      const projectNotes = (this.selectedProject as any)?.notes?.toString?.() ?? '';
+      const projectNotesTrim = projectNotes.trim();
+      if (projectNotesTrim) {
+        doc.setFontSize(10);
+        const noteLines = doc.splitTextToSize(`Notes: ${projectNotesTrim}`, pageW - margin * 2);
+        doc.text(noteLines, margin, y);
+        y += noteLines.length * 12 + 6;
+      }
 
       // ----- Graph (vector drawn) -----
       const isOcwProject = this.selectedProject.type === 'ocw';
 
-      if (includeGraph) {
-        const chartX = marginLeft;
-        const chartW = pageW - marginLeft - marginRight;
-        const chartH = 210;
+      const hasOcwShots = (this.ocwShotPoints?.length ?? 0) > 0;
+      const includeLadderGraph = (this.graphCoords?.length ?? 0) >= 2;
+      const includeAnyGraph = isOcwProject ? hasOcwShots : includeLadderGraph;
 
+      if (includeAnyGraph) {
+        const chartX = margin;
         const chartY = y;
-        y += chartH + 10;
-
+        const chartW = pageW - margin * 2;
+        const chartH = 180;
         const innerPad = 8;
         const xMin = chartX + innerPad;
         const xMax = chartX + chartW - innerPad;
@@ -224,122 +227,224 @@ export class LoadDevTabComponent implements OnInit {
         const yMax = chartY + chartH - innerPad;
 
         // Frame
-        doc.setLineWidth(1);
+        doc.setLineWidth(0.7);
         doc.rect(chartX, chartY, chartW, chartH);
 
-        doc.setFontSize(11);
-        doc.text(isOcwProject ? 'OCW: velocities (all shots) vs charge' : 'Velocity vs charge', chartX, chartY - 6);
+        // Determine axis ranges
+        let minXv = 0;
+        let maxXv = 0;
+        let minYv = 0;
+        let maxYv = 0;
 
-        let minXv = 0, maxXv = 1;
-        let minYv = 0, maxYv = 1;
-
-        if (isOcwProject && (this.ocwShotPoints?.length ?? 0) >= 2) {
+        if (isOcwProject && hasOcwShots) {
           const xs = this.ocwShotPoints.map(p => p.charge);
           const ys = this.ocwShotPoints.map(p => p.v);
+
           minXv = Math.min(...xs);
           maxXv = Math.max(...xs);
+
           minYv = Math.min(...ys);
           maxYv = Math.max(...ys);
+
+          const padY = (maxYv - minYv) * 0.08 || 10;
+          minYv -= padY;
+          maxYv += padY;
         } else {
-          const xs = (this.graphCoords ?? []).map(p => p.x);
-          const ys = (this.graphCoords ?? []).map(p => p.y);
+          const xs = this.graphCoords.map(p => p.charge);
+          const ys = this.graphCoords.map(p => p.avg);
+
           minXv = Math.min(...xs);
           maxXv = Math.max(...xs);
+
           minYv = Math.min(...ys);
           maxYv = Math.max(...ys);
+
+          const padY = (maxYv - minYv) * 0.08 || 10;
+          minYv -= padY;
+          maxYv += padY;
         }
 
-        const sx = (x: number) => xMin + ((x - minXv) / (maxXv - minXv || 1)) * (xMax - xMin);
-        const sy = (yv: number) => yMax - ((yv - minYv) / (maxYv - minYv || 1)) * (yMax - yMin);
+        const sx = (charge: number) =>
+          chartX + ((charge - minXv) / (maxXv - minXv || 1)) * chartW;
 
-        // Plot
-        if (isOcwProject) {
-          // Scatter all shots
-          doc.setLineWidth(0.6);
+        const sy = (vel: number) =>
+          chartY + chartH - ((vel - minYv) / (maxYv - minYv || 1)) * chartH;
+
+        if (isOcwProject && hasOcwShots) {
+          // Group ellipses (light grey)
+          const entries = this.entriesForSelectedProject();
+          for (const e of entries) {
+            const charge = e.chargeGr;
+            if (charge == null) continue;
+
+            const any = e as any;
+            const rawVals = this.parseVelocityInput(any.velocityInput);
+            if (!rawVals.length) continue;
+
+            const cleaned = this.fixObviousRepeatedPaste(rawVals);
+            if (!cleaned.length) continue;
+
+            const x = Math.max(xMin, Math.min(xMax, sx(charge)));
+
+            const minV = Math.min(...cleaned);
+            const maxV = Math.max(...cleaned);
+
+            const padV = Math.max(6, (maxV - minV) * 0.25);
+            const top = Math.max(yMin, Math.min(yMax, sy(maxV + padV)));
+            const bot = Math.max(yMin, Math.min(yMax, sy(minV - padV)));
+
+            const cy = (top + bot) / 2;
+            const ry = Math.max(6, Math.abs(bot - top) / 2);
+            const rx = 10;
+
+            const steps = 28;
+            // Light grey group outlines (subtle)
+            doc.setDrawColor(170, 170, 170);
+            doc.setLineWidth(0.6);
+            for (let i = 0; i <= steps; i++) {
+              const t1 = (i / steps) * Math.PI * 2;
+              const t2 = ((i + 1) / steps) * Math.PI * 2;
+
+              const x1 = x + Math.cos(t1) * rx;
+              const y1 = cy + Math.sin(t1) * ry;
+
+              const x2 = x + Math.cos(t2) * rx;
+              const y2 = cy + Math.sin(t2) * ry;
+
+              doc.line(x1, y1, x2, y2);
+            }
+          }
+
+          // Shot dots + velocity labels (outside the circle)
+          doc.setLineWidth(1);
+          doc.setFontSize(8);
+
+          const labelPad = 10;
+          const labelInsidePad = 8;
 
           for (const p of this.ocwShotPoints) {
             const px = Math.max(xMin, Math.min(xMax, sx(p.charge)));
             const py = Math.max(yMin, Math.min(yMax, sy(p.v)));
-            doc.circle(px, py, 1.6, 'F');
+
+            // Small light-grey ring + velocity label outside
+            doc.setDrawColor(160, 160, 160);
+            doc.setLineWidth(0.6);
+            doc.circle(px, py, 1.8, 'S');
+
+            const velTxt = `${Math.round(p.v)}`;
+            const txt = velTxt;
+
+            const idx = (p.shotIndex ?? 0);
+            const placeRight = (idx % 2) === 0;
+            const dx = placeRight ? labelPad : -labelPad;
+            const dy = ((idx % 3) - 1) * 9;
+
+            const textW = txt.length * 4.2;
+
+            let tx = placeRight ? (px + dx) : (px + dx - textW);
+            let ty = py + dy - 2;
+
+            if (tx < xMin + labelInsidePad) tx = xMin + labelInsidePad;
+            if (tx > xMax - labelInsidePad - textW) tx = xMax - labelInsidePad - textW;
+            if (ty < yMin + labelInsidePad) ty = yMin + labelInsidePad;
+            if (ty > yMax - labelInsidePad) ty = yMax - labelInsidePad;
+
+            doc.text(txt, tx, ty);
           }
 
-          // Avg line
-          if ((this.graphCoords?.length ?? 0) >= 2) {
-            doc.setLineWidth(1.5);
-            for (let i = 0; i < this.graphCoords.length - 1; i++) {
-              const a = this.graphCoords[i];
-              const b = this.graphCoords[i + 1];
-              doc.line(sx(a.x), sy(a.y), sx(b.x), sy(b.y));
-            }
-          }
-
-          // Label a few things (min/max)
+          // Axis hints
           doc.setFontSize(9);
-          doc.text(`${minXv.toFixed(1)} gr`, chartX, chartY + chartH + 12);
-          doc.text(`${maxXv.toFixed(1)} gr`, chartX + chartW - 45, chartY + chartH + 12);
+          doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
+          doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
           doc.text(`${Math.round(maxYv)} fps`, chartX + chartW - 55, chartY + 10);
+          doc.text(`${Math.round(minYv)} fps`, chartX + chartW - 55, chartY + chartH - 4);
 
-          y += 26;
+          y += chartH + 26;
         } else {
-          // Line plot
+          // Ladder avg line (connect charges with a line)
           doc.setLineWidth(1.5);
           for (let i = 0; i < this.graphCoords.length - 1; i++) {
             const a = this.graphCoords[i];
             const b = this.graphCoords[i + 1];
-            doc.line(sx(a.x), sy(a.y), sx(b.x), sy(b.y));
+            doc.line(sx(a.charge), sy(a.avg), sx(b.charge), sy(b.avg));
+          }
+
+          doc.setLineWidth(1);
+          doc.setFontSize(8);
+
+          for (const p of this.graphCoords) {
+            const px = sx(p.charge);
+            const py = sy(p.avg);
+
+            // Ladder: no circles (just a small dot) + velocity label next to the dot
+            doc.setDrawColor(60, 60, 60);
+            doc.setFillColor(60, 60, 60);
+            doc.circle(px, py, 0.9, 'F');
+
+            const velTxt = `${Math.round(p.avg)}`;
+            const textW = velTxt.length * 4.2;
+            let tx = px + 3;
+            let ty = py - 3;
+
+            // Keep labels inside the chart box
+            if (tx > chartX + chartW - 4 - textW) tx = px - 3 - textW;
+            if (ty < chartY + 8) ty = py + 10;
+
+            doc.setTextColor(20, 20, 20);
+            doc.text(velTxt, tx, ty);
+            doc.setTextColor(0, 0, 0);
           }
 
           doc.setFontSize(9);
-          doc.text(`${minXv.toFixed(1)} gr`, chartX, chartY + chartH + 12);
-          doc.text(`${maxXv.toFixed(1)} gr`, chartX + chartW - 45, chartY + chartH + 12);
+          doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
+          doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
           doc.text(`${Math.round(maxYv)} fps`, chartX + chartW - 55, chartY + 10);
 
-          y += 26;
+          y += chartH + 26;
         }
       }
 
       // ----- Table (real data) -----
       const entries = this.entriesForSelectedProject();
       doc.setFontSize(11);
-      doc.text('Data', marginLeft, y);
+      doc.text('Data', margin, y);
       y += 12;
 
       doc.setFontSize(9);
 
-      const colsBase = isOcwProject
-        ? ['Charge', 'Avg', 'SD', 'ES', 'Group']
-        : ['Charge', 'Avg', 'Shots'];
-      const cols = [...colsBase, 'Notes'];
+      const cols = isOcwProject
+        ? ['Charge', 'Avg', 'SD', 'ES', 'Group', 'Notes']
+        : ['Charge', 'Avg', 'Shots', 'Notes'];
 
-      const tableLeft = marginLeft;
-      const tableRight = pageW - marginRight;
-      const availW = tableRight - tableLeft;
-
-      const widths = isOcwProject
-        ? [0.12, 0.12, 0.12, 0.12, 0.14, 0.38]
-        : [0.16, 0.16, 0.12, 0.56];
-
-      const colX: number[] = [];
-      let cx = tableLeft;
-      for (let i = 0; i < widths.length; i++) {
-        colX.push(cx);
-        cx += availW * widths[i];
-      }
-
-      const trunc = (t: string, n: number) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
+      // Column anchors (tuned for A4 portrait)
+      const colX = isOcwProject
+        ? [margin, margin + 70, margin + 120, margin + 160, margin + 205, margin + 255]
+        : [margin, margin + 85, margin + 145, margin + 190];
 
       cols.forEach((c, i) => doc.text(c, colX[i], y));
       y += 10;
       doc.setLineWidth(0.5);
-      doc.line(marginLeft, y, pageW - marginRight, y);
+      doc.line(margin, y, pageW - margin, y);
       y += 12;
 
       const lineH = 12;
 
       for (const e of entries) {
-        if (y > doc.internal.pageSize.getHeight() - 50) {
+        const notesTxt = this.buildExportNotesForEntry(e);
+
+        const notesX = isOcwProject ? colX[5] : colX[3];
+        const notesW = (pageW - margin) - notesX;
+
+        const notesLines = notesTxt
+          ? doc.splitTextToSize(notesTxt, Math.max(50, notesW))
+          : [];
+
+        const neededLines = Math.max(1, notesLines.length || 1);
+        const neededHeight = neededLines * lineH;
+
+        if (y + neededHeight > doc.internal.pageSize.getHeight() - 50) {
           doc.addPage();
-          y = marginTop;
+          y = margin;
         }
 
         const s = this.statsForEntry(e);
@@ -355,40 +460,25 @@ export class LoadDevTabComponent implements OnInit {
           doc.text(`${(e as any).shotsFired ?? '—'}`, colX[2], y);
         }
 
-        // Notes (single-line, truncated so it doesn't overflow)
-        const notesRaw = (e as any).notes ?? '';
-        const notesCol = isOcwProject ? 5 : 3;
-        const notesTxt = trunc(String(notesRaw ?? ''), 70);
-        (doc as any).text(notesTxt, colX[notesCol], y, { maxWidth: tableRight - colX[notesCol] });
+        if (notesLines.length) {
+          doc.text(notesLines, notesX, y);
+        }
 
-        y += lineH;
+        y += neededHeight;
       }
 
-      // ----- Extra space for handwritten notes (filed / printed) -----
-      y += 10;
-      if (y > pageH - 220) {
-        doc.addPage();
-        y = marginTop;
-      }
+      // ----- Save / Share -----
+      const safeName = (projectName || 'load-dev')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
 
-      doc.setFontSize(11);
-      doc.text('Comments', marginLeft, y);
-      y += 10;
-
-      doc.setLineWidth(0.3);
-      const commentLineGap = 14;
-      for (let i = 0; i < 15; i++) {
-        doc.line(marginLeft, y + i * commentLineGap, pageW - marginRight, y + i * commentLineGap);
-      }
-      y += 15 * commentLineGap + 8;
-
-      const safe = (s: string) =>
-        s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
-      const fileName = `loaddev-${safe(rifleName)}-${safe(projectName)}.pdf`;
-      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      const fileName = `${safeName}-${this.selectedProject?.type ?? 'report'}.pdf`;
 
       if (Capacitor.isNativePlatform()) {
+        // Native: write file, then share
+        const pdfBase64 = doc.output('datauristring').split(',')[1];
+
         const res = await Filesystem.writeFile({
           path: fileName,
           data: pdfBase64,
@@ -417,10 +507,9 @@ export class LoadDevTabComponent implements OnInit {
         this.postSaveMessage = 'Downloaded ✅';
         setTimeout(() => (this.postSaveMessage = null), 2000);
       }
-    } catch (e) {
-      console.error('PDF export failed', e);
-      this.postSaveMessage = 'Export failed (check console).';
-      setTimeout(() => (this.postSaveMessage = null), 4000);
+    } catch (err) {
+      console.error(err);
+      alert('PDF export failed.');
     }
   }
 
@@ -441,6 +530,27 @@ export class LoadDevTabComponent implements OnInit {
   // Planner + validation
   planner: PlannerForm = this.createEmptyPlannerForm();
   plannerError: string | null = null;
+
+
+
+
+    private buildExportNotesForEntry(e: LoadDevEntry): string {
+    const any = e as any;
+
+    const parts: string[] = [];
+
+    const n1 = (any.notes ?? '').toString().trim();
+    if (n1) parts.push(n1);
+
+    const n2 = (any.poiNote ?? '').toString().trim();
+    if (n2) parts.push(n2);
+
+    // Optional: show raw velocities when present (handy in PDF)
+    const v = (any.velocityInput ?? '').toString().trim();
+    if (v) parts.push(`Vels: ${v}`);
+
+    return parts.join(' | ');
+  }
 
   // Filters
   powderFilter: string | null = null;
@@ -1729,19 +1839,3 @@ if (type === 'ladder' || type === 'ocw') {
     this.resetWizard();
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
