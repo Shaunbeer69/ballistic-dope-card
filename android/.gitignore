@@ -1,4 +1,14 @@
 # Using Android gitignore template: https://github.com/github/gitignore/blob/HEAD/Android.gitignore
+import { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.your.app',
+  appName: 'ballistic-dope-card',
+  webDir: 'dist/ballistic-dope-card/browser',
+  bundledWebRuntime: false
+};
+
+export default config;
 
 # Built application files
 *.apk
