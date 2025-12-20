@@ -182,8 +182,12 @@ export class LoadDevTabComponent implements OnInit {
       const doc = new jsPDF({ unit: 'pt', format: 'a4' });
 
       const pageW = doc.internal.pageSize.getWidth();
-      const margin = 28;
-      let y = margin;
+      const pageH = doc.internal.pageSize.getHeight();
+      const marginTop = 28;
+      const marginRight = 28;
+      const holePunchOffset = 56; // ~20mm for file holes
+      const marginLeft = 28 + holePunchOffset;
+      let y = marginTop;
 
       // Header
       const rifleName =
@@ -192,28 +196,27 @@ export class LoadDevTabComponent implements OnInit {
       const projectName = this.selectedProject.name ?? 'Load development';
 
       doc.setFontSize(14);
-      doc.text(`${projectName}`, margin, y);
+      doc.text(`${projectName}`, marginLeft, y);
       y += 16;
 
       doc.setFontSize(10);
-      doc.text(`Rifle: ${rifleName}`, margin, y);
+      doc.text(`Rifle: ${rifleName}`, marginLeft, y);
       y += 12;
 
-      doc.text(`Type: ${this.projectTypeLabel(this.selectedProject.type)}`, margin, y);
+      doc.text(`Type: ${this.projectTypeLabel(this.selectedProject.type)}`, marginLeft, y);
       y += 18;
 
       // ----- Graph (vector drawn) -----
       const isOcwProject = this.selectedProject.type === 'ocw';
 
-      const hasOcwShots = (this.ocwShotPoints?.length ?? 0) > 0;
-      const includeLadderGraph = (this.graphCoords?.length ?? 0) >= 2;
-      const includeAnyGraph = isOcwProject ? hasOcwShots : includeLadderGraph;
+      if (includeGraph) {
+        const chartX = marginLeft;
+        const chartW = pageW - marginLeft - marginRight;
+        const chartH = 210;
 
-      if (includeAnyGraph) {
-        const chartX = margin;
         const chartY = y;
-        const chartW = pageW - margin * 2;
-        const chartH = 180;
+        y += chartH + 10;
+
         const innerPad = 8;
         const xMin = chartX + innerPad;
         const xMax = chartX + chartW - innerPad;
@@ -230,180 +233,105 @@ export class LoadDevTabComponent implements OnInit {
         let minXv = 0, maxXv = 1;
         let minYv = 0, maxYv = 1;
 
-        if (isOcwProject && hasOcwShots) {
-          const charges = this.ocwShotPoints.map(p => p.charge);
-          const vels = this.ocwShotPoints.map(p => p.v);
-
-          minXv = Math.min(...charges);
-          maxXv = Math.max(...charges);
-
-          minYv = Math.min(...vels);
-          maxYv = Math.max(...vels);
-
-          const padY = (maxYv - minYv) * 0.10 || 10;
-          minYv -= padY;
-          maxYv += padY;
-        } else {
-          const xs = this.graphCoords.map(p => p.charge);
-          const ys = this.graphCoords.map(p => p.avg);
-
+        if (isOcwProject && (this.ocwShotPoints?.length ?? 0) >= 2) {
+          const xs = this.ocwShotPoints.map(p => p.charge);
+          const ys = this.ocwShotPoints.map(p => p.v);
           minXv = Math.min(...xs);
           maxXv = Math.max(...xs);
-
           minYv = Math.min(...ys);
           maxYv = Math.max(...ys);
-
-          const padY = (maxYv - minYv) * 0.08 || 10;
-          minYv -= padY;
-          maxYv += padY;
+        } else {
+          const xs = (this.graphCoords ?? []).map(p => p.x);
+          const ys = (this.graphCoords ?? []).map(p => p.y);
+          minXv = Math.min(...xs);
+          maxXv = Math.max(...xs);
+          minYv = Math.min(...ys);
+          maxYv = Math.max(...ys);
         }
 
-        const sx = (charge: number) =>
-          chartX + ((charge - minXv) / (maxXv - minXv || 1)) * chartW;
+        const sx = (x: number) => xMin + ((x - minXv) / (maxXv - minXv || 1)) * (xMax - xMin);
+        const sy = (yv: number) => yMax - ((yv - minYv) / (maxYv - minYv || 1)) * (yMax - yMin);
 
-        const sy = (vel: number) =>
-          chartY + chartH - ((vel - minYv) / (maxYv - minYv || 1)) * chartH;
-
-        if (isOcwProject && hasOcwShots) {
-          // Group ellipses
-          const entries = this.entriesForSelectedProject();
-          for (const e of entries) {
-            const charge = e.chargeGr;
-            if (charge == null) continue;
-
-            const any = e as any;
-            const rawVals = this.parseVelocityInput(any.velocityInput);
-            if (!rawVals.length) continue;
-
-            const cleaned = this.fixObviousRepeatedPaste(rawVals);
-            if (!cleaned.length) continue;
-
-            const x = Math.max(xMin, Math.min(xMax, sx(charge)));
-
-            const minV = Math.min(...cleaned);
-            const maxV = Math.max(...cleaned);
-
-            const padV = Math.max(6, (maxV - minV) * 0.25);
-            const top = Math.max(yMin, Math.min(yMax, sy(maxV + padV)));
-            const bot = Math.max(yMin, Math.min(yMax, sy(minV - padV)));
-
-            const cy = (top + bot) / 2;
-            const ry = Math.max(6, Math.abs(bot - top) / 2);
-            const rx = 10;
-
-            const steps = 28;
-            doc.setLineWidth(0.8);
-            for (let i = 0; i <= steps; i++) {
-              const t1 = (i / steps) * Math.PI * 2;
-              const t2 = ((i + 1) / steps) * Math.PI * 2;
-
-              const x1 = x + Math.cos(t1) * rx;
-              const y1 = cy + Math.sin(t1) * ry;
-
-              const x2 = x + Math.cos(t2) * rx;
-              const y2 = cy + Math.sin(t2) * ry;
-
-              doc.line(x1, y1, x2, y2);
-            }
-          }
-
-          // Shot dots + labels
-          doc.setLineWidth(1);
-          doc.setFontSize(8);
-
-          const labelPad = 10;
-          const labelInsidePad = 8;
+        // Plot
+        if (isOcwProject) {
+          // Scatter all shots
+          doc.setLineWidth(0.6);
 
           for (const p of this.ocwShotPoints) {
             const px = Math.max(xMin, Math.min(xMax, sx(p.charge)));
             const py = Math.max(yMin, Math.min(yMax, sy(p.v)));
-
-            doc.circle(px, py, 1.8, 'S');
-
-            const shotNo = (p.shotIndex ?? 0) + 1;
-            const velTxt = `${Math.round(p.v)}`;
-            const txt = `${shotNo}:${velTxt}`;
-
-            const placeRight = (shotNo % 2) === 0;
-            const dx = placeRight ? labelPad : -labelPad;
-            const dy = ((shotNo % 3) - 1) * 9;
-
-            const textW = txt.length * 4.2;
-
-            let tx = placeRight ? (px + dx) : (px + dx - textW);
-            let ty = py + dy - 2;
-
-            if (tx < xMin + labelInsidePad) tx = xMin + labelInsidePad;
-            if (tx > xMax - labelInsidePad - textW) tx = xMax - labelInsidePad - textW;
-            if (ty < yMin + labelInsidePad) ty = yMin + labelInsidePad;
-            if (ty > yMax - labelInsidePad) ty = yMax - labelInsidePad;
-
-            doc.text(txt, tx, ty);
+            doc.circle(px, py, 1.6, 'F');
           }
 
-          // Axis hints
-          doc.setFontSize(9);
-          doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
-          doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
-          doc.text(`${Math.round(maxYv)} fps`, chartX + chartW - 55, chartY + 10);
-          doc.text(`${Math.round(minYv)} fps`, chartX + chartW - 55, chartY + chartH - 4);
+          // Avg line
+          if ((this.graphCoords?.length ?? 0) >= 2) {
+            doc.setLineWidth(1.5);
+            for (let i = 0; i < this.graphCoords.length - 1; i++) {
+              const a = this.graphCoords[i];
+              const b = this.graphCoords[i + 1];
+              doc.line(sx(a.x), sy(a.y), sx(b.x), sy(b.y));
+            }
+          }
 
-          y += chartH + 26;
+          // Label a few things (min/max)
+          doc.setFontSize(9);
+          doc.text(`${minXv.toFixed(1)} gr`, chartX, chartY + chartH + 12);
+          doc.text(`${maxXv.toFixed(1)} gr`, chartX + chartW - 45, chartY + chartH + 12);
+          doc.text(`${Math.round(maxYv)} fps`, chartX + chartW - 55, chartY + 10);
+
+          y += 26;
         } else {
-          // Ladder avg line
+          // Line plot
           doc.setLineWidth(1.5);
           for (let i = 0; i < this.graphCoords.length - 1; i++) {
             const a = this.graphCoords[i];
             const b = this.graphCoords[i + 1];
-            doc.line(sx(a.charge), sy(a.avg), sx(b.charge), sy(b.avg));
-          }
-
-          doc.setLineWidth(1);
-          doc.setFontSize(8);
-
-          for (const p of this.graphCoords) {
-            const px = sx(p.charge);
-            const py = sy(p.avg);
-
-            doc.circle(px, py, 2, 'S');
-
-            const chargeTxt = `${p.charge.toFixed(2)}`;
-            const velTxt = `${Math.round(p.avg)}`;
-
-            const chargeX = px - (chargeTxt.length * 2.2);
-            const velX = px - (velTxt.length * 2.2);
-
-            const topY = Math.max(chartY + 10, py - 6);
-            const botY = Math.min(chartY + chartH - 4, py + 12);
-
-            doc.text(chargeTxt, chargeX, topY);
-            doc.text(velTxt, velX, botY);
+            doc.line(sx(a.x), sy(a.y), sx(b.x), sy(b.y));
           }
 
           doc.setFontSize(9);
-          doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
-          doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
+          doc.text(`${minXv.toFixed(1)} gr`, chartX, chartY + chartH + 12);
+          doc.text(`${maxXv.toFixed(1)} gr`, chartX + chartW - 45, chartY + chartH + 12);
           doc.text(`${Math.round(maxYv)} fps`, chartX + chartW - 55, chartY + 10);
 
-          y += chartH + 26;
+          y += 26;
         }
       }
 
       // ----- Table (real data) -----
       const entries = this.entriesForSelectedProject();
       doc.setFontSize(11);
-      doc.text('Data', margin, y);
+      doc.text('Data', marginLeft, y);
       y += 12;
 
       doc.setFontSize(9);
 
-      const cols = isOcwProject ? ['Charge', 'Avg', 'SD', 'ES', 'Group'] : ['Charge', 'Avg', 'Shots'];
-      const colX = [margin, margin + 90, margin + 160, margin + 220, margin + 280];
+      const colsBase = isOcwProject
+        ? ['Charge', 'Avg', 'SD', 'ES', 'Group']
+        : ['Charge', 'Avg', 'Shots'];
+      const cols = [...colsBase, 'Notes'];
+
+      const tableLeft = marginLeft;
+      const tableRight = pageW - marginRight;
+      const availW = tableRight - tableLeft;
+
+      const widths = isOcwProject
+        ? [0.12, 0.12, 0.12, 0.12, 0.14, 0.38]
+        : [0.16, 0.16, 0.12, 0.56];
+
+      const colX: number[] = [];
+      let cx = tableLeft;
+      for (let i = 0; i < widths.length; i++) {
+        colX.push(cx);
+        cx += availW * widths[i];
+      }
+
+      const trunc = (t: string, n: number) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
 
       cols.forEach((c, i) => doc.text(c, colX[i], y));
       y += 10;
       doc.setLineWidth(0.5);
-      doc.line(margin, y, pageW - margin, y);
+      doc.line(marginLeft, y, pageW - marginRight, y);
       y += 12;
 
       const lineH = 12;
@@ -411,7 +339,7 @@ export class LoadDevTabComponent implements OnInit {
       for (const e of entries) {
         if (y > doc.internal.pageSize.getHeight() - 50) {
           doc.addPage();
-          y = margin;
+          y = marginTop;
         }
 
         const s = this.statsForEntry(e);
@@ -427,8 +355,32 @@ export class LoadDevTabComponent implements OnInit {
           doc.text(`${(e as any).shotsFired ?? '—'}`, colX[2], y);
         }
 
+        // Notes (single-line, truncated so it doesn't overflow)
+        const notesRaw = (e as any).notes ?? '';
+        const notesCol = isOcwProject ? 5 : 3;
+        const notesTxt = trunc(String(notesRaw ?? ''), 70);
+        (doc as any).text(notesTxt, colX[notesCol], y, { maxWidth: tableRight - colX[notesCol] });
+
         y += lineH;
       }
+
+      // ----- Extra space for handwritten notes (filed / printed) -----
+      y += 10;
+      if (y > pageH - 220) {
+        doc.addPage();
+        y = marginTop;
+      }
+
+      doc.setFontSize(11);
+      doc.text('Comments', marginLeft, y);
+      y += 10;
+
+      doc.setLineWidth(0.3);
+      const commentLineGap = 14;
+      for (let i = 0; i < 15; i++) {
+        doc.line(marginLeft, y + i * commentLineGap, pageW - marginRight, y + i * commentLineGap);
+      }
+      y += 15 * commentLineGap + 8;
 
       const safe = (s: string) =>
         s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -444,12 +396,12 @@ export class LoadDevTabComponent implements OnInit {
         });
 
         await Share.share({
-          title: 'Load Development PDF',
+          title: 'Load development PDF',
           text: fileName,
           url: res.uri
         });
 
-        this.postSaveMessage = 'Saved + shared ✅';
+        this.postSaveMessage = 'Saved & shared ✅';
         setTimeout(() => (this.postSaveMessage = null), 2000);
       } else {
         const blob = doc.output('blob');
@@ -1003,8 +955,8 @@ if (type === 'ladder' || type === 'ocw') {
 
       this.postSaveMessage =
         type === 'ocw'
-          ? 'OCW planned and saved. Go shoot your groups, then come back here and use the OCW wizard or Edit buttons to enter velocities.'
-          : 'Ladder test planned and saved. Go shoot the ladder, then come back here and use the wizard or Edit buttons to enter velocities and view the graph with node highlights.';
+          ? 'OCW planned and saved. Load and "Go Shoot" your groups, then come back here and use the OCW wizard or Edit buttons to enter velocities.'
+          : 'Ladder test planned and saved. Load as per table: Go shoot the ladder, then come back here and use the wizard or Edit buttons to enter velocities and view the graph with node highlights.';
     }
 
     setTimeout(() => (this.postSaveMessage = null), 15000);
@@ -1777,3 +1729,19 @@ if (type === 'ladder' || type === 'ocw') {
     this.resetWizard();
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

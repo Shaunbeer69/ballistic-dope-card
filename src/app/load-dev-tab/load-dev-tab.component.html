@@ -293,10 +293,8 @@
           </div>
 
           <button
-            type="button"
-            class="px-3 py-1 rounded-full bg-white text-black font-semibold border border-gray-300 text-[11px] active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100"
+            class="px-3 py-[4px] rounded-full bg-gray-100 text-black text-[12px] font-semibold shadow"
             (click)="exportPdf()"
-            [disabled]="!hasResultsForSelectedProject || resultsCollapsed"
           >
             Export PDF
           </button>
@@ -341,6 +339,7 @@
               <!-- ✅ FULL label WITH date (shows in the Android grey picker list) -->
               <option *ngFor="let p of filteredProjects ?? projects" [ngValue]="p.id">
                 {{ p.name }} • {{ shortDate(p.dateStarted) }} • {{ projectTypeLabel(p.type) }}
+
                 <ng-container *ngIf="isProjectComplete(p)">✅</ng-container>
               </option>
             </select>
@@ -351,6 +350,7 @@
             >
               <ng-container *ngIf="selectedProject; else noProject">
                 {{ selectedProject.name }} • {{ projectTypeLabel(selectedProject.type) }}
+
                 <ng-container *ngIf="isProjectComplete(selectedProject)">✅</ng-container>
               </ng-container>
               <ng-template #noProject>Select load development…</ng-template>
@@ -548,7 +548,7 @@
                 <ng-template #ladderHead>
                   <tr>
                     <th class="px-2 py-1 text-left">Charge (gr)</th>
-                    <th class="px-2 py-1 text-left">Velocity (avg)</th>
+                    <th class="px-2 py-1 text-left">Velocity</th>
                     <th class="px-2 py-1 text-left">Shots</th>
                     <th class="px-2 py-1 text-right">Actions</th>
                   </tr>
@@ -712,7 +712,7 @@
                 class="px-3 py-2 rounded-xl bg-red-600 text-white text-xs"
                 (click)="deleteProject(selectedProject!)"
               >
-                Delete
+                Delete Project
               </button>
             </div>
 
