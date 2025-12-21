@@ -539,7 +539,8 @@
                   <tr>
                     <th class="px-2 py-1 text-left">Charge (gr)</th>
                     <th class="px-2 py-1 text-left">Velocity</th>
-                    <th class="px-2 py-1 text-left">Shot (Count)</th>
+                    <th class="px-2 py-1 text-left">Shot # (Total)</th>
+
                     <th class="px-2 py-1 text-right">Actions</th>
                   </tr>
                 </ng-template>
@@ -619,7 +620,7 @@
                 <!-- Ladder: single-line rows -->
                 <ng-template #ladderBody>
                   <tr
-                    *ngFor="let entry of entriesForSelectedProject()"
+                    *ngFor="let entry of entriesForSelectedProject(); let i = index"
                     [ngClass]="nodeCssClass(entry)"
                   >
                     <td class="px-2 py-1 text-gray-100">{{ entry.chargeGr }}</td>
@@ -631,7 +632,9 @@
                       <ng-template #dashTpl2>—</ng-template>
                     </td>
 
-                    <td class="px-2 py-1 text-gray-100">{{ entry.shotsFired ?? '—' }}</td>
+                    <td class="px-2 py-1 text-gray-100">
+                      {{ i + 1 }} / {{ entriesForSelectedProject().length }}
+                    </td>
 
                     <td class="px-2 py-1 text-right whitespace-nowrap">
                       <button
