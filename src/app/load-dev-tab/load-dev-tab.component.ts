@@ -535,8 +535,11 @@ deleteEntryPhoto(): void {
       });
 
       const pageW = doc.internal.pageSize.getWidth();
-      const margin = 28;
-      let y = margin;
+      const leftMargin = 55;     // ✅ punch-hole space (increase/decrease as you like)
+const rightMargin = 28;    // normal right margin
+const topMargin = 28;      // normal top margin
+let y = topMargin;
+
 
       // Header
       const rifleName =
@@ -544,21 +547,21 @@ deleteEntryPhoto(): void {
         `Rifle ${this.selectedRifleId ?? ''}`;
       const projectName = this.selectedProject.name ?? 'Load development';
 
-      doc.setFontSize(14);
-      doc.text(`${projectName}`, margin, y);
-      y += 16;
+    doc.text(`${projectName}`, leftMargin, y);
+doc.text(`Rifle: ${rifleName}`, leftMargin, y);
 
-      doc.setFontSize(10);
-      doc.text(`Rifle: ${rifleName}`, margin, y);
-      y += 12;
 
       // Project notes (exported)
       const projectNotes = (this.selectedProject as any)?.notes?.toString?.() ?? '';
       const projectNotesTrim = projectNotes.trim();
       if (projectNotesTrim) {
         doc.setFontSize(10);
-        const noteLines = doc.splitTextToSize(`Notes: ${projectNotesTrim}`, pageW - margin * 2);
-        doc.text(noteLines, margin, y);
+       const noteLines = doc.splitTextToSize(
+  `Notes: ${projectNotesTrim}`,
+  pageW - leftMargin - rightMargin
+);
+doc.text(noteLines, leftMargin, y);
+
         y += noteLines.length * 12 + 6;
       }
 
@@ -570,9 +573,9 @@ deleteEntryPhoto(): void {
       const includeAnyGraph = isOcwProject ? hasOcwShots : includeLadderGraph;
 
       if (includeAnyGraph) {
-        const chartX = margin;
+        const chartX = leftMargin;
         const chartY = y;
-        const chartW = pageW - margin * 2;
+       const chartW = pageW - leftMargin - rightMargin;
         const chartH = 180;
         const innerPad = 8;
         const xMin = chartX + innerPad;
@@ -762,7 +765,7 @@ deleteEntryPhoto(): void {
       // ----- Table (real data) -----
       const entries = this.entriesForSelectedProject();
       doc.setFontSize(11);
-      doc.text('Data', margin, y);
+     doc.text('Data', leftMargin, y);
       y += 12;
 
       doc.setFontSize(9);
@@ -773,13 +776,15 @@ deleteEntryPhoto(): void {
 
       // Column anchors (tuned for A4 portrait)
       const colX = isOcwProject
-        ? [margin, margin + 70, margin + 120, margin + 160, margin + 205, margin + 255]
-        : [margin, margin + 85, margin + 145, margin + 190];
+      ? [leftMargin, leftMargin + 70, leftMargin + 120, leftMargin + 160, leftMargin + 205, leftMargin + 255]
+: [leftMargin, leftMargin + 85, leftMargin + 145, leftMargin + 190];
+
 
       cols.forEach((c, i) => doc.text(c, colX[i], y));
       y += 10;
       doc.setLineWidth(0.5);
-      doc.line(margin, y, pageW - margin, y);
+      doc.line(leftMargin, y, pageW - rightMargin, y);
+
       y += 12;
 
       const lineH = 12;
@@ -789,7 +794,8 @@ deleteEntryPhoto(): void {
         const notesTxt = this.buildExportNotesForEntry(e);
 
         const notesX = isOcwProject ? colX[5] : colX[3];
-        const notesW = (pageW - margin) - notesX;
+        const notesW = (pageW - rightMargin) - notesX;
+
 
         const notesLines = notesTxt
           ? doc.splitTextToSize(notesTxt, Math.max(50, notesW))
@@ -809,7 +815,7 @@ const reserveForBottom = 12 + (15 * 14) + 10 + 110 + 10;
           const remaining = entries.length - shownRows;
           doc.setFontSize(9);
           doc.setTextColor(80);
-          doc.text(`(+${remaining} more rows not shown)`, margin, y);
+          doc.text(`(+${remaining} more rows not shown)`, leftMargin, y);
           doc.setTextColor(0);
           y += 14;
           break;
@@ -872,7 +878,7 @@ while (commentLines > 0 && y + commentsHeight(commentLines) + boxesReservedAbs >
 // Draw Comments title
 doc.setFontSize(11);
 doc.setTextColor(0);
-doc.text('Comments', margin, y);
+doc.text('Comments', leftMargin, y);
 y += 12;
 
 // Draw comment lines (lighter grey for printing, but still visible)
@@ -881,9 +887,9 @@ doc.setDrawColor(120, 120, 120);
 
 for (let i = 0; i < commentLines; i++) {
   doc.line(
-    margin,
+    leftMargin,
     y + i * commentLineGap,
-    pageW - margin,
+    pageW - rightMargin,
     y + i * commentLineGap
   );
 }
@@ -896,13 +902,13 @@ const boxH = Math.max(boxAbsMinH, Math.min(boxMaxH, remainingForBoxes));
 
 // Split area into 2 equal boxes
 const gap = 10;
-const halfW = (pageW - margin * 2 - gap) / 2;
+const halfW = (pageW - leftMargin - rightMargin - gap) / 2;
 
-const leftX = margin;
+const leftX = leftMargin;
 const leftW = halfW;
 const leftY = y;
 
-const photoX = margin + halfW + gap;
+const photoX = leftMargin + halfW + gap;
 const photoW = halfW;
 const photoY = y;
 
