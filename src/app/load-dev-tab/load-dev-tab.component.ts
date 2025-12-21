@@ -107,7 +107,7 @@ export class LoadDevTabComponent implements OnInit {
 @ViewChild('targetFileInput') targetFileInput?: ElementRef<HTMLInputElement>;
 @ViewChild('entryFileInput') entryFileInput?: ElementRef<HTMLInputElement>;
 
-photoViewerOpen = false;
+
 photoViewerEntry: LoadDevEntry | null = null;
 photoViewerImgUrl: string | null = null;
 
@@ -1020,16 +1020,26 @@ doc.setDrawColor(120, 120, 120);
 doc.rect(photoX, bullY, photoW, bullH);
 
 // Try find a photo to render (project-level or entry-level)
-// ✅ You MUST align these property names with what you stored in your “camera work”.
 const projectAny = this.selectedProject as any;
 
-// Example 1: project-level photo stored like: selectedProject.targetPhotoDataUrl
-const projectPhoto = projectAny?.targetPhotoDataUrl || projectAny?.targetPhoto || null;
+// ✅ Project-level: you store base64 here
+const projectPhotoDataUrl =
+  projectAny?.targetPhotoBase64
+    ? `data:image/jpeg;base64,${projectAny.targetPhotoBase64}`
+    : (projectAny?.targetPhotoDataUrl ?? null);
 
-// Example 2 (optional): first entry photo (if you stored per charge)
-// const entryPhoto = entries?.find(e => (e as any).targetPhotoDataUrl)?.targetPhotoDataUrl ?? null;
+// ✅ Entry-level: if you stored per-charge like (entry as any).targetPhoto.dataUrl OR .targetPhotoBase64
+const entryWithPhoto = entries?.find(e =>
+  !!(e as any)?.targetPhoto?.dataUrl || !!(e as any)?.targetPhotoBase64
+) as any;
 
-const photoDataUrl = projectPhoto /* ?? entryPhoto */;
+const entryPhotoDataUrl =
+  entryWithPhoto?.targetPhoto?.dataUrl
+    ? entryWithPhoto.targetPhoto.dataUrl
+    : (entryWithPhoto?.targetPhotoBase64 ? `data:image/jpeg;base64,${entryWithPhoto.targetPhotoBase64}` : null);
+
+// ✅ Prefer entry photo if any exists, else project photo
+const photoDataUrl = entryPhotoDataUrl ?? projectPhotoDataUrl;
 
 if (photoDataUrl && typeof photoDataUrl === 'string' && photoDataUrl.startsWith('data:image/')) {
   try {
@@ -1121,11 +1131,11 @@ if (photoDataUrl && typeof photoDataUrl === 'string' && photoDataUrl.startsWith(
   projectForm: ProjectForm = this.createEmptyProjectForm();
   showNotesPanel = false;
 
+  
+
   // Planner + validation
   planner: PlannerForm = this.createEmptyPlannerForm();
   plannerError: string | null = null;
-
-
 
 
     private buildExportNotesForEntry(e: LoadDevEntry): string {
@@ -1265,6 +1275,21 @@ getEntryPhotoLabel(entry: LoadDevEntry): string {
       shotsPerGroup: null
     };
   }
+entryHasPhoto(entry: LoadDevEntry): boolean {
+  const any = entry as any;
+  return !!any?.targetPhoto?.dataUrl || !!any?.targetPhotoBase64;
+}
+
+projectHasPhoto(): boolean {
+  const p: any = this.selectedProject as any;
+  return !!p?.targetPhotoBase64 || !!p?.targetPhotoDataUrl;
+}
+
+hasAnyPhoto(): boolean {
+  if (this.projectHasPhoto()) return true;
+  const entries = this.entriesForSelectedProject?.() ?? [];
+  return entries.some(e => this.entryHasPhoto(e));
+}
 
   shortDate(value: string | Date | null | undefined): string {
     if (!value) return '';
@@ -1302,8 +1327,14 @@ getEntryPhotoLabel(entry: LoadDevEntry): string {
   }
 
   toggleNotesPanel(): void {
-    this.showNotesPanel = !this.showNotesPanel;
+  this.showNotesPanel = !this.showNotesPanel;
+
+  // When opening Notes, load the saved project photo into targetPhotoDataUrl
+  if (this.showNotesPanel) {
+    this.syncTargetPhotoFromProject();
   }
+}
+
 
   // Save notes for the currently selected project (called by HTML)
   saveSelectedProjectNotes(): void {
@@ -1550,6 +1581,33 @@ this.syncTargetPhotoFromProject();
 
     this.showNotesPanel = false;
   }
+// ---------- Media helpers (Photo / future Audio) ----------
+photoViewerOpen = false;
+photoViewerUrl: string | null = null;
+
+getProjectPhotoUrl(): string | null {
+  const p: any = this.selectedProject;
+  if (!p) return null;
+
+  // Project-level possibilities
+  return (
+    p?.targetPhoto?.dataUrl ??   // preferred structured shape
+    p?.targetPhotoDataUrl ??     // older direct dataUrl
+    p?.targetPhoto ??            // older direct dataUrl
+    null
+  );
+}
+
+hasProjectPhoto(): boolean {
+  return !!this.getProjectPhotoUrl();
+}
+
+openProjectPhoto(): void {
+  const url = this.getProjectPhotoUrl();
+  if (!url) return;
+  this.photoViewerUrl = url;
+  this.photoViewerOpen = true;
+}
 
   private createLadderEntriesFromPlanner(projectId: number): void {
     const type = this.projectForm.type;

@@ -151,7 +151,7 @@
                 class="px-3 py-1 rounded-2xl bg-gray-800 text-gray-100 text-[11px]"
                 (click)="toggleNotesPanel()"
               >
-                Notes
+                Notes (Aud/ Vid)
               </button>
 
               <!-- ✅ MIC now triggers inline message -->
@@ -714,11 +714,18 @@
                 </span>
               </div>
               <button
-                class="px-3 py-2 rounded-xl bg-gray-700 text-white text-xs"
+                type="button"
+                class="icon-btn relative"
                 title="Take target photo"
                 (click)="onTargetPhotoClick($event)"
               >
                 📷
+
+                <!-- ✅ indicator dot when ANY photo exists -->
+                <span
+                  *ngIf="hasAnyPhoto()"
+                  class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400"
+                ></span>
               </button>
 
               <span
@@ -728,37 +735,6 @@
                 {{ targetPhotoInlineMessage }}
               </span>
 
-              <div *ngIf="showNotesPanel" class="mt-2">
-                <textarea
-                  rows="2"
-                  class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-gray-100 text-[11px]"
-                  [(ngModel)]="projectForm.notes"
-                  placeholder="Notes about this development…"
-                ></textarea>
-                <input
-                  #targetFileInput
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  class="hidden"
-                  (change)="onTargetFileChosen($event)"
-                />
-                <div *ngIf="targetPhotoDataUrl" class="mt-2">
-                  <img
-                    [src]="targetPhotoDataUrl"
-                    alt="Target photo"
-                    class="w-full rounded-2xl border border-gray-700"
-                  />
-                  <input
-                    #entryFileInput
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    class="hidden"
-                    (change)="onEntryFileChosen($event)"
-                  />
-                </div>
-              </div>
               <!-- Right: Delete -->
               <button
                 class="px-3 py-2 rounded-xl bg-red-600 text-white text-xs"
@@ -776,6 +752,29 @@
                 [(ngModel)]="selectedProject.notes"
                 placeholder="Notes for this load development…"
               ></textarea>
+              <!-- Media (Photo now, Audio later) -->
+              <div class="mt-2 space-y-2">
+                <div class="text-[10px] text-gray-400">Media</div>
+
+                <div *ngIf="targetPhotoDataUrl; else noPhoto">
+                  <div class="flex gap-2 overflow-x-auto py-1">
+                    <img
+                      [src]="targetPhotoDataUrl"
+                      alt="Target photo"
+                      class="h-20 w-20 object-cover rounded-xl border border-gray-700 flex-shrink-0 cursor-pointer"
+                      (click)="photoViewerOpen = true; photoViewerImgUrl = targetPhotoDataUrl"
+                    />
+                  </div>
+                </div>
+
+                <ng-template #noPhoto>
+                  <div class="text-[10px] text-gray-500">No target photo saved yet.</div>
+                </ng-template>
+
+                <div class="text-[10px] text-gray-500 italic">
+                  Audio playback will appear here when enabled.
+                </div>
+              </div>
 
               <!-- Save button -->
               <div class="flex justify-end">
@@ -784,7 +783,7 @@
                   class="px-3 py-1.5 rounded-xl bg-emerald-500 text-black text-xs font-semibold"
                   (click)="saveSelectedProjectNotes()"
                 >
-                  Save
+                  Close
                 </button>
               </div>
               <div
