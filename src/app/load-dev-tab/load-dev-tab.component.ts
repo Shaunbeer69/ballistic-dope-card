@@ -105,6 +105,15 @@ export class LoadDevTabComponent implements OnInit {
   @ViewChild('velocityInputEl') velocityInputEl?: ElementRef<HTMLInputElement>;
   @ViewChild('pdfContent') pdfContent?: ElementRef<HTMLElement>;
 @ViewChild('targetFileInput') targetFileInput?: ElementRef<HTMLInputElement>;
+@ViewChild('entryFileInput') entryFileInput?: ElementRef<HTMLInputElement>;
+
+photoViewerOpen = false;
+photoViewerEntry: LoadDevEntry | null = null;
+photoViewerImgUrl: string | null = null;
+
+private pendingEntryForPhoto: LoadDevEntry | null = null;
+
+isAnnotatingPhoto = false;
 
   @Output() backToMenu = new EventEmitter<void>();
 
@@ -309,6 +318,202 @@ async onTargetFileChosen(event: Event): Promise<void> {
   } catch {
     // ignore
   }
+}
+async onEntryTargetPhotoClick(entry: LoadDevEntry, event?: Event): Promise<void> {
+  try {
+    event?.preventDefault();
+    event?.stopPropagation();
+  } catch {}
+
+  if (!this.selectedProject) {
+    this.targetPhotoInlineMessage = 'Select a load development first';
+    setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
+    return;
+  }
+// ✅ Persist photo onto the entry (THIS is the field name)
+(entry as any).targetPhoto = {
+  dataUrl: this.targetPhotoDataUrl,
+  takenAt: new Date().toISOString(),
+  groupSize: entry.groupSize ?? null,
+  groupUnit: entry.groupUnit ?? null
+};
+
+  // Web fallback (file picker)
+  if (!Capacitor.isNativePlatform()) {
+    this.pendingEntryForPhoto = entry;
+    this.targetPhotoInlineMessage = 'Choose a photo (web)';
+    setTimeout(() => (this.targetPhotoInlineMessage = null), 1600);
+    this.entryFileInput?.nativeElement?.click();
+    return;
+  }
+
+  try {
+    const photo = await Camera.getPhoto({
+      quality: 85,
+      allowEditing: false,
+      resultType: CameraResultType.Base64,
+      source: CameraSource.Camera
+    });
+
+    const base64 = photo?.base64String;
+    if (!base64) {
+      this.targetPhotoInlineMessage = 'No photo captured';
+      setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
+      return;
+    }
+
+    const rawDataUrl = `data:image/jpeg;base64,${base64}`;
+    const stampedDataUrl = await this.stampTimestampOnDataUrl(rawDataUrl);
+
+    await this.attachPhotoToEntry(entry, stampedDataUrl);
+
+    this.targetPhotoInlineMessage = 'Photo saved';
+    setTimeout(() => (this.targetPhotoInlineMessage = null), 1800);
+  } catch (err) {
+    console.error(err);
+    this.targetPhotoInlineMessage = 'Camera failed';
+    setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
+  }
+}
+async onEntryFileChosen(ev: Event): Promise<void> {
+  const input = ev.target as HTMLInputElement;
+  const file = input?.files?.[0];
+  if (!file) return;
+
+  const entry = this.pendingEntryForPhoto;
+  this.pendingEntryForPhoto = null;
+
+  // reset input so same file can be chosen again
+  input.value = '';
+
+  if (!entry) return;
+
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result || ''));
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+
+  const stampedDataUrl = await this.stampTimestampOnDataUrl(dataUrl);
+  await this.attachPhotoToEntry(entry, stampedDataUrl);
+
+  this.targetPhotoInlineMessage = 'Photo saved';
+  setTimeout(() => (this.targetPhotoInlineMessage = null), 1800);
+}
+private async attachPhotoToEntry(entry: LoadDevEntry, stampedDataUrl: string): Promise<void> {
+  const takenAt = new Date().toISOString();
+
+  // Prompt group size only when photo is added
+  const sizeRaw = prompt('Enter group size? (number, optional)', '');
+  let groupSize: number | undefined = undefined;
+
+  if (sizeRaw !== null) {
+    const v = parseFloat(sizeRaw.replace(',', '.'));
+    if (!Number.isNaN(v)) groupSize = v;
+  }
+
+   // Unit must match your GroupSizeUnit type (your code uses 'MOA' elsewhere)
+  let unit: GroupSizeUnit | undefined = undefined;
+  if (groupSize != null) {
+    const unitRaw = (prompt('Unit? Enter: MOA / MM', 'MOA') || '').toUpperCase().trim();
+    if (unitRaw === 'MM' || unitRaw === 'MILLIMETER' || unitRaw === 'MILLIMETERS') unit = 'mm';
+    else unit = 'MOA';
+  }
+
+
+  // Store on the entry (typed model doesn't include targetPhoto, so keep it on "any")
+  const updatedEntry: LoadDevEntry = {
+    ...(entry as any),
+    targetPhoto: {
+      dataUrl: stampedDataUrl,
+      takenAt,
+      groupSize,
+      groupUnit: unit
+    }
+  } as any;
+
+  // ✅ Persist using your REAL, existing persistence method
+  if (this.selectedProject) {
+    this.data.updateLoadDevEntry(this.selectedProject.id, updatedEntry);
+    this.refreshSelectedProject(); // reloads selectedProjectEntries etc
+  }
+}
+
+private async stampTimestampOnDataUrl(dataUrl: string): Promise<string> {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error('Image load failed'));
+    img.src = dataUrl;
+  });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth || img.width;
+  canvas.height = img.naturalHeight || img.height;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return dataUrl;
+
+  ctx.drawImage(img, 0, 0);
+
+  // Timestamp text (bottom-left)
+  const stamp = new Date().toLocaleString();
+  const pad = Math.max(18, Math.floor(canvas.width * 0.015));
+  const fontSize = Math.max(28, Math.floor(canvas.width * 0.03));
+
+  ctx.font = `bold ${fontSize}px Arial`;
+  ctx.textBaseline = 'bottom';
+
+  // dark bg behind text
+  const metrics = ctx.measureText(stamp);
+  const boxW = Math.ceil(metrics.width + pad);
+  const boxH = Math.ceil(fontSize + pad * 0.6);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(pad * 0.6, canvas.height - pad * 0.6 - boxH, boxW, boxH);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.fillText(stamp, pad, canvas.height - pad);
+
+  return canvas.toDataURL('image/jpeg', 0.92);
+}
+openEntryPhotoViewer(entry: LoadDevEntry, event?: Event): void {
+  try {
+    event?.preventDefault();
+    event?.stopPropagation();
+  } catch {}
+
+  const url = this.getEntryPhotoDataUrl(entry);
+  if (!url) return;
+
+  this.photoViewerEntry = entry;
+  this.photoViewerImgUrl = url;
+  this.photoViewerOpen = true;
+  this.isAnnotatingPhoto = false;
+}
+
+closePhotoViewer(): void {
+  this.photoViewerOpen = false;
+  this.photoViewerEntry = null;
+  this.photoViewerImgUrl = null;
+  this.isAnnotatingPhoto = false;
+}
+
+deleteEntryPhoto(): void {
+  const e = this.photoViewerEntry;
+  if (!e) return;
+  delete (e as any).targetPhoto;
+
+   if (this.selectedProject) {
+    this.data.updateLoadDevEntry(this.selectedProject.id, e as any);
+    this.refreshSelectedProject();
+  }
+
+
+  this.closePhotoViewer();
 }
 
   // ---------- PDF export (Graph + table inside #pdfContent) ----------
@@ -708,14 +913,24 @@ async onTargetFileChosen(event: Event): Promise<void> {
         break;
       }
 
-      const bullH = Math.max(
-        bullAbsMinH,
-        Math.min(bullMaxH, remainingForBullBox)
-      );
+    const bullH = Math.max(
+  bullAbsMinH,
+  Math.min(bullMaxH, remainingForBullBox)
+);
 
-      const bullX = margin;
-      const bullW = pageW - margin * 2;
-      const bullY = y;
+// ✅ Split the bottom area into 2 equal boxes: Hit (left) + Photo (right)
+const gap = 10;
+const halfW = (pageW - margin * 2 - gap) / 2;
+
+const bullX = margin;
+const bullW = halfW;
+const bullY = y;
+
+const photoX = margin + halfW + gap;
+const photoW = halfW;
+const photoY = y;
+doc.rect(bullX, bullY, bullW, bullH);
+
 
       // Outer frame (light grey)
       doc.setLineWidth(0.8);
@@ -735,6 +950,55 @@ async onTargetFileChosen(event: Event): Promise<void> {
       for (let i = 1; i <= rings; i++) {
         const r = (maxR / rings) * i;
         doc.circle(cx, cy, r, 'S');
+        // ✅ Right-side PHOTO box (same height as hit indicator)
+doc.setLineWidth(0.8);
+doc.setDrawColor(120, 120, 120);
+doc.rect(photoX, photoY, photoW, bullH);
+
+// ✅ Pick a photo to export:
+// Priority: first entry photo (per charge/group) -> fallback to project-level if you ever add it
+const entryPhotoDataUrl =
+  (entries
+    .map(e => (e as any)?.targetPhoto?.dataUrl as string | undefined)
+    .find(u => !!u) ?? null);
+
+
+const projectAny = this.selectedProject as any;
+const projectPhotoDataUrl =
+  projectAny?.targetPhotoDataUrl || projectAny?.targetPhoto || null;
+
+const photoDataUrl = entryPhotoDataUrl || projectPhotoDataUrl;
+
+if (photoDataUrl && typeof photoDataUrl === 'string' && photoDataUrl.startsWith('data:image/')) {
+  try {
+    const imgType = photoDataUrl.includes('data:image/png') ? 'PNG' : 'JPEG';
+    const base64 = photoDataUrl.split(',')[1];
+
+    const pad = 6;
+    const iw = photoW - pad * 2;
+    const ih = bullH - pad * 2;
+
+    // draw image inside right box
+    doc.addImage(base64, imgType as any, photoX + pad, photoY + pad, iw, ih);
+
+    // small label
+    doc.setFontSize(8);
+    doc.setTextColor(60);
+    doc.text('Target photo', photoX + 6, photoY + 12);
+    doc.setTextColor(0);
+  } catch {
+    doc.setFontSize(9);
+    doc.setTextColor(80);
+    doc.text('Photo load failed', photoX + 10, photoY + 18);
+    doc.setTextColor(0);
+  }
+} else {
+  doc.setFontSize(9);
+  doc.setTextColor(80);
+  doc.text('No target photo', photoX + 10, photoY + 18);
+  doc.setTextColor(0);
+}
+
       }
 
       // Crosshair (light)
@@ -750,6 +1014,52 @@ async onTargetFileChosen(event: Event): Promise<void> {
       doc.circle(cx, cy, 1.4, 'F');
 
       y += bullH + bullPadAfter;
+// --- Photo box (same height as hit indication) ---
+doc.setLineWidth(0.8);
+doc.setDrawColor(120, 120, 120);
+doc.rect(photoX, bullY, photoW, bullH);
+
+// Try find a photo to render (project-level or entry-level)
+// ✅ You MUST align these property names with what you stored in your “camera work”.
+const projectAny = this.selectedProject as any;
+
+// Example 1: project-level photo stored like: selectedProject.targetPhotoDataUrl
+const projectPhoto = projectAny?.targetPhotoDataUrl || projectAny?.targetPhoto || null;
+
+// Example 2 (optional): first entry photo (if you stored per charge)
+// const entryPhoto = entries?.find(e => (e as any).targetPhotoDataUrl)?.targetPhotoDataUrl ?? null;
+
+const photoDataUrl = projectPhoto /* ?? entryPhoto */;
+
+if (photoDataUrl && typeof photoDataUrl === 'string' && photoDataUrl.startsWith('data:image/')) {
+  try {
+    const imgType = photoDataUrl.includes('data:image/png') ? 'PNG' : 'JPEG';
+    const base64 = photoDataUrl.split(',')[1];
+
+    // Fit inside photo box with padding
+    const pad = 6;
+    const iw = photoW - pad * 2;
+    const ih = bullH - pad * 2;
+
+    doc.addImage(base64, imgType as any, photoX + pad, bullY + pad, iw, ih);
+
+    // Optional tiny label
+    doc.setFontSize(8);
+    doc.setTextColor(60);
+    doc.text('Target photo', photoX + 6, bullY + 12);
+    doc.setTextColor(0);
+  } catch {
+    doc.setFontSize(9);
+    doc.setTextColor(80);
+    doc.text('Photo load failed', photoX + 10, bullY + 18);
+    doc.setTextColor(0);
+  }
+} else {
+  doc.setFontSize(9);
+  doc.setTextColor(80);
+  doc.text('No target photo', photoX + 10, bullY + 18);
+  doc.setTextColor(0);
+}
 
       // ----- Save / Share -----
       const safeName = (projectName || 'load-dev')
@@ -926,6 +1236,25 @@ async onTargetFileChosen(event: Event): Promise<void> {
       notes: ''
     };
   }
+private getEntryPhotoObj(entry: LoadDevEntry): any | null {
+  return (entry as any)?.targetPhoto ?? null;
+}
+
+hasEntryPhoto(entry: LoadDevEntry): boolean {
+  const p = this.getEntryPhotoObj(entry);
+  return !!(p?.annotatedDataUrl || p?.dataUrl);
+}
+
+getEntryPhotoDataUrl(entry: LoadDevEntry): string | null {
+  const p = this.getEntryPhotoObj(entry);
+  return (p?.annotatedDataUrl || p?.dataUrl || null) ?? null;
+}
+
+getEntryPhotoLabel(entry: LoadDevEntry): string {
+  const p = this.getEntryPhotoObj(entry);
+  const ts = p?.takenAt ? this.shortDate(p.takenAt) : '';
+  return ts ? `Photo • ${ts}` : 'Photo';
+}
 
   private createEmptyPlannerForm(): PlannerForm {
     return {
