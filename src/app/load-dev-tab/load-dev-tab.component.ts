@@ -583,6 +583,7 @@ deleteEntryPhoto(): void {
         // Frame
         doc.setLineWidth(0.7);
         doc.rect(chartX, chartY, chartW, chartH);
+        
 
         // Determine axis ranges
         let minXv = 0;
@@ -797,11 +798,12 @@ deleteEntryPhoto(): void {
         const neededLines = Math.max(1, notesLines.length || 1);
         const neededHeight = neededLines * lineH;
 
-             // ONE-PAGER: stop table early so Comments + Hit indication stay on page 1
-        const pageBottom = doc.internal.pageSize.getHeight() - 40;
+// ONE-PAGER: stop table early so Comments + bottom boxes stay on page 1
+const pageBottom = doc.internal.pageSize.getHeight() - 40;
 
-        // Reserve space for: Comments title + (up to 15 lines) + Hit title + min bull box
-        const reserveForBottom = 12 + (15 * 14) + 10 + 10 + 110 + 10;
+// Reserve space for: Comments title + (up to 15 lines) + bottom boxes (min height)
+const reserveForBottom = 12 + (15 * 14) + 10 + 110 + 10;
+
 
         if (y + neededHeight + reserveForBottom > pageBottom) {
           const remaining = entries.length - shownRows;
@@ -834,154 +836,144 @@ deleteEntryPhoto(): void {
 
         y += neededHeight;
       }
-       // ----- Comments + Hit indication (ONE-PAGER, auto-fit) -----
-      // We do NOT add pages here. Instead, we adapt:
-      // 1) reduce comment lines if needed
-      // 2) shrink the bullseye box to fit remaining space
+    // ----- Comments + bottom boxes (ONE-PAGER, auto-fit) -----
+// We do NOT add pages here. Instead, we adapt:
+// 1) reduce comment lines if needed
+// 2) keep a bottom box area (left blank placeholder + right photo)
 
-      const pageBottom = doc.internal.pageSize.getHeight() - 40;
+const pageBottom = doc.internal.pageSize.getHeight() - 40;
 
-      // Layout knobs
-      const commentLineGap = 14;
-      const commentTitleH = 12;
-      const commentPadAfter = 10;
+// Layout knobs
+const commentLineGap = 14;
+const commentTitleH = 12;
+const commentPadAfter = 10;
 
-      const bullTitleH = 10;
-      const bullPadAfter = 10;
+const boxPadAfter = 10;
 
-      const bullMaxH = 220;
-      const bullMinH = 110;     // target minimum (nice size)
-      const bullAbsMinH = 70;   // absolute minimum (still usable)
+const boxMaxH = 220;
+const boxMinH = 110;     // target minimum (nice size)
+const boxAbsMinH = 70;   // absolute minimum (still usable)
 
-      // Space before comments title (small breathing room)
-      y += 10;
+// Space before comments title (small breathing room)
+y += 10;
 
-      // How many comment lines can we afford while still keeping a bullseye?
-      const commentsHeight = (n: number) => commentTitleH + n * commentLineGap + commentPadAfter;
-      const bullReservedMin = bullTitleH + bullMinH + bullPadAfter;
-      const bullReservedAbs = bullTitleH + bullAbsMinH + bullPadAfter;
+// How many comment lines can we afford while still keeping the bottom boxes?
+const commentsHeight = (n: number) => commentTitleH + n * commentLineGap + commentPadAfter;
+const boxesReservedAbs = boxAbsMinH + boxPadAfter;
 
-      let commentLines = 15;
+let commentLines = 15;
 
-      // Ensure we have room for at least an absolute-min bullseye.
-      // If not, reduce comment lines until it fits (down to 0 if required).
-      while (
-        commentLines > 0 &&
-        y + commentsHeight(commentLines) + bullReservedAbs > pageBottom
-      ) {
-        commentLines--;
-      }
+// Ensure we have room for at least absolute-min boxes.
+// If not, reduce comment lines until it fits (down to 0 if required).
+while (commentLines > 0 && y + commentsHeight(commentLines) + boxesReservedAbs > pageBottom) {
+  commentLines--;
+}
 
-      // Draw Comments title
-      doc.setFontSize(11);
-      doc.setTextColor(0);
-      doc.text('Comments', margin, y);
-      y += 12;
+// Draw Comments title
+doc.setFontSize(11);
+doc.setTextColor(0);
+doc.text('Comments', margin, y);
+y += 12;
 
-      // Draw comment lines (lighter grey for printing, but still visible)
-      doc.setLineWidth(0.7);
-      doc.setDrawColor(120, 120, 120);
+// Draw comment lines (lighter grey for printing, but still visible)
+doc.setLineWidth(0.7);
+doc.setDrawColor(120, 120, 120);
 
-      for (let i = 0; i < commentLines; i++) {
-        doc.line(
-          margin,
-          y + i * commentLineGap,
-          pageW - margin,
-          y + i * commentLineGap
-        );
-      }
+for (let i = 0; i < commentLines; i++) {
+  doc.line(
+    margin,
+    y + i * commentLineGap,
+    pageW - margin,
+    y + i * commentLineGap
+  );
+}
 
-      y += commentLines * commentLineGap + 10;
+y += commentLines * commentLineGap + 10;
 
-      // ----- Hit indication (bullseye drawing area) -----
-      doc.setFontSize(11);
-      doc.setTextColor(0);
-      doc.text('Hit indication', margin, y);
-      y += bullTitleH;
+// ----- Bottom boxes: LEFT blank placeholder + RIGHT photo -----
+const remainingForBoxes = pageBottom - (y + boxPadAfter);
+const boxH = Math.max(boxAbsMinH, Math.min(boxMaxH, remainingForBoxes));
 
-      // Compute remaining space for the bullseye box on THIS page
-      const remainingForBullBox = pageBottom - (y + bullPadAfter);
-
-      // If we still don't have space, steal more from comments (rare but possible with long tables)
-      // Reduce commentLines further until we have at least bullAbsMinH.
-      while (commentLines > 0 && remainingForBullBox < bullAbsMinH) {
-        // Move y back: undo the previously drawn comment lines space,
-        // reduce commentLines, then re-advance.
-        // (We keep it simple: just reduce lines; the PDF already drawn lines won't vanish,
-        // but this case is extremely rare in practice because the table usually paginates earlier.)
-        commentLines--;
-        break;
-      }
-
-    const bullH = Math.max(
-  bullAbsMinH,
-  Math.min(bullMaxH, remainingForBullBox)
-);
-
-// ✅ Split the bottom area into 2 equal boxes: Hit (left) + Photo (right)
+// Split area into 2 equal boxes
 const gap = 10;
 const halfW = (pageW - margin * 2 - gap) / 2;
 
-const bullX = margin;
-const bullW = halfW;
-const bullY = y;
+const leftX = margin;
+const leftW = halfW;
+const leftY = y;
 
 const photoX = margin + halfW + gap;
 const photoW = halfW;
 const photoY = y;
-doc.rect(bullX, bullY, bullW, bullH);
+
+// LEFT: placeholder box (NO title, NO hit indicator)
+doc.setLineWidth(0.8);
+// LEFT placeholder image
+await this.drawAssetImageInBox(
+  doc,
+  'assets/LoadDevExport.png',
+  leftX,
+  leftY,
+  halfW,
+  boxH,
+  6
+);
+
+doc.setDrawColor(120, 120, 120);
+doc.rect(leftX, leftY, leftW, boxH);
+await this.drawAssetImageInBox(
+  doc,
+  '/LoadDevExport.png',
+  leftX,
+  leftY,
+  leftW,
+  boxH,
+  6
+);
 
 
-      // Outer frame (light grey)
-      doc.setLineWidth(0.8);
-      doc.setDrawColor(120, 120, 120);
-      doc.rect(bullX, bullY, bullW, bullH);
-
-      // Bullseye geometry
-      const cx = bullX + bullW / 2;
-      const cy = bullY + bullH / 2;
-      const maxR = Math.min(bullW, bullH) * 0.42;
-
-      doc.setLineWidth(0.6);
-      doc.setDrawColor(150, 150, 150); // slightly lighter rings
-
-      // Concentric circles (bull)
-      const rings = 5;
-      for (let i = 1; i <= rings; i++) {
-        const r = (maxR / rings) * i;
-        doc.circle(cx, cy, r, 'S');
-        // ✅ Right-side PHOTO box (same height as hit indicator)
+// RIGHT: photo box (keep photo behavior the same, but render only once)
 doc.setLineWidth(0.8);
 doc.setDrawColor(120, 120, 120);
-doc.rect(photoX, photoY, photoW, bullH);
+doc.rect(photoX, photoY, photoW, boxH);
 
-// ✅ Pick a photo to export:
-// Priority: first entry photo (per charge/group) -> fallback to project-level if you ever add it
-const entryPhotoDataUrl =
-  (entries
-    .map(e => (e as any)?.targetPhoto?.dataUrl as string | undefined)
-    .find(u => !!u) ?? null);
-
-
+// Try find a photo to render (project-level or entry-level)
 const projectAny = this.selectedProject as any;
-const projectPhotoDataUrl =
-  projectAny?.targetPhotoDataUrl || projectAny?.targetPhoto || null;
 
-const photoDataUrl = entryPhotoDataUrl || projectPhotoDataUrl;
+// Project-level: stored base64 (your current approach)
+const projectPhotoDataUrl =
+  projectAny?.targetPhotoBase64
+    ? `data:image/jpeg;base64,${projectAny.targetPhotoBase64}`
+    : (projectAny?.targetPhotoDataUrl ?? null);
+
+// Entry-level: allow either dataUrl or base64
+const entryWithPhoto = entries?.find(e =>
+  !!(e as any)?.targetPhoto?.dataUrl || !!(e as any)?.targetPhotoBase64
+) as any;
+
+const entryPhotoDataUrl =
+  entryWithPhoto?.targetPhoto?.dataUrl
+    ? entryWithPhoto.targetPhoto.dataUrl
+    : (entryWithPhoto?.targetPhotoBase64
+        ? `data:image/jpeg;base64,${entryWithPhoto.targetPhotoBase64}`
+        : null);
+
+// Prefer entry photo if any exists, else project photo
+const photoDataUrl = entryPhotoDataUrl ?? projectPhotoDataUrl;
 
 if (photoDataUrl && typeof photoDataUrl === 'string' && photoDataUrl.startsWith('data:image/')) {
   try {
     const imgType = photoDataUrl.includes('data:image/png') ? 'PNG' : 'JPEG';
     const base64 = photoDataUrl.split(',')[1];
 
+    // Fit inside photo box with padding
     const pad = 6;
     const iw = photoW - pad * 2;
-    const ih = bullH - pad * 2;
+    const ih = boxH - pad * 2;
 
-    // draw image inside right box
     doc.addImage(base64, imgType as any, photoX + pad, photoY + pad, iw, ih);
 
-    // small label
+    // Optional tiny label (same as before)
     doc.setFontSize(8);
     doc.setTextColor(60);
     doc.text('Target photo', photoX + 6, photoY + 12);
@@ -999,77 +991,7 @@ if (photoDataUrl && typeof photoDataUrl === 'string' && photoDataUrl.startsWith(
   doc.setTextColor(0);
 }
 
-      }
-
-      // Crosshair (light)
-      doc.setLineWidth(0.5);
-      doc.setDrawColor(160, 160, 160);
-      doc.line(cx - maxR, cy, cx + maxR, cy);
-      doc.line(cx, cy - maxR, cx, cy + maxR);
-
-      // Centre dot (small)
-      doc.setFillColor(0, 0, 0);
-
-      doc.setDrawColor(0);
-      doc.circle(cx, cy, 1.4, 'F');
-
-      y += bullH + bullPadAfter;
-// --- Photo box (same height as hit indication) ---
-doc.setLineWidth(0.8);
-doc.setDrawColor(120, 120, 120);
-doc.rect(photoX, bullY, photoW, bullH);
-
-// Try find a photo to render (project-level or entry-level)
-const projectAny = this.selectedProject as any;
-
-// ✅ Project-level: you store base64 here
-const projectPhotoDataUrl =
-  projectAny?.targetPhotoBase64
-    ? `data:image/jpeg;base64,${projectAny.targetPhotoBase64}`
-    : (projectAny?.targetPhotoDataUrl ?? null);
-
-// ✅ Entry-level: if you stored per-charge like (entry as any).targetPhoto.dataUrl OR .targetPhotoBase64
-const entryWithPhoto = entries?.find(e =>
-  !!(e as any)?.targetPhoto?.dataUrl || !!(e as any)?.targetPhotoBase64
-) as any;
-
-const entryPhotoDataUrl =
-  entryWithPhoto?.targetPhoto?.dataUrl
-    ? entryWithPhoto.targetPhoto.dataUrl
-    : (entryWithPhoto?.targetPhotoBase64 ? `data:image/jpeg;base64,${entryWithPhoto.targetPhotoBase64}` : null);
-
-// ✅ Prefer entry photo if any exists, else project photo
-const photoDataUrl = entryPhotoDataUrl ?? projectPhotoDataUrl;
-
-if (photoDataUrl && typeof photoDataUrl === 'string' && photoDataUrl.startsWith('data:image/')) {
-  try {
-    const imgType = photoDataUrl.includes('data:image/png') ? 'PNG' : 'JPEG';
-    const base64 = photoDataUrl.split(',')[1];
-
-    // Fit inside photo box with padding
-    const pad = 6;
-    const iw = photoW - pad * 2;
-    const ih = bullH - pad * 2;
-
-    doc.addImage(base64, imgType as any, photoX + pad, bullY + pad, iw, ih);
-
-    // Optional tiny label
-    doc.setFontSize(8);
-    doc.setTextColor(60);
-    doc.text('Target photo', photoX + 6, bullY + 12);
-    doc.setTextColor(0);
-  } catch {
-    doc.setFontSize(9);
-    doc.setTextColor(80);
-    doc.text('Photo load failed', photoX + 10, bullY + 18);
-    doc.setTextColor(0);
-  }
-} else {
-  doc.setFontSize(9);
-  doc.setTextColor(80);
-  doc.text('No target photo', photoX + 10, bullY + 18);
-  doc.setTextColor(0);
-}
+y += boxH + boxPadAfter;
 
       // ----- Save / Share -----
       const safeName = (projectName || 'load-dev')
@@ -1301,6 +1223,54 @@ hasAnyPhoto(): boolean {
       day: '2-digit'
     });
   }
+// ===============================
+// PDF: load and draw placeholder image in a box
+// ===============================
+private async loadAssetAsDataUrl(assetPath: string): Promise<string | null> {
+  try {
+const res = await fetch(assetPath.startsWith('/') ? assetPath : `/${assetPath}`);
+
+    if (!res.ok) return null;
+    const blob = await res.blob();
+
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string) || '');
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+private async drawAssetImageInBox(
+  doc: any,
+  assetPath: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  pad: number = 4
+): Promise<void> {
+  const dataUrl = await this.loadAssetAsDataUrl(assetPath);
+  if (!dataUrl || !dataUrl.startsWith('data:image/')) return;
+
+  // jsPDF wants base64 (no "data:image/png;base64,")
+  const imgType = dataUrl.includes('png') ? 'PNG' : 'JPEG';
+  const base64 = dataUrl.split(',')[1];
+
+  const ix = x + pad;
+  const iy = y + pad;
+  const iw = Math.max(1, w - pad * 2);
+  const ih = Math.max(1, h - pad * 2);
+
+  try {
+    doc.addImage(base64, imgType as any, ix, iy, iw, ih, undefined, 'FAST');
+  } catch {
+    // silent fail (placeholder only)
+  }
+}
 
   projectTypeLabel(type: LoadDevType): string {
     switch (type) {
