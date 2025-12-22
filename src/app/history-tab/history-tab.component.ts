@@ -2,7 +2,6 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, EventEmitter, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../data.service';
-import { Capacitor } from '@capacitor/core';
 import { CapacitorVoiceRecorder } from '@lgicc/capacitor-voice-recorder';
 
 @Component({
@@ -13,117 +12,26 @@ import { CapacitorVoiceRecorder } from '@lgicc/capacitor-voice-recorder';
 })
 export class HistoryTabComponent implements OnInit {
   sessions: any[] = [];
-  // NEW: highlighted sessions that still need DOPE capture
+
+  // highlighted sessions that still need DOPE capture
   pendingSessions: any[] = [];
-  notesExpanded: boolean = false;
+
   selectedSessionId: string | null = null;
   editSession: any | null = null;
+
   validationError: string | null = null;
   saveMessage: string | null = null;
   private saveMessageTimeout: any = null;
-  // --------------------------------------------------
-  // Voice notes (per DOPE row)
-  // --------------------------------------------------
-   // --------------------------------------------------
-  // Voice notes (per-distance row in Shot Data input)
-  // Stored on the DOPE row as base64 for playback
-  // --------------------------------------------------
-  private activeVoiceRow: any | null = null;
-  private recordingRowRef: any | null = null;
-
 
   searchTerm: string = '';
   expandedVenueId: number | null = null;
+
   // --------------------------------------------------
-  // Voice notes per DOPE row (same plugin as Load Dev)
+  // Voice notes per DOPE row (record + store on DOPE row)
   // --------------------------------------------------
   private micTargetRow: any | null = null;
   private rowRecording = false;
 
-  // Kept only to satisfy older references (safe no-op)
-  micRecorder: any = null;
-
-  isRowRecording(row: any): boolean {
-    return !!row && this.rowRecording && this.micTargetRow === row;
-  }
-
-  hasRowVoice(row: any): boolean {
-    const b64 = (row?.voiceNoteBase64 ?? '').toString().trim();
-    return !!b64;
-  }
-
-  rowVoiceDataUrl(row: any): string | null {
-    const base64 = (row?.voiceNoteBase64 ?? '').toString().trim();
-    if (!base64) return null;
-    return `data:audio/wav;base64,${base64}`;
-  }
-
-  async onRowMicClick(row: any, ev?: Event): Promise<void> {
-    try {
-      ev?.stopPropagation?.();
-      ev?.preventDefault?.();
-    } catch {}
-
-    if (!row) return;
-
-    try {
-      // If recording for THIS row -> stop & save
-      if (this.rowRecording && this.micTargetRow === row) {
-        const result = await CapacitorVoiceRecorder.stopRecording();
-        this.rowRecording = false;
-        this.micTargetRow = null;
-
-        const base64 = (result?.base64 ?? '').toString().trim();
-        const msDuration = Number(result?.msDuration ?? 0);
-
-        if (!base64) {
-          this.showSaveMessage('No audio captured');
-          return;
-        }
-
-        row.voiceNoteBase64 = base64;
-        row.voiceNoteDurationMs =
-          Number.isFinite(msDuration) && msDuration > 0 ? msDuration : undefined;
-
-        // The row is part of editSession; your existing Save button persists via updateSession()
-        this.showSaveMessage('Voice note saved (tap Save)');
-        return;
-      }
-
-      // If recording for ANOTHER row -> stop it first (and discard)
-      if (this.rowRecording && this.micTargetRow && this.micTargetRow !== row) {
-        try {
-          await CapacitorVoiceRecorder.stopRecording();
-        } catch {}
-        this.rowRecording = false;
-        this.micTargetRow = null;
-      }
-
-      // Ensure mic permission (same style as Load Dev, but FIXED logic)
-      const can = await CapacitorVoiceRecorder.canRecord();
-      const status = (can as any)?.status;
-
-      if (status !== 'GRANTED') {
-        const perm = await CapacitorVoiceRecorder.requestPermission();
-        if (!(perm as any)?.isGranted) {
-          this.showSaveMessage('Microphone permission denied or not available.');
-          return;
-        }
-      }
-
-      await CapacitorVoiceRecorder.startRecording();
-      this.micTargetRow = row;
-      this.rowRecording = true;
-      this.showSaveMessage('Recording… tap ⏹ to stop');
-    } catch (err) {
-      console.error('History row voice note error:', err);
-      this.rowRecording = false;
-      this.micTargetRow = null;
-      this.showSaveMessage('Microphone permission denied or not available.');
-    }
-  }
-
-  // 🔸 Tell parent when user presses Back
   @Output() backToMenu = new EventEmitter<void>();
 
   constructor(private dataService: DataService) {}
@@ -132,9 +40,13 @@ export class HistoryTabComponent implements OnInit {
     this.loadSessions();
   }
 
+  // --------------------------------------------------
+  // Load sessions
+  // --------------------------------------------------
   private loadSessions(): void {
     try {
       const ds: any = this.dataService;
+
       if (ds && typeof ds.getSessions === 'function') {
         this.sessions = ds.getSessions() || [];
       } else if (ds && typeof ds.loadSessions === 'function') {
@@ -155,19 +67,15 @@ export class HistoryTabComponent implements OnInit {
   // Status helpers
   // --------------------------------------------------
   getStatusLabel(s: any): string {
-    if (s.completed) return 'Completed';
-    if (s.dope && s.dope.length > 0) return 'In progress';
+    if (s?.completed) return 'Completed';
+    if (s?.dope && s.dope.length > 0) return 'In progress';
     return 'Planned';
   }
 
   getStatusClass(s: any): string {
     const base = 'px-2 py-[2px] rounded-full text-[10px] font-semibold ';
-    if (s.completed) {
-      return base + 'bg-emerald-500 text-slate-900';
-    }
-    if (s.dope && s.dope.length > 0) {
-      return base + 'bg-amber-400 text-slate-900';
-    }
+    if (s?.completed) return base + 'bg-emerald-500 text-slate-900';
+    if (s?.dope && s.dope.length > 0) return base + 'bg-amber-400 text-slate-900';
     return base + 'bg-slate-600 text-slate-100';
   }
 
@@ -177,10 +85,8 @@ export class HistoryTabComponent implements OnInit {
   getRifleName(rifleId: string | null | undefined): string {
     try {
       const ds: any = this.dataService;
-      if (!rifleId || !ds || typeof ds.getRifles !== 'function') {
-        return 'Unknown rifle';
-      }
-      const rifle = ds.getRifles().find((r: any) => r.id === rifleId);
+      if (!rifleId || !ds || typeof ds.getRifles !== 'function') return 'Unknown rifle';
+      const rifle = ds.getRifles().find((r: any) => String(r.id) === String(rifleId));
       return rifle ? rifle.name : 'Unknown rifle';
     } catch {
       return 'Unknown rifle';
@@ -190,10 +96,8 @@ export class HistoryTabComponent implements OnInit {
   getVenueName(venueId: string | null | undefined): string {
     try {
       const ds: any = this.dataService;
-      if (!venueId || !ds || typeof ds.getVenues !== 'function') {
-        return 'Unknown venue';
-      }
-      const venue = ds.getVenues().find((v: any) => v.id === venueId);
+      if (!venueId || !ds || typeof ds.getVenues !== 'function') return 'Unknown venue';
+      const venue = ds.getVenues().find((v: any) => String(v.id) === String(venueId));
       return venue ? venue.name : 'Unknown venue';
     } catch {
       return 'Unknown venue';
@@ -201,18 +105,12 @@ export class HistoryTabComponent implements OnInit {
   }
 
   // --------------------------------------------------
-  // Search & grouping for venue-based history view
+  // Search & grouping (read-only history list)
   // --------------------------------------------------
   get filteredSessions(): any[] {
-    // History list only shows non-editable sessions.
-    const base = (this.sessions || []).filter(
-      (s: any) => !this.isSessionEditable(s)
-    );
-
+    const base = (this.sessions || []).filter((s: any) => !this.isSessionEditable(s));
     const term = this.searchTerm?.trim().toLowerCase();
-    if (!term) {
-      return base;
-    }
+    if (!term) return base;
 
     return base.filter((s: any) => {
       const venueName = (this.getVenueName(s.venueId) || '').toLowerCase();
@@ -244,12 +142,12 @@ export class HistoryTabComponent implements OnInit {
 
     const groups = Array.from(map.values());
 
-    // sort sessions in each group by date (oldest → newest)
+    // sessions oldest → newest
     for (const g of groups) {
       g.sessions.sort((a, b) => this.getSessionTime(a) - this.getSessionTime(b));
     }
 
-    // sort venues alphabetically
+    // venues alphabetical
     groups.sort((a, b) => a.venueName.localeCompare(b.venueName));
     return groups;
   }
@@ -257,18 +155,6 @@ export class HistoryTabComponent implements OnInit {
   private getSessionTime(s: any): number {
     if (!s || !s.date) return 0;
     return new Date(s.date).getTime();
-  }
-
-  // Build the “needs DOPE” list (highlighted at top)
-  private rebuildPendingSessions(): void {
-    if (!Array.isArray(this.sessions)) {
-      this.pendingSessions = [];
-      return;
-    }
-
-    this.pendingSessions = this.sessions
-      .filter(s => this.isSessionEditable(s) && !s.completed)
-      .sort((a, b) => this.getSessionTime(b) - this.getSessionTime(a)); // newest first
   }
 
   clearSearch(): void {
@@ -284,68 +170,79 @@ export class HistoryTabComponent implements OnInit {
     const sorted = [...sessions].sort((a, b) => this.getSessionTime(a) - this.getSessionTime(b));
     const first = sorted[0];
     const last = sorted[sorted.length - 1];
-    const firstDate = new Date(first.date);
-    const lastDate = new Date(last.date);
-    const firstStr = firstDate.toLocaleDateString();
-    const lastStr = lastDate.toLocaleDateString();
-    if (firstStr === lastStr) {
-      return firstStr;
+    const firstStr = new Date(first.date).toLocaleDateString();
+    const lastStr = new Date(last.date).toLocaleDateString();
+    return firstStr === lastStr ? firstStr : `${firstStr} → ${lastStr}`;
+  }
+
+  // --------------------------------------------------
+  // Pending sessions (needs DOPE)
+  // --------------------------------------------------
+  private rebuildPendingSessions(): void {
+    if (!Array.isArray(this.sessions)) {
+      this.pendingSessions = [];
+      return;
     }
-    return `${firstStr} → ${lastStr}`;
+
+    this.pendingSessions = this.sessions
+      .filter((s: any) => this.isSessionEditable(s) && !s.completed)
+      .sort((a: any, b: any) => this.getSessionTime(b) - this.getSessionTime(a)); // newest first
   }
 
   // --------------------------------------------------
   // Selecting / deleting sessions
   // --------------------------------------------------
   selectSession(s: any): void {
-    this.selectedSessionId = s.id;
+    this.selectedSessionId = s?.id ?? null;
     this.validationError = null;
     this.clearSaveMessage();
 
-    // Deep clone so we can edit safely
+    // deep clone for safe editing
     this.editSession = JSON.parse(JSON.stringify(s));
+
+    // keep UI tidy
+    this.expandedVenueId = null;
   }
 
   deleteSession(s: any): void {
     if (!s || !s.id) return;
 
-    const confirmed = confirm(
-      'Delete this session from history? This cannot be undone.'
-    );
+    const confirmed = confirm('Delete this session from history? This cannot be undone.');
     if (!confirmed) return;
 
-    const id = s.id;
+    const id = String(s.id);
 
-    // Remove from local sessions array
-    const idx = this.sessions.findIndex(sess => sess.id === id);
-    if (idx >= 0) {
-      this.sessions.splice(idx, 1);
-    }
+    // local remove
+    this.sessions = (this.sessions || []).filter(sess => String(sess.id) !== id);
 
-    // Persist via DataService
+    // persist
     try {
       const ds: any = this.dataService;
       if (ds && typeof ds.deleteSession === 'function') {
         ds.deleteSession(id);
+      } else if (ds && typeof ds.removeSession === 'function') {
+        ds.removeSession(id);
+      } else if (ds && typeof ds.setSessions === 'function') {
+        ds.setSessions(this.sessions);
+      } else if (ds && typeof ds.saveSessions === 'function') {
+        ds.saveSessions(this.sessions);
       }
     } catch (err) {
       console.error('Error deleting session from DataService:', err);
     }
 
-    // If this was the open session, close the detail view
+    // close if open
     if (this.selectedSessionId === id) {
       this.selectedSessionId = null;
       this.editSession = null;
     }
 
-    // refresh yellow block at the top
     this.rebuildPendingSessions();
   }
 
   // --------------------------------------------------
-  // Editable rules for DOPE
+  // Editable rules (In progress only)
   // --------------------------------------------------
-
   isSessionEditable(session: any | null): boolean {
     return !!(
       session &&
@@ -356,79 +253,26 @@ export class HistoryTabComponent implements OnInit {
   }
 
   isSessionFullyCompleted(session: any | null): boolean {
-    if (
-      !session ||
-      !Array.isArray(session.dope) ||
-      session.dope.length === 0
-    ) {
-      return false;
-    }
+    if (!session || !Array.isArray(session.dope) || session.dope.length === 0) return false;
     return !session.dope.some((row: any) => !this.isRowComplete(row));
   }
 
   private isRowComplete(row: any): boolean {
     if (!row) return false;
     if (row.distanceM == null) return false;
-    if (row.elevationMil === null || row.elevationMil === undefined || row.elevationMil === '') return false;
-    if (row.windageMil === null || row.windageMil === undefined || row.windageMil === '') return false;
-    if (row.windSpeed === null || row.windSpeed === undefined || row.windSpeed === '') return false;
-    if (row.windDirection === null || row.windDirection === undefined || row.windDirection === '') return false;
-    return true;
+
+    const missing =
+      row.elevationMil === null || row.elevationMil === undefined || row.elevationMil === '' ||
+      row.windageMil === null || row.windageMil === undefined || row.windageMil === '' ||
+      row.windSpeed === null || row.windSpeed === undefined || row.windSpeed === '' ||
+      row.windDirection === null || row.windDirection === undefined || row.windDirection === '';
+
+    return !missing;
   }
 
   // --------------------------------------------------
-  // Wind auto-fill & helpers
+  // Wind helpers
   // --------------------------------------------------
-  autoFillWindFromEnvironment(): void {
-    if (!this.editSession || !this.editSession.environment || !Array.isArray(this.editSession.dope)) {
-      return;
-    }
-
-    const env = this.editSession.environment;
-
-    const envWindSpeed =
-      env.windSpeedMps ??
-      env.windSpeedKph ??
-      env.windSpeedMph ??
-      null;
-
-    let envClock: number | null = null;
-
-    if (env.windDirectionDeg != null) {
-      envClock = this.degreesToClock(env.windDirectionDeg);
-    } else {
-      let envWindDirRaw: any = env.windDirection ?? null;
-      if (envWindDirRaw != null) {
-        if (typeof envWindDirRaw === 'number') {
-          envClock = this.degreesToClock(envWindDirRaw);
-        } else {
-          const str = String(envWindDirRaw);
-          const parsed = parseFloat(str);
-          if (!isNaN(parsed)) {
-            if (parsed > 12 || str.includes('°')) {
-              // treat as degrees
-              envClock = this.degreesToClock(parsed);
-            } else {
-              // already a clock value
-              envClock = parsed;
-            }
-          }
-        }
-      }
-    }
-
-    for (const row of this.editSession.dope) {
-      if (row.windSpeed == null && envWindSpeed != null) {
-        row.windSpeed = envWindSpeed;
-        row._windSpeedAuto = true;
-      }
-      if (row.windDirection == null && envClock != null) {
-        row.windDirection = envClock.toString();
-        row._windDirectionAuto = true;
-      }
-    }
-  }
-
   wasAutoFilled(row: any, field: 'windSpeed' | 'windDirection'): boolean {
     if (!row) return false;
     return field === 'windSpeed' ? !!row._windSpeedAuto : !!row._windDirectionAuto;
@@ -436,14 +280,13 @@ export class HistoryTabComponent implements OnInit {
 
   private degreesToArrow(deg: number): string {
     const normalized = ((deg % 360) + 360) % 360;
-
     if (normalized >= 337.5 || normalized < 22.5) return '↑';
-    if (normalized >= 22.5 && normalized < 67.5) return '↗';
-    if (normalized >= 67.5 && normalized < 112.5) return '→';
-    if (normalized >= 112.5 && normalized < 157.5) return '↘';
-    if (normalized >= 157.5 && normalized < 202.5) return '↓';
-    if (normalized >= 202.5 && normalized < 247.5) return '↙';
-    if (normalized >= 247.5 && normalized < 292.5) return '←';
+    if (normalized < 67.5) return '↗';
+    if (normalized < 112.5) return '→';
+    if (normalized < 157.5) return '↘';
+    if (normalized < 202.5) return '↓';
+    if (normalized < 247.5) return '↙';
+    if (normalized < 292.5) return '←';
     return '↖';
   }
 
@@ -454,196 +297,136 @@ export class HistoryTabComponent implements OnInit {
     return (c % 12) * 30;
   }
 
-  private degreesToClock(deg: number): number {
-    let d = ((deg % 360) + 360) % 360;
-    const hour = Math.round(d / 30) % 12 || 12;
-    return hour;
-  }
-
   getWindArrow(row: any): string {
     if (!row) return '•';
 
     let dirRaw: any = row.windDirection;
-
     if (dirRaw == null && this.editSession?.environment) {
       dirRaw =
         this.editSession.environment.windDirectionDeg ??
         this.editSession.environment.windDirection ??
         null;
     }
-
     if (dirRaw == null) return '•';
 
     const str = String(dirRaw).trim();
-
-    if (str.includes("o'clock")) {
-      const num = parseFloat(str);
-      if (!isNaN(num) && num >= 1 && num <= 12) {
-        const degFromClock = this.clockToDegrees(num);
-        return this.degreesToArrow(degFromClock);
-      }
-    }
-
     const num = parseFloat(str);
+
     if (!isNaN(num)) {
       if (num >= 1 && num <= 12 && !str.includes('°')) {
-        const degFromClock = this.clockToDegrees(num);
-        return this.degreesToArrow(degFromClock);
+        return this.degreesToArrow(this.clockToDegrees(num));
       }
       return this.degreesToArrow(num);
     }
 
     return '•';
-    
   }
+
   // --------------------------------------------------
-  // Voice notes (record + store on row)
+  // Voice note helpers (used by HTML)
   // --------------------------------------------------
+  isRowRecording(row: any): boolean {
+    return !!row && this.rowRecording && this.micTargetRow === row;
+  }
+
   hasRowVoiceNote(row: any): boolean {
     const b64 = (row?.voiceNoteBase64 ?? '').toString().trim();
     return b64.length > 0;
   }
 
-  isRecordingRow(row: any): boolean {
-    return !!this.micRecorder && this.micTargetRow === row;
+  rowVoiceDataUrl(row: any): string | null {
+    const base64 = (row?.voiceNoteBase64 ?? '').toString().trim();
+    if (!base64) return null;
+
+    // plugin returns WAV base64 in your current flow
+    return `data:audio/wav;base64,${base64}`;
   }
 
-  rowVoiceNoteSrc(row: any): string | null {
-    const dataUrl = (row?.voiceNoteDataUrl ?? '').toString().trim();
-    if (dataUrl) return dataUrl;
-
-    const b64 = (row?.voiceNoteBase64 ?? '').toString().trim();
-    if (!b64) return null;
-
-       const mime = (row?.voiceNoteMime ?? 'audio/aac').toString().trim() || 'audio/aac';
-
-    return `data:${mime};base64,${b64}`;
-  }
-
-    async onRowVoiceNoteClick(row: any, ev?: Event): Promise<void> {
+  async onRowMicClick(row: any, ev?: Event): Promise<void> {
     try {
-      ev?.stopPropagation();
-      ev?.preventDefault();
+      ev?.stopPropagation?.();
+      ev?.preventDefault?.();
+    } catch {}
 
-      if (!this.editSession || !this.isSessionEditable(this.editSession)) return;
+    if (!row) return;
 
-      // Tap same row while recording => stop & save
-      if (this.isRowRecording(row)) {
-        await this.stopAndSaveRowRecording();
+    try {
+      // stop recording for THIS row => save to row
+      if (this.rowRecording && this.micTargetRow === row) {
+        const result: any = await CapacitorVoiceRecorder.stopRecording();
+
+        this.rowRecording = false;
+        this.micTargetRow = null;
+
+        const base64 = (result?.base64 ?? '').toString().trim();
+        const msDuration = Number(result?.msDuration ?? 0);
+
+        if (!base64) {
+          this.showSaveMessage('No audio captured');
+          return;
+        }
+
+        row.voiceNoteBase64 = base64;
+        row.voiceNoteDurationMs =
+          Number.isFinite(msDuration) && msDuration > 0 ? msDuration : undefined;
+
+        this.showSaveMessage('Voice note saved (tap Save)');
         return;
       }
 
-      // If recording another row, stop & save it first
-      if (this.recordingRowRef) {
-        await this.stopAndSaveRowRecording();
+      // if recording another row, stop (discard)
+      if (this.rowRecording && this.micTargetRow && this.micTargetRow !== row) {
+        try {
+          await CapacitorVoiceRecorder.stopRecording();
+        } catch {}
+        this.rowRecording = false;
+        this.micTargetRow = null;
       }
 
-      // Native (Capacitor) recording: SAME approach as Load Dev
-      const { status } = await CapacitorVoiceRecorder.canRecord();
-      if (status !== 'GRANTED') {
-        const perm = await CapacitorVoiceRecorder.requestPermission();
+      // ensure permission
+      const can: any = await CapacitorVoiceRecorder.canRecord();
+      if (can?.status !== 'GRANTED') {
+        const perm: any = await CapacitorVoiceRecorder.requestPermission();
         if (!perm?.isGranted) {
-          alert('Microphone permission denied or not available.');
-          this.activeVoiceRow = null;
-          this.recordingRowRef = null;
+          this.showSaveMessage('Microphone permission denied or not available.');
           return;
         }
       }
 
       await CapacitorVoiceRecorder.startRecording();
-      this.activeVoiceRow = row;
-      this.recordingRowRef = row;
+      this.micTargetRow = row;
+      this.rowRecording = true;
+      this.showSaveMessage('Recording… tap ⏹ to stop');
     } catch (err) {
-      console.warn('Voice note start failed:', err);
-      alert('Microphone permission denied or not available.');
-      this.activeVoiceRow = null;
-      this.recordingRowRef = null;
-    }
-  }
-
-  private async stopAndSaveRowRecording(): Promise<void> {
-    const row = this.activeVoiceRow;
-
-    try {
-      const result: any = await CapacitorVoiceRecorder.stopRecording();
-
-      this.activeVoiceRow = null;
-      this.recordingRowRef = null;
-
-      const base64 = (result?.base64 ?? '').toString().trim();
-      const msDuration = Number(result?.msDuration ?? 0);
-
-      if (!row || !base64) return;
-
-      // Store ON THE ROW (persists with normal session Save)
-      row.voiceNoteBase64 = base64;
-      row.voiceNoteMime = (result?.mimeType ?? 'audio/aac').toString().trim() || 'audio/aac';
-      row.voiceNoteRecordedAt = new Date().toISOString();
-      row.voiceNoteDurationMs =
-        Number.isFinite(msDuration) && msDuration > 0 ? msDuration : null;
-    } catch (err) {
-      console.warn('stopAndSaveRowRecording failed:', err);
-      this.activeVoiceRow = null;
-      this.recordingRowRef = null;
+      console.error('History row voice note error:', err);
+      this.rowRecording = false;
+      this.micTargetRow = null;
+      this.showSaveMessage('Microphone permission denied or not available.');
     }
   }
 
   deleteRowVoiceNote(row: any, ev?: Event): void {
-    ev?.stopPropagation();
-    ev?.preventDefault();
+    ev?.stopPropagation?.();
+    ev?.preventDefault?.();
 
-    // If deleting while recording this row, stop first
+    // if deleting while recording this row, stop first
     if (this.isRowRecording(row)) {
-      this.stopAndSaveRowRecording();
+      CapacitorVoiceRecorder.stopRecording().catch(() => {});
+      this.rowRecording = false;
+      this.micTargetRow = null;
     }
 
     row.voiceNoteBase64 = null;
-    row.voiceNoteMime = null;
-    row.voiceNoteRecordedAt = null;
     row.voiceNoteDurationMs = null;
-  }
-
-  private pickSupportedAudioMimeType(): string | null {
-    const MR: any = (window as any).MediaRecorder;
-    if (!MR || typeof MR.isTypeSupported !== 'function') return null;
-
-    const candidates = [
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/ogg;codecs=opus',
-      'audio/ogg'
-    ];
-
-    for (const c of candidates) {
-      try {
-        if (MR.isTypeSupported(c)) return c;
-      } catch {}
-    }
-    return null;
-  }
-
-  private blobToBase64(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onerror = () => reject(r.error);
-      r.onload = () => {
-        const res = (r.result || '').toString();
-        const idx = res.indexOf('base64,');
-        resolve(idx >= 0 ? res.slice(idx + 7) : '');
-      };
-      r.readAsDataURL(blob);
-    });
+    this.showSaveMessage('Voice note removed (tap Save)');
   }
 
   // --------------------------------------------------
-  // Save logic (in-progress vs completed)
+  // Save logic (THIS IS THE IMPORTANT FIX)
   // --------------------------------------------------
   onPrimarySaveClick(): void {
     if (!this.editSession) return;
-
-    if (!this.isSessionEditable(this.editSession)) {
-      return;
-    }
+    if (!this.isSessionEditable(this.editSession)) return;
 
     if (!this.isSessionFullyCompleted(this.editSession)) {
       this.saveInProgress();
@@ -658,13 +441,17 @@ export class HistoryTabComponent implements OnInit {
 
     this.validationError = null;
 
-    const idx = this.sessions.findIndex(s => s.id === this.editSession!.id);
-    if (idx >= 0) {
-      this.sessions[idx] = { ...this.editSession, completed: false };
-      this.persistSessions();
-      this.rebuildPendingSessions();
-      this.showSaveMessage('Session saved (In progress).');
-    }
+    const targetId = String(this.editSession.id);
+    const idx = this.sessions.findIndex(s => String(s.id) === targetId);
+    if (idx < 0) return;
+
+    const updated = { ...this.editSession, completed: false };
+    this.sessions[idx] = updated;
+
+    this.persistEditedSession(updated);
+
+    this.rebuildPendingSessions();
+    this.showSaveMessage('Session saved (In progress).');
   }
 
   private saveAndComplete(): void {
@@ -677,37 +464,70 @@ export class HistoryTabComponent implements OnInit {
 
     this.validationError = null;
 
-    const idx = this.sessions.findIndex(s => s.id === this.editSession!.id);
-    if (idx >= 0) {
-      this.sessions[idx] = { ...this.editSession, completed: true };
-      this.persistSessions();
-      this.rebuildPendingSessions();
-      this.showSaveMessage('Session saved & marked as completed.');
+    const targetId = String(this.editSession.id);
+    const idx = this.sessions.findIndex(s => String(s.id) === targetId);
+    if (idx < 0) return;
 
-      this.editSession = null;
-      this.selectedSessionId = null;
-      this.expandedVenueId = null;
-    }
+    const updated = { ...this.editSession, completed: true };
+    this.sessions[idx] = updated;
+
+    this.persistEditedSession(updated);
+
+    this.rebuildPendingSessions();
+    this.showSaveMessage('Session saved & marked as completed.');
+
+    // close detail view after completion (as before)
+    this.editSession = null;
+    this.selectedSessionId = null;
+    this.expandedVenueId = null;
   }
 
-  private persistSessions(): void {
+  /**
+   * Persist ONLY the edited session (avoids the broken “loop updateSession for all sessions”).
+   * Includes fallbacks for different DataService implementations.
+   */
+  private persistEditedSession(updatedSession: any): void {
     try {
       const ds: any = this.dataService;
+
       if (ds && typeof ds.updateSession === 'function') {
-        for (const s of this.sessions) {
-          ds.updateSession(s);
-        }
+        ds.updateSession(updatedSession);
+        return;
       }
+
+      // common alternative APIs
+      if (ds && typeof ds.saveSession === 'function') {
+        ds.saveSession(updatedSession);
+        return;
+      }
+
+      // if DataService persists the entire list
+      if (ds && typeof ds.setSessions === 'function') {
+        ds.setSessions(this.sessions);
+        return;
+      }
+      if (ds && typeof ds.saveSessions === 'function') {
+        ds.saveSessions(this.sessions);
+        return;
+      }
+      if (ds && typeof ds.persistSessions === 'function') {
+        ds.persistSessions(this.sessions);
+        return;
+      }
+
+      console.warn('No known persist method found on DataService (updateSession/saveSession/setSessions/saveSessions).');
     } catch (err) {
-      console.error('Error persisting sessions from HistoryTab:', err);
+      console.error('Error persisting edited session from HistoryTab:', err);
     }
   }
 
+  // --------------------------------------------------
+  // UI messages / navigation
+  // --------------------------------------------------
   private showSaveMessage(msg: string): void {
     this.saveMessage = msg;
-    if (this.saveMessageTimeout) {
-      clearTimeout(this.saveMessageTimeout);
-    }
+    if (this.saveMessageTimeout) clearTimeout(this.saveMessageTimeout);
+
     this.saveMessageTimeout = setTimeout(() => {
       this.saveMessage = null;
       this.saveMessageTimeout = null;
@@ -722,22 +542,13 @@ export class HistoryTabComponent implements OnInit {
     this.saveMessage = null;
   }
 
-  // --------------------------------------------------
-  // Back from main History list
-  // --------------------------------------------------
   onBackFromHistory(): void {
-    // Reset local History-tab state
     this.closeEdit();
     this.selectedSessionId = null;
     this.expandedVenueId = null;
-
-    // 🔸 Tell the parent "please go back to Menu tab"
     this.backToMenu.emit();
   }
 
-  // --------------------------------------------------
-  // Closing detail
-  // --------------------------------------------------
   closeEdit(): void {
     this.editSession = null;
     this.validationError = null;

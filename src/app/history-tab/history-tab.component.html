@@ -4,42 +4,43 @@
     No sessions saved yet. Create one from the Session tab with the wizard.
   </div>
 
-  <!-- PENDING SESSIONS – always at top, outside History block -->
-  <div
-    *ngFor="let s of pendingSessions"
-    class="bg-slate-950 rounded-lg p-2 border border-amber-400 space-y-1"
-  >
-    <!-- Top row: title + status + button all in one line -->
-    <div class="flex items-center justify-between gap-2">
-      <div class="flex items-center gap-2 min-w-0">
-        <div class="text-[11px] font-semibold truncate">
-          {{ s.title || 'Untitled session' }}
+  <div *ngIf="!editSession" class="space-y-3">
+    <div
+      *ngFor="let s of pendingSessions"
+      class="bg-slate-950 rounded-lg p-2 border border-amber-400 space-y-1"
+    >
+      <!-- Top row: title + status + button all in one line -->
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="text-[11px] font-semibold truncate">
+            {{ s.title || 'Untitled session' }}
+          </div>
+          <span
+            class="px-2 py-[2px] rounded-full text-[10px] font-semibold"
+            [ngClass]="getStatusClass(s)"
+          >
+            {{ getStatusLabel(s) }}
+          </span>
         </div>
-        <span
-          class="px-2 py-[2px] rounded-full text-[10px] font-semibold"
-          [ngClass]="getStatusClass(s)"
+
+        <button
+          class="px-2 py-1 rounded bg-amber-500 text-slate-900 font-semibold text-[11px] whitespace-nowrap"
+          (click)="selectSession(s)"
         >
-          {{ getStatusLabel(s) }}
-        </span>
+          Input Shot Data
+        </button>
       </div>
 
-      <button
-        class="px-2 py-1 rounded bg-amber-500 text-slate-900 font-semibold text-[11px] whitespace-nowrap"
-        (click)="selectSession(s)"
-      >
-        Input Shot Data
-      </button>
-    </div>
+      <!-- Second line: meta info -->
+      <div class="text-[10px] text-slate-300">
+        {{ s.date | date : 'yyyy-MM-dd HH:mm' }} • {{ getRifleName(s.rifleId) }} @
+        {{ getVenueName(s.venueId) }}
+      </div>
 
-    <!-- Second line: meta info -->
-    <div class="text-[10px] text-slate-300">
-      {{ s.date | date : 'yyyy-MM-dd HH:mm' }} • {{ getRifleName(s.rifleId) }} @
-      {{ getVenueName(s.venueId) }}
-    </div>
-
-    <!-- Optional notes -->
-    <div *ngIf="s.notes" class="text-[9px] text-slate-400 line-clamp-1">
-      {{ s.notes }}
+      <!-- Optional notes -->
+      <div *ngIf="s.notes" class="text-[9px] text-slate-400 line-clamp-1">
+        {{ s.notes }}
+      </div>
     </div>
   </div>
 
@@ -192,6 +193,7 @@
         </div>
       </div>
       <span
+        *ngIf="!isSessionEditable(editSession)"
         class="px-2 py-[2px] rounded-full text-[10px] font-semibold"
         [ngClass]="getStatusClass(editSession)"
       >
@@ -361,61 +363,64 @@
                 isRowRecording(row)
               "
             >
-              <!-- Row 1: textarea + mic button -->
-              <div class="flex items-start gap-2">
-                <!-- Text note -->
-                <textarea
-                  rows="1"
-                  [(ngModel)]="row.impactsDescription"
-                  class="flex-1 px-1 py-1 rounded bg-slate-950 border border-slate-700 text-[9px] leading-tight"
-                  placeholder="Notes (optional)"
-                ></textarea>
+              <!-- Stack everything vertically so audio NEVER sits next to textarea -->
+              <div class="w-full flex flex-col gap-1">
+                <!-- Row 1: textarea + mic button -->
+                <div class="w-full flex items-start gap-2">
+                  <!-- Text note -->
+                  <textarea
+                    rows="4"
+                    [(ngModel)]="row.impactsDescription"
+                    class="flex-1 min-w-0 px-1 py-1 rounded bg-slate-950 border border-slate-700 text-[9px] leading-tight"
+                    placeholder="Notes (optional)"
+                  ></textarea>
 
-                <!-- Voice note (ACTIVE) -->
-                <button
-                  type="button"
-                  class="p-2 rounded-full bg-slate-700 text-[12px] text-slate-100 relative shrink-0"
-                  (click)="onRowMicClick(row, $event)"
-                  [title]="isRowRecording(row) ? 'Stop recording' : 'Record voice note'"
-                >
-                  <span *ngIf="!isRowRecording(row)">🎙</span>
-                  <span *ngIf="isRowRecording(row)">⏹</span>
+                  <!-- Voice note (ACTIVE) -->
+                  <button
+                    type="button"
+                    class="p-2 rounded-full bg-slate-700 text-[12px] text-slate-100 relative shrink-0"
+                    (click)="onRowMicClick(row, $event)"
+                    [title]="isRowRecording(row) ? 'Stop recording' : 'Record voice note'"
+                  >
+                    <span *ngIf="!isRowRecording(row)">🎙</span>
+                    <span *ngIf="isRowRecording(row)">⏹</span>
 
-                  <!-- ✅ green dot if this row HAS a voice note -->
-                  <span
-                    *ngIf="hasRowVoiceNote(row)"
-                    class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400"
-                  ></span>
-                </button>
-              </div>
-
-              <!-- Row 2: status + playback + delete (FULL WIDTH under textarea) -->
-              <div
-                *ngIf="isRowRecording(row) || hasRowVoiceNote(row)"
-                class="mt-1 w-full flex items-center gap-2"
-              >
-                <div
-                  *ngIf="isRowRecording(row)"
-                  class="text-[9px] text-amber-300 whitespace-nowrap"
-                >
-                  Recording… tap ⏹ to stop
+                    <!-- green dot if this row HAS a voice note -->
+                    <span
+                      *ngIf="hasRowVoiceNote(row)"
+                      class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400"
+                    ></span>
+                  </button>
                 </div>
 
-                <audio
-                  *ngIf="hasRowVoiceNote(row)"
-                  [src]="rowVoiceDataUrl(row)"
-                  controls
-                  class="flex-1 h-8"
-                ></audio>
-
-                <button
-                  *ngIf="hasRowVoiceNote(row) && !isRowRecording(row)"
-                  type="button"
-                  class="px-2 py-1 rounded-full bg-red-700/80 text-red-50 text-[9px] shrink-0"
-                  (click)="deleteRowVoiceNote(row, $event)"
+                <!-- Row 2: status + playback + delete (FULL WIDTH under textarea) -->
+                <div
+                  *ngIf="isRowRecording(row) || hasRowVoiceNote(row)"
+                  class="w-full flex items-center gap-2"
                 >
-                  Del
-                </button>
+                  <div
+                    *ngIf="isRowRecording(row)"
+                    class="text-[9px] text-amber-300 whitespace-nowrap"
+                  >
+                    Recording… tap ⏹ to stop
+                  </div>
+
+                  <audio
+                    *ngIf="hasRowVoiceNote(row)"
+                    [src]="rowVoiceDataUrl(row)"
+                    controls
+                    class="flex-1 h-8"
+                  ></audio>
+
+                  <button
+                    *ngIf="hasRowVoiceNote(row) && !isRowRecording(row)"
+                    type="button"
+                    class="px-2 py-1 rounded-full bg-red-700/80 text-red-50 text-[9px] shrink-0"
+                    (click)="deleteRowVoiceNote(row, $event)"
+                  >
+                    Del
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -488,6 +493,14 @@
               <ng-template #noNote>
                 <span class="text-slate-500 italic">No notes</span>
               </ng-template>
+
+              <!-- Voice note playback available in History view -->
+              <audio
+                *ngIf="hasRowVoiceNote(row)"
+                [src]="rowVoiceDataUrl(row)"
+                controls
+                class="mt-1 w-full h-8"
+              ></audio>
             </div>
           </div>
         </ng-template>
