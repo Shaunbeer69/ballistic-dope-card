@@ -1981,64 +1981,126 @@ if (type === 'ladder' || type === 'ocw') {
     if (r === 'second') return 'bg-amber-900/25 ring-1 ring-amber-500/40';
     if (r === 'third') return 'bg-rose-900/25 ring-1 ring-rose-500/40';
     return '';
+    
+  }
+// ===============================
+// LADDER: node band classification
+// ===============================
+
+/**
+ * Estimate the ladder step (charge increment) by looking at the smallest
+ * non-zero delta between sorted charge weights.
+ */
+private estimateLadderStepGr(entries: LoadDevEntry[]): number | null {
+  const sorted = [...entries]
+    .filter(e => typeof e.chargeGr === 'number')
+    .sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
+
+  if (sorted.length < 2) return null;
+
+  const deltas: number[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1].chargeGr ?? 0;
+    const cur = sorted[i].chargeGr ?? 0;
+    const d = +(cur - prev).toFixed(3);
+    if (d > 0) deltas.push(d);
   }
 
-  private findNodes(entries: LoadDevEntry[]): NodeEntry[] {
-    const valid = entries
-      .map(e => ({ entry: e, stats: this.statsForEntry(e) }))
-      .filter(x => x.stats != null) as NodeEntry[];
+  if (!deltas.length) return null;
+  return Math.min(...deltas);
+}
 
-    if (valid.length < 3) return [];
+/**
+ * Node band rule:
+ * - If step is about 0.2gr => need 3 consecutive charges in a "flat spot"
+ * - If step is about 0.3gr (or larger) => need 2 consecutive
+ *
+ * "Flat spot" here = within-window velocity RANGE <= 10 fps (max - min <= 10).
+ */
+private ladderNodeWindowSize(sorted: LoadDevEntry[]): number {
+  const step = this.estimateLadderStepGr(sorted);
 
-    const nodes: NodeEntry[] = [];
+  // Default to 3 if we cannot estimate.
+  if (step == null) return 3;
 
-    for (let i = 1; i < valid.length - 1; i++) {
-      const prev = valid[i - 1];
-      const cur = valid[i];
-      const next = valid[i + 1];
+  // If step is around 0.30 or bigger -> 2-shot node; else -> 3-shot node
+  return step >= 0.29 ? 2 : 3;
+}
 
-      const sd = cur.stats.sd;
-      const dv1 = Math.abs(cur.stats.avg - prev.stats.avg);
-      const dv2 = Math.abs(next.stats.avg - cur.stats.avg);
+private ladderIsInNodeBand(entry: LoadDevEntry): boolean {
+  const entries = this.entriesForSelectedProject?.() ?? [];
+  if (!entries.length) return false;
 
-      if (sd <= 12 && dv1 <= 15 && dv2 <= 15) nodes.push(cur);
+  // Only applies to ladder projects
+  if (this.selectedProject?.type !== 'ladder') return false;
+
+  // Sort by charge low -> high
+  const sorted = [...entries].sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
+  const k = this.ladderNodeWindowSize(sorted);
+
+  // Collect velocities (avg) per entry
+  const vels = sorted.map(e => {
+    const s = this.statsForEntry(e);
+    const v = s?.avg;
+    return typeof v === 'number' && isFinite(v) ? v : null;
+  });
+
+  // Mark indices that belong to any qualifying window
+  const inBand = new Array(sorted.length).fill(false);
+
+  // Need at least k valid velocities in a window
+  for (let i = 0; i <= sorted.length - k; i++) {
+    const window = vels.slice(i, i + k);
+    if (window.some(v => v == null)) continue;
+
+    const nums = window as number[];
+    const vMin = Math.min(...nums);
+    const vMax = Math.max(...nums);
+
+    if ((vMax - vMin) <= 10) {
+      for (let j = i; j < i + k; j++) inBand[j] = true;
     }
-
-    return nodes;
   }
 
-  nodeCssClass(entry: LoadDevEntry): string {
-    if (!this.selectedProject || this.selectedProject.type !== 'ladder') return '';
+  // Find current entry index (prefer id match if present)
+  const anyEntry = entry as any;
+  const entryId = anyEntry?.id ?? null;
 
-    const entries = this.entriesForSelectedProject();
-    const nodes = this.findNodes(entries);
-
-    if (!nodes.length) return '';
-
-    const idx = entries.findIndex(e => e.id === entry.id);
-    if (idx < 0) return '';
-
-    const nodeIndices = nodes
-      .map(n => entries.findIndex(e => e.id === n.entry.id))
-      .filter(i => i >= 0);
-
-    const isInNodeBand = nodeIndices.some(i => Math.abs(i - idx) <= 1);
-
-    return isInNodeBand
-      ? 'bg-emerald-900/25 ring-1 ring-emerald-400/40'
-      : '';
+  let idx = -1;
+  if (entryId != null) {
+    idx = sorted.findIndex(e => (e as any)?.id === entryId);
+  }
+  if (idx < 0) {
+    // fallback match by charge
+    idx = sorted.findIndex(e => (e.chargeGr ?? null) === (entry.chargeGr ?? null));
   }
 
-  private allEntriesHaveVelocity(): boolean {
-    if (!this.selectedProject?.entries?.length) return false;
+  if (idx < 0) return false;
+  return inBand[idx] === true;
+}
 
-    return this.selectedProject.entries.every(e => {
-      const any = e as any;
-      const values = this.parseVelocityInput(any.velocityInput);
-      return values.length > 0;
-    });
-  }
+/** CSS class used by the ladder table row: called by the template. */
+nodeCssClass(entry: LoadDevEntry): string {
+  if (this.selectedProject?.type !== 'ladder') return '';
 
+  const isNode = this.ladderIsInNodeBand(entry);
+  return isNode
+    ? 'bg-emerald-500/10 border-l-2 border-emerald-400'
+    : '';
+}
+
+/** Used by your wizard guard; returns true if every ladder step has a velocity. */
+allEntriesHaveVelocity(): boolean {
+  const entries = this.entriesForSelectedProject?.() ?? [];
+  if (!entries.length) return false;
+
+  return entries.every(e => {
+    const s = this.statsForEntry(e);
+    return typeof s?.avg === 'number' && isFinite(s.avg);
+  });
+}
+
+  
   // ---- OCW shot plotting + group ellipses (ALL SHOTS) ----
   private buildOcwShotAndGroupGeometry(entries: LoadDevEntry[]): void {
     this.ocwShotPoints = [];
