@@ -2,6 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, EventEmitter, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../data.service';
+import { Capacitor } from '@capacitor/core';
+import { CapacitorVoiceRecorder } from '@lgicc/capacitor-voice-recorder';
 
 @Component({
   selector: 'app-history-tab',
@@ -19,9 +21,107 @@ export class HistoryTabComponent implements OnInit {
   validationError: string | null = null;
   saveMessage: string | null = null;
   private saveMessageTimeout: any = null;
+  // --------------------------------------------------
+  // Voice notes (per DOPE row)
+  // --------------------------------------------------
+   // --------------------------------------------------
+  // Voice notes (per-distance row in Shot Data input)
+  // Stored on the DOPE row as base64 for playback
+  // --------------------------------------------------
+  private activeVoiceRow: any | null = null;
+  private recordingRowRef: any | null = null;
+
 
   searchTerm: string = '';
   expandedVenueId: number | null = null;
+  // --------------------------------------------------
+  // Voice notes per DOPE row (same plugin as Load Dev)
+  // --------------------------------------------------
+  private micTargetRow: any | null = null;
+  private rowRecording = false;
+
+  // Kept only to satisfy older references (safe no-op)
+  micRecorder: any = null;
+
+  isRowRecording(row: any): boolean {
+    return !!row && this.rowRecording && this.micTargetRow === row;
+  }
+
+  hasRowVoice(row: any): boolean {
+    const b64 = (row?.voiceNoteBase64 ?? '').toString().trim();
+    return !!b64;
+  }
+
+  rowVoiceDataUrl(row: any): string | null {
+    const base64 = (row?.voiceNoteBase64 ?? '').toString().trim();
+    if (!base64) return null;
+    return `data:audio/wav;base64,${base64}`;
+  }
+
+  async onRowMicClick(row: any, ev?: Event): Promise<void> {
+    try {
+      ev?.stopPropagation?.();
+      ev?.preventDefault?.();
+    } catch {}
+
+    if (!row) return;
+
+    try {
+      // If recording for THIS row -> stop & save
+      if (this.rowRecording && this.micTargetRow === row) {
+        const result = await CapacitorVoiceRecorder.stopRecording();
+        this.rowRecording = false;
+        this.micTargetRow = null;
+
+        const base64 = (result?.base64 ?? '').toString().trim();
+        const msDuration = Number(result?.msDuration ?? 0);
+
+        if (!base64) {
+          this.showSaveMessage('No audio captured');
+          return;
+        }
+
+        row.voiceNoteBase64 = base64;
+        row.voiceNoteDurationMs =
+          Number.isFinite(msDuration) && msDuration > 0 ? msDuration : undefined;
+
+        // The row is part of editSession; your existing Save button persists via updateSession()
+        this.showSaveMessage('Voice note saved (tap Save)');
+        return;
+      }
+
+      // If recording for ANOTHER row -> stop it first (and discard)
+      if (this.rowRecording && this.micTargetRow && this.micTargetRow !== row) {
+        try {
+          await CapacitorVoiceRecorder.stopRecording();
+        } catch {}
+        this.rowRecording = false;
+        this.micTargetRow = null;
+      }
+
+      // Ensure mic permission (same style as Load Dev, but FIXED logic)
+      const can = await CapacitorVoiceRecorder.canRecord();
+      const status = (can as any)?.status;
+
+      if (status !== 'GRANTED') {
+        const perm = await CapacitorVoiceRecorder.requestPermission();
+        if (!(perm as any)?.isGranted) {
+          this.showSaveMessage('Microphone permission denied or not available.');
+          return;
+        }
+      }
+
+      await CapacitorVoiceRecorder.startRecording();
+      this.micTargetRow = row;
+      this.rowRecording = true;
+      this.showSaveMessage('Recording… tap ⏹ to stop');
+    } catch (err) {
+      console.error('History row voice note error:', err);
+      this.rowRecording = false;
+      this.micTargetRow = null;
+      this.showSaveMessage('Microphone permission denied or not available.');
+    }
+  }
 
   // 🔸 Tell parent when user presses Back
   @Output() backToMenu = new EventEmitter<void>();
@@ -394,6 +494,145 @@ export class HistoryTabComponent implements OnInit {
     }
 
     return '•';
+    
+  }
+  // --------------------------------------------------
+  // Voice notes (record + store on row)
+  // --------------------------------------------------
+  hasRowVoiceNote(row: any): boolean {
+    const b64 = (row?.voiceNoteBase64 ?? '').toString().trim();
+    return b64.length > 0;
+  }
+
+  isRecordingRow(row: any): boolean {
+    return !!this.micRecorder && this.micTargetRow === row;
+  }
+
+  rowVoiceNoteSrc(row: any): string | null {
+    const dataUrl = (row?.voiceNoteDataUrl ?? '').toString().trim();
+    if (dataUrl) return dataUrl;
+
+    const b64 = (row?.voiceNoteBase64 ?? '').toString().trim();
+    if (!b64) return null;
+
+       const mime = (row?.voiceNoteMime ?? 'audio/aac').toString().trim() || 'audio/aac';
+
+    return `data:${mime};base64,${b64}`;
+  }
+
+    async onRowVoiceNoteClick(row: any, ev?: Event): Promise<void> {
+    try {
+      ev?.stopPropagation();
+      ev?.preventDefault();
+
+      if (!this.editSession || !this.isSessionEditable(this.editSession)) return;
+
+      // Tap same row while recording => stop & save
+      if (this.isRowRecording(row)) {
+        await this.stopAndSaveRowRecording();
+        return;
+      }
+
+      // If recording another row, stop & save it first
+      if (this.recordingRowRef) {
+        await this.stopAndSaveRowRecording();
+      }
+
+      // Native (Capacitor) recording: SAME approach as Load Dev
+      const { status } = await CapacitorVoiceRecorder.canRecord();
+      if (status !== 'GRANTED') {
+        const perm = await CapacitorVoiceRecorder.requestPermission();
+        if (!perm?.isGranted) {
+          alert('Microphone permission denied or not available.');
+          this.activeVoiceRow = null;
+          this.recordingRowRef = null;
+          return;
+        }
+      }
+
+      await CapacitorVoiceRecorder.startRecording();
+      this.activeVoiceRow = row;
+      this.recordingRowRef = row;
+    } catch (err) {
+      console.warn('Voice note start failed:', err);
+      alert('Microphone permission denied or not available.');
+      this.activeVoiceRow = null;
+      this.recordingRowRef = null;
+    }
+  }
+
+  private async stopAndSaveRowRecording(): Promise<void> {
+    const row = this.activeVoiceRow;
+
+    try {
+      const result: any = await CapacitorVoiceRecorder.stopRecording();
+
+      this.activeVoiceRow = null;
+      this.recordingRowRef = null;
+
+      const base64 = (result?.base64 ?? '').toString().trim();
+      const msDuration = Number(result?.msDuration ?? 0);
+
+      if (!row || !base64) return;
+
+      // Store ON THE ROW (persists with normal session Save)
+      row.voiceNoteBase64 = base64;
+      row.voiceNoteMime = (result?.mimeType ?? 'audio/aac').toString().trim() || 'audio/aac';
+      row.voiceNoteRecordedAt = new Date().toISOString();
+      row.voiceNoteDurationMs =
+        Number.isFinite(msDuration) && msDuration > 0 ? msDuration : null;
+    } catch (err) {
+      console.warn('stopAndSaveRowRecording failed:', err);
+      this.activeVoiceRow = null;
+      this.recordingRowRef = null;
+    }
+  }
+
+  deleteRowVoiceNote(row: any, ev?: Event): void {
+    ev?.stopPropagation();
+    ev?.preventDefault();
+
+    // If deleting while recording this row, stop first
+    if (this.isRowRecording(row)) {
+      this.stopAndSaveRowRecording();
+    }
+
+    row.voiceNoteBase64 = null;
+    row.voiceNoteMime = null;
+    row.voiceNoteRecordedAt = null;
+    row.voiceNoteDurationMs = null;
+  }
+
+  private pickSupportedAudioMimeType(): string | null {
+    const MR: any = (window as any).MediaRecorder;
+    if (!MR || typeof MR.isTypeSupported !== 'function') return null;
+
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/ogg'
+    ];
+
+    for (const c of candidates) {
+      try {
+        if (MR.isTypeSupported(c)) return c;
+      } catch {}
+    }
+    return null;
+  }
+
+  private blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onerror = () => reject(r.error);
+      r.onload = () => {
+        const res = (r.result || '').toString();
+        const idx = res.indexOf('base64,');
+        resolve(idx >= 0 ? res.slice(idx + 7) : '');
+      };
+      r.readAsDataURL(blob);
+    });
   }
 
   // --------------------------------------------------
