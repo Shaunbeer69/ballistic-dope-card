@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import jsPDF from 'jspdf';
+import { CapacitorVoiceRecorder } from '@lgicc/capacitor-voice-recorder';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -151,28 +152,108 @@ isAnnotatingPhoto = false;
   }
 
   // ==========================
-  // MIC (future feature only)
-  // ==========================
-  // Shown next to the MIC button in HTML (NOT the top banner)
-  micInlineMessage: string | null = null;
+// MIC (VOICE NOTE - ACTIVE)
+// ==========================
+micInlineMessage: string | null = null;
 
-  onMicFuture(event?: Event): void {
-    try {
-      event?.preventDefault();
-      event?.stopPropagation();
-    } catch {
-      // ignore
+isVoiceRecording = false;
+voiceNoteDataUrl: string | null = null;
+voiceNoteDurationMs: number | null = null;
+
+private syncVoiceNoteFromProject(): void {
+  try {
+    const any = this.selectedProject as any;
+    const base64 = (any?.voiceNoteBase64 ?? '').toString().trim();
+    const ms = Number(any?.voiceNoteDurationMs ?? 0);
+
+    this.voiceNoteDurationMs = Number.isFinite(ms) && ms > 0 ? ms : null;
+    this.voiceNoteDataUrl = base64 ? `data:audio/wav;base64,${base64}` : null;
+  } catch {
+    this.voiceNoteDurationMs = null;
+    this.voiceNoteDataUrl = null;
+  }
+}
+
+async onMicToggle(event?: Event): Promise<void> {
+  try {
+    event?.preventDefault();
+    event?.stopPropagation();
+  } catch {
+    // ignore
+  }
+
+  if (!this.selectedProject) {
+    this.micInlineMessage = 'Select a project first';
+    setTimeout(() => (this.micInlineMessage = null), 1500);
+    return;
+  }
+
+  try {
+    if (!this.isVoiceRecording) {
+      // Ensure permission
+      const { status } = await CapacitorVoiceRecorder.canRecord();
+      if (status !== 'GRANTED') {
+        const perm = await CapacitorVoiceRecorder.requestPermission();
+        if (perm.isGranted) {
+          this.micInlineMessage = 'Mic permission denied';
+          setTimeout(() => (this.micInlineMessage = null), 1800);
+          return;
+        }
+      }
+
+      await CapacitorVoiceRecorder.startRecording();
+      this.isVoiceRecording = true;
+      this.micInlineMessage = 'Recording… tap ⏹ to stop';
+      return;
     }
 
-    // Future feature only — NO recording code.
-    this.micInlineMessage = '🎤 Voice notes: coming soon';
+    // Stop + save
+    const result = await CapacitorVoiceRecorder.stopRecording();
+    this.isVoiceRecording = false;
 
-    // Clear after a moment so it doesn’t stick
-    setTimeout(() => {
-      this.micInlineMessage = null;
-    }, 2200);
-    
+    const base64 = (result?.base64 ?? '').toString().trim();
+    const msDuration = Number(result?.msDuration ?? 0);
+
+    if (!base64) {
+      this.micInlineMessage = 'No audio captured';
+      setTimeout(() => (this.micInlineMessage = null), 1800);
+      return;
+    }
+
+    const updated: any = {
+      ...(this.selectedProject as any),
+      voiceNoteBase64: base64,
+      voiceNoteDurationMs: Number.isFinite(msDuration) && msDuration > 0 ? msDuration : undefined
+    };
+
+    this.data.updateLoadDevProject(updated);
+
+    // Refresh UI preview
+    this.syncVoiceNoteFromProject();
+
+    this.micInlineMessage = '✅ Voice note saved';
+    setTimeout(() => (this.micInlineMessage = null), 1600);
+  } catch (err) {
+    this.isVoiceRecording = false;
+    this.micInlineMessage = 'Mic error (check permission / mic in use)';
+    setTimeout(() => (this.micInlineMessage = null), 2200);
   }
+}
+
+deleteVoiceNote(): void {
+  if (!this.selectedProject) return;
+
+  const updated: any = { ...(this.selectedProject as any) };
+  delete updated.voiceNoteBase64;
+  delete updated.voiceNoteDurationMs;
+
+  this.data.updateLoadDevProject(updated);
+  this.syncVoiceNoteFromProject();
+
+  this.micInlineMessage = 'Voice note removed';
+  setTimeout(() => (this.micInlineMessage = null), 1200);
+}
+
 // ==========================
 // TARGET PHOTO (camera)
 // ==========================
@@ -1308,6 +1389,7 @@ private async drawAssetImageInBox(
   // When opening Notes, load the saved project photo into targetPhotoDataUrl
   if (this.showNotesPanel) {
     this.syncTargetPhotoFromProject();
+     this.syncVoiceNoteFromProject();
   }
 }
 
@@ -1433,7 +1515,7 @@ private async drawAssetImageInBox(
     this.selectedProject =
       this.projects.find(p => p.id === this.selectedProjectId) ?? null;
 this.syncTargetPhotoFromProject();
-
+this.syncVoiceNoteFromProject();
     this.updateHasResultsFlag();
     this.rebuildGraphData();
     if (!this.graphCoords.length && !this.ocwShotPoints.length) this.showGraph = false;

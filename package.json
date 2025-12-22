@@ -39,6 +39,7 @@
     "@capacitor/filesystem": "^7.1.6",
     "@capacitor/ios": "^8.0.0",
     "@capacitor/share": "^7.0.3",
+    "@lgicc/capacitor-voice-recorder": "^6.0.11",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "rxjs": "~7.8.0",

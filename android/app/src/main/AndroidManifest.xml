@@ -9,6 +9,10 @@
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+<!-- Record Audio - Voicenotes -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+
     <!-- Legacy Bluetooth (pre-Android 12) -->
     <uses-permission
         android:name="android.permission.BLUETOOTH"

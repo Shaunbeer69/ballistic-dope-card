@@ -159,9 +159,9 @@
                 type="button"
                 class="px-2 py-1 rounded-2xl bg-gray-700 text-gray-100 text-[11px]"
                 title="Audio notes (future)"
-                (click)="onMicFuture($event)"
+                (click)="onMicToggle($event)"
               >
-                🎤
+                {{ isVoiceRecording ? '⏹' : '🎤' }}
               </button>
               <!-- ✅ Inline message next to mic -->
               <span
@@ -551,13 +551,11 @@
                 <ng-container *ngIf="selectedProject?.type === 'ocw'; else ladderBody">
                   <ng-container *ngFor="let entry of entriesForSelectedProject()">
                     <!-- Line 1: metrics -->
-                    <td class="px-2 py-1 text-gray-100">
-                      {{ entry.chargeGr }}
-                      <span *ngIf="hasEntryPhoto(entry)" class="ml-1 opacity-80">📷</span>
-                    </td>
-
                     <tr [ngClass]="ocwSdCssClass(entry)">
-                      <td class="px-2 py-1 text-gray-100">{{ entry.chargeGr }}</td>
+                      <td class="px-2 py-1 text-gray-100">
+                        {{ entry.chargeGr }}
+                        <span *ngIf="hasEntryPhoto(entry)" class="ml-1 opacity-80">📷</span>
+                      </td>
 
                       <td class="px-2 py-1 text-gray-100">
                         <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl">
@@ -576,10 +574,6 @@
                           {{ s.es | number : '1.0-0' }}
                         </ng-container>
                       </td>
-                      <td class="px-2 py-1 text-gray-100">
-                        {{ entry.chargeGr }}
-                        <span *ngIf="hasEntryPhoto(entry)" class="ml-1 opacity-80">📷</span>
-                      </td>
 
                       <td class="px-2 py-1 text-right text-gray-100">
                         {{ formatGroupSize(entry) }}
@@ -587,16 +581,16 @@
                     </tr>
 
                     <!-- Line 2: actions -->
-                    <button
-                      class="text-[10px] px-2 py-0.5 rounded-full bg-gray-600/90 text-white mr-1"
-                      title="Target photo"
-                      (click)="onEntryTargetPhotoClick(entry, $event)"
-                    >
-                      📷
-                    </button>
-
                     <tr class="border-t border-gray-800 bg-black/40">
                       <td colspan="5" class="px-2 py-1.5 text-right whitespace-nowrap">
+                        <button
+                          class="text-[10px] px-2 py-0.5 rounded-full bg-gray-600/90 text-white mr-2"
+                          title="Target photo"
+                          (click)="onEntryTargetPhotoClick(entry, $event)"
+                        >
+                          📷
+                        </button>
+
                         <button
                           class="text-[10px] px-3 py-0.5 rounded-full bg-sky-600/90 text-black mr-2"
                           (click)="editVelocityForEntry(entry)"
@@ -704,9 +698,9 @@
                   type="button"
                   class="px-3 py-2 rounded-xl bg-gray-700 text-white text-xs"
                   title="Audio notes (future)"
-                  (click)="onMicFuture($event)"
+                  (click)="onMicToggle($event)"
                 >
-                  🎤
+                  {{ isVoiceRecording ? '⏹' : '🎤' }}
                 </button>
 
                 <span

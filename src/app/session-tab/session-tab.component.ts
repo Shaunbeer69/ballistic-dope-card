@@ -53,6 +53,14 @@ export class SessionTabComponent implements OnInit {
   shotCount: number | null = null;
   selectedDistances: number[] = [];
   notes = '';
+  // ---------- Session Voice Note (Mic) ----------
+  sessionMicInlineMessage: string | null = null;
+  sessionVoiceNoteDataUrl: string | null = null;
+
+  private sessionMediaRecorder: MediaRecorder | null = null;
+  private sessionMediaStream: MediaStream | null = null;
+  private sessionAudioChunks: BlobPart[] = [];
+  sessionIsRecording = false;
 
   dopeRows: DistanceDope[] = [];
   completeMessage = '';
@@ -263,7 +271,8 @@ export class SessionTabComponent implements OnInit {
         (sr ? ` on sub-range "${sr.name}"` : '')
     );
 
-    const sessionToSave: Omit<Session, 'id'> = {
+        const sessionToSave: any = {
+
       date: new Date().toISOString(),
       rifleId: this.rifleId,
       venueId: this.venueId,
@@ -271,8 +280,10 @@ export class SessionTabComponent implements OnInit {
       environment: this.environment,
       dope: this.dopeRows,
       notes: sessionNotesParts.join(' | '),
+      voiceNoteDataUrl: this.sessionVoiceNoteDataUrl || undefined,
       completed: false
     };
+      
 
     this.data.addSession(sessionToSave);
 
@@ -319,6 +330,14 @@ export class SessionTabComponent implements OnInit {
     this.shotCount = null;
     this.selectedDistances = [];
     this.notes = '';
+        // reset session voice note
+    this.sessionMicInlineMessage = null;
+    this.sessionVoiceNoteDataUrl = null;
+    this.sessionIsRecording = false;
+    this.sessionMediaRecorder = null;
+    this.sessionMediaStream = null;
+    this.sessionAudioChunks = [];
+
     this.dopeRows = [];
     this.completeMessage = '';
 
@@ -335,8 +354,102 @@ export class SessionTabComponent implements OnInit {
     this.rifles = this.data.getRifles();
     this.venues = this.data.getVenues();
   }
+  // ---------- Session Voice Note (Mic) handlers ----------
+
+  async onSessionVoiceNoteClick(ev?: any): Promise<void> {
+    try {
+      if (ev?.stopPropagation) ev.stopPropagation();
+      if (ev?.preventDefault) ev.preventDefault();
+
+      // Toggle
+      if (this.sessionIsRecording) {
+        await this.stopSessionRecording();
+      } else {
+        await this.startSessionRecording();
+      }
+    } catch (e: any) {
+      console.error(e);
+      this.sessionMicInlineMessage = 'Mic error. Check permissions.';
+      setTimeout(() => (this.sessionMicInlineMessage = null), 2500);
+    }
+  }
+
+  private async startSessionRecording(): Promise<void> {
+    // Basic guard for environments without MediaRecorder
+    const anyNav: any = navigator;
+    if (!anyNav?.mediaDevices?.getUserMedia || typeof (window as any).MediaRecorder === 'undefined') {
+      this.sessionMicInlineMessage = 'Voice notes not supported on this device.';
+      setTimeout(() => (this.sessionMicInlineMessage = null), 2500);
+      return;
+    }
+
+    // Ask for mic permission
+    this.sessionMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    // Prefer a sane mime if available
+    const preferredTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+    let mimeType = '';
+    for (const t of preferredTypes) {
+      try {
+        if ((window as any).MediaRecorder.isTypeSupported?.(t)) {
+          mimeType = t;
+          break;
+        }
+      } catch {}
+    }
+
+    this.sessionAudioChunks = [];
+    this.sessionMediaRecorder = new MediaRecorder(this.sessionMediaStream, mimeType ? { mimeType } : undefined);
+
+    this.sessionMediaRecorder.ondataavailable = (event: BlobEvent) => {
+      if (event.data && event.data.size > 0) this.sessionAudioChunks.push(event.data);
+    };
+
+    this.sessionMediaRecorder.onstop = async () => {
+      try {
+        const blob = new Blob(this.sessionAudioChunks, { type: this.sessionMediaRecorder?.mimeType || 'audio/webm' });
+        this.sessionVoiceNoteDataUrl = await this.blobToDataUrl(blob);
+
+        this.sessionMicInlineMessage = 'Voice note saved';
+        setTimeout(() => (this.sessionMicInlineMessage = null), 1500);
+      } catch (e) {
+        console.error(e);
+        this.sessionMicInlineMessage = 'Could not save voice note.';
+        setTimeout(() => (this.sessionMicInlineMessage = null), 2500);
+      } finally {
+        // Stop tracks to release mic
+        this.sessionMediaStream?.getTracks()?.forEach(t => t.stop());
+        this.sessionMediaStream = null;
+        this.sessionMediaRecorder = null;
+        this.sessionAudioChunks = [];
+      }
+    };
+
+    this.sessionMediaRecorder.start();
+    this.sessionIsRecording = true;
+
+    this.sessionMicInlineMessage = 'Recording… tap again to stop';
+  }
+
+  private async stopSessionRecording(): Promise<void> {
+    if (this.sessionMediaRecorder && this.sessionIsRecording) {
+      this.sessionIsRecording = false;
+      this.sessionMicInlineMessage = 'Stopping…';
+      this.sessionMediaRecorder.stop();
+    }
+  }
+
+  private blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('FileReader failed'));
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.readAsDataURL(blob);
+    });
+  }
 
   onBackFromHistory() {
-   this.backToMenu.emit();
+       this.backToMenu.emit();
+   
 }
 }
