@@ -157,12 +157,20 @@
               <!-- ✅ MIC now triggers inline message -->
               <button
                 type="button"
-                class="px-2 py-1 rounded-2xl bg-gray-700 text-gray-100 text-[11px]"
-                title="Audio notes (future)"
+                class="px-2 py-1 rounded-2xl text-gray-100 text-[11px] relative"
+                [ngClass]="isVoiceRecording || voiceNoteDataUrl ? 'bg-emerald-600' : 'bg-gray-700'"
+                title="Audio note"
                 (click)="onMicToggle($event)"
               >
                 {{ isVoiceRecording ? '⏹' : '🎤' }}
+
+                <!-- green dot when audio exists -->
+                <span
+                  *ngIf="voiceNoteDataUrl && !isVoiceRecording"
+                  class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400"
+                ></span>
               </button>
+
               <!-- ✅ Inline message next to mic -->
               <span
                 *ngIf="micInlineMessage"
@@ -683,7 +691,7 @@
 
           <ng-container *ngIf="selectedProject as sp">
             <!-- ✅ Notes + MIC + inline message on LEFT; Delete on RIGHT -->
-            <div class="flex items-center justify-between gap-2 mt-3">
+            <div class="flex items-center gap-2 mt-3">
               <!-- Left: Notes + MIC + inline message -->
               <div class="flex items-center gap-2">
                 <button
@@ -696,11 +704,19 @@
 
                 <button
                   type="button"
-                  class="px-3 py-2 rounded-xl bg-gray-700 text-white text-xs"
-                  title="Audio notes (future)"
+                  class="px-3 py-2 rounded-xl text-white text-xs relative"
+                  [ngClass]="
+                    isVoiceRecording || voiceNoteDataUrl ? 'bg-emerald-600' : 'bg-gray-700'
+                  "
+                  title="Audio note"
                   (click)="onMicToggle($event)"
                 >
                   {{ isVoiceRecording ? '⏹' : '🎤' }}
+
+                  <span
+                    *ngIf="voiceNoteDataUrl && !isVoiceRecording"
+                    class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400"
+                  ></span>
                 </button>
 
                 <span
@@ -733,14 +749,15 @@
               </span>
 
               <!-- Right: Delete -->
-              <button
-                class="px-3 py-2 rounded-xl bg-red-600 text-white text-xs"
-                (click)="deleteProject(selectedProject!)"
-              >
-                Delete Project
-              </button>
+              <div class="ml-auto">
+                <button
+                  type="button"
+                  class="px-3 py-1.5 rounded-lg bg-red-700 text-red-50 text-[11px] font-semibold hover:bg-red-600 active:scale-95 transition"
+                >
+                  Delete Project
+                </button>
+              </div>
             </div>
-
             <!-- Notes panel (collapsed by default) -->
             <div *ngIf="showNotesPanel" class="mt-2 space-y-2">
               <textarea
@@ -768,8 +785,29 @@
                   <div class="text-[10px] text-gray-500">No target photo saved yet.</div>
                 </ng-template>
 
-                <div class="text-[10px] text-gray-500 italic">
-                  Audio playback will appear here when enabled.
+                <<!-- AUDIO -->
+                <div class="mt-2 space-y-1">
+                  <!-- Recording status -->
+                  <div *ngIf="isVoiceRecording" class="text-[9px] text-amber-300">
+                    Recording… tap ⏹ to stop
+                  </div>
+
+                  <!-- Playback -->
+                  <div *ngIf="voiceNoteDataUrl; else noAudio" class="flex items-center gap-2">
+                    <audio [src]="voiceNoteDataUrl" controls class="flex-1 h-8"></audio>
+
+                    <button
+                      type="button"
+                      class="px-2 py-1 rounded-full bg-red-700/80 text-red-50 text-[9px]"
+                      (click)="deleteVoiceNote()"
+                    >
+                      Del
+                    </button>
+                  </div>
+
+                  <ng-template #noAudio>
+                    <div class="text-[10px] text-gray-500">No voice note saved yet.</div>
+                  </ng-template>
                 </div>
               </div>
 

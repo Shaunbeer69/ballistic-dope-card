@@ -192,14 +192,15 @@ async onMicToggle(event?: Event): Promise<void> {
     if (!this.isVoiceRecording) {
       // Ensure permission
       const { status } = await CapacitorVoiceRecorder.canRecord();
-      if (status !== 'GRANTED') {
-        const perm = await CapacitorVoiceRecorder.requestPermission();
-        if (perm.isGranted) {
-          this.micInlineMessage = 'Mic permission denied';
-          setTimeout(() => (this.micInlineMessage = null), 1800);
-          return;
-        }
-      }
+if (status !== 'GRANTED') {
+  const perm = await CapacitorVoiceRecorder.requestPermission();
+  if (!perm.isGranted) {
+    this.micInlineMessage = 'Mic permission denied';
+    setTimeout(() => (this.micInlineMessage = null), 1800);
+    return;
+  }
+  
+}
 
       await CapacitorVoiceRecorder.startRecording();
       this.isVoiceRecording = true;
@@ -227,6 +228,11 @@ async onMicToggle(event?: Event): Promise<void> {
     };
 
     this.data.updateLoadDevProject(updated);
+this.data.updateLoadDevProject(updated);
+
+// 🔥 IMPORTANT: reload selectedProject from DataService, then rebuild preview
+this.refreshSelectedProject();
+this.syncVoiceNoteFromProject();
 
     // Refresh UI preview
     this.syncVoiceNoteFromProject();
@@ -252,6 +258,12 @@ deleteVoiceNote(): void {
 
   this.micInlineMessage = 'Voice note removed';
   setTimeout(() => (this.micInlineMessage = null), 1200);
+  this.data.updateLoadDevProject(updated);
+
+// 🔥 IMPORTANT: reload selectedProject from DataService, then rebuild preview
+this.refreshSelectedProject();
+this.syncVoiceNoteFromProject();
+
 }
 
 // ==========================
