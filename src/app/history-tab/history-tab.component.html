@@ -237,10 +237,19 @@
     </div>
 
     <!-- Average velocity -->
-    <div>
+    <!-- Average velocity -->
+    <div
+      class="rounded-lg p-2"
+      [ngClass]="
+        isSessionEditable(editSession)
+          ? 'ring-2 ring-amber-400/70 animate-pulse focus-within:animate-none'
+          : ''
+      "
+    >
       <ng-container *ngIf="isSessionEditable(editSession); else readOnlyAveVel">
         Ave vel (fps):
         <input
+          #aveVel
           type="number"
           step="1"
           [(ngModel)]="editSession.averageVelocity"
@@ -284,32 +293,55 @@
 
             <!-- Elevation -->
             <div class="flex justify-center items-center">
+              <!-- first row gets the elevFirst ref so AveVel Enter can jump here -->
               <input
+                *ngIf="i === 0; else elevNormal"
+                #elevFirst
                 type="number"
                 step="0.01"
                 [(ngModel)]="row.elevationMil"
                 class="w-14 text-center px-1 py-[2px] rounded bg-slate-950 border border-slate-700 text-[10px] leading-tight"
+                (keydown.enter)="$event.preventDefault(); wind.focus()"
+                [attr.tabindex]="i === 0 ? 2 : null"
               />
+
+              <ng-template #elevNormal>
+                <input
+                  #elev
+                  type="number"
+                  step="0.01"
+                  [(ngModel)]="row.elevationMil"
+                  class="w-14 text-center px-1 py-[2px] rounded bg-slate-950 border border-slate-700 text-[10px] leading-tight"
+                  (keydown.enter)="$event.preventDefault(); wind.focus()"
+                />
+              </ng-template>
             </div>
 
             <!-- Windage -->
             <div class="flex justify-center items-center">
               <input
+                #wind
                 type="number"
                 step="0.01"
                 [(ngModel)]="row.windageMil"
                 class="w-14 text-center px-1 py-[2px] rounded bg-slate-950 border border-slate-700 text-[10px] leading-tight"
+                (keydown.enter)="$event.preventDefault(); wspd.focus()"
+                [attr.tabindex]="i === 0 ? 3 : null"
               />
             </div>
 
             <!-- Wind SPEED -->
+            <!-- Wind SPEED -->
             <div class="flex flex-col items-center justify-center">
               <input
+                #wspd
                 type="number"
                 step="0.1"
                 [(ngModel)]="row.windSpeed"
                 class="w-14 text-center px-1 py-[2px] rounded bg-slate-950 border border-slate-700 text-[10px] leading-tight"
                 placeholder="m/s"
+                (keydown.enter)="$event.preventDefault(); wdir.focus()"
+                [attr.tabindex]="i === 0 ? 4 : null"
               />
               <span
                 *ngIf="wasAutoFilled(row, 'windSpeed')"
@@ -320,12 +352,16 @@
             </div>
 
             <!-- Wind DIRECTION + arrow (clock-based) -->
+            <!-- Wind DIRECTION + arrow (clock-based) -->
             <div class="flex flex-col items-center justify-center">
               <input
+                #wdir
                 type="text"
                 [(ngModel)]="row.windDirection"
                 class="w-14 text-center px-1 py-[2px] rounded bg-slate-950 border border-slate-700 text-[10px] leading-tight"
                 placeholder="clock (1–12)"
+                (keydown.enter)="$event.preventDefault(); notesBtn.focus()"
+                [attr.tabindex]="i === 0 ? 5 : null"
               />
               <span class="text-[10px] leading-tight mt-[1px]">
                 {{ getWindArrow(row) }}
@@ -335,9 +371,12 @@
             <!-- Notes control row: button just under inputs -->
             <div class="col-span-5 mt-1 flex items-center justify-between">
               <button
+                #notesBtn
                 type="button"
                 class="px-2 py-[2px] rounded-full bg-slate-700 text-[9px] text-slate-100"
+                [ngClass]="isSessionEditable(editSession) ? 'ring-2 ring-amber-400/50' : ''"
                 (click)="row.notesExpanded = !row.notesExpanded"
+                [attr.tabindex]="i === 0 ? 6 : null"
               >
                 {{
                   row.notesExpanded ||
@@ -504,7 +543,7 @@
 
     <!-- Session notes -->
     <div class="mt-2">
-      <div class="text-[11px] font-semibold mb-1">Session notes</div>
+      <div class="text-[11px] font-semibold mb-1">Global Session notes</div>
 
       <!-- Editable notes when in progress -->
       <textarea
