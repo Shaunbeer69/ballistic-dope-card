@@ -194,7 +194,7 @@ async onMicToggle(event?: Event): Promise<void> {
       const { status } = await CapacitorVoiceRecorder.canRecord();
 if (status !== 'GRANTED') {
   const perm = await CapacitorVoiceRecorder.requestPermission();
-  if (!perm.isGranted) {
+ if (!perm.isGranted) {
     this.micInlineMessage = 'Mic permission denied';
     setTimeout(() => (this.micInlineMessage = null), 1800);
     return;

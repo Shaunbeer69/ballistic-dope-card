@@ -749,12 +749,13 @@
               </span>
 
               <!-- Right: Delete -->
-              <div class="ml-auto">
+              <!-- Right: Delete -->
+              <div class="ml-auto flex justify-end">
                 <button
                   type="button"
-                  class="px-3 py-1.5 rounded-lg bg-red-700 text-red-50 text-[11px] font-semibold hover:bg-red-600 active:scale-95 transition"
+                  class="px-2 py-1 rounded-md bg-red-700/80 text-red-50 text-[10px] font-semibold hover:bg-red-600 active:scale-95 transition"
                 >
-                  Delete Project
+                  Delete
                 </button>
               </div>
             </div>
@@ -785,7 +786,7 @@
                   <div class="text-[10px] text-gray-500">No target photo saved yet.</div>
                 </ng-template>
 
-                <<!-- AUDIO -->
+                <!-- AUDIO -->
                 <div class="mt-2 space-y-1">
                   <!-- Recording status -->
                   <div *ngIf="isVoiceRecording" class="text-[9px] text-amber-300">

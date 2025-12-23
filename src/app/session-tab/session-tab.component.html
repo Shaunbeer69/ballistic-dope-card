@@ -347,11 +347,17 @@
 
           <button
             type="button"
-            class="px-3 py-1.5 rounded-lg bg-gray-700 text-white text-[11px]"
+            class="relative px-3 py-1.5 rounded-lg bg-gray-700 text-white text-[11px]"
             title="Voice note"
             (click)="onSessionVoiceNoteClick($event)"
           >
             🎤
+
+            <!-- ✅ Green dot when a voice note exists -->
+            <span
+              *ngIf="sessionVoiceNoteDataUrl"
+              class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400"
+            ></span>
           </button>
 
           <span

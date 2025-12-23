@@ -56,6 +56,7 @@
                   <div class="text-1.5xl leading-none">📊</div>
                   <div class="text-[12px] font-semibold text-center px-2">Session Summaries</div>
                 </button>
+
                 <!-- Load Development -->
                 <button
                   class="w-full h-24 rounded-2xl bg-gray-700 text-gray-100 shadow hover:bg-orange-400 active:bg-orange-600 transition flex flex-col items-center justify-center gap-1"
@@ -329,18 +330,19 @@
 
               <!-- TOOLS -->
               <div *ngIf="showTools" class="rounded-2xl p-3 shadow space-y-3 mt-3">
-                <!-- First row of icons: Kestrel + Converter -->
-                <div class="mt-1 grid grid-cols-4 gap-4 justify-items-center">
+                <!-- Tool icons -->
+                <div class="grid grid-cols-4 gap-4 justify-items-center">
+                  <!-- Kestrel -->
                   <div class="flex flex-col items-center">
                     <button
                       class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-800 hover:scale-105 active:scale-95 transition"
                       [ngClass]="{
-                        'bg-black hover:scale-105':
+                        'bg-black':
                           !(kestrel.kestrelIsConnecting$ | async) &&
                           !kestrel.kestrelError &&
                           !kestrelData,
                         'bg-blue-500 animate-pulse': kestrel.kestrelIsConnecting$ | async,
-                        'bg-green-600 hover:scale-105':
+                        'bg-green-600':
                           !(kestrel.kestrelIsConnecting$ | async) &&
                           kestrelData &&
                           !kestrel.kestrelError,
@@ -349,7 +351,6 @@
                       (click)="onKestrelButtonClick()"
                       [disabled]="kestrel.kestrelIsConnecting$ | async"
                     >
-                      <!-- Simple "Kestrel" SVG icon -->
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
                         <circle cx="12" cy="12" r="9" class="fill-black/40" />
                         <path
@@ -359,32 +360,52 @@
                       </svg>
                     </button>
 
-                    <span
-                      class="mt-1 text-[10px] text-gray-300 border-b border-dashed border-gray-600/60 pb-[1px]"
-                    >
-                      Kestrel env
-                    </span>
+                    <span class="mt-1 text-[10px] text-gray-300">Kestrel env</span>
                     <span class="text-[9px] text-gray-500 italic mt-0.5">
                       {{ selectedTool === 'kestrel' ? 'Tap to close' : 'Tap to read' }}
                     </span>
                   </div>
 
-                  <!-- Backup / Export tool icon -->
+                  <!-- Target downloads -->
+                  <div class="flex flex-col items-center">
+                    <button
+                      class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-red-500 via-orange-600 to-rose-800 hover:scale-105 active:scale-95 transition"
+                      (click)="openTargetDownloads()"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="9"
+                          class="fill-transparent stroke-white"
+                          stroke-width="1"
+                        />
+                        <circle cx="12" cy="12" r="1.6" class="fill-white" />
+                        <path
+                          class="stroke-white"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          d="M12 3v4M12 17v4M3 12h4M17 12h4"
+                        />
+                        <path class="fill-white" d="M11 10h2v5h2.5L12 19.5 8.5 15H11z" />
+                      </svg>
+                    </button>
 
+                    <span class="mt-1 text-[10px] text-gray-300">Target downloads</span>
+                    <span class="text-[9px] text-gray-500 italic mt-0.5">Printable targets</span>
+                  </div>
+
+                  <!-- Backup / Export -->
                   <div class="flex flex-col items-center">
                     <button
                       class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-sky-500 via-indigo-600 to-slate-900 hover:scale-105 active:scale-95 transition"
                       (click)="exportLoadDevBackup()"
                     >
-                      <!-- Simple cloud/download icon -->
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
-                        <!-- Cloud-ish background -->
                         <path
                           class="fill-white/60"
                           d="M12 3a5 5 0 00-4.9 4H7a4 4 0 100 8h1v-2H7a2 2 0 110-4h.5a1 1 0 00.98-.8A3 3 0 0112 5a3 3 0 012.85 2.1 1 1 0 00.87.7H16a3 3 0 010 6h-1v2h1a5 5 0 000-10h-.03A5 5 0 0012 3z"
                         />
-
-                        <!-- Download arrow -->
                         <path
                           class="fill-white"
                           d="M11 11V7h2v4h2.5L12 16.5 8.5 11H11zM8 18h8v2H8z"
@@ -392,31 +413,22 @@
                       </svg>
                     </button>
 
-                    <span
-                      class="mt-1 text-[10px] text-gray-300 border-b border-dashed border-gray-600/60 pb-[1px]"
-                    >
-                      Backup / export
-                    </span>
-                    <span
-                      class="text-[9px] text-gray-500 italic mt-0.5 hover:bg-orange-400 active:bg-orange-600 transition"
-                    >
-                      JSON load dev backup
-                    </span>
+                    <span class="mt-1 text-[10px] text-gray-300">Backup / export</span>
+                    <span class="text-[9px] text-gray-500 italic mt-0.5">JSON load dev backup</span>
                   </div>
 
-                  <!-- Mil / MOA converter icon -->
+                  <!-- Mil / MOA converter -->
                   <div class="flex flex-col items-center">
                     <button
                       class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-fuchsia-500 via-purple-600 to-indigo-800 hover:scale-105 active:scale-95 transition"
                       (click)="onConverterToolClick()"
                     >
-                      <!-- Simple crosshair / dial icon -->
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
                         <circle
                           cx="12"
                           cy="12"
                           r="7"
-                          class="fill-transparent stroke-white hover:bg-orange-400 active:bg-orange-600 transition"
+                          class="fill-transparent stroke-white"
                           stroke-width="1"
                         />
                         <line x1="12" y1="3" x2="12" y2="7" class="stroke-white" stroke-width="1" />
@@ -440,17 +452,14 @@
                         <circle cx="12" cy="12" r="1.4" class="fill-white" />
                       </svg>
                     </button>
-                    <span
-                      class="mt-1 text-[10px] text-gray-300 border-b border-dashed border-gray-600/60 pb-[1px]"
-                    >
-                      Mil ↔ MOA
-                    </span>
-                    <span
-                      class="text-[9px] text-gray-500 italic mt-0.5 hover:bg-orange-400 active:bg-orange-600 transition"
-                    >
+
+                    <span class="mt-1 text-[10px] text-gray-300">Mil ↔ MOA</span>
+                    <span class="text-[9px] text-gray-500 italic mt-0.5">
                       {{ selectedTool === 'converter' ? 'Tap to close' : 'Tap to open' }}
                     </span>
                   </div>
+
+                  <!-- Wind effect (row 2, col 1) -->
                   <div class="flex flex-col items-center">
                     <button
                       class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-amber-400 via-orange-500 to-rose-700 hover:scale-105 active:scale-95 transition"
@@ -472,20 +481,56 @@
                         />
                       </svg>
                     </button>
-                    <span
-                      class="mt-1 text-[10px] text-gray-300 border-b border-dashed border-gray-600/60 pb-[1px] hover:bg-orange-400 active:bg-orange-600 transition"
-                    >
-                      Wind effect
-                    </span>
-                    <span
-                      class="text-[9px] text-gray-500 italic mt-0.5 hover:bg-orange-400 active:bg-orange-600 transition"
-                    >
+
+                    <span class="mt-1 text-[10px] text-gray-300">Wind effect</span>
+                    <span class="text-[9px] text-gray-500 italic mt-0.5">
                       {{ selectedTool === 'windEffect' ? 'Tap to close' : 'Tap to open' }}
                     </span>
                   </div>
                 </div>
 
-                <!-- Kestrel details directly under the top row -->
+                <!-- Target downloads panel -->
+                <div *ngIf="selectedTool === 'targets'" class="mt-3 space-y-2 text-[11px]">
+                  <div class="text-[12px] font-semibold text-gray-100">Target downloads</div>
+
+                  <p class="text-gray-400 text-[10px]">
+                    Download and print standard targets for load development and zeroing.
+                  </p>
+
+                  <div class="space-y-2">
+                    <button
+                      class="w-full px-3 py-2 rounded-lg bg-black/50 border border-gray-700 hover:bg-orange-500 hover:text-black transition text-left"
+                      (click)="downloadTarget('ocw')"
+                    >
+                      🎯 OCW ladder target (A4)
+                    </button>
+
+                    <button
+                      class="w-full px-3 py-2 rounded-lg bg-black/50 border border-gray-700 hover:bg-orange-500 hover:text-black transition text-left"
+                      (click)="downloadTarget('group')"
+                    >
+                      📐 Group / zero target (A4)
+                    </button>
+
+                    <button
+                      class="w-full px-3 py-2 rounded-lg bg-black/50 border border-gray-700 hover:bg-orange-500 hover:text-black transition text-left"
+                      (click)="downloadTarget('dots')"
+                    >
+                      🔘 Dot drill target (A4)
+                    </button>
+                  </div>
+
+                  <div class="mt-2 flex justify-end">
+                    <button
+                      class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
+                      (click)="selectedTool = null"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Kestrel details -->
                 <div *ngIf="selectedTool === 'kestrel'" class="mt-2 space-y-1 text-[10px]">
                   <p [ngClass]="kestrel.kestrelError ? 'text-red-400' : 'text-gray-300'">
                     {{ kestrel.kestrelStatus$ | async }}
@@ -529,7 +574,7 @@
                   </div>
                 </div>
 
-                <!-- Converter panel directly under the top row -->
+                <!-- Converter panel -->
                 <div *ngIf="selectedTool === 'converter'" class="mt-2 text-[10px] space-y-2">
                   <div class="grid grid-cols-2 gap-2">
                     <div>

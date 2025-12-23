@@ -76,6 +76,7 @@ interface WindTrendSummary {
   selector: 'app-root',
   standalone: true,
   templateUrl: './app.component.html',
+  
   imports: [
     CommonModule,
     FormsModule,
@@ -136,7 +137,8 @@ export class AppComponent implements OnInit {
 
   // TOOLS / KESTREL / CONVERTER
   showTools = false;
-  selectedTool: 'kestrel' | 'converter' | 'windEffect' | null = null;
+  selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | null = null;
+
 
   kestrelData: KestrelDataSnapshot | null = null;
 
@@ -774,6 +776,7 @@ openTools(): void {
   this.showReportsForm = false;
 }
 
+
   onConverterToolClick(): void {
     this.selectedTool =
       this.selectedTool === 'converter' ? null : 'converter';
@@ -783,6 +786,31 @@ openTools(): void {
     this.selectedTool =
       this.selectedTool === 'windEffect' ? null : 'windEffect';
   }
+
+
+  openTargetDownloads(): void {
+  // Ensure the tools panel is open
+  this.showTools = true;
+
+  // Toggle the targets panel
+  this.selectedTool = this.selectedTool === 'targets' ? null : 'targets';
+}
+
+downloadTarget(type: 'ocw' | 'group' | 'dots'): void {
+  const files: Record<string, string> = {
+    ocw: 'assets/targets/ocw-ladder-a4.pdf',
+    group: 'assets/targets/group-zero-a4.pdf',
+    dots: 'assets/targets/dot-drill-a4.pdf'
+  };
+
+  const url = files[type];
+  if (!url) return;
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = url.split('/').pop()!;
+  a.click();
+}
 
   get converterOutput(): number | null {
     if (this.converterInput == null || Number.isNaN(this.converterInput)) {
