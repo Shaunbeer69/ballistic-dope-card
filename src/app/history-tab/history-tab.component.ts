@@ -144,7 +144,8 @@ export class HistoryTabComponent implements OnInit {
 
     // sessions oldest → newest
     for (const g of groups) {
-      g.sessions.sort((a, b) => this.getSessionTime(a) - this.getSessionTime(b));
+     g.sessions.sort((a, b) => this.getSessionTime(b) - this.getSessionTime(a));
+
     }
 
     // venues alphabetical

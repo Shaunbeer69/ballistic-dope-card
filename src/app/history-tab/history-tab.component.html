@@ -15,10 +15,7 @@
           <div class="text-[11px] font-semibold truncate">
             {{ s.title || 'Untitled session' }}
           </div>
-          <span
-            class="px-2 py-[2px] rounded-full text-[10px] font-semibold"
-            [ngClass]="getStatusClass(s)"
-          >
+          <span class="px-2 py-[2px] rounded-full text-[10px] font-semibold">
             {{ getStatusLabel(s) }}
           </span>
         </div>
@@ -105,8 +102,6 @@
           <div
             *ngFor="let s of group.sessions"
             class="bg-slate-950 rounded-lg p-2 flex items-center justify-between gap-2"
-            [class.border]="selectedSessionId === s.id"
-            [class.border-emerald-500]="selectedSessionId === s.id"
           >
             <div class="flex-1">
               <div class="flex items-center gap-2">
