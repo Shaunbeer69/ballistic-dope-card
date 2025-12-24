@@ -399,7 +399,7 @@
                   <div class="flex flex-col items-center">
                     <button
                       class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-sky-500 via-indigo-600 to-slate-900 hover:scale-105 active:scale-95 transition"
-                      (click)="exportLoadDevBackup()"
+                      (click)="openExportImportModal()"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
                         <path
@@ -413,8 +413,58 @@
                       </svg>
                     </button>
 
-                    <span class="mt-1 text-[10px] text-gray-300">Backup / export</span>
-                    <span class="text-[9px] text-gray-500 italic mt-0.5">JSON load dev backup</span>
+                    <span class="mt-1 text-[10px] text-gray-300">Export / Import</span>
+                    <span class="text-[9px] text-gray-500 italic mt-0.5">JSON backup file</span>
+                  </div>
+                  <!-- Hidden file input for Import (more reliable on Android WebView) -->
+                  <input
+                    #importFileInput
+                    type="file"
+                    accept="application/json,.json"
+                    class="hidden"
+                    (change)="onImportFileSelected($event)"
+                  />
+
+                  <!-- Export / Import modal -->
+                  <div
+                    *ngIf="showExportImportModal"
+                    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+                  >
+                    <div
+                      class="w-full max-w-xs rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
+                    >
+                      <div class="text-sm font-semibold">Export / Import</div>
+                      <div class="text-[11px] text-slate-300 mt-1 leading-snug">
+                        Export a JSON backup to move your data to another device, or import a JSON
+                        backup to restore it here.
+                      </div>
+
+                      <div class="mt-4 grid grid-cols-1 gap-2">
+                        <button
+                          type="button"
+                          class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
+                          (click)="onChooseExport()"
+                        >
+                          Export (JSON)
+                        </button>
+
+                        <button
+                          type="button"
+                          class="w-full py-2 rounded-xl bg-indigo-600/90 hover:bg-indigo-600 text-white text-sm"
+                          (click)="onChooseImport()"
+                        >
+                          Import (JSON)
+                        </button>
+
+                        <button
+                          type="button"
+                          class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
+                          (click)="closeExportImportModal()"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <!-- Mil / MOA converter -->

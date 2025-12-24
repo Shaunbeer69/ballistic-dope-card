@@ -75,6 +75,58 @@ export class DataService {
       // ignore for now
     }
   }
+  // ---------- Import / Export helpers ----------
+
+  importFromBackup(payload: any): { ok: boolean; message: string } {
+    try {
+      if (!payload || typeof payload !== 'object') {
+        return { ok: false, message: 'Invalid backup format (not an object).' };
+      }
+
+      const rifles = Array.isArray(payload.rifles) ? payload.rifles : [];
+      const venues = Array.isArray(payload.venues) ? payload.venues : [];
+      const sessions = Array.isArray(payload.sessions) ? payload.sessions : [];
+      const loadDevProjects = Array.isArray(payload.loadDevProjects) ? payload.loadDevProjects : [];
+
+      // Recalculate "next id" counters (safe even if backup doesn't include them)
+      const nextRifleId = this.nextId(rifles);
+      const nextVenueId = this.nextId(venues);
+      const nextSessionId = this.nextId(sessions);
+      const nextLoadDevProjectId = this.nextId(loadDevProjects);
+      const nextLoadDevEntryId = this.nextId(
+        loadDevProjects.flatMap((p: any) => Array.isArray(p?.entries) ? p.entries : [])
+      );
+
+      this.store = {
+        nextRifleId,
+        nextVenueId,
+        nextSessionId,
+        nextLoadDevProjectId,
+        nextLoadDevEntryId,
+        rifles,
+        venues,
+        sessions,
+        loadDevProjects
+      } as any;
+
+      this.saveStore();
+
+      return {
+        ok: true,
+        message: `Imported ${rifles.length} rifles, ${venues.length} venues, ${sessions.length} sessions, ${loadDevProjects.length} load-dev projects.`
+      };
+    } catch (e: any) {
+      return { ok: false, message: e?.message ?? 'Unknown error.' };
+    }
+  }
+
+  private nextId(items: any[]): number {
+    const maxId = (items || []).reduce((max, item) => {
+      const id = typeof item?.id === 'number' ? item.id : Number(item?.id);
+      return Number.isFinite(id) ? Math.max(max, id) : max;
+    }, 0);
+    return maxId + 1;
+  }
 
   // ---------- Rifles ----------
 

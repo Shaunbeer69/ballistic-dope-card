@@ -1,4 +1,5 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ViewChild, ElementRef } from '@angular/core';
+
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Capacitor } from '@capacitor/core';
@@ -95,6 +96,10 @@ export class AppComponent implements OnInit {
 
   currentTab: 'menu' | 'sessions' | 'rifles' | 'venues' | 'history' | 'loadDev' =
     'menu';
+// --- Export / Import UI ---
+showExportImportModal = false;
+exportImportInlineMessage: string | null = null;
+@ViewChild('importFileInput') importFileInput!: ElementRef<HTMLInputElement>;
 
   // bottom icon bar state (no logic tied yet, just to keep template happy)
   activeTab: 'start' | 'rifles' | 'venues' | 'tools' = 'start';
@@ -993,7 +998,125 @@ private blobToBase64(blob: Blob): Promise<string> {
     this.setTab('sessions');
   }
 
-  // ---------- JSON load-dev backup (backup / export icon) ----------
+  // ---------- Export / Import (JSON) ----------
+openExportImportModal(): void {
+  this.showExportImportModal = true;
+}
+
+closeExportImportModal(): void {
+  this.showExportImportModal = false;
+}
+
+async onChooseExport(): Promise<void> {
+  this.showExportImportModal = false;
+  await this.exportLoadDevBackup(); // re-use your current backup/export logic
+}
+
+onChooseImport(): void {
+  // Keep modal open until user picks (or cancel picker)
+  // Trigger the hidden input (more reliable on Android)
+  if (this.importFileInput?.nativeElement) {
+    this.importFileInput.nativeElement.value = ''; // allow re-import same file twice
+    this.importFileInput.nativeElement.click();
+  }
+}
+
+async onImportFileSelected(evt: Event): Promise<void> {
+  const input = evt.target as HTMLInputElement;
+  const file = input?.files?.[0] ?? null;
+
+  // If user cancelled file picker
+  if (!file) {
+    return;
+  }
+
+  let text = '';
+  try {
+    text = await file.text();
+  } catch {
+    alert('Could not read the selected file.');
+    return;
+  }
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    alert('Invalid JSON file.');
+    return;
+  }
+
+  const ok = confirm('Import will overwrite the data on this device.\n\nContinue?');
+  if (!ok) return;
+
+  const result = this.dataService.importFromBackup(parsed);
+  if (!result.ok) {
+    alert(`Import failed: ${result.message}`);
+    return;
+  }
+
+  // Refresh menus/counts
+  this.loadCoreData();
+
+  this.showExportImportModal = false;
+  alert(`Import complete.\n\n${result.message}`);
+}
+
+  async openExportImport(): Promise<void> {
+    // OK = Export, Cancel = Import
+    const doExport = confirm(
+      'Export / Import\n\nOK = Export current data to a JSON file\nCancel = Import a JSON backup from another device'
+    );
+
+    if (doExport) {
+      await this.exportLoadDevBackup(); // keep your existing export flow
+      return;
+    }
+
+    await this.importBackupFromJson();
+  }
+
+  private async importBackupFromJson(): Promise<void> {
+    // Let user pick a .json file (works in browser + Capacitor WebView)
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+
+    const file = await new Promise<File | null>((resolve) => {
+      input.onchange = () => resolve(input.files && input.files.length ? input.files[0] : null);
+      input.click();
+    });
+
+    if (!file) return;
+
+    const text = await file.text();
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      alert('Import failed: selected file is not valid JSON.');
+      return;
+    }
+
+    // Safety prompt (import overwrites local data)
+    const ok = confirm(
+      'Import will overwrite the data on this device.\n\nContinue?'
+    );
+    if (!ok) return;
+
+    const result = this.dataService.importFromBackup(parsed);
+    if (!result.ok) {
+      alert(`Import failed: ${result.message}`);
+      return;
+    }
+
+    // Refresh menus/counts
+    this.loadCoreData();
+
+    alert(`Import complete.\n\n${result.message}`);
+  }
+
 
   // ---------- JSON load-dev backup (backup / export icon) ----------
 
