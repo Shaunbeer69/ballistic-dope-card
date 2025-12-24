@@ -764,7 +764,7 @@ this.expandedDistanceM = distanceM;
     return best;
   }
 
-  // ---------- tools / Kestrel / converter ----------
+// ---------- tools / Kestrel / converter ----------
 
 openTools(): void {
   this.showTools = !this.showTools;
@@ -776,40 +776,84 @@ openTools(): void {
   this.showReportsForm = false;
 }
 
-
-  onConverterToolClick(): void {
-    this.selectedTool =
-      this.selectedTool === 'converter' ? null : 'converter';
-  }
-
-  onWindEffectToolClick(): void {
-    this.selectedTool =
-      this.selectedTool === 'windEffect' ? null : 'windEffect';
-  }
-
-
-  openTargetDownloads(): void {
+openTargetDownloads(): void {
   // Ensure the tools panel is open
   this.showTools = true;
 
   // Toggle the targets panel
   this.selectedTool = this.selectedTool === 'targets' ? null : 'targets';
+  this.showReportsForm = false;
 }
 
-downloadTarget(type: 'ocw' | 'group' | 'dots'): void {
-  const files: Record<string, string> = {
-    ocw: 'assets/targets/ocw-ladder-a4.pdf',
-    group: 'assets/targets/group-zero-a4.pdf',
-    dots: 'assets/targets/dot-drill-a4.pdf'
-  };
+/** Mil/MOA converter tool toggle (button calls this) */
+onConverterToolClick(): void {
+  this.showTools = true;
+  this.selectedTool = this.selectedTool === 'converter' ? null : 'converter';
+  this.showReportsForm = false;
+}
 
-  const url = files[type];
-  if (!url) return;
+/** Wind effect tool toggle (button calls this) */
+onWindEffectToolClick(): void {
+  this.showTools = true;
+  this.selectedTool = this.selectedTool === 'windEffect' ? null : 'windEffect';
+  this.showReportsForm = false;
+}
 
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = url.split('/').pop()!;
-  a.click();
+ 
+async downloadTarget(type: 'ocw' | 'group' | 'dots'): Promise<void> {
+  try {
+    const files: Record<string, string> = {
+      ocw: 'assets/targets/ocw-ladder-a4.pdf',
+      group: 'assets/targets/group-zero-a4.pdf',
+      dots: 'assets/targets/dot-drill-a4.pdf'
+    };
+
+    const url = files[type];
+    if (!url) throw new Error(`Unknown target type: ${type}`);
+
+    // 1) fetch asset
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Target not found: ${url} (${response.status})`);
+
+    const blob = await response.blob();
+    const base64 = await this.blobToBase64(blob);
+
+    const filename = url.split('/').pop() ?? `target-${type}.pdf`;
+
+    // 2) save to app-accessible storage (reliable on Android)
+    await Filesystem.requestPermissions();
+
+    const saved = await Filesystem.writeFile({
+      path: filename,
+      data: base64,
+      directory: Directory.Documents
+    });
+
+    // 3) open share sheet so user can "Save to Downloads"
+    await Share.share({
+      title: filename,
+      text: 'Save this target to Downloads / Files',
+      url: saved.uri
+    });
+
+  } catch (err) {
+    console.error('downloadTarget failed', err);
+    alert(`Download failed: ${(err as any)?.message ?? err}`);
+  }
+}
+
+private blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read blob'));
+    reader.onload = () => {
+      const result = reader.result as string;
+      // result looks like: data:application/pdf;base64,JVBERi0x...
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.readAsDataURL(blob);
+  });
 }
 
   get converterOutput(): number | null {
