@@ -153,8 +153,8 @@
   <div *ngIf="editSession" class="bg-slate-800 rounded-xl p-3 space-y-3">
     <!-- Info banner based on state -->
     <div
-      *ngIf="isSessionEditable(editSession)"
-      class="mb-2 bg-blue-900/40 border border-blue-500 text-[11px] text-blue-100 rounded-lg p-2"
+      class="rounded-lg p-2"
+      [ngClass]="isSessionEditable(editSession) ? 'ring-2 ring-amber-400/70' : ''"
     >
       Session is <strong>In progress</strong>. Enter your actual DOPE here and tap
       <strong>{{
@@ -240,11 +240,7 @@
     <!-- Average velocity -->
     <div
       class="rounded-lg p-2"
-      [ngClass]="
-        isSessionEditable(editSession)
-          ? 'ring-2 ring-amber-400/70 animate-pulse focus-within:animate-none'
-          : ''
-      "
+      [ngClass]="isSessionEditable(editSession) ? 'ring-2 ring-amber-400/70' : ''"
     >
       <ng-container *ngIf="isSessionEditable(editSession); else readOnlyAveVel">
         Ave vel (fps):
@@ -255,6 +251,7 @@
           [(ngModel)]="editSession.averageVelocity"
           class="ml-1 w-20 px-1 py-[2px] rounded bg-slate-950 border border-slate-700 text-[10px] leading-tight"
           placeholder="fps"
+          (keydown.enter)="$event.preventDefault(); $event.stopPropagation(); onAveVelEnter($event)"
         />
       </ng-container>
 
@@ -375,9 +372,10 @@
                 type="button"
                 class="px-2 py-[2px] rounded-full bg-slate-700 text-[9px] text-slate-100"
                 [ngClass]="isSessionEditable(editSession) ? 'ring-2 ring-amber-400/50' : ''"
-                (click)="row.notesExpanded = !row.notesExpanded"
+                (click)="row.notesExpanded = true; focusNotes(row)"
                 [attr.tabindex]="i === 0 ? 6 : null"
               >
+                >
                 {{
                   row.notesExpanded ||
                   (row.impactsDescription && row.impactsDescription.trim().length > 0)
@@ -403,10 +401,12 @@
                 <div class="w-full flex items-start gap-2">
                   <!-- Text note -->
                   <textarea
-                    rows="4"
+                    *ngIf="isSessionEditable(editSession)"
                     [(ngModel)]="row.impactsDescription"
-                    class="flex-1 min-w-0 px-1 py-1 rounded bg-slate-950 border border-slate-700 text-[9px] leading-tight"
+                    rows="4"
+                    class="flex-1 min-w-0 px-1 py-1 rounded bg-slate-950 border border-slate-700 text-[9px] leading-tight focus:ring-2 focus:ring-amber-400"
                     placeholder="Notes (optional)"
+                    (keydown.enter)="$event.preventDefault(); $event.stopPropagation()"
                   ></textarea>
 
                   <!-- Voice note (ACTIVE) -->

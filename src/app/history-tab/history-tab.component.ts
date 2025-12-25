@@ -25,6 +25,25 @@ export class HistoryTabComponent implements OnInit {
 
   searchTerm: string = '';
   expandedVenueId: number | null = null;
+onAveVelEnter(ev: Event): void {
+  ev.preventDefault();
+
+  // First Elev input in the table (your file already marks it with #elevFirst)
+  const el = document.querySelector('#elevFirst') as HTMLInputElement | null;
+
+  el?.focus();
+}
+
+
+focusNotes(row: any): void {
+  setTimeout(() => {
+    const el = document.querySelector(
+      'textarea[placeholder="Notes (optional)"]'
+    ) as HTMLTextAreaElement | null;
+
+    el?.focus();
+  }, 0);
+}
 
   // --------------------------------------------------
   // Voice notes per DOPE row (record + store on DOPE row)

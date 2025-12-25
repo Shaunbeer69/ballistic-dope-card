@@ -630,18 +630,28 @@ deleteEntryPhoto(): void {
       const pageW = doc.internal.pageSize.getWidth();
       const leftMargin = 55;     // ✅ punch-hole space (increase/decrease as you like)
 const rightMargin = 28;    // normal right margin
-const topMargin = 28;      // normal top margin
+const topMargin = 40;      // normal top margin
 let y = topMargin;
 
 
-      // Header
+          // Header
       const rifleName =
         this.rifles?.find(r => r.id === this.selectedRifleId)?.name ??
         `Rifle ${this.selectedRifleId ?? ''}`;
       const projectName = this.selectedProject.name ?? 'Load development';
 
-    doc.text(`${projectName}`, leftMargin, y);
+     doc.setFontSize(20);
+doc.text(`${projectName}`, leftMargin, y);
+y += 15;
+
+doc.setLineWidth(0.4);
+doc.line(leftMargin, y, pageW - rightMargin, y);
+y += 15;
+
+doc.setFontSize(16);
 doc.text(`Rifle: ${rifleName}`, leftMargin, y);
+y += 15;
+
 
 
       // Project notes (exported)
