@@ -675,22 +675,22 @@ doc.text(noteLines, leftMargin, y);
       const includeLadderGraph = (this.graphCoords?.length ?? 0) >= 2;
       const includeAnyGraph = isOcwProject ? hasOcwShots : includeLadderGraph;
 
+           // Always reserve the same graph area so exports look identical (with or without shot data)
+      const chartX = leftMargin;
+      const chartY = y;
+      const chartW = pageW - leftMargin - rightMargin;
+      const chartH = 180;
+      const innerPad = 8;
+      const xMin = chartX + innerPad;
+      const xMax = chartX + chartW - innerPad;
+      const yMin = chartY + innerPad;
+      const yMax = chartY + chartH - innerPad;
+
+      // Frame (always)
+      doc.setLineWidth(0.7);
+      doc.rect(chartX, chartY, chartW, chartH);
+
       if (includeAnyGraph) {
-        const chartX = leftMargin;
-        const chartY = y;
-       const chartW = pageW - leftMargin - rightMargin;
-        const chartH = 180;
-        const innerPad = 8;
-        const xMin = chartX + innerPad;
-        const xMax = chartX + chartW - innerPad;
-        const yMin = chartY + innerPad;
-        const yMax = chartY + chartH - innerPad;
-
-        // Frame
-        doc.setLineWidth(0.7);
-        doc.rect(chartX, chartY, chartW, chartH);
-        
-
         // Determine axis ranges
         let minXv = 0;
         let maxXv = 0;
@@ -738,11 +738,8 @@ doc.text(noteLines, leftMargin, y);
             const charge = e.chargeGr;
             if (charge == null) continue;
 
-            const any = e as any;
-            const rawVals = this.parseVelocityInput(any.velocityInput);
-            if (!rawVals.length) continue;
-
-            const cleaned = this.fixObviousRepeatedPaste(rawVals);
+            const points = (this.ocwShotPoints || []).filter(p => p.charge === charge);
+            const cleaned = points.map(p => p.v).filter(v => Number.isFinite(v));
             if (!cleaned.length) continue;
 
             const x = Math.max(xMin, Math.min(xMax, sx(charge)));
@@ -758,55 +755,44 @@ doc.text(noteLines, leftMargin, y);
             const ry = Math.max(6, Math.abs(bot - top) / 2);
             const rx = 10;
 
-            const steps = 28;
-            // Light grey group outlines (subtle)
-            doc.setDrawColor(170, 170, 170);
+            doc.setDrawColor(170);
             doc.setLineWidth(0.6);
-            for (let i = 0; i <= steps; i++) {
-              const t1 = (i / steps) * Math.PI * 2;
-              const t2 = ((i + 1) / steps) * Math.PI * 2;
-
-              const x1 = x + Math.cos(t1) * rx;
-              const y1 = cy + Math.sin(t1) * ry;
-
-              const x2 = x + Math.cos(t2) * rx;
-              const y2 = cy + Math.sin(t2) * ry;
-
-              doc.line(x1, y1, x2, y2);
-            }
+            (doc as any).ellipse(x, cy, rx, ry);
           }
 
-          // Shot dots + velocity labels (outside the circle)
-          doc.setLineWidth(1);
+          // Connect shot points (dark)
+          doc.setDrawColor(0);
+          doc.setLineWidth(1.2);
+
+          const sorted = [...this.ocwShotPoints].sort((a, b) => a.charge - b.charge);
+          for (let i = 0; i < sorted.length - 1; i++) {
+            const a = sorted[i];
+            const b = sorted[i + 1];
+            doc.line(
+              Math.max(xMin, Math.min(xMax, sx(a.charge))),
+              Math.max(yMin, Math.min(yMax, sy(a.v))),
+              Math.max(xMin, Math.min(xMax, sx(b.charge))),
+              Math.max(yMin, Math.min(yMax, sy(b.v)))
+            );
+          }
+
+          // Labels on unique charges
           doc.setFontSize(8);
+          doc.setTextColor(0);
 
-          const labelPad = 10;
-          const labelInsidePad = 8;
+          const labelInsidePad = 10;
+          const uniqueCharges = Array.from(
+            new Set(sorted.map(p => Number(p.charge).toFixed(2)))
+          ).map(s => Number(s));
 
-          for (const p of this.ocwShotPoints) {
-            const px = Math.max(xMin, Math.min(xMax, sx(p.charge)));
-            const py = Math.max(yMin, Math.min(yMax, sy(p.v)));
+          for (const c of uniqueCharges) {
+            const x = Math.max(xMin, Math.min(xMax, sx(c)));
+            const txt = `${c.toFixed(2)} gr`;
 
-            // Small light-grey ring + velocity label outside
-            doc.setDrawColor(160, 160, 160);
-            doc.setLineWidth(0.6);
-            doc.circle(px, py, 1.8, 'S');
+            let tx = x + 4;
+            if (tx > xMax - 22) tx = x - 22;
 
-            const velTxt = `${Math.round(p.v)}`;
-            const txt = velTxt;
-
-            const idx = (p.shotIndex ?? 0);
-            const placeRight = (idx % 2) === 0;
-            const dx = placeRight ? labelPad : -labelPad;
-            const dy = ((idx % 3) - 1) * 9;
-
-            const textW = txt.length * 4.2;
-
-            let tx = placeRight ? (px + dx) : (px + dx - textW);
-            let ty = py + dy - 2;
-
-            if (tx < xMin + labelInsidePad) tx = xMin + labelInsidePad;
-            if (tx > xMax - labelInsidePad - textW) tx = xMax - labelInsidePad - textW;
+            let ty = chartY + 16;
             if (ty < yMin + labelInsidePad) ty = yMin + labelInsidePad;
             if (ty > yMax - labelInsidePad) ty = yMax - labelInsidePad;
 
@@ -834,35 +820,39 @@ doc.text(noteLines, leftMargin, y);
           doc.setFontSize(8);
 
           for (const p of this.graphCoords) {
-            const px = sx(p.charge);
-            const py = sy(p.avg);
+            const x = sx(p.charge);
+            const yv = sy(p.avg);
 
-            // Ladder: no circles (just a small dot) + velocity label next to the dot
-            doc.setDrawColor(60, 60, 60);
-            doc.setFillColor(60, 60, 60);
-            doc.circle(px, py, 0.9, 'F');
+            // marker
+            doc.circle(x, yv, 2.2, 'S');
 
-            const velTxt = `${Math.round(p.avg)}`;
-            const textW = velTxt.length * 4.2;
-            let tx = px + 3;
-            let ty = py - 3;
-
-            // Keep labels inside the chart box
-            if (tx > chartX + chartW - 4 - textW) tx = px - 3 - textW;
-            if (ty < chartY + 8) ty = py + 10;
-
-            doc.setTextColor(20, 20, 20);
-            doc.text(velTxt, tx, ty);
-            doc.setTextColor(0, 0, 0);
+            // label (charge)
+            doc.text(p.charge.toFixed(2), x + 4, yv - 2);
           }
 
+          // Axis hints
           doc.setFontSize(9);
           doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
           doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
           doc.text(`${Math.round(maxYv)} fps`, chartX + chartW - 55, chartY + 10);
+          doc.text(`${Math.round(minYv)} fps`, chartX + chartW - 55, chartY + chartH - 4);
 
           y += chartH + 26;
         }
+      } else {
+        // Placeholder (no shots yet) – keep layout identical
+        doc.setFontSize(11);
+        doc.text('Load development graph (placeholder)', chartX + 10, chartY + 18);
+
+        doc.setFontSize(9);
+        doc.text(
+          isOcwProject ? 'No OCW shot data yet.' : 'No ladder shot data yet.',
+          chartX + 10,
+          chartY + 32
+        );
+        doc.text('Add shot velocities to render the graph.', chartX + 10, chartY + 46);
+
+        y += chartH + 26;
       }
 
       // ----- Table (real data) -----
