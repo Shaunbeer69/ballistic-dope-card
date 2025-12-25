@@ -356,23 +356,7 @@ export class SessionTabComponent implements OnInit {
   }
   // ---------- Session Voice Note (Mic) handlers ----------
 
-  async onSessionVoiceNoteClick(ev?: any): Promise<void> {
-    try {
-      if (ev?.stopPropagation) ev.stopPropagation();
-      if (ev?.preventDefault) ev.preventDefault();
-
-      // Toggle
-      if (this.sessionIsRecording) {
-        await this.stopSessionRecording();
-      } else {
-        await this.startSessionRecording();
-      }
-    } catch (e: any) {
-      console.error(e);
-      this.sessionMicInlineMessage = 'Mic error. Check permissions.';
-      setTimeout(() => (this.sessionMicInlineMessage = null), 2500);
-    }
-  }
+ 
 
   private async startSessionRecording(): Promise<void> {
     // Basic guard for environments without MediaRecorder
