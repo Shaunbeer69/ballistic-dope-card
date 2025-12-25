@@ -1017,28 +1017,19 @@ const photoY = y;
 
 // LEFT: placeholder box (NO title, NO hit indicator)
 doc.setLineWidth(0.8);
-// LEFT placeholder image
+doc.setDrawColor(120, 120, 120);
+doc.rect(leftX, leftY, leftW, boxH);
+
 await this.drawAssetImageInBox(
   doc,
   'assets/LoadDevExport.png',
-  leftX,
-  leftY,
-  halfW,
-  boxH,
-  6
-);
-
-doc.setDrawColor(120, 120, 120);
-doc.rect(leftX, leftY, leftW, boxH);
-await this.drawAssetImageInBox(
-  doc,
-  '/LoadDevExport.png',
   leftX,
   leftY,
   leftW,
   boxH,
   6
 );
+
 
 
 // RIGHT: photo box (keep photo behavior the same, but render only once)
@@ -1075,12 +1066,37 @@ if (photoDataUrl && typeof photoDataUrl === 'string' && photoDataUrl.startsWith(
     const imgType = photoDataUrl.includes('data:image/png') ? 'PNG' : 'JPEG';
     const base64 = photoDataUrl.split(',')[1];
 
-    // Fit inside photo box with padding
-    const pad = 6;
-    const iw = photoW - pad * 2;
-    const ih = boxH - pad * 2;
+    // Fit inside photo box with padding (NO STRETCH)
+const pad = 6;
 
-    doc.addImage(base64, imgType as any, photoX + pad, photoY + pad, iw, ih);
+const boxX = photoX + pad;
+const boxY = photoY + pad;
+const boxW = Math.max(1, photoW - pad * 2);
+const boxHInner = Math.max(1, boxH - pad * 2);
+
+let drawX = boxX;
+let drawY = boxY;
+let drawW = boxW;
+let drawH = boxHInner;
+
+try {
+  const props = (doc as any).getImageProperties?.(photoDataUrl);
+  const iw = props?.width ?? props?.w;
+  const ih = props?.height ?? props?.h;
+
+  if (iw && ih) {
+    const scale = Math.min(boxW / iw, boxHInner / ih);
+    drawW = iw * scale;
+    drawH = ih * scale;
+    drawX = boxX + (boxW - drawW) / 2;
+    drawY = boxY + (boxHInner - drawH) / 2;
+  }
+} catch {
+  // fallback: keep fill behavior
+}
+
+doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH);
+
 
     // Optional tiny label (same as before)
     doc.setFontSize(8);
@@ -1369,17 +1385,39 @@ private async drawAssetImageInBox(
   const imgType = dataUrl.includes('png') ? 'PNG' : 'JPEG';
   const base64 = dataUrl.split(',')[1];
 
-  const ix = x + pad;
-  const iy = y + pad;
-  const iw = Math.max(1, w - pad * 2);
-  const ih = Math.max(1, h - pad * 2);
+  const boxX = x + pad;
+  const boxY = y + pad;
+  const boxW = Math.max(1, w - pad * 2);
+  const boxH = Math.max(1, h - pad * 2);
+
+  let drawX = boxX;
+  let drawY = boxY;
+  let drawW = boxW;
+  let drawH = boxH;
 
   try {
-    doc.addImage(base64, imgType as any, ix, iy, iw, ih, undefined, 'FAST');
+    const props = (doc as any).getImageProperties?.(dataUrl);
+    const iw = props?.width ?? props?.w;
+    const ih = props?.height ?? props?.h;
+
+    if (iw && ih) {
+      const scale = Math.min(boxW / iw, boxH / ih);
+      drawW = iw * scale;
+      drawH = ih * scale;
+      drawX = boxX + (boxW - drawW) / 2;
+      drawY = boxY + (boxH - drawH) / 2;
+    }
+  } catch {
+    // fallback: keep fill behavior
+  }
+
+  try {
+    doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH, undefined, 'FAST');
   } catch {
     // silent fail (placeholder only)
   }
 }
+
 
   projectTypeLabel(type: LoadDevType): string {
     switch (type) {
