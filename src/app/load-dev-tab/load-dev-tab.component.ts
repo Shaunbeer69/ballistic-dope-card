@@ -929,7 +929,7 @@ const reserveForBottom = 12 + (15 * 14) + 10 + 110 + 10;
         }
 
         if (notesLines.length) {
-          doc.text(notesLines, notesX, y);
+         doc.text(`${shownRows + 1}/${entries.length}`, colX[2], y);
         }
            shownRows++;
 
