@@ -192,53 +192,96 @@ export class HistoryTabComponent implements OnInit {
   // --------------------------------------------------
   // Selecting / deleting sessions
   // --------------------------------------------------
-  selectSession(s: any): void {
-    this.selectedSessionId = s?.id ?? null;
-    this.validationError = null;
-    this.clearSaveMessage();
+selectSession(s: any): void {
+  const idStr = (s?.id ?? '').toString();
+  this.selectedSessionId = idStr;
 
-    // deep clone for safe editing
-    this.editSession = JSON.parse(JSON.stringify(s));
+  // Keep a copy for editing
+  this.editSession = JSON.parse(JSON.stringify(s));
+}
 
-    // keep UI tidy
-    this.expandedVenueId = null;
+deleteSession(s: any): void {
+  const idNum = Number(s?.id);
+
+  if (!Number.isFinite(idNum)) {
+    console.error('deleteSession: invalid session id:', s?.id);
+    return;
   }
 
-  deleteSession(s: any): void {
-    if (!s || !s.id) return;
+  const ok = confirm('Delete this session from history? This cannot be undone.');
+  if (!ok) return;
 
-    const confirmed = confirm('Delete this session from history? This cannot be undone.');
-    if (!confirmed) return;
+  try {
+    // 1) Delete from persistent store
+    this.dataService.deleteSession(idNum);
 
-    const id = String(s.id);
+    // 2) Delete from in-memory list (so UI updates immediately)
+    this.sessions = (this.sessions || []).filter((x: any) => Number(x?.id) !== idNum);
 
-    // local remove
-    this.sessions = (this.sessions || []).filter(sess => String(sess.id) !== id);
+    // 3) Collapse detail screen back to list
+    this.editSession = null;
+    this.selectedSessionId = null;
 
-    // persist
+    // 4) Rebuild any derived lists you use
+    this.rebuildPendingSessions?.();
+  } catch (err) {
+    console.error('Error deleting session from DataService:', err);
+  }
+}
+
+
+private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+
+  const keys: string[] = [];
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const k = window.localStorage.key(i);
+    if (k) keys.push(k);
+  }
+
+  for (const key of keys) {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) continue;
+
+    // Only consider JSON arrays
+    let parsed: any;
     try {
-      const ds: any = this.dataService;
-      if (ds && typeof ds.deleteSession === 'function') {
-        ds.deleteSession(id);
-      } else if (ds && typeof ds.removeSession === 'function') {
-        ds.removeSession(id);
-      } else if (ds && typeof ds.setSessions === 'function') {
-        ds.setSessions(this.sessions);
-      } else if (ds && typeof ds.saveSessions === 'function') {
-        ds.saveSessions(this.sessions);
+      parsed = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+
+    if (!Array.isArray(parsed) || parsed.length === 0) continue;
+
+    // Only touch arrays of objects that look like sessions (have id)
+    const looksLikeArrayOfIdObjects =
+      parsed.every((x: any) => x && typeof x === 'object' && ('id' in x));
+
+    if (!looksLikeArrayOfIdObjects) continue;
+
+    const beforeLen = parsed.length;
+
+    const filtered = parsed.filter((x: any) => {
+      const xIdStr = String(x?.id);
+      if (xIdStr === idStr) return false;
+
+      // Also remove numeric-equal if idNum is valid (covers "1" vs 1 mismatches)
+      if (idNum != null) {
+        const xIdNum = Number(x?.id);
+        if (Number.isFinite(xIdNum) && xIdNum === idNum) return false;
       }
-    } catch (err) {
-      console.error('Error deleting session from DataService:', err);
-    }
 
-    // close if open
-    if (this.selectedSessionId === id) {
-      this.selectedSessionId = null;
-      this.editSession = null;
-    }
+      return true;
+    });
 
-    this.rebuildPendingSessions();
+    if (filtered.length !== beforeLen) {
+      window.localStorage.setItem(key, JSON.stringify(filtered));
+    }
   }
+}
+
+
+
 
   // --------------------------------------------------
   // Editable rules (In progress only)
