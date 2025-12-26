@@ -1121,46 +1121,33 @@ async onImportFileSelected(evt: Event): Promise<void> {
   // ---------- JSON load-dev backup (backup / export icon) ----------
 
 async exportLoadDevBackup(): Promise<void> {
-  const rifles = this.riflesOptions || [];
-  if (!rifles.length) {
-    alert('No rifles found – nothing to backup yet.');
+    // Export the REAL persisted store (includes nested data under every section)
+  const payload = this.dataService.exportFullBackup?.();
+
+  if (!payload?.store) {
+    alert('Export failed: no store data found.');
     return;
   }
 
-  const venues = this.venuesOptions || [];
-  const loadDevProjects: any[] = [];
+  const hasAnyData =
+    (payload.store.rifles?.length ?? 0) +
+      (payload.store.venues?.length ?? 0) +
+      (payload.store.sessions?.length ?? 0) +
+      (payload.store.loadDevProjects?.length ?? 0) >
+    0;
 
-  // Collect all Load Development projects across all rifles
-  for (const r of rifles) {
-    const projectsForRifle =
-      this.dataService.getLoadDevProjectsForRifle?.(r.id) ?? [];
-    loadDevProjects.push(...projectsForRifle);
-  }
-
-  if (!loadDevProjects.length) {
-    alert('No load development projects found to export yet.');
+  if (!hasAnyData) {
+    alert('No data found – nothing to backup yet.');
     return;
   }
 
-  const sessions =
-    (this.allSessions && this.allSessions.length
-      ? this.allSessions
-      : this.dataService.getSessions?.() ?? []) || [];
-
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    source: 'Gunstuff Ballistics',
-    rifles,
-    venues,
-    loadDevProjects,
-    sessions,
-  };
 
   const json = JSON.stringify(payload, null, 2);
   const filename =
-    'gunstuff-loaddev-backup-' +
-    new Date().toISOString().slice(0, 10) +
-    '.json';
+  'gunstuff-full-backup-' +
+  new Date().toISOString().slice(0, 10) +
+  '.json';
+
 
   if (Capacitor.isNativePlatform()) {
     try {

@@ -75,7 +75,19 @@ export class DataService {
       // ignore for now
     }
   }
-  // ---------- Import / Export helpers ----------
+   // ---------- Import / Export helpers ----------
+
+  /** Full backup of the entire persisted app store (includes all nested data). */
+  exportFullBackup(): any {
+    // Deep-clone to avoid accidental mutation and to ensure JSON-safe payload
+    const storeCopy: AppStore = JSON.parse(JSON.stringify(this.store));
+
+    return {
+      schema: 'ballistic-dope-card-backup-v1',
+      exportedAt: new Date().toISOString(),
+      store: storeCopy,
+    };
+  }
 
   importFromBackup(payload: any): { ok: boolean; message: string } {
     try {
@@ -83,10 +95,17 @@ export class DataService {
         return { ok: false, message: 'Invalid backup format (not an object).' };
       }
 
-      const rifles = Array.isArray(payload.rifles) ? payload.rifles : [];
-      const venues = Array.isArray(payload.venues) ? payload.venues : [];
-      const sessions = Array.isArray(payload.sessions) ? payload.sessions : [];
-      const loadDevProjects = Array.isArray(payload.loadDevProjects) ? payload.loadDevProjects : [];
+      // Accept either:
+      // 1) our new wrapper: { schema, exportedAt, store: {...} }
+      // 2) legacy flat object: { rifles, venues, sessions, loadDevProjects, ... }
+      const src: any =
+        payload.store && typeof payload.store === 'object' ? payload.store : payload;
+
+      const rifles = Array.isArray(src.rifles) ? src.rifles : [];
+      const venues = Array.isArray(src.venues) ? src.venues : [];
+      const sessions = Array.isArray(src.sessions) ? src.sessions : [];
+      const loadDevProjects = Array.isArray(src.loadDevProjects) ? src.loadDevProjects : [];
+
 
       // Recalculate "next id" counters (safe even if backup doesn't include them)
       const nextRifleId = this.nextId(rifles);
