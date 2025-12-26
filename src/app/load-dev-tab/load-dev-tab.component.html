@@ -143,42 +143,15 @@
             />
           </div>
 
-          <!-- Notes + mic -->
+          <!-- Notes (planning only) -->
           <div>
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                class="px-3 py-1 rounded-2xl bg-gray-800 text-gray-100 text-[11px]"
-                (click)="toggleNotesPanel()"
-              >
-                Notes (Aud/ Vid)
-              </button>
-
-              <!-- ✅ MIC now triggers inline message -->
-              <button
-                type="button"
-                class="px-2 py-1 rounded-2xl text-gray-100 text-[11px] relative"
-                [ngClass]="isVoiceRecording || voiceNoteDataUrl ? 'bg-emerald-600' : 'bg-gray-700'"
-                title="Audio note"
-                (click)="onMicToggle($event)"
-              >
-                {{ isVoiceRecording ? '⏹' : '🎤' }}
-
-                <!-- green dot when audio exists -->
-                <span
-                  *ngIf="voiceNoteDataUrl && !isVoiceRecording"
-                  class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400"
-                ></span>
-              </button>
-
-              <!-- ✅ Inline message next to mic -->
-              <span
-                *ngIf="micInlineMessage"
-                class="ml-1 text-[10px] rounded-xl bg-amber-500/10 border border-amber-400/60 text-amber-200 px-2 py-1"
-              >
-                {{ micInlineMessage }}
-              </span>
-            </div>
+            <div class="text-gray-400 mb-0.5">Notes</div>
+            <textarea
+              rows="2"
+              class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-gray-100 text-[11px]"
+              [(ngModel)]="projectForm.notes"
+              placeholder="Notes for this load development…"
+            ></textarea>
           </div>
         </div>
 
@@ -189,14 +162,6 @@
         >
           <div class="text-gray-100 font-semibold">
             {{ projectForm.type === 'ocw' ? 'OCW planning' : 'Ladder planning' }}
-          </div>
-
-          <div class="text-[10px] text-gray-400">
-            {{
-              projectForm.type === 'ocw'
-                ? 'Set the distance and charge window for your OCW. Same as ladder, but you will shoot multiple shots per charge.'
-                : 'Set the distance and charge window for your ladder test.'
-            }}
           </div>
 
           <!-- Distance -->
