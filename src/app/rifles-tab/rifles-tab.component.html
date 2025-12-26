@@ -1,5 +1,4 @@
 <div class="space-y-3 text-xs">
-
   <!-- Add / Edit Rifle header -->
   <div class="bg-slate-800 rounded-2xl p-3 shadow flex items-center justify-between">
     <div class="text-sm font-semibold">
@@ -8,14 +7,14 @@
 
     <button
       class="px-3 py-1 rounded-xl bg-emerald-500 text-slate-900 text-xs font-semibold"
-      (click)="toggleAddForm()">
+      (click)="toggleAddForm()"
+    >
       {{ addFormVisible ? 'Close' : 'Add' }}
     </button>
   </div>
 
   <!-- Rifle form -->
   <div *ngIf="addFormVisible" class="bg-slate-800 rounded-2xl p-3 shadow space-y-2">
-
     <div class="grid grid-cols-2 gap-2">
       <label class="flex flex-col">
         Name
@@ -23,7 +22,8 @@
           [(ngModel)]="rifleForm.name"
           name="name"
           placeholder="e.g. 6.5 CM ELR"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700" />
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        />
       </label>
 
       <label class="flex flex-col">
@@ -32,7 +32,8 @@
           [(ngModel)]="rifleForm.caliber"
           name="caliber"
           placeholder="e.g. 6.5 Creedmoor"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700" />
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        />
       </label>
 
       <label class="flex flex-col">
@@ -41,7 +42,8 @@
           type="number"
           [(ngModel)]="rifleForm.barrelLength"
           name="barrelLength"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700" />
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        />
       </label>
 
       <label class="flex flex-col">
@@ -49,7 +51,8 @@
         <select
           [(ngModel)]="rifleForm.barrelUnit"
           name="barrelUnit"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700">
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        >
           <option value="cm">cm</option>
           <option value="inch">inch</option>
         </select>
@@ -61,7 +64,8 @@
           [(ngModel)]="rifleForm.twistRate"
           name="twistRate"
           placeholder="e.g. 1:8"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700" />
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        />
       </label>
 
       <label class="flex flex-col">
@@ -70,7 +74,8 @@
           type="number"
           [(ngModel)]="rifleForm.muzzleVelocityFps"
           name="muzzleVelocity"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700" />
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        />
       </label>
 
       <label class="flex flex-col">
@@ -78,7 +83,8 @@
         <select
           [(ngModel)]="rifleForm.scopeUnit"
           name="scopeUnit"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700">
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        >
           <option value="MIL">MIL</option>
           <option value="MOA">MOA</option>
         </select>
@@ -91,7 +97,8 @@
           [(ngModel)]="rifleForm.roundCount"
           name="roundCount"
           placeholder="Total rounds fired so far"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700" />
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        />
       </label>
     </div>
 
@@ -101,18 +108,18 @@
         [(ngModel)]="rifleForm.notes"
         name="notes"
         rows="2"
-        class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"></textarea>
+        class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+      ></textarea>
     </label>
 
     <div class="flex justify-end gap-2 mt-2">
-      <button
-        class="px-3 py-1 text-xs rounded bg-slate-700"
-        (click)="clearRifleForm()">
+      <button class="px-3 py-1 text-xs rounded bg-slate-700" (click)="clearRifleForm()">
         Cancel
       </button>
       <button
         class="px-3 py-1 text-xs rounded bg-emerald-500 text-slate-900 font-semibold"
-        (click)="saveRifle()">
+        (click)="saveRifle()"
+      >
         {{ editingRifle ? 'Save changes' : 'Add rifle' }}
       </button>
     </div>
@@ -122,9 +129,7 @@
   <div class="bg-slate-800 rounded-2xl p-3 shadow space-y-2">
     <div class="flex justify-between items-center mb-1">
       <div class="text-xs font-semibold">Rifles</div>
-      <div class="text-[11px] text-slate-300">
-        Total: {{ rifles.length }}
-      </div>
+      <div class="text-[11px] text-slate-300">Total: {{ rifles.length }}</div>
     </div>
 
     <ng-container *ngIf="rifles.length > 0; else noRifles">
@@ -134,64 +139,66 @@
           [(ngModel)]="selectedRifleId"
           (ngModelChange)="onSelectedRifleChange($event)"
           name="selectedRifle"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700">
-          <option *ngFor="let r of rifles" [ngValue]="r.id">
-            {{ r.name }} ({{ r.caliber }})
-          </option>
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        >
+          <option *ngFor="let r of rifles" [ngValue]="r.id">{{ r.name }} ({{ r.caliber }})</option>
         </select>
       </label>
 
       <!-- Selected rifle card -->
-      <div *ngIf="selectedRifle as r" class="bg-slate-900 rounded-2xl p-3 border border-slate-700 space-y-2">
+      <div
+        *ngIf="selectedRifle as r"
+        class="bg-slate-900 rounded-2xl p-3 border border-slate-700 space-y-2"
+      >
         <div class="flex justify-between items-start gap-2">
           <div class="space-y-0.5">
             <div class="text-xs font-semibold">
               {{ r.name }} <span class="text-[10px] text-slate-300">({{ r.caliber }})</span>
             </div>
             <div class="text-[10px] text-slate-300">
-              Barrel: {{ r.barrelLength || '-' }} {{ r.barrelUnit || 'cm' }} • Twist: {{ r.twistRate || '-' }}
+              Barrel: {{ r.barrelLength || '-' }} {{ r.barrelUnit || 'cm' }} • Twist:
+              {{ r.twistRate || '-' }}
             </div>
             <div class="text-[10px] text-slate-300">
               Scope: {{ r.scopeUnit }} • Muzzle: {{ r.muzzleVelocityFps || '-' }} fps
             </div>
-            <div class="text-[10px] text-slate-300">
-              Rounds: {{ r.roundCount ?? 0 }}
-            </div>
+            <div class="text-[10px] text-slate-300">Rounds: {{ r.roundCount ?? 0 }}</div>
           </div>
 
           <div class="flex flex-col gap-1 text-[10px]">
             <button
               class="px-3 py-1 rounded-xl bg-blue-600 text-white font-semibold"
-              (click)="editRifle(r)">
+              (click)="editRifle(r)"
+            >
               Edit
             </button>
             <button
               class="px-3 py-1 rounded-xl bg-red-600 text-white font-semibold"
-              (click)="deleteRifle(r)">
+              (click)="deleteRifle(r)"
+            >
               Delete
             </button>
           </div>
         </div>
 
         <!-- Small build label so we know version everywhere -->
-        <div class="text-[9px] text-slate-500 mt-1">
-          Rifles build: v1-back-fix
-        </div>
+        <div class="text-[9px] text-slate-500 mt-1">Rifles build: v1-back-fix</div>
 
         <!-- Loads for this rifle -->
         <div class="mt-2 border-t border-slate-700 pt-2">
-
           <!-- Show/Hide + Add row -->
           <div class="flex justify-between items-center">
             <button
               class="px-3 py-1 rounded-xl bg-slate-100 text-slate-900 text-[11px] font-semibold"
-              (click)="toggleLoads(r)">
+              (click)="toggleLoads(r)"
+            >
               {{ activeLoadsRifleId === r.id ? 'Hide load data' : 'Show load data' }}
             </button>
 
             <button
               class="px-3 py-1 rounded-xl bg-emerald-500 text-slate-900 text-[11px] font-semibold"
-              (click)="toggleLoadForm(r.id)">
+              (click)="toggleLoadForm(r.id)"
+            >
               Add
             </button>
           </div>
@@ -203,72 +210,73 @@
 
             <div class="overflow-x-auto">
               <table class="min-w-full text-[10px] border-collapse">
-               <thead>
-                <tr class="bg-slate-900 border-b border-slate-700">
-                  <th class="px-2 py-1 text-left font-semibold">Powder</th>
-                  <th class="px-2 py-1 text-left font-semibold">Charge</th>
-                  <th class="px-2 py-1 text-left font-semibold">COAL</th>
-                  <th class="px-2 py-1 text-left font-semibold">Primer</th>
-                  <th class="px-2 py-1 text-left font-semibold">Bullet</th>
-                </tr>
-              </thead>
+                <thead>
+                  <tr class="bg-slate-900 border-b border-slate-700">
+                    <th class="px-2 py-1 text-left font-semibold">Powder</th>
+                    <th class="px-2 py-1 text-left font-semibold">Charge</th>
+                    <th class="px-2 py-1 text-left font-semibold">COAL</th>
+                    <th class="px-2 py-1 text-left font-semibold">Primer</th>
+                    <th class="px-2 py-1 text-left font-semibold">Bullet</th>
+                  </tr>
+                </thead>
 
-               <tbody>
-              <ng-container *ngFor="let l of r.loads">
+                <tbody>
+                  <ng-container *ngFor="let l of r.loads">
+                    <!-- Data row -->
+                    <tr class="border-b border-slate-800">
+                      <td class="px-2 py-1">{{ l.powder }}</td>
+                      <td class="px-2 py-1">{{ l.chargeGn }}</td>
+                      <td class="px-2 py-1">{{ l.coal }}</td>
+                      <td class="px-2 py-1">{{ l.primer }}</td>
 
-                <!-- Data row -->
-                <tr class="border-b border-slate-800">
-                  <td class="px-2 py-1">{{ l.powder }}</td>
-                  <td class="px-2 py-1">{{ l.chargeGn }}</td>
-                  <td class="px-2 py-1">{{ l.coal }}</td>
-                  <td class="px-2 py-1">{{ l.primer }}</td>
-
-                  <!-- Bullet text column -->
-                  <td class="px-2 py-1 align-top text-left">
-                    <div class="text-[10px] leading-tight max-w-[90px]">
-                      <ng-container *ngIf="l.bulletWeightGr || l.bullet; else noBullet">
-                        <span *ngIf="l.bulletWeightGr">{{ l.bulletWeightGr }} gr </span>{{ l.bullet }}
-                        <div *ngIf="l.bulletBc" class="text-[9px] text-slate-400">
-                          BC: {{ l.bulletBc }}
+                      <!-- Bullet text column -->
+                      <td class="px-2 py-1 align-top text-left">
+                        <div class="text-[10px] leading-tight max-w-[90px]">
+                          <ng-container *ngIf="l.bulletWeightGr || l.bullet; else noBullet">
+                            <span *ngIf="l.bulletWeightGr">{{ l.bulletWeightGr }} gr </span
+                            >{{ l.bullet }}
+                            <div *ngIf="l.bulletBc" class="text-[9px] text-slate-400">
+                              BC: {{ l.bulletBc }}
+                            </div>
+                          </ng-container>
+                          <ng-template #noBullet>
+                            <span class="text-[9px] text-slate-500">–</span>
+                          </ng-template>
                         </div>
-                      </ng-container>
-                      <ng-template #noBullet>
-                        <span class="text-[9px] text-slate-500">–</span>
-                      </ng-template>
-                    </div>
-                  </td>
-                </tr>
+                      </td>
+                    </tr>
 
-                <!-- Actions row under the load, right-justified -->
-                <tr class="border-b border-slate-900">
-                  <td colspan="5" class="px-2 pb-2 pt-0">
-                    <div class="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        class="px-3 py-1 rounded-xl bg-blue-600 text-white text-[10px] font-semibold"
-                        (click)="editLoad(r, l)">
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        class="px-3 py-1 rounded-xl bg-red-600 text-white text-[10px] font-semibold"
-                        (click)="deleteLoad(r, l)">
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-
-              </ng-container>
-            </tbody>
-
+                    <!-- Actions row under the load, right-justified -->
+                    <tr class="border-b border-slate-900">
+                      <td colspan="5" class="px-2 pb-2 pt-0">
+                        <div class="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            class="px-3 py-1 rounded-xl bg-blue-600 text-white text-[10px] font-semibold"
+                            (click)="editLoad(r, l)"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            class="px-3 py-1 rounded-xl bg-red-600 text-white text-[10px] font-semibold"
+                            (click)="deleteLoad(r, l)"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </ng-container>
+                </tbody>
               </table>
             </div>
 
             <!-- Load edit/add form -->
             <div
               *ngIf="activeLoadFormRifleId === r.id"
-              class="bg-slate-900 rounded-xl p-2 space-y-2">
+              class="bg-slate-900 rounded-xl p-2 space-y-2"
+            >
               <div class="text-[11px] font-semibold">
                 {{ editingLoadId ? 'Edit load data' : 'Add load data' }}
               </div>
@@ -279,7 +287,8 @@
                   <input
                     [(ngModel)]="loadForm.powder"
                     name="loadPowder"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700" />
+                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                  />
                 </label>
 
                 <label class="flex flex-col">
@@ -288,7 +297,8 @@
                     type="number"
                     [(ngModel)]="loadForm.chargeGn"
                     name="loadCharge"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700" />
+                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                  />
                 </label>
 
                 <label class="flex flex-col">
@@ -296,7 +306,8 @@
                   <input
                     [(ngModel)]="loadForm.coal"
                     name="loadCoal"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700" />
+                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                  />
                 </label>
 
                 <label class="flex flex-col">
@@ -304,7 +315,8 @@
                   <input
                     [(ngModel)]="loadForm.primer"
                     name="loadPrimer"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700" />
+                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                  />
                 </label>
 
                 <label class="flex flex-col">
@@ -313,7 +325,8 @@
                     [(ngModel)]="loadForm.bullet"
                     name="loadBullet"
                     placeholder="e.g. 140 ELD-M"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700" />
+                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                  />
                 </label>
 
                 <label class="flex flex-col">
@@ -322,7 +335,8 @@
                     type="number"
                     [(ngModel)]="loadForm.bulletWeightGr"
                     name="loadBulletWeight"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700" />
+                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                  />
                 </label>
 
                 <label class="flex flex-col">
@@ -331,7 +345,8 @@
                     [(ngModel)]="loadForm.bulletBc"
                     name="loadBulletBc"
                     placeholder="e.g. 0.345 G7"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700" />
+                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                  />
                 </label>
               </div>
 
@@ -340,7 +355,8 @@
                 <button
                   type="button"
                   class="px-3 py-1 text-[11px] rounded-2xl bg-slate-500 text-white font-semibold"
-                  (click)="resetLoadForm(); toggleLoadForm(r.id)">
+                  (click)="resetLoadForm(); toggleLoadForm(r.id)"
+                >
                   Cancel
                 </button>
 
@@ -348,40 +364,47 @@
                   <button
                     type="button"
                     class="px-3 py-1 text-[11px] rounded bg-slate-700 text-slate-100"
-                    (click)="resetLoadForm()">
+                    (click)="resetLoadForm()"
+                  >
                     Clear
                   </button>
                   <button
                     type="button"
                     class="px-3 py-1 text-[11px] rounded bg-emerald-500 text-slate-900 font-semibold"
-                    (click)="saveLoad(r)">
+                    (click)="saveLoad(r)"
+                  >
                     {{ editingLoadId ? 'Save load' : 'Add load' }}
                   </button>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
 
-        <div *ngIf="r.notes" class="mt-2 text-[11px] text-slate-300">
-          Notes: {{ r.notes }}
-        </div>
+        <div *ngIf="r.notes" class="mt-2 text-[11px] text-slate-300">Notes: {{ r.notes }}</div>
       </div>
     </ng-container>
 
     <ng-template #noRifles>
-      <div class="text-[11px] text-slate-300">
-        No rifles yet. Add one above.
-      </div>
+      <div class="text-[11px] text-slate-300">No rifles yet. Add one above.</div>
     </ng-template>
 
-    <!-- Bottom Back Button -->
-    <div class="flex justify-end mt-4">
+    <!-- Bottom actions: Export + Back (left aligned) -->
+    <div class="flex items-center gap-2 mt-4">
+      <button
+        type="button"
+        class="px-3 py-1.5 rounded-2xl bg-emerald-600 text-white font-semibold text-[11px]"
+        (click)="exportSelectedRiflePdf()"
+        [disabled]="!selectedRifle"
+      >
+        Export Rifle Data
+      </button>
+
       <button
         type="button"
         class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black font-semibold text-[11px]"
-        (click)="goBack()">
+        (click)="goBack()"
+      >
         Back
       </button>
     </div>

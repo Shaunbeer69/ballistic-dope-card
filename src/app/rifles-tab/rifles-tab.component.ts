@@ -2,6 +2,9 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, EventEmitter, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../data.service';
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 @Component({
   selector: 'app-rifles-tab',
@@ -50,6 +53,151 @@ export class RiflesTabComponent implements OnInit {
     this.editingLoadId = null;
     this.resetLoadForm();
     this.backToMenu.emit();
+  }
+  // ==========================
+  // PDF Export (Selected Rifle)
+  // ==========================
+  async exportSelectedRiflePdf(): Promise<void> {
+    try {
+      const r = this.selectedRifle;
+      if (!r) {
+        alert('Please select a rifle first.');
+        return;
+      }
+
+      // Lazy-load to match “Load Development” style and avoid bundle bloat
+      const jspdfMod: any = await import('jspdf');
+      const autoTableMod: any = await import('jspdf-autotable');
+
+      const jsPDF = jspdfMod?.jsPDF ?? jspdfMod?.default;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let y = 12;
+
+      // Title
+      doc.setFontSize(16);
+      doc.text('Rifle Data Export', 10, y);
+      y += 7;
+
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 10, y);
+      y += 6;
+
+      // Rifle header card (simple, clean)
+      doc.setFontSize(12);
+      doc.text(`${r.name ?? 'Rifle'}${r.caliber ? ` (${r.caliber})` : ''}`, 10, y);
+      y += 5;
+
+      const rifleRows: Array<[string, string]> = [
+        ['Caliber', `${r.caliber ?? '-'}`],
+        ['Barrel length', `${r.barrelLength ?? '-'} ${r.barrelUnit ?? ''}`.trim()],
+        ['Twist rate', `${r.twistRate ?? '-'}`],
+        ['Muzzle velocity (fps)', `${r.muzzleVelocityFps ?? '-'}`],
+        ['Scope unit', `${r.scopeUnit ?? '-'}`],
+        ['Round count', `${r.roundCount ?? 0}`],
+        ['Notes', `${r.notes ?? '-'}`],
+      ];
+
+      autoTableMod.default(doc, {
+        startY: y,
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fontSize: 9 },
+        columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: pageWidth - 20 - 45 } },
+        body: rifleRows.map(([k, v]) => [k, v]),
+      });
+
+      y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 40;
+
+      // Loads table
+      const loads = Array.isArray(r.loads) ? r.loads : [];
+      doc.setFontSize(12);
+      doc.text(`Loads (${loads.length})`, 10, y);
+      y += 3;
+
+      autoTableMod.default(doc, {
+        startY: y,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fontSize: 8 },
+        head: [[
+          'Powder',
+          'Charge',
+          'COAL',
+          'Primer',
+          'Bullet',
+          'BW (gr)',
+          'BC'
+        ]],
+        body: loads.map((l: any) => ([
+          `${l?.powder ?? ''}`,
+          `${l?.chargeGn ?? ''}`,
+          `${l?.coal ?? ''}`,
+          `${l?.primer ?? ''}`,
+          `${l?.bullet ?? ''}`,
+          `${l?.bulletWeightGr ?? ''}`,
+          `${l?.bulletBc ?? ''}`,
+        ])),
+      });
+
+      const filenameSafe = `${(r.name ?? 'rifle').toString().replace(/[^\w\-]+/g, '_')}_rifle_export.pdf`;
+      const pdfBlob = doc.output('blob');
+
+      // Prefer native share on device; fallback to download on web
+      await this.sharePdfBlob(pdfBlob, filenameSafe);
+    } catch (err) {
+      console.error('exportSelectedRiflePdf failed:', err);
+      alert('Export failed. Check console for details.');
+    }
+  }
+
+  private async sharePdfBlob(blob: Blob, filename: string): Promise<void> {
+    // If we’re on web (or Share plugin not available), trigger a download
+    const isNative = Capacitor.isNativePlatform?.() ?? (Capacitor.getPlatform?.() !== 'web');
+    if (!isNative) {
+      const url = URL.createObjectURL(blob);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      return;
+    }
+
+    // Native (Android/iOS): write to cache, then Share
+    const base64 = await this.blobToBase64(blob);
+
+    const writeRes = await Filesystem.writeFile({
+      path: filename,
+      data: base64,
+      directory: Directory.Cache,
+      recursive: true,
+    });
+
+    await Share.share({
+      title: 'Rifle Data Export',
+      text: 'Rifle export PDF',
+      url: writeRes.uri,
+      dialogTitle: 'Share Rifle PDF',
+    });
+  }
+
+  private blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error);
+      reader.onload = () => {
+        const res = (reader.result as string) || '';
+        // res = "data:application/pdf;base64,...."
+        const base64 = res.split(',')[1] ?? '';
+        resolve(base64);
+      };
+      reader.readAsDataURL(blob);
+    });
   }
 
   private generateId(prefix: string): string {
