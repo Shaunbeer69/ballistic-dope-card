@@ -27,7 +27,7 @@
         <div class="flex items-center justify-between">
           <div class="text-xs font-semibold text-gray-100 flex items-center gap-1">
             <span>🔧</span>
-            <span>Load development</span>
+            <span>Load Development</span>
           </div>
           <button
             class="px-3 py-[4px] rounded-full bg-gradient-to-r from-emerald-400 to-lime-500 text-black text-[12px] font-semibold shadow-lg shadow-emerald-500/60"
@@ -56,10 +56,6 @@
         *ngIf="projectFormVisible"
         class="mt-3 border border-gray-800 bg-black/60 rounded-2xl p-3 space-y-3 animate-slide-down"
       >
-        <div class="text-[11px] font-semibold text-gray-100">
-          {{ editingProject ? 'Edit load development' : 'New load development' }}
-        </div>
-
         <div class="grid grid-cols-1 gap-2 text-[11px]">
           <!-- Name -->
           <div>
@@ -103,6 +99,15 @@
             </div>
           </div>
 
+          <!-- Ladder planning header (moved above inputs) -->
+          <div *ngIf="projectForm.type === 'ladder'" class="text-gray-100 font-semibold mt-2">
+            Ladder planning
+          </div>
+          <!-- OCW planning header (mirrors ladder) -->
+          <div *ngIf="projectForm.type === 'ocw'" class="text-gray-100 font-semibold mt-2">
+            OCW planning
+          </div>
+
           <!-- Powder / Bullet / Weight -->
           <div class="grid grid-cols-3 gap-2">
             <div>
@@ -113,6 +118,7 @@
                 [(ngModel)]="projectForm.powder"
               />
             </div>
+
             <div>
               <div class="text-gray-400 mb-0.5">Bullet</div>
               <input
@@ -122,6 +128,7 @@
                 placeholder="e.g. Berger Hybrid"
               />
             </div>
+
             <div>
               <div class="text-gray-400 mb-0.5">Weight (gr)</div>
               <input
@@ -132,79 +139,66 @@
             </div>
           </div>
 
-          <!-- OAL only (distance is in ladder/OCW planning) -->
-          <div>
-            <div class="text-gray-400 mb-0.5">OAL</div>
-            <input
-              type="number"
-              class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
-              [(ngModel)]="projectForm.oal"
-              placeholder="Overall length"
-            />
-          </div>
-
-          <!-- Notes (planning only) -->
-          <div>
-            <div class="text-gray-400 mb-0.5">Notes</div>
-            <textarea
-              rows="2"
-              class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-gray-100 text-[11px]"
-              [(ngModel)]="projectForm.notes"
-              placeholder="Notes for this load development…"
-            ></textarea>
-          </div>
-        </div>
-
-        <!-- Ladder / OCW planning (distance + start/end/step) -->
-        <div
-          *ngIf="projectForm.type === 'ladder' || projectForm.type === 'ocw'"
-          class="mt-2 border border-gray-800 rounded-2xl p-2 text-[11px] bg-black/40 space-y-2"
-        >
-          <div class="text-gray-100 font-semibold">
-            {{ projectForm.type === 'ocw' ? 'OCW planning' : 'Ladder planning' }}
-          </div>
-
-          <!-- Distance -->
-          <div class="mt-1">
-            <div class="text-gray-400 mb-0.5">Distance (m)</div>
-            <input
-              type="number"
-              class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
-              [(ngModel)]="planner.distanceM"
-            />
-          </div>
-
-          <!-- Start / End / Step -->
-          <div class="grid grid-cols-3 gap-2 mt-1">
+          <!-- OAL + Distance side by side -->
+          <div class="grid grid-cols-2 gap-2">
             <div>
-              <div class="text-gray-400 mb-0.5">Start (gr)</div>
+              <div class="text-gray-400 mb-0.5">OAL</div>
               <input
                 type="number"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
-                [(ngModel)]="planner.startChargeGr"
+                [(ngModel)]="projectForm.oal"
+                placeholder="Overall length"
               />
             </div>
-            <div>
-              <div class="text-gray-400 mb-0.5">End (gr)</div>
+
+            <div *ngIf="projectForm.type === 'ladder' || projectForm.type === 'ocw'">
+              <div class="text-gray-400 mb-0.5">Distance (m)</div>
               <input
                 type="number"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
-                [(ngModel)]="planner.endChargeGr"
-              />
-            </div>
-            <div>
-              <div class="text-gray-400 mb-0.5">Step (gr)</div>
-              <input
-                type="number"
-                class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
-                [(ngModel)]="planner.stepGr"
+                [(ngModel)]="planner.distanceM"
               />
             </div>
           </div>
 
+          <!-- Ladder planning values -->
+          <div
+            *ngIf="projectForm.type === 'ladder' || projectForm.type === 'ocw'"
+            class="mt-2 border border-gray-800 rounded-2xl p-2 text-[11px] bg-black/40 space-y-2"
+          >
+            <!-- Start / End / Step -->
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <div class="text-gray-400 mb-0.5">Start (gr)</div>
+                <input
+                  type="number"
+                  class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
+                  [(ngModel)]="planner.startChargeGr"
+                />
+              </div>
+
+              <div>
+                <div class="text-gray-400 mb-0.5">End (gr)</div>
+                <input
+                  type="number"
+                  class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
+                  [(ngModel)]="planner.endChargeGr"
+                />
+              </div>
+
+              <div>
+                <div class="text-gray-400 mb-0.5">Step (gr)</div>
+                <input
+                  type="number"
+                  class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
+                  [(ngModel)]="planner.stepGr"
+                />
+              </div>
+            </div>
+          </div>
           <!-- Shots per group: OCW only -->
           <div *ngIf="projectForm.type === 'ocw'" class="mt-2">
-            <div class="text-gray-400 mb-0.5">Shots per group</div>
+            <div class="text-gray-400 mb-0.2">Shots per group</div>
             <input
               type="number"
               class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
@@ -213,6 +207,17 @@
             <div class="mt-0.5 text-[9px] text-gray-500">
               e.g. 3 for 3-shot OCW groups per charge.
             </div>
+          </div>
+
+          <!-- Notes (moved to last position above Save) -->
+          <div class="mt-2">
+            <div class="text-gray-400 mb-0.5">Notes</div>
+            <textarea
+              rows="2"
+              class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-gray-100 text-[11px]"
+              [(ngModel)]="projectForm.notes"
+              placeholder="Notes for this load development…"
+            ></textarea>
           </div>
 
           <!-- Ladder / OCW planner warnings -->
