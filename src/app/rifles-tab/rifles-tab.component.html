@@ -183,6 +183,11 @@
 
         <!-- Small build label so we know version everywhere -->
         <div class="text-[9px] text-slate-500 mt-1">Rifles build: v1-back-fix</div>
+        <!-- Rifle notes (separate section above loads) -->
+        <div *ngIf="r.notes" class="mt-2">
+          <div class="text-[10px] text-slate-400 font-semibold">Rifle notes</div>
+          <div class="text-[11px] text-slate-300 whitespace-pre-wrap">{{ r.notes }}</div>
+        </div>
 
         <!-- Loads for this rifle -->
         <div class="mt-2 border-t border-slate-700 pt-2">
@@ -267,6 +272,16 @@
                         </div>
                       </td>
                     </tr>
+
+                    <!-- Load notes row (separate from Rifle Notes) -->
+                    <tr *ngIf="l.notes" class="border-b border-slate-900">
+                      <td colspan="5" class="px-2 pb-2 pt-0">
+                        <div class="text-[10px] text-slate-300 whitespace-pre-wrap">
+                          <span class="text-slate-400 font-semibold">Load notes:</span>
+                          {{ l.notes }}
+                        </div>
+                      </td>
+                    </tr>
                   </ng-container>
                 </tbody>
               </table>
@@ -348,6 +363,16 @@
                     class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>
+
+                <label class="flex flex-col">
+                  Notes
+                  <textarea
+                    [(ngModel)]="loadForm.notes"
+                    name="loadNotes"
+                    rows="3"
+                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700 resize-none"
+                  ></textarea>
+                </label>
               </div>
 
               <!-- Bottom row: Cancel / Clear / Add -->
@@ -380,8 +405,6 @@
             </div>
           </div>
         </div>
-
-        <div *ngIf="r.notes" class="mt-2 text-[11px] text-slate-300">Notes: {{ r.notes }}</div>
       </div>
     </ng-container>
 
@@ -389,11 +412,11 @@
       <div class="text-[11px] text-slate-300">No rifles yet. Add one above.</div>
     </ng-template>
 
-    <!-- Bottom actions: Export + Back (left aligned) -->
-    <div class="flex items-center gap-2 mt-4">
+    <!-- Bottom actions: Export (left) / Back (right) -->
+    <div class="flex items-center justify-between mt-4">
       <button
         type="button"
-        class="px-3 py-1.5 rounded-2xl bg-emerald-600 text-white font-semibold text-[11px]"
+        class="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs"
         (click)="exportSelectedRiflePdf()"
         [disabled]="!selectedRifle"
       >
@@ -402,7 +425,7 @@
 
       <button
         type="button"
-        class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black font-semibold text-[11px]"
+        class="px-3 py-2 rounded-xl bg-orange-500 text-black text-xs"
         (click)="goBack()"
       >
         Back

@@ -110,12 +110,12 @@ export class RiflesTabComponent implements OnInit {
 
       y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 40;
 
-      // Loads table
+        // Loads table
       const loads = Array.isArray(r.loads) ? r.loads : [];
       doc.setFontSize(12);
       doc.text(`Loads (${loads.length})`, 10, y);
       y += 3;
-
+      // Loads table (keep it horizontal; notes go underneath per-load)
       autoTableMod.default(doc, {
         startY: y,
         theme: 'grid',
@@ -140,6 +140,49 @@ export class RiflesTabComponent implements OnInit {
           `${l?.bulletBc ?? ''}`,
         ])),
       });
+
+      // Move cursor below the table
+      y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 12;
+
+      // Load notes (under each load, in its own section like rifle notes)
+      const loadsWithNotes = loads.filter((l: any) => (l?.notes ?? '').toString().trim().length > 0);
+
+      if (loadsWithNotes.length) {
+        // Page break if needed
+        if (y > 270) {
+          doc.addPage();
+          y = 12;
+        }
+
+        doc.setFontSize(12);
+        doc.text('Load Notes', 10, y);
+        y += 5;
+
+        doc.setFontSize(9);
+
+        for (let i = 0; i < loadsWithNotes.length; i++) {
+          const l: any = loadsWithNotes[i];
+          const note = (l?.notes ?? '').toString().trim();
+
+          const header = `${i + 1}) ${l?.powder ?? ''} ${l?.chargeGn ?? ''}gn | ${l?.bullet ?? ''} ${l?.bulletWeightGr ?? ''}gr | COAL ${l?.coal ?? ''}`;
+
+          // Page break if needed
+          if (y > 270) {
+            doc.addPage();
+            y = 12;
+          }
+
+          doc.setFontSize(9);
+          doc.text(header, 10, y);
+          y += 4;
+
+          const wrapped = doc.splitTextToSize(note, pageWidth - 20);
+          doc.text(wrapped, 12, y);
+          y += (wrapped.length * 4) + 3;
+        }
+      }
+
+
 
       const filenameSafe = `${(r.name ?? 'rifle').toString().replace(/[^\w\-]+/g, '_')}_rifle_export.pdf`;
       const pdfBlob = doc.output('blob');
@@ -370,10 +413,11 @@ export class RiflesTabComponent implements OnInit {
   }
 
   // Load form logic
-  resetLoadForm(): void {
-    this.loadForm = {};
+    resetLoadForm(): void {
+    this.loadForm = { notes: '' };
     this.editingLoadId = null;
   }
+
 
   saveLoad(r: any): void {
     if (!r) return;
@@ -399,24 +443,19 @@ export class RiflesTabComponent implements OnInit {
         };
       }
     } else {
-      const newLoadId = this.loadForm.id ?? this.generateId('load');
-
-      const newLoad: any = {
-        id: newLoadId,
+            const newLoad = {
+        id: Date.now(),
         powder: this.loadForm.powder || '',
-        chargeGn:
-          this.loadForm.chargeGn != null
-            ? Number(this.loadForm.chargeGn)
-            : 0,
+        chargeGn: this.loadForm.chargeGn || null,
         coal: this.loadForm.coal || '',
         primer: this.loadForm.primer || '',
-        bullet: this.loadForm.bullet,
-        bulletWeightGr:
-          this.loadForm.bulletWeightGr != null
-            ? Number(this.loadForm.bulletWeightGr)
-            : undefined,
-        bulletBc: this.loadForm.bulletBc,
+        bullet: this.loadForm.bullet || '',
+        bulletWeightGr: this.loadForm.bulletWeightGr || null,
+        bulletBc: this.loadForm.bulletBc || '',
+        notes: (this.loadForm.notes || '').toString(), // <-- ADD THIS LINE
       };
+
+      
 
       loads.push(newLoad);
     }
@@ -454,7 +493,7 @@ export class RiflesTabComponent implements OnInit {
     this.activeLoadFormRifleId = r.id;
     this.editingLoadId = load.id;
 
-    this.loadForm = {
+       this.loadForm = {
       id: load.id,
       powder: load.powder,
       chargeGn: load.chargeGn,
@@ -463,7 +502,9 @@ export class RiflesTabComponent implements OnInit {
       bullet: load.bullet,
       bulletWeightGr: load.bulletWeightGr,
       bulletBc: load.bulletBc,
+      notes: (load.notes || '').toString(), // <-- ADD THIS LINE
     };
+
   }
 
   deleteLoad(r: any, load: any): void {
