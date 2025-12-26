@@ -924,9 +924,21 @@ const reserveForBottom = 12 + (15 * 14) + 10 + 110 + 10;
           doc.text(s ? `${s.sd.toFixed(1)}` : '—', colX[2], y);
           doc.text(s ? `${Math.round(s.es)}` : '—', colX[3], y);
           doc.text(this.formatGroupSize(e), colX[4], y);
-        } else {
-          doc.text(`${(e as any).shotsFired ?? '—'}`, colX[2], y);
-        }
+      } else {
+  // Use the SAME completion boolean already used elsewhere (graph/colour logic)
+  const isLoadCompleted = this.isProjectComplete(this.selectedProject!);
+
+  // Match the UI: 1/Total ... N/Total
+  // (shownRows is 0-based count already printed so far)
+  const shotLabel = `${shownRows + 1}/${entries.length}`;
+
+  // Always print the same label; no extra "1" overlay
+  doc.text(shotLabel, colX[2], y);
+
+  // If you ever want different behavior for incomplete loads, this is where it would go:
+  // if (!isLoadCompleted) { ... }
+}
+
 
         if (notesLines.length) {
          doc.text(`${shownRows + 1}/${entries.length}`, colX[2], y);
