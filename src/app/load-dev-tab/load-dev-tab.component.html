@@ -198,14 +198,14 @@
           </div>
           <!-- Shots per group: OCW only -->
           <div *ngIf="projectForm.type === 'ocw'" class="mt-2">
-            <div class="text-gray-400 mb-0.2">Shots per group</div>
+            <div class="text-gray-400 mb-0.5">Shots per group</div>
             <input
               type="number"
-              class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
+              class="w-full bg-black/42 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
               [(ngModel)]="planner.shotsPerGroup"
             />
             <div class="mt-0.5 text-[9px] text-gray-500">
-              e.g. 3 for 3-shot OCW groups per charge.
+              e.g. 3 to 5 shot OCW groups per charge.
             </div>
           </div>
 

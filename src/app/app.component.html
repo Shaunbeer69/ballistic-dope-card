@@ -1,6 +1,9 @@
-<div class="min-h-screen w-full bg-[#111827] text-white mx-auto overflow-y-auto pb-16">
-  <!-- Phone frame -->
-  <div class="w-full max-w-sm flex flex-col">
+<div class="min-h-screen w-full bg-[#111827] text-white flex justify-center">
+  <!-- App frame -->
+  <div class="w-full max-w-sm md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto flex flex-col">
+    >
+    <!-- app content -->
+
     <!-- APP TITLE -->
     <header *ngIf="currentTab === 'menu' && selectedTool !== 'windEffect'" class="text-center p-4">
       <h1 class="text-md font-semibold tracking-wide mt-4">
@@ -680,50 +683,62 @@
     </div>
     <div style="height: 1vh"></div>
 
-    <!-- Bottom nav / tab bar -->
-    <div
-      class="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around bg-[#05070b] text-white border-t border-[#222]"
-      style="padding: 4px 0 calc(26px + env(safe-area-inset-bottom, 0px))"
-    >
-      <!-- Home -->
-      <button class="flex flex-col items-center justify-center text-xs" (click)="setTab('menu')">
-        <span
-          class="text-lg leading-none px-2 py-1 rounded-xl"
-          [ngClass]="currentTab === 'menu' ? 'bg-orange-500 text-black' : ''"
-          >🏠</span
-        >
-        <span>Home</span>
-      </button>
+    <div class="fixed bottom-0 left-0 right-0 z-50 flex justify-center">
+      <div
+        class="w-full max-w-sm md:max-w-3xl lg:max-w-5xl xl:max-w-6xl bg-[#05070b] border-t border-[#222] flex items-center justify-around py-1 mx-auto"
+        style="padding-bottom: env(safe-area-inset-bottom, 0px)"
+      >
+        <!-- nav buttons -->
 
-      <!-- Venues -->
-      <button class="flex flex-col items-center justify-center text-xs" (click)="setTab('venues')">
-        <span
-          class="text-lg leading-none px-2 py-1 rounded-xl"
-          [ngClass]="currentTab === 'venues' ? 'bg-orange-500 text-black' : ''"
-          >📍</span
-        >
-        <span>Venues</span>
-      </button>
+        <!-- Home -->
+        <button class="flex flex-col items-center justify-center text-xs" (click)="setTab('menu')">
+          <span
+            class="text-lg leading-none px-2 py-1 rounded-xl"
+            [ngClass]="currentTab === 'menu' ? 'bg-orange-500 text-black' : ''"
+            >🏠</span
+          >
+          <span>Home</span>
+        </button>
 
-      <!-- Rifles -->
-      <button class="flex flex-col items-center justify-center text-xs" (click)="setTab('rifles')">
-        <span
-          class="text-lg leading-none px-2 py-1 rounded-xl"
-          [ngClass]="currentTab === 'rifles' ? 'bg-orange-500 text-black' : ''"
-          >🔫</span
+        <!-- Venues -->
+        <button
+          class="flex flex-col items-center justify-center text-xs"
+          (click)="setTab('venues')"
         >
-        <span>Rifles</span>
-      </button>
+          <span
+            class="text-lg leading-none px-2 py-1 rounded-xl"
+            [ngClass]="currentTab === 'venues' ? 'bg-orange-500 text-black' : ''"
+            >📍</span
+          >
+          <span>Venues</span>
+        </button>
 
-      <!-- History -->
-      <button class="flex flex-col items-center justify-center text-xs" (click)="setTab('history')">
-        <span
-          class="text-lg leading-none px-2 py-1 rounded-xl"
-          [ngClass]="currentTab === 'history' ? 'bg-orange-500 text-black' : ''"
-          >🧾</span
+        <!-- Rifles -->
+        <button
+          class="flex flex-col items-center justify-center text-xs"
+          (click)="setTab('rifles')"
         >
-        <span>History</span>
-      </button>
+          <span
+            class="text-lg leading-none px-2 py-1 rounded-xl"
+            [ngClass]="currentTab === 'rifles' ? 'bg-orange-500 text-black' : ''"
+            >🔫</span
+          >
+          <span>Rifles</span>
+        </button>
+
+        <!-- History -->
+        <button
+          class="flex flex-col items-center justify-center text-xs"
+          (click)="setTab('history')"
+        >
+          <span
+            class="text-lg leading-none px-2 py-1 rounded-xl"
+            [ngClass]="currentTab === 'history' ? 'bg-orange-500 text-black' : ''"
+            >🧾</span
+          >
+          <span>History</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>
