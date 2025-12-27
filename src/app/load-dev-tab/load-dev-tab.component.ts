@@ -2010,12 +2010,23 @@ if (type === 'ladder' || type === 'ocw') {
   }
 
   // ---------- velocity stats & parsing ----------
-  private parseVelocityInput(raw: string | undefined | null): number[] {
+    private parseVelocityInput(raw: string | undefined | null): number[] {
     if (!raw) return [];
-    return raw
+
+        // Accept decimal comma (e.g. "2769,5") by converting it to decimal dot first.
+    // Accept decimal space (e.g. "2769 5" or "64 6") some Android keypads emit.
+    // After that, remaining commas act as normal separators.
+    const normalized = raw
+      // 1) decimal space => dot (only when the fractional part is 1 digit)
+      .replace(/(\d)[\u00A0\s]+(\d)(?=\D|$)/g, '$1.$2')
+      // 2) decimal comma => dot
+      .replace(/(\d),(\d)/g, '$1.$2');
+
+    return normalized
       .split(/[\s,;]+/)
       .map(x => Number(x))
       .filter(v => Number.isFinite(v));
+
   }
 
   // only fixes obvious paste duplication like "a b c a b c"
