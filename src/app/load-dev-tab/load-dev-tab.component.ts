@@ -278,9 +278,16 @@ targetPhotoInlineMessage: string | null = null;
 private syncTargetPhotoFromProject(): void {
   try {
     const any = this.selectedProject as any;
+
+    // ✅ New: prefer structured shape if present
+    const structuredDataUrl = (any?.targetPhoto?.dataUrl ?? '').toString().trim();
     const base64 = (any?.targetPhotoBase64 ?? '').toString().trim();
     const dataUrl = (any?.targetPhotoDataUrl ?? '').toString().trim();
 
+    if (structuredDataUrl) {
+      this.targetPhotoDataUrl = structuredDataUrl;
+      return;
+    }
     if (dataUrl) {
       this.targetPhotoDataUrl = dataUrl;
       return;
@@ -294,6 +301,7 @@ private syncTargetPhotoFromProject(): void {
     this.targetPhotoDataUrl = null;
   }
 }
+
 
 async onTargetPhotoClick(event?: Event): Promise<void> {
   try {
@@ -923,8 +931,12 @@ doc.text(noteLines, leftMargin, y);
 // ONE-PAGER: stop table early so Comments + bottom boxes stay on page 1
 const pageBottom = doc.internal.pageSize.getHeight() - 40;
 
-// Reserve space for: Comments title + (up to 15 lines) + bottom boxes (min height)
-const reserveForBottom = 12 + (15 * 14) + 10 + 110 + 10;
+// Reserve MIN space for:
+// - spacer before comments (10)
+// - Comments title (~12) + pad after comments block (~10)
+// - FIXED bottom boxes (keep target image/photo from ever shrinking) + pad after
+const reserveForBottom = 10 + 12 + 10 + 220 + 10;
+
 
 
         if (y + neededHeight + reserveForBottom > pageBottom) {
@@ -984,16 +996,15 @@ const commentPadAfter = 10;
 
 const boxPadAfter = 10;
 
-const boxMaxH = 220;
-const boxMinH = 110;     // target minimum (nice size)
-const boxAbsMinH = 70;   // absolute minimum (still usable)
+const boxH = 220; // FIXED: never shrink target image/photo box to make content fit
 
 // Space before comments title (small breathing room)
 y += 10;
 
 // How many comment lines can we afford while still keeping the bottom boxes?
 const commentsHeight = (n: number) => commentTitleH + n * commentLineGap + commentPadAfter;
-const boxesReservedAbs = boxAbsMinH + boxPadAfter;
+const boxesReservedAbs = boxH + boxPadAfter;
+
 
 let commentLines = 15;
 
@@ -1026,7 +1037,9 @@ y += commentLines * commentLineGap + 10;
 
 // ----- Bottom boxes: LEFT blank placeholder + RIGHT photo -----
 const remainingForBoxes = pageBottom - (y + boxPadAfter);
-const boxH = Math.max(boxAbsMinH, Math.min(boxMaxH, remainingForBoxes));
+
+
+if (remainingForBoxes < boxH) { /* should not happen; comments/table are trimmed first to keep one page */ }
 
 // Split area into 2 equal boxes
 const gap = 10;
@@ -1354,8 +1367,9 @@ entryHasPhoto(entry: LoadDevEntry): boolean {
 
 projectHasPhoto(): boolean {
   const p: any = this.selectedProject as any;
-  return !!p?.targetPhotoBase64 || !!p?.targetPhotoDataUrl;
+  return !!p?.targetPhoto?.dataUrl || !!p?.targetPhotoBase64 || !!p?.targetPhotoDataUrl;
 }
+
 
 hasAnyPhoto(): boolean {
   if (this.projectHasPhoto()) return true;
@@ -1487,7 +1501,7 @@ private async drawAssetImageInBox(
 
     this.data.updateLoadDevProject({
       ...this.selectedProject,
-      notes: notes || undefined
+     notes: notes
     });
 
    this.postSaveMessage = 'Notes saved ✅';
