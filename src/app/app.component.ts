@@ -100,6 +100,7 @@ export class AppComponent implements OnInit {
 showExportImportModal = false;
 exportImportInlineMessage: string | null = null;
 @ViewChild('importFileInput') importFileInput!: ElementRef<HTMLInputElement>;
+exportMode: 'root' | 'export' = 'root';
 
   // bottom icon bar state (no logic tied yet, just to keep template happy)
   activeTab: 'start' | 'rifles' | 'venues' | 'tools' = 'start';
@@ -143,6 +144,7 @@ exportImportInlineMessage: string | null = null;
   // TOOLS / KESTREL / CONVERTER
   showTools = false;
   selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | null = null;
+exportSubMenuOpen = false;
 
 
   kestrelData: KestrelDataSnapshot | null = null;
@@ -998,19 +1000,36 @@ private blobToBase64(blob: Blob): Promise<string> {
     this.setTab('sessions');
   }
 
-  // ---------- Export / Import (JSON) ----------
-openExportImportModal(): void {
+  openExportImportModal(): void {
+  this.exportMode = 'root';
   this.showExportImportModal = true;
 }
 
+
+
 closeExportImportModal(): void {
+  this.exportMode = 'root';
   this.showExportImportModal = false;
+}
+openExportSubmenu(): void {
+  this.exportMode = 'export';
 }
 
+
 async onChooseExport(): Promise<void> {
-  this.showExportImportModal = false;
-  await this.exportLoadDevBackup(); // re-use your current backup/export logic
+  // Backward-compatible: old button now behaves like Share
+  await this.onExportShare();
 }
+async onExportSaveLocal(): Promise<void> {
+  this.showExportImportModal = false;
+  await this.exportLoadDevBackup(false); // save only
+}
+
+async onExportShare(): Promise<void> {
+  this.showExportImportModal = false;
+  await this.exportLoadDevBackup(true); // save + share sheet
+}
+
 
 onChooseImport(): void {
   // Keep modal open until user picks (or cancel picker)
@@ -1120,7 +1139,8 @@ async onImportFileSelected(evt: Event): Promise<void> {
 
   // ---------- JSON load-dev backup (backup / export icon) ----------
 
-async exportLoadDevBackup(): Promise<void> {
+async exportLoadDevBackup(shareAfterSave: boolean = true): Promise<void> {
+
     // Export the REAL persisted store (includes nested data under every section)
   const payload = this.dataService.exportFullBackup?.();
 
@@ -1165,13 +1185,18 @@ async exportLoadDevBackup(): Promise<void> {
         directory: Directory.Documents,
       });
 
-      await Share.share({
-        title: 'Gunstuff Backup',
-        text: 'Gunstuff Ballistics backup file',
-        url: uri,
-      });
+     if (shareAfterSave) {
+  await Share.share({
+    title: 'Gunstuff Backup',
+    text: 'Gunstuff Ballistics backup file',
+    url: uri,
+  });
 
-      alert('Backup saved to Documents and ready to share.');
+  alert('Backup saved. Choose an app (e.g. Files) to store or send it.');
+} else {
+  alert('Backup saved to app Documents on this device.');
+}
+
     } catch (err) {
       console.error('Native backup export failed:', err);
       alert('Backup export failed on this device.');

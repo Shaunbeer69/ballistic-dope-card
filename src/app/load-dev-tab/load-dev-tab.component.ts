@@ -2237,7 +2237,7 @@ private ladderIsInNodeBand(entry: LoadDevEntry): boolean {
     const vMin = Math.min(...nums);
     const vMax = Math.max(...nums);
 
-    if ((vMax - vMin) <= 10) {
+    if ((vMax - vMin) <= 14) {
       for (let j = i; j < i + k; j++) inBand[j] = true;
     }
   }
