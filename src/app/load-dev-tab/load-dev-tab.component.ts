@@ -596,18 +596,41 @@ closePhotoViewer(): void {
 }
 
 deleteEntryPhoto(): void {
+  // 1) If we are viewing an ENTRY photo (OCW row photo)
   const e = this.photoViewerEntry;
-  if (!e) return;
-  delete (e as any).targetPhoto;
+  if (e) {
+    delete (e as any).targetPhoto;
 
-   if (this.selectedProject) {
-    this.data.updateLoadDevEntry(this.selectedProject.id, e as any);
-    this.refreshSelectedProject();
+    if (this.selectedProject) {
+      this.data.updateLoadDevEntry(this.selectedProject.id, e as any);
+      this.refreshSelectedProject();
+    }
+
+    this.closePhotoViewer();
+    return;
   }
 
+  // 2) Otherwise we are viewing the PROJECT "Target photo" from Notes panel
+  if (!this.selectedProject) return;
 
+  // clear stored photo on the project (covers both legacy keys)
+  delete (this.selectedProject as any).targetPhotoBase64;
+  delete (this.selectedProject as any).targetPhotoDataUrl;
+  delete (this.selectedProject as any).targetPhotoCapturedAt;
+
+  // clear UI preview
+  this.targetPhotoDataUrl = null;
+
+  // persist
+  this.data.updateLoadDevProject({ ...this.selectedProject });
+
+  this.postSaveMessage = 'Photo deleted ✅';
+  setTimeout(() => (this.postSaveMessage = null), 2000);
+
+  this.refreshSelectedProject();
   this.closePhotoViewer();
 }
+
 
   // ---------- PDF export (Graph + table inside #pdfContent) ----------
    // ---------- PDF export (Graph + table inside #pdfContent) ----------
@@ -1467,7 +1490,9 @@ private async drawAssetImageInBox(
       notes: notes || undefined
     });
 
-    this.postSaveMessage = 'Notes saved ✅';
+   this.postSaveMessage = 'Notes saved ✅';
+
+
     setTimeout(() => (this.postSaveMessage = null), 2000);
 
     // Collapse notes after saving

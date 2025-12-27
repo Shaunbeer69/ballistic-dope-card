@@ -468,8 +468,8 @@
             *ngIf="showGraph && (graphCoords.length || ocwShotPoints.length)"
             class="mb-2 rounded-2xl border border-gray-800 bg-black/80 px-3 py-2"
           >
-            <div class="w-full h-40 sm:h-44 md:h-56 lg:h-64 xl:h-72">Velocity vs charge</div>
-            <svg viewBox="0 0 100 60" class="w-full h-56 md:h-72 lg:h-80 xl:h-96">
+            <div class="text-[11px] text-gray-300 mb-1">Velocity vs charge</div>
+            <svg viewBox="0 0 100 60" class="w-full h-44 md:h-64 lg:h-72 xl:h-80">
               <!-- LADDER (existing): polyline + points -->
               <ng-container *ngIf="selectedProject?.type !== 'ocw'; else ocwGraph">
                 <polyline
@@ -797,7 +797,7 @@
                   class="px-3 py-1.5 rounded-xl bg-emerald-500 text-black text-xs font-semibold"
                   (click)="saveSelectedProjectNotes()"
                 >
-                  Close
+                  Save &amp; Close
                 </button>
               </div>
               <div
