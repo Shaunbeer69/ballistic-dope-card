@@ -755,7 +755,7 @@
                       [src]="targetPhotoDataUrl"
                       alt="Target photo"
                       class="h-20 w-20 object-cover rounded-xl border border-gray-700 flex-shrink-0 cursor-pointer"
-                      (click)="photoViewerOpen = true; photoViewerImgUrl = targetPhotoDataUrl"
+                      (click)="openProjectPhotoViewer(targetPhotoDataUrl, $event)"
                     />
                   </div>
                 </div>
@@ -828,12 +828,20 @@
                 </div>
 
                 <div class="flex-1 overflow-auto p-3" (click)="$event.stopPropagation()">
-                  <img
-                    *ngIf="photoViewerImgUrl"
-                    [src]="photoViewerImgUrl"
-                    class="w-full max-w-[520px] mx-auto rounded-2xl border border-gray-700"
-                    alt="Target photo"
-                  />
+                  <div *ngIf="photoViewerImgUrl" class="relative w-full max-w-[520px] mx-auto">
+                    <img
+                      [src]="photoViewerImgUrl"
+                      class="w-full rounded-2xl border border-gray-700"
+                      alt="Target photo"
+                    />
+
+                    <!-- Step 1: auto-scaled 1cm grid overlay -->
+                    <div
+                      *ngIf="gridPxPerCm"
+                      class="absolute inset-0 pointer-events-none rounded-2xl"
+                      [ngStyle]="gridOverlayStyle"
+                    ></div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -581,6 +581,23 @@ private async stampTimestampOnDataUrl(dataUrl: string): Promise<string> {
 
   return canvas.toDataURL('image/jpeg', 0.92);
 }
+openProjectPhotoViewer(url: string | null, event?: Event): void {
+  try {
+    event?.preventDefault();
+    event?.stopPropagation();
+  } catch {}
+
+  if (!url) return;
+
+  this.photoViewerEntry = null;
+  this.photoViewerImgUrl = url;
+  this.photoViewerOpen = true;
+  this.isAnnotatingPhoto = false;
+
+  // Step 1: auto-scale for 1cm blocks
+  void this.runAutoScaleForPhoto(url);
+}
+
 openEntryPhotoViewer(entry: LoadDevEntry, event?: Event): void {
   try {
     event?.preventDefault();
@@ -594,6 +611,9 @@ openEntryPhotoViewer(entry: LoadDevEntry, event?: Event): void {
   this.photoViewerImgUrl = url;
   this.photoViewerOpen = true;
   this.isAnnotatingPhoto = false;
+
+  // Step 1: auto-scale for 1cm blocks
+  void this.runAutoScaleForPhoto(url);
 }
 
 closePhotoViewer(): void {
@@ -601,6 +621,155 @@ closePhotoViewer(): void {
   this.photoViewerEntry = null;
   this.photoViewerImgUrl = null;
   this.isAnnotatingPhoto = false;
+
+  // Step 1: reset overlay state
+  this.gridPxPerCm = null;
+}
+
+/** Step 1: estimate pixels-per-1cm grid spacing and store for overlay. */
+private async runAutoScaleForPhoto(dataUrl: string): Promise<void> {
+  this.gridPxPerCm = null;
+
+  // Only run if viewer is still open and image unchanged
+  const guardUrl = this.photoViewerImgUrl;
+
+  try {
+    const px = await this.estimateGridPxPerCm(dataUrl);
+
+    if (!this.photoViewerOpen) return;
+    if (this.photoViewerImgUrl !== guardUrl) return;
+
+    if (px && Number.isFinite(px) && px > 2) {
+      this.gridPxPerCm = px;
+    }
+  } catch {
+    // Silent fail (overlay just won't show)
+  }
+}
+
+/**
+ * Attempts to detect the repeating 1cm block grid spacing in pixels.
+ * Best-effort: works best with top-down photo and visible grid lines.
+ */
+private async estimateGridPxPerCm(dataUrl: string): Promise<number | null> {
+  const img = new Image();
+  img.decoding = 'async';
+
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error('Image load failed'));
+    img.src = dataUrl;
+  });
+
+  const maxW = 700; // keep it lightweight on mobile
+  const scale = img.width > maxW ? maxW / img.width : 1;
+  const w = Math.max(1, Math.floor(img.width * scale));
+  const h = Math.max(1, Math.floor(img.height * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+
+  ctx.drawImage(img, 0, 0, w, h);
+  const id = ctx.getImageData(0, 0, w, h);
+  const d = id.data;
+
+  // grayscale
+  const gray = new Float32Array(w * h);
+  for (let i = 0, p = 0; p < gray.length; p++, i += 4) {
+    gray[p] = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114);
+  }
+
+  // vertical edge strength per X (for vertical grid lines)
+  const vx = new Float32Array(w);
+  for (let y = 0; y < h; y++) {
+    const row = y * w;
+    for (let x = 1; x < w; x++) {
+      const a = gray[row + x];
+      const b = gray[row + x - 1];
+      vx[x] += Math.abs(a - b);
+    }
+  }
+
+  // horizontal edge strength per Y (for horizontal grid lines)
+  const hy = new Float32Array(h);
+  for (let y = 1; y < h; y++) {
+    const row = y * w;
+    const prev = (y - 1) * w;
+    for (let x = 0; x < w; x++) {
+      const a = gray[row + x];
+      const b = gray[prev + x];
+      hy[y] += Math.abs(a - b);
+    }
+  }
+
+  const vxS = this.smooth1D(vx, 5);
+  const hyS = this.smooth1D(hy, 5);
+
+  const pxX = this.findDominantPeriod(vxS, 6, Math.min(140, Math.floor(w / 2)));
+  const pxY = this.findDominantPeriod(hyS, 6, Math.min(140, Math.floor(h / 2)));
+
+  const candidates = [pxX, pxY].filter((n): n is number => typeof n === 'number' && n > 0);
+  if (!candidates.length) return null;
+
+  // average of best axes (they should be similar)
+  const avg = candidates.reduce((a, b) => a + b, 0) / candidates.length;
+
+  // adjust back to original scale
+  const pxPerCm = avg / scale;
+  return pxPerCm;
+}
+
+private smooth1D(arr: Float32Array, win: number): Float32Array {
+  const out = new Float32Array(arr.length);
+  const half = Math.max(1, Math.floor(win / 2));
+  for (let i = 0; i < arr.length; i++) {
+    let s = 0;
+    let c = 0;
+    const a = Math.max(0, i - half);
+    const b = Math.min(arr.length - 1, i + half);
+    for (let j = a; j <= b; j++) {
+      s += arr[j];
+      c++;
+    }
+    out[i] = c ? s / c : arr[i];
+  }
+  return out;
+}
+
+/**
+ * Autocorrelation peak finder: returns the lag (period) with strongest repetition.
+ */
+private findDominantPeriod(arr: Float32Array, minLag: number, maxLag: number): number | null {
+  if (arr.length < maxLag + 2) return null;
+
+  // remove mean
+  let mean = 0;
+  for (let i = 0; i < arr.length; i++) mean += arr[i];
+  mean /= arr.length;
+
+  const centered = new Float32Array(arr.length);
+  for (let i = 0; i < arr.length; i++) centered[i] = arr[i] - mean;
+
+  let bestLag: number | null = null;
+  let bestScore = -Infinity;
+
+  // correlation score per lag
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let score = 0;
+    for (let i = 0; i < centered.length - lag; i++) {
+      score += centered[i] * centered[i + lag];
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestLag = lag;
+    }
+  }
+
+  return bestLag;
 }
 
 deleteEntryPhoto(): void {
@@ -1743,6 +1912,30 @@ this.syncVoiceNoteFromProject();
 // ---------- Media helpers (Photo / future Audio) ----------
 photoViewerOpen = false;
 photoViewerUrl: string | null = null;
+
+// Step 1: auto-scale pixels-per-1cm for grid overlay
+gridPxPerCm: number | null = null;
+
+get gridOverlayStyle(): any {
+  if (!this.gridPxPerCm) return null;
+
+  const p = this.gridPxPerCm;
+  const p5 = this.gridPxPerCm * 5;
+
+  return {
+    'background-image':
+      'linear-gradient(to right, rgba(255,255,255,0.18) 1px, transparent 1px),' +
+      'linear-gradient(to bottom, rgba(255,255,255,0.18) 1px, transparent 1px),' +
+      'linear-gradient(to right, rgba(255,255,255,0.30) 1px, transparent 1px),' +
+      'linear-gradient(to bottom, rgba(255,255,255,0.30) 1px, transparent 1px)',
+    'background-size':
+      `${p}px ${p}px, ${p}px ${p}px, ${p5}px ${p5}px, ${p5}px ${p5}px`,
+    'background-position': 'center',
+    'opacity': '0.9'
+  };
+}
+
+
 
 getProjectPhotoUrl(): string | null {
   const p: any = this.selectedProject;
