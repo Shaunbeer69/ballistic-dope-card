@@ -36,8 +36,7 @@ interface ProjectForm {
   bulletWeightGr: number | null;
   brass: string;
   oal: number | null;
-   oalOgive: number | null;
-
+  oalOgive: number | null;
   distanceM: number | null;
 }
 
@@ -1468,7 +1467,7 @@ y += boxH + boxPadAfter;
   }
 
   // ---------- helpers ----------
-  private createEmptyProjectForm(): ProjectForm {
+   private createEmptyProjectForm(): ProjectForm {
     return {
       rifleId: null,
       name: '',
@@ -1483,6 +1482,7 @@ y += boxH + boxPadAfter;
       distanceM: null
     };
   }
+
 
   private createEmptyEntryForm(): EntryForm {
     return {
@@ -2056,39 +2056,44 @@ if (type === 'ladder' || type === 'ocw') {
     return;
   }
 }
-
-    
+ 
     this.postSaveMessage = null;
-
     
     if (this.editingProject) {
-      const updated: LoadDevProject = {
+           const updatedAny: any = {
         ...this.editingProject,
         rifleId: this.selectedRifleId,
         name: this.projectForm.name.trim(),
         type,
-        notes: this.projectForm.notes.trim()
+        notes: this.projectForm.notes.trim(),
+        oal: this.projectForm.oal ?? null,
+        oalOgive: (this.projectForm as any).oalOgive ?? null,
+        distanceM: (type === 'ladder' || type === 'ocw') ? (this.planner.distanceM ?? null) : null
       };
-      this.data.updateLoadDevProject(updated);
-      this.selectedProjectId = updated.id;
+      this.data.updateLoadDevProject(updatedAny as LoadDevProject);
+      this.selectedProjectId = updatedAny.id;
 
       this.postSaveMessage =
         'Load development updated. Use the wizard to enter velocities, view the graph and see the highlighted nodes.';
     } else {
-      const newProject: LoadDevProject = {
+           const newProjectAny: any = {
         id: Date.now(),
         rifleId: this.selectedRifleId,
         name: this.projectForm.name.trim(),
         type,
         notes: this.projectForm.notes.trim() || undefined,
         dateStarted: new Date().toISOString(),
-        entries: []
+        entries: [],
+        oal: this.projectForm.oal ?? null,
+        oalOgive: (this.projectForm as any).oalOgive ?? null,
+        distanceM: (type === 'ladder' || type === 'ocw') ? (this.planner.distanceM ?? null) : null
       };
-      this.data.updateLoadDevProject(newProject);
-      this.selectedProjectId = newProject.id;
+      this.data.updateLoadDevProject(newProjectAny as LoadDevProject);
+      this.selectedProjectId = newProjectAny.id;
 
-      this.createLadderEntriesFromPlanner(newProject.id);
-      this.data.createSessionForLoadDevProject(newProject);
+
+      this.createLadderEntriesFromPlanner(newProjectAny.id);
+      this.data.createSessionForLoadDevProject(newProjectAny);
 
       this.postSaveMessage =
         type === 'ocw'
