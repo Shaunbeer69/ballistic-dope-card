@@ -144,15 +144,25 @@
             </div>
           </div>
 
-          <!-- OAL + Distance side by side -->
-          <div class="grid grid-cols-2 gap-2">
+          <!-- OAL + COAL (Ogive) + Distance (3 columns) -->
+          <div class="grid grid-cols-3 gap-2">
             <div>
-              <div class="text-gray-400 mb-0.5">OAL</div>
+              <div class="text-gray-400 mb-0.5">COAL (Base to tip)</div>
               <input
                 type="number"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                 [(ngModel)]="projectForm.oal"
                 placeholder="Overall length"
+              />
+            </div>
+
+            <div>
+              <div class="text-gray-400 mb-0.5">COAL (Ogive)</div>
+              <input
+                type="number"
+                class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
+                [(ngModel)]="projectForm.oalOgive"
+                placeholder="Ogive length"
               />
             </div>
 

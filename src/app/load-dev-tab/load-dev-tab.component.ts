@@ -36,6 +36,8 @@ interface ProjectForm {
   bulletWeightGr: number | null;
   brass: string;
   oal: number | null;
+   oalOgive: number | null;
+
   distanceM: number | null;
 }
 
@@ -1477,6 +1479,7 @@ y += boxH + boxPadAfter;
       bulletWeightGr: null,
       brass: '',
       oal: null,
+      oalOgive: null,
       distanceM: null
     };
   }
