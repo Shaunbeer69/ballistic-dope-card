@@ -101,6 +101,7 @@ showExportImportModal = false;
 exportImportInlineMessage: string | null = null;
 @ViewChild('importFileInput') importFileInput!: ElementRef<HTMLInputElement>;
 exportMode: 'root' | 'export' = 'root';
+importBusy = false;
 
   // bottom icon bar state (no logic tied yet, just to keep template happy)
   activeTab: 'start' | 'rifles' | 'venues' | 'tools' = 'start';
@@ -1050,36 +1051,42 @@ async onImportFileSelected(evt: Event): Promise<void> {
     return;
   }
 
-  let text = '';
+  this.importBusy = true;
+
   try {
-    text = await file.text();
-  } catch {
-    alert('Could not read the selected file.');
-    return;
+    let text = '';
+    try {
+      text = await file.text();
+    } catch {
+      alert('Could not read the selected file.');
+      return;
+    }
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      alert('Invalid JSON file.');
+      return;
+    }
+
+    const ok = confirm('Import will overwrite the data on this device.\n\nContinue?');
+    if (!ok) return;
+
+    const result = this.dataService.importFromBackup(parsed);
+    if (!result.ok) {
+      alert(`Import failed: ${result.message}`);
+      return;
+    }
+
+    // Refresh menus/counts
+    this.loadCoreData();
+
+    this.showExportImportModal = false;
+    alert(`Import complete.\n\n${result.message}`);
+  } finally {
+    this.importBusy = false;
   }
-
-  let parsed: any;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    alert('Invalid JSON file.');
-    return;
-  }
-
-  const ok = confirm('Import will overwrite the data on this device.\n\nContinue?');
-  if (!ok) return;
-
-  const result = this.dataService.importFromBackup(parsed);
-  if (!result.ok) {
-    alert(`Import failed: ${result.message}`);
-    return;
-  }
-
-  // Refresh menus/counts
-  this.loadCoreData();
-
-  this.showExportImportModal = false;
-  alert(`Import complete.\n\n${result.message}`);
 }
 
   async openExportImport(): Promise<void> {

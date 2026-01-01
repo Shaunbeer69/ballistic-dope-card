@@ -441,6 +441,34 @@
                         Export a JSON backup to move your data to another device, or import a JSON
                         backup to restore it here.
                       </div>
+                      <!-- Import busy indicator -->
+                      <div
+                        *ngIf="importBusy"
+                        class="mt-3 flex items-center gap-2 rounded-xl border border-slate-700 bg-black/30 px-3 py-2 text-slate-200"
+                      >
+                        <svg
+                          class="h-4 w-4 animate-spin"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                          ></circle>
+                          <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
+                          ></path>
+                        </svg>
+                        <div class="text-[11px] leading-snug">Importing… please wait</div>
+                      </div>
+
                       <div class="mt-4 grid grid-cols-1 gap-2">
                         <!-- ROOT MENU -->
                         <ng-container *ngIf="exportMode === 'root'; else exportSubmenu">
@@ -448,6 +476,7 @@
                             type="button"
                             class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
                             (click)="openExportSubmenu()"
+                            [disabled]="importBusy"
                           >
                             Export
                           </button>
@@ -456,6 +485,7 @@
                             type="button"
                             class="w-full py-2 rounded-xl bg-indigo-600/90 hover:bg-indigo-600 text-white text-sm"
                             (click)="onChooseImport()"
+                            [disabled]="importBusy"
                           >
                             Import (JSON)
                           </button>
@@ -464,6 +494,7 @@
                             type="button"
                             class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
                             (click)="closeExportImportModal()"
+                            [disabled]="importBusy"
                           >
                             Cancel
                           </button>
