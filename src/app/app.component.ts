@@ -1070,14 +1070,14 @@ async onImportFileSelected(evt: Event): Promise<void> {
       return;
     }
 
-    const ok = confirm('Import will overwrite the data on this device.\n\nContinue?');
-    if (!ok) return;
+   // Safety prompt (merge import)
+const ok = confirm(
+  'Import will MERGE into existing data (no overwrite).\n\nContinue?'
+);
+if (!ok) return;
 
-    const result = this.dataService.importFromBackup(parsed);
-    if (!result.ok) {
-      alert(`Import failed: ${result.message}`);
-      return;
-    }
+const result = this.dataService.importFromBackupMerge(parsed);
+
 
     // Refresh menus/counts
     this.loadCoreData();
@@ -1128,11 +1128,13 @@ async onImportFileSelected(evt: Event): Promise<void> {
 
     // Safety prompt (import overwrites local data)
     const ok = confirm(
-      'Import will overwrite the data on this device.\n\nContinue?'
+      'Import will ADD/merge data into this device (it will not delete existing data).\n\nContinue?'
+
     );
     if (!ok) return;
 
-    const result = this.dataService.importFromBackup(parsed);
+    const result = this.dataService.importFromBackupMerge(parsed);
+
     if (!result.ok) {
       alert(`Import failed: ${result.message}`);
       return;

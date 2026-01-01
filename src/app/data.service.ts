@@ -88,56 +88,190 @@ export class DataService {
       store: storeCopy,
     };
   }
-
-  importFromBackup(payload: any): { ok: boolean; message: string } {
+    /**
+   * Merge-import (append) a backup into existing data.
+   * - DOES NOT overwrite existing store
+   * - Uses existing add* methods only (so IDs are regenerated safely)
+   * - Tries to match rifles/venues/projects by name to avoid obvious duplicates
+   */
+  importFromBackupMerge(payload: any): { ok: boolean; message: string } {
     try {
       if (!payload || typeof payload !== 'object') {
         return { ok: false, message: 'Invalid backup format (not an object).' };
       }
 
-      // Accept either:
-      // 1) our new wrapper: { schema, exportedAt, store: {...} }
-      // 2) legacy flat object: { rifles, venues, sessions, loadDevProjects, ... }
+      // Accept either wrapper { schema, exportedAt, store } or legacy flat object
       const src: any =
         payload.store && typeof payload.store === 'object' ? payload.store : payload;
 
-      const rifles = Array.isArray(src.rifles) ? src.rifles : [];
-      const venues = Array.isArray(src.venues) ? src.venues : [];
-      const sessions = Array.isArray(src.sessions) ? src.sessions : [];
-      const loadDevProjects = Array.isArray(src.loadDevProjects) ? src.loadDevProjects : [];
+      const riflesIn = Array.isArray(src.rifles) ? src.rifles : [];
+      const venuesIn = Array.isArray(src.venues) ? src.venues : [];
+      const sessionsIn = Array.isArray(src.sessions) ? src.sessions : [];
+      const projectsIn = Array.isArray(src.loadDevProjects) ? src.loadDevProjects : [];
+
+      const norm = (s: any) => (String(s ?? '').trim().toLowerCase());
+
+      // ----- Build ID maps (old -> new/existing) -----
+      const rifleIdMap = new Map<number, number>();
+      const venueIdMap = new Map<number, number>();
+
+      // ----- Rifles: match by name, else add -----
+      for (const r of riflesIn) {
+        const oldId = Number(r?.id);
+        const nameKey = norm(r?.name);
+
+        const existing = this.getRifles().find(x => norm(x.name) === nameKey && nameKey);
+                const newId = existing
+          ? existing.id
+               : this.addRifle({
+              name: r?.name ?? '',
+              caliber: r?.caliber,
+              barrelLength: r?.barrelLength,
+              barrelUnit: r?.barrelUnit,
+              twistRate: r?.twistRate ?? r?.twist,
+              muzzleVelocityFps:
+                typeof r?.muzzleVelocityFps === 'number' ? r.muzzleVelocityFps : 0,
+              scopeUnit: r?.scopeUnit ?? 'MIL',
+              loads: Array.isArray(r?.loads) ? r.loads : [],
+              notes: r?.notes,
+              roundCount: typeof r?.roundCount === 'number' ? r.roundCount : 0
+            }).id;
 
 
-      // Recalculate "next id" counters (safe even if backup doesn't include them)
-      const nextRifleId = this.nextId(rifles);
-      const nextVenueId = this.nextId(venues);
-      const nextSessionId = this.nextId(sessions);
-      const nextLoadDevProjectId = this.nextId(loadDevProjects);
-      const nextLoadDevEntryId = this.nextId(
-        loadDevProjects.flatMap((p: any) => Array.isArray(p?.entries) ? p.entries : [])
-      );
+        if (Number.isFinite(oldId)) rifleIdMap.set(oldId, newId);
+      }
 
-      this.store = {
-        nextRifleId,
-        nextVenueId,
-        nextSessionId,
-        nextLoadDevProjectId,
-        nextLoadDevEntryId,
-        rifles,
-        venues,
-        sessions,
-        loadDevProjects
-      } as any;
+      // ----- Venues: match by name, else add -----
+      for (const v of venuesIn) {
+        const oldId = Number(v?.id);
+        const nameKey = norm(v?.name);
 
-      this.saveStore();
+        const existing = this.getVenues().find(x => norm(x.name) === nameKey && nameKey);
+
+        const venuePayload: any = {
+          name: v?.name ?? '',
+          location: v?.location,
+          notes: v?.notes,
+        };
+
+        const dist = Array.isArray(v?.distances)
+          ? v.distances
+          : Array.isArray(v?.distancesM)
+          ? v.distancesM
+          : null;
+
+        if (dist) venuePayload.distances = dist;
+
+        const newId = existing ? existing.id : this.addVenue(venuePayload).id;
+
+
+
+        if (Number.isFinite(oldId)) venueIdMap.set(oldId, newId);
+      }
+
+      // ----- Sessions: remap rifleId/venueId, skip if obvious duplicate -----
+      let addedSessions = 0;
+
+      for (const s of sessionsIn) {
+        const oldRifleId = Number(s?.rifleId);
+        const oldVenueId = Number(s?.venueId);
+
+        const newRifleId = rifleIdMap.get(oldRifleId) ?? oldRifleId;
+        const newVenueId = venueIdMap.get(oldVenueId) ?? oldVenueId;
+
+        const dateKey = norm(s?.date);
+        const titleKey = norm(s?.title);
+
+        const dup = this.getSessions().some(x =>
+          norm(x.date) === dateKey &&
+          norm(x.title) === titleKey &&
+          Number(x.rifleId) === Number(newRifleId) &&
+          Number(x.venueId) === Number(newVenueId)
+        );
+
+        if (dup) continue;
+
+        this.addSession({
+          date: s?.date ?? new Date().toISOString(),
+          rifleId: newRifleId,
+          venueId: newVenueId,
+          title: s?.title ?? '',
+          environment: s?.environment ?? {},
+          dope: Array.isArray(s?.dope) ? s.dope : [],
+          notes: s?.notes ?? '',
+          completed: !!s?.completed
+        });
+
+        addedSessions++;
+      }
+
+      // ----- Load dev projects: match by (rifleId + name + dateStarted), else add
+      // Entries are added via addLoadDevEntry so IDs regenerate safely
+      let addedProjects = 0;
+      let addedEntries = 0;
+
+      for (const p of projectsIn) {
+        const oldRifleId = Number(p?.rifleId);
+        const newRifleId = rifleIdMap.get(oldRifleId) ?? oldRifleId;
+
+        const nameKey = norm(p?.name);
+        const dateKey = norm(p?.dateStarted);
+
+        const existingProject = this.getLoadDevProjectsForRifle(newRifleId).find(x =>
+          norm(x.name) === nameKey &&
+          norm(x.dateStarted) === dateKey &&
+          nameKey && dateKey
+        );
+
+        const targetProject = existingProject
+          ? existingProject
+          : this.addLoadDevProject({
+              rifleId: newRifleId,
+              name: p?.name ?? '',
+              type: p?.type,
+              dateStarted: p?.dateStarted,
+              notes: p?.notes
+            });
+
+        if (!existingProject) addedProjects++;
+
+        // Merge entries by chargeGr (skip if same charge already exists)
+        const incomingEntries = Array.isArray(p?.entries) ? p.entries : [];
+        for (const e of incomingEntries) {
+          const charge = Number(e?.chargeGr);
+          const already = (targetProject.entries ?? []).some(x => Number(x.chargeGr) === charge);
+
+          if (already) continue;
+
+          const created = this.addLoadDevEntry(targetProject.id, {
+            chargeGr: e?.chargeGr,
+            velocity: e?.velocity,
+            velocities: Array.isArray(e?.velocities) ? e.velocities : undefined,
+            notes: e?.notes,
+            targetPhotoDataUrl: e?.targetPhotoDataUrl,
+            entryPhotoDataUrl: e?.entryPhotoDataUrl,
+            // keep any extra fields safely
+            ...(e?.groupSizeCm !== undefined ? { groupSizeCm: e.groupSizeCm } : {})
+          } as any);
+
+          if (created) addedEntries++;
+        }
+      }
 
       return {
         ok: true,
-        message: `Imported ${rifles.length} rifles, ${venues.length} venues, ${sessions.length} sessions, ${loadDevProjects.length} load-dev projects.`
+        message:
+          `Merge import complete. Added ${riflesIn.length} rifles (mapped), ` +
+          `${venuesIn.length} venues (mapped), ${addedSessions} sessions, ` +
+          `${addedProjects} load-dev projects, ${addedEntries} load-dev entries.`
       };
     } catch (e: any) {
       return { ok: false, message: e?.message ?? 'Unknown error.' };
     }
   }
+
+
+ 
 
   private nextId(items: any[]): number {
     const maxId = (items || []).reduce((max, item) => {
