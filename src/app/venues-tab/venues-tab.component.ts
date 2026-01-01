@@ -3,6 +3,9 @@ import { Component, OnInit, EventEmitter, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../data.service';
 import { Venue, SubRange } from '../models';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 interface SubRangeRow {
   id: number;
@@ -80,6 +83,138 @@ export class VenuesTabComponent implements OnInit {
 
   get selectedVenue(): Venue | undefined {
     return this.venues.find((v) => v.id === this.selectedVenueId);
+  }
+  // ==========================
+  // PDF Export (Selected Venue)
+  // ==========================
+  async exportSelectedVenuePdf(): Promise<void> {
+    try {
+      const v = this.selectedVenue;
+      if (!v) {
+        alert('Please select a venue first.');
+        return;
+      }
+
+            // Lazy-load to match Rifles tab (stable with different jspdf/autotable builds)
+      const jspdfMod: any = await import('jspdf');
+      const autoTableMod: any = await import('jspdf-autotable');
+      const jsPDF = jspdfMod?.jsPDF ?? jspdfMod?.default;
+
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      let y = 12;
+
+      doc.setFontSize(14);
+      doc.text('Venue Data Export', 10, y);
+      y += 8;
+
+      doc.setFontSize(11);
+
+      const name = (v as any)?.name ?? '';
+      const location = (v as any)?.location ?? '';
+      const altitudeM = (v as any)?.altitudeM ?? '';
+      const notes = ((v as any)?.notes ?? '').toString();
+
+      doc.text(`Name: ${name}`, 10, y); y += 6;
+      if (location) { doc.text(`Location: ${location}`, 10, y); y += 6; }
+      if (altitudeM !== '' && altitudeM != null) { doc.text(`Altitude (m): ${altitudeM}`, 10, y); y += 6; }
+
+      // Notes (wrapped)
+      if (notes.trim().length) {
+        y += 2;
+        doc.setFontSize(12);
+        doc.text('Notes', 10, y);
+        y += 6;
+
+        doc.setFontSize(10);
+        const wrapped = doc.splitTextToSize(notes, pageWidth - 20);
+        doc.text(wrapped, 12, y);
+        y += (wrapped.length * 4) + 4;
+      }
+
+      // Subranges table
+      const subRanges = (v as any)?.subRanges ?? [];
+      if (Array.isArray(subRanges) && subRanges.length) {
+        // page break if needed
+        if (y > 255) {
+          doc.addPage();
+          y = 12;
+        }
+
+                autoTableMod.default(doc, {
+          startY: y,
+          head: [['Subrange', 'Distances (m)']],
+          body: subRanges.map((sr: any) => ([
+            `${sr?.name ?? ''}`,
+            Array.isArray(sr?.distancesM) ? sr.distancesM.join(', ') : '',
+          ])),
+          styles: { fontSize: 9 },
+          headStyles: { fontSize: 9 },
+          margin: { left: 10, right: 10 },
+        });
+
+
+        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 12;
+      }
+
+      const filenameSafe = `${(name || 'venue').toString().replace(/[^\w\-]+/g, '_')}_venue_export.pdf`;
+      const pdfBlob = doc.output('blob');
+
+      await this.sharePdfBlob(pdfBlob, filenameSafe);
+    } catch (err) {
+      console.error('exportSelectedVenuePdf failed:', err);
+      alert('Export failed. Check console for details.');
+    }
+  }
+
+  private async sharePdfBlob(blob: Blob, filename: string): Promise<void> {
+    const isNative =
+      Capacitor.isNativePlatform?.() ?? (Capacitor.getPlatform?.() !== 'web');
+
+    // Web: download
+    if (!isNative) {
+      const url = URL.createObjectURL(blob);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      return;
+    }
+
+    // Native: write to cache + share
+    const base64 = await this.blobToBase64(blob);
+
+    const writeRes = await Filesystem.writeFile({
+      path: filename,
+      data: base64,
+      directory: Directory.Cache,
+      recursive: true,
+    });
+
+    await Share.share({
+      title: 'Venue Data Export',
+      text: 'Venue export PDF',
+      url: writeRes.uri,
+      dialogTitle: 'Share Venue PDF',
+    });
+  }
+
+  private blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error);
+      reader.onload = () => {
+        const res = (reader.result as string) || '';
+        const base64 = res.split(',')[1] ?? '';
+        resolve(base64);
+      };
+      reader.readAsDataURL(blob);
+    });
   }
 
   // ---------- form visibility / selection ----------
@@ -166,10 +301,10 @@ export class VenuesTabComponent implements OnInit {
     } as Venue;
 
     if (this.editingVenue) {
-      this.data.updateVenue(venue);
-    } else {
-      this.data.addVenue(venue);
-    }
+  this.data.updateVenue(venue);
+} else {
+  this.data.addVenue(venue);
+}
 
     this.resetForm();
     this.formVisible = false;

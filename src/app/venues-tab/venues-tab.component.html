@@ -1,5 +1,4 @@
 <div class="space-y-3 text-xs">
-
   <!-- Add / Edit Venue header -->
   <div class="bg-slate-800 rounded-2xl p-3 shadow flex items-center justify-between">
     <div class="text-sm font-semibold">
@@ -7,14 +6,14 @@
     </div>
     <button
       class="px-3 py-1 rounded-xl bg-emerald-500 text-slate-900 text-xs font-semibold"
-      (click)="toggleForm()">
+      (click)="toggleForm()"
+    >
       {{ formVisible ? 'Close' : 'Add' }}
     </button>
   </div>
 
   <!-- Venue form -->
   <div *ngIf="formVisible" class="bg-slate-800 rounded-2xl p-3 shadow space-y-2">
-
     <!-- Basic venue fields -->
     <div class="grid grid-cols-2 gap-2">
       <label class="flex flex-col">
@@ -22,7 +21,8 @@
         <input
           [(ngModel)]="venueForm.name"
           name="venueName"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700" />
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        />
       </label>
 
       <label class="flex flex-col">
@@ -31,7 +31,8 @@
           [(ngModel)]="venueForm.location"
           name="venueLocation"
           placeholder="e.g. Vaalwater onderkant"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700" />
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        />
       </label>
     </div>
 
@@ -42,7 +43,8 @@
           type="number"
           [(ngModel)]="venueForm.altitudeM"
           name="venueAltitude"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700" />
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        />
       </label>
 
       <label class="flex flex-col">
@@ -50,18 +52,16 @@
         <input
           [(ngModel)]="venueForm.notes"
           name="venueNotes"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700" />
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        />
       </label>
     </div>
 
     <!-- Add Subranges -->
     <div class="mt-3 space-y-1">
-
       <div class="flex items-center justify-between">
         <h3 class="text-xs font-semibold">Add subranges</h3>
-        <button
-          class="px-2 py-1 text-[11px] rounded bg-slate-700"
-          (click)="addSubRangeRow()">
+        <button class="px-2 py-1 text-[11px] rounded bg-slate-700" (click)="addSubRangeRow()">
           + Add subrange
         </button>
       </div>
@@ -73,55 +73,45 @@
       <!-- Subrange rows -->
       <div
         *ngFor="let sr of subRangeRows; let i = index"
-        class="bg-slate-900 rounded-lg p-2 mt-1 space-y-1">
-
+        class="bg-slate-900 rounded-lg p-2 mt-1 space-y-1"
+      >
         <div class="flex justify-between items-center">
           <span class="font-semibold text-[11px]">Subrange #{{ i + 1 }}</span>
-          <button
-            class="text-[11px] text-red-300"
-            (click)="removeSubRangeRow(sr)">
-            Remove
-          </button>
+          <button class="text-[11px] text-red-300" (click)="removeSubRangeRow(sr)">Remove</button>
         </div>
 
         <div class="grid grid-cols-2 gap-2">
-
           <label class="flex flex-col">
             Name
             <input
               [(ngModel)]="sr.name"
-              name="srName{{i}}"
+              name="srName{{ i }}"
               placeholder="Warrior, Zeiss, Lane 3"
-              class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700" />
+              class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+            />
           </label>
 
           <label class="flex flex-col">
             Distances (m)
             <input
               [(ngModel)]="sr.distancesText"
-              name="srDistances{{i}}"
+              name="srDistances{{ i }}"
               placeholder="500, 578, 780"
-              class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700" />
-            <span class="text-[10px] text-slate-400">
-              Comma separated.
-            </span>
+              class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+            />
+            <span class="text-[10px] text-slate-400"> Comma separated. </span>
           </label>
-
         </div>
       </div>
     </div>
 
     <!-- Form actions -->
     <div class="flex justify-end gap-2 mt-3">
-      <button
-        class="px-3 py-1 text-xs rounded bg-slate-700"
-        (click)="cancelVenueForm()">
+      <button class="px-3 py-1 text-xs rounded bg-slate-700" (click)="cancelVenueForm()">
         Cancel
       </button>
 
-      <button
-        class="px-3 py-1 text-xs rounded bg-slate-600"
-        (click)="saveSubrangesOnly()">
+      <button class="px-3 py-1 text-xs rounded bg-slate-600" (click)="saveSubrangesOnly()">
         Add subrange
       </button>
     </div>
@@ -129,22 +119,18 @@
     <div class="flex justify-end mt-2">
       <button
         class="px-4 py-1.5 text-xs rounded bg-emerald-500 text-slate-900 font-semibold"
-        (click)="saveVenue()">
+        (click)="saveVenue()"
+      >
         Save venue
       </button>
     </div>
-
   </div>
 
   <!-- Stored venues (dropdown + single expanded card) -->
   <div class="bg-slate-800 rounded-2xl p-3 shadow space-y-2">
     <div class="flex justify-between items-center mb-1">
-      <h2 class="text-sm font-semibold">
-        Venues
-      </h2>
-      <div class="text-[11px] text-slate-300">
-        Total: {{ venues.length }}
-      </div>
+      <h2 class="text-sm font-semibold">Venues</h2>
+      <div class="text-[11px] text-slate-300">Total: {{ venues.length }}</div>
     </div>
 
     <div *ngIf="venues.length === 0" class="text-[11px] text-slate-400">
@@ -158,7 +144,8 @@
           [(ngModel)]="selectedVenueId"
           (ngModelChange)="onSelectedVenueChange($event)"
           name="selectedVenue"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700">
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        >
           <option *ngFor="let v of venues" [ngValue]="v.id">
             {{ v.name }}
           </option>
@@ -167,7 +154,6 @@
 
       <ng-container *ngIf="selectedVenue as v">
         <div class="bg-slate-900 rounded-2xl p-3 mt-1 space-y-2">
-
           <!-- Venue header -->
           <div class="flex justify-between items-center">
             <div>
@@ -180,27 +166,28 @@
               <div *ngIf="v.altitudeM != null" class="text-[11px] text-slate-300">
                 Altitude: {{ v.altitudeM }} m
               </div>
-              <div *ngIf="v.notes" class="text-[11px] text-slate-300">
-                Notes: {{ v.notes }}
-              </div>
+              <div *ngIf="v.notes" class="text-[11px] text-slate-300">Notes: {{ v.notes }}</div>
             </div>
 
             <div class="flex gap-2 text-[11px]">
               <button
                 class="px-3 py-1 rounded-xl bg-slate-100 text-slate-900 font-semibold"
-                (click)="toggleExpanded(v)">
+                (click)="toggleExpanded(v)"
+              >
                 {{ expandedVenueId === v.id ? 'Hide' : 'Show' }}
               </button>
 
               <button
                 class="px-3 py-1 rounded-xl bg-blue-600 text-white font-semibold"
-                (click)="editVenue(v)">
+                (click)="editVenue(v)"
+              >
                 Edit
               </button>
 
               <button
                 class="px-3 py-1 rounded-xl bg-red-600 text-white font-semibold"
-                (click)="deleteVenue(v)">
+                (click)="deleteVenue(v)"
+              >
                 Delete
               </button>
             </div>
@@ -208,35 +195,40 @@
 
           <!-- Subrange display -->
           <div *ngIf="expandedVenueId === v.id" class="space-y-1 mt-2">
-
-            <div *ngIf="!v.subRanges || v.subRanges.length === 0" class="text-[11px] text-slate-400">
+            <div
+              *ngIf="!v.subRanges || v.subRanges.length === 0"
+              class="text-[11px] text-slate-400"
+            >
               No subranges defined.
             </div>
 
-            <div
-              *ngFor="let sr of v.subRanges"
-              class="bg-slate-950 rounded-xl p-2 text-[11px]">
+            <div *ngFor="let sr of v.subRanges" class="bg-slate-950 rounded-xl p-2 text-[11px]">
               <span class="font-semibold">{{ sr.name }}</span>
-              <span *ngIf="sr.distancesM.length">
-                • {{ sr.distancesM.join(', ') }} m
-              </span>
+              <span *ngIf="sr.distancesM.length"> • {{ sr.distancesM.join(', ') }} m </span>
             </div>
-
           </div>
-
         </div>
       </ng-container>
     </ng-container>
   </div>
 
-  <!-- Back button (same look as History) -->
-  <div class="mt-3 flex justify-end">
+  <!-- Bottom actions: Export (left) / Back (right) -->
+  <div class="flex items-center justify-between mt-4">
+    <button
+      type="button"
+      class="px-3 py-2 rounded-xl bg-white text-black text-xs"
+      (click)="exportSelectedVenuePdf()"
+      [disabled]="!selectedVenue"
+    >
+      Export Venue Data
+    </button>
+
     <button
       type="button"
       class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black text-[11px] font-semibold"
-      (click)="goBack()">
+      (click)="goBack()"
+    >
       Back
     </button>
   </div>
-
 </div>
