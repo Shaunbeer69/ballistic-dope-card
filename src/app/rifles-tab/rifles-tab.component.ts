@@ -364,15 +364,26 @@ export class RiflesTabComponent implements OnInit {
 
     const anyData: any = this.data;
 
-    if (typeof anyData.deleteRifle === 'function') {
-      anyData.deleteRifle(r);
-    } else if (typeof anyData.setRifles === 'function') {
-      const list = this.rifles.filter((x: any) => x.id !== r.id);
-      anyData.setRifles(list);
+       const nextList = this.rifles.filter((x: any) => x.id !== r.id);
+
+    // Prefer setRifles because it should be the persistence path (localStorage/backup)
+    if (typeof anyData.setRifles === 'function') {
+      anyData.setRifles(nextList);
+    } else if (typeof anyData.deleteRifle === 'function') {
+      // Fallback: attempt delete, but also update local list so UI stays correct
+      try {
+        anyData.deleteRifle(r.id ?? r);
+      } catch {
+        anyData.deleteRifle(r);
+      }
+      this.rifles = nextList;
+      anyData.rifles = this.rifles;
     } else {
-      this.rifles = this.rifles.filter((x: any) => x.id !== r.id);
+      // Last resort: local only
+      this.rifles = nextList;
       anyData.rifles = this.rifles;
     }
+
 
     this.refresh();
     if (this.rifles.length) {
