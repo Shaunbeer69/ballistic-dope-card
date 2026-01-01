@@ -22,6 +22,7 @@ export interface Rifle {
   twistRate: string;
   muzzleVelocityFps: number | null;
   scopeUnit: ScopeUnit;
+  scope?: string; // e.g. "GPO 6-36x56"
   notes?: string;
   roundCount?: number;        // total rounds through this rifle
   loads: RifleLoad[];

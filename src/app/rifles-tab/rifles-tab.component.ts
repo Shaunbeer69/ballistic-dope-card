@@ -30,11 +30,13 @@ export class RiflesTabComponent implements OnInit {
   editingLoadId: number | string | null = null;
 
   // Forms
-  rifleForm: any = {
+    rifleForm: any = {
+    scope: '',
     scopeUnit: 'MIL',
     barrelUnit: 'inch',
     roundCount: 0,
   };
+
 
   loadForm: any = {};
 
@@ -285,6 +287,7 @@ export class RiflesTabComponent implements OnInit {
 
   clearRifleForm(): void {
     this.rifleForm = {
+      scope: '',
       scopeUnit: 'MIL',
       barrelUnit: 'inch',
       roundCount: 0,

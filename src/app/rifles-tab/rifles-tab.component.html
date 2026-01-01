@@ -89,6 +89,16 @@
           <option value="MOA">MOA</option>
         </select>
       </label>
+      <label class="flex flex-col">
+        Scope
+        <input
+          type="text"
+          [(ngModel)]="rifleForm.scope"
+          name="scope"
+          placeholder="e.g. GPO 5-25x56"
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        />
+      </label>
 
       <label class="flex flex-col">
         Round count
@@ -160,7 +170,8 @@
               {{ r.twistRate || '-' }}
             </div>
             <div class="text-[10px] text-slate-300">
-              Scope: {{ r.scopeUnit }} • Muzzle: {{ r.muzzleVelocityFps || '-' }} fps
+              Scope: {{ r.scope || '-' }} ({{ r.scopeUnit }}) • Muzzle:
+              {{ r.muzzleVelocityFps || '-' }} fps
             </div>
             <div class="text-[10px] text-slate-300">Rounds: {{ r.roundCount ?? 0 }}</div>
           </div>

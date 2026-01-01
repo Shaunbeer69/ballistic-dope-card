@@ -121,21 +121,22 @@ export class DataService {
         const nameKey = norm(r?.name);
 
         const existing = this.getRifles().find(x => norm(x.name) === nameKey && nameKey);
-                const newId = existing
+                      const newId = existing
           ? existing.id
-               : this.addRifle({
+          : this.addRifle({
               name: r?.name ?? '',
-              caliber: r?.caliber,
-              barrelLength: r?.barrelLength,
-              barrelUnit: r?.barrelUnit,
-              twistRate: r?.twistRate ?? r?.twist,
-              muzzleVelocityFps:
-                typeof r?.muzzleVelocityFps === 'number' ? r.muzzleVelocityFps : 0,
+              caliber: r?.caliber ?? '',
+              barrelLength: r?.barrelLength ?? null,
+              barrelUnit: r?.barrelUnit ?? 'inch',
+              twistRate: r?.twistRate ?? '',
+              muzzleVelocityFps: r?.muzzleVelocityFps ?? 0,
               scopeUnit: r?.scopeUnit ?? 'MIL',
+              scope: r?.scope ?? '',
+              notes: r?.notes ?? '',
+              roundCount: r?.roundCount ?? 0,
               loads: Array.isArray(r?.loads) ? r.loads : [],
-              notes: r?.notes,
-              roundCount: typeof r?.roundCount === 'number' ? r.roundCount : 0
-            }).id;
+            } as any).id;
+
 
 
         if (Number.isFinite(oldId)) rifleIdMap.set(oldId, newId);
