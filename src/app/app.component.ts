@@ -1079,11 +1079,22 @@ if (!ok) return;
 const result = this.dataService.importFromBackupMerge(parsed);
 
 
-    // Refresh menus/counts
+        // Refresh menus/counts
     this.loadCoreData();
 
     this.showExportImportModal = false;
     alert(`Import complete.\n\n${result.message}`);
+
+    // IMPORTANT: force UI + DataService to rehydrate from persisted store
+    // (Fixes: import succeeded but data not visible until restart)
+    setTimeout(() => {
+      try {
+        window.location.reload();
+      } catch {
+        // ignore
+      }
+    }, 50);
+
   } finally {
     this.importBusy = false;
   }
