@@ -213,22 +213,24 @@
   </div>
 
   <!-- Bottom actions: Export (left) / Back (right) -->
-  <div class="flex items-center justify-between mt-4">
-    <button
-      type="button"
-      class="px-3 py-2 rounded-xl bg-white text-black text-xs"
-      (click)="exportSelectedVenuePdf()"
-      [disabled]="!selectedVenue"
-    >
-      Export Venue Data
-    </button>
+  <div class="bg-slate-800 rounded-2xl p-3 shadow mt-3">
+    <div class="flex items-center justify-between">
+      <button
+        type="button"
+        class="px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold"
+        (click)="exportSelectedVenuePdf()"
+        [disabled]="!selectedVenue"
+      >
+        Export Venue Data
+      </button>
 
-    <button
-      type="button"
-      class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black text-[11px] font-semibold"
-      (click)="goBack()"
-    >
-      Back
-    </button>
+      <button
+        type="button"
+        class="px-3 py-2 rounded-xl bg-orange-500 text-black text-xs"
+        (click)="goBack()"
+      >
+        Back
+      </button>
+    </div>
   </div>
 </div>
