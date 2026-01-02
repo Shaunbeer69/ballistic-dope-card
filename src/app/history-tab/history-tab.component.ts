@@ -44,6 +44,93 @@ focusNotes(row: any): void {
     el?.focus();
   }, 0);
 }
+  private focusById(id: string | null | undefined): void {
+    if (!id) return;
+    setTimeout(() => {
+      const el = document.getElementById(id) as any;
+      el?.focus?.();
+    }, 0);
+  }
+
+  private toNumber(val: any): number {
+    if (val === null || val === undefined) return NaN;
+    if (typeof val === 'number') return val;
+    const n = Number(String(val).trim());
+    return n;
+  }
+
+  /**
+   * Apply History defaults:
+   * - Wind Dir default = "3" if empty
+   * - Wind Speed stored as MPH (autofill from environment windSpeedMps if present)
+   */
+  private applyHistoryDefaults(session: any | null): void {
+    if (!session || !Array.isArray(session.dope)) return;
+
+    // Ensure notes is at least a string (required will be validated separately)
+    if (session.notes === null || session.notes === undefined) session.notes = '';
+
+    const env = session.environment || {};
+    const mpsRaw = env.windSpeedMps ?? env.windSpeed ?? null;
+    const mps = this.toNumber(mpsRaw);
+    const mphFromEnv = Number.isFinite(mps) ? mps * 2.2369362920544 : NaN;
+
+    for (const row of session.dope) {
+      if (!row) continue;
+
+      // Default wind direction = 3 o'clock
+      if (row.windDirection === null || row.windDirection === undefined || String(row.windDirection).trim() === '') {
+        row.windDirection = '3';
+        row._windDirectionAuto = true;
+      }
+
+      // Autofill wind speed in MPH from environment if empty
+      if (row.windSpeed === null || row.windSpeed === undefined || String(row.windSpeed).trim() === '') {
+        if (Number.isFinite(mphFromEnv)) {
+          row.windSpeed = Math.round(mphFromEnv * 10) / 10; // 1 decimal
+          row._windSpeedAuto = true;
+        }
+      }
+    }
+  }
+
+  private validateRequiredFields(session: any | null): { ok: boolean; message?: string; focusId?: string } {
+    if (!session) return { ok: false, message: 'No session selected.' };
+
+    // Ave Vel required
+    const av = this.toNumber(session.averageVelocity);
+    if (!Number.isFinite(av) || av <= 0) {
+      return { ok: false, message: 'Required: Ave Vel (fps).', focusId: 'aveVelInput' };
+    }
+
+    // DOPE fields required for ALL rows
+    if (!Array.isArray(session.dope) || session.dope.length === 0) {
+      return { ok: false, message: 'No DOPE rows found.' };
+    }
+
+    for (let i = 0; i < session.dope.length; i++) {
+      const row = session.dope[i];
+      const elev = this.toNumber(row?.elevationMil);
+      const wind = this.toNumber(row?.windageMil);
+      const wspd = this.toNumber(row?.windSpeed);
+      const wdir = row?.windDirection;
+
+      if (!Number.isFinite(elev)) return { ok: false, message: 'Required: Elev (mil).', focusId: 'elevFirst' };
+      if (!Number.isFinite(wind)) return { ok: false, message: 'Required: Wind (mil).', focusId: 'windFirst' };
+      if (!Number.isFinite(wspd)) return { ok: false, message: 'Required: W Speed (mph).', focusId: 'wspdFirst' };
+      if (wdir === null || wdir === undefined || String(wdir).trim() === '') {
+        return { ok: false, message: 'Required: Wind Dir (clock).', focusId: 'wdirFirst' };
+      }
+    }
+
+    // Global notes required
+    const notes = (session.notes ?? '').toString().trim();
+    if (!notes) {
+      return { ok: false, message: 'Required: Notes (Global Session notes).', focusId: 'sessionNotesInput' };
+    }
+
+    return { ok: true };
+  }
 
   // --------------------------------------------------
   // Voice notes per DOPE row (record + store on DOPE row)
@@ -217,7 +304,14 @@ selectSession(s: any): void {
 
   // Keep a copy for editing
   this.editSession = JSON.parse(JSON.stringify(s));
+
+  // Apply History defaults (Wind Dir=3, W Speed MPH autofill)
+  this.applyHistoryDefaults(this.editSession);
+
+  this.validationError = null;
+  this.clearSaveMessage();
 }
+
 
 deleteSession(s: any): void {
   const idNum = Number(s?.id);
@@ -314,8 +408,15 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
     );
   }
 
-  isSessionFullyCompleted(session: any | null): boolean {
+    isSessionFullyCompleted(session: any | null): boolean {
     if (!session || !Array.isArray(session.dope) || session.dope.length === 0) return false;
+
+    const av = this.toNumber(session.averageVelocity);
+    if (!Number.isFinite(av) || av <= 0) return false;
+
+    const notes = (session.notes ?? '').toString().trim();
+    if (!notes) return false;
+
     return !session.dope.some((row: any) => !this.isRowComplete(row));
   }
 
@@ -323,14 +424,19 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
     if (!row) return false;
     if (row.distanceM == null) return false;
 
-    const missing =
-      row.elevationMil === null || row.elevationMil === undefined || row.elevationMil === '' ||
-      row.windageMil === null || row.windageMil === undefined || row.windageMil === '' ||
-      row.windSpeed === null || row.windSpeed === undefined || row.windSpeed === '' ||
-      row.windDirection === null || row.windDirection === undefined || row.windDirection === '';
+    const elev = this.toNumber(row.elevationMil);
+    const wind = this.toNumber(row.windageMil);
+    const wspd = this.toNumber(row.windSpeed);
+    const wdir = row.windDirection;
 
-    return !missing;
+    if (!Number.isFinite(elev)) return false;
+    if (!Number.isFinite(wind)) return false;
+    if (!Number.isFinite(wspd)) return false;
+    if (wdir === null || wdir === undefined || String(wdir).trim() === '') return false;
+
+    return true;
   }
+
 
   // --------------------------------------------------
   // Wind helpers
@@ -486,17 +592,32 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
   // --------------------------------------------------
   // Save logic (THIS IS THE IMPORTANT FIX)
   // --------------------------------------------------
-  onPrimarySaveClick(): void {
+    onPrimarySaveClick(): void {
     if (!this.editSession) return;
     if (!this.isSessionEditable(this.editSession)) return;
 
-    if (!this.isSessionFullyCompleted(this.editSession)) {
-      this.saveInProgress();
+    // Ensure defaults (Wind Dir=3, W Speed MPH autofill)
+    this.applyHistoryDefaults(this.editSession);
+
+    // HARD validation: do not allow Save or Complete without required fields
+    const v = this.validateRequiredFields(this.editSession);
+    if (!v.ok) {
+      this.validationError = v.message || 'Please fill all required fields.';
+      this.focusById(v.focusId || null);
       return;
     }
 
-    this.saveAndComplete();
+    this.validationError = null;
+
+    // If it now qualifies as completed, allow "Save & mark completed" flow
+    if (this.isSessionFullyCompleted(this.editSession)) {
+      this.saveAndComplete();
+    } else {
+      // (Should rarely happen now, but keep behavior stable)
+      this.saveInProgress();
+    }
   }
+
 
   private saveInProgress(): void {
     if (!this.editSession) return;
@@ -518,11 +639,13 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
 
   private saveAndComplete(): void {
     if (!this.editSession) return;
-
-    if (!this.isSessionFullyCompleted(this.editSession)) {
-      this.validationError = 'Please fill all DOPE fields (elevation, wind, speed, direction).';
+    const v = this.validateRequiredFields(this.editSession);
+    if (!v.ok) {
+      this.validationError = v.message || 'Please fill all required fields.';
+      this.focusById(v.focusId || null);
       return;
     }
+
 
     this.validationError = null;
 

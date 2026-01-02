@@ -310,11 +310,13 @@ export class DataService {
     }
   }
 
-  deleteRifle(id: number): void {
-    this.store.rifles = this.store.rifles.filter(r => r.id !== id);
-    // NOTE: we do not automatically delete load dev projects or sessions.
-    this.saveStore();
-  }
+ deleteRifle(id: number): void {
+  const idNum = Number(id);
+  this.store.rifles = this.store.rifles.filter(r => Number(r.id) !== idNum);
+  // NOTE: we do not automatically delete load dev projects or sessions.
+  this.saveStore();
+}
+
 
   // Increment round count, never decreases
   incrementRifleRoundCount(rifleId: number, delta: number): void {

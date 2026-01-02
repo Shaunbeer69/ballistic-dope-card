@@ -336,12 +336,15 @@ export class VenuesTabComponent implements OnInit {
       this.addSubRangeRow();
     }
   }
-
   deleteVenue(v: Venue): void {
     if (!confirm(`Delete venue "${v.name}"?`)) {
       return;
     }
-    this.data.deleteVenue(v.id);
+
+    const idNum = Number((v as any).id);
+    if (!Number.isFinite(idNum)) return;
+
+    this.data.deleteVenue(idNum);
     this.loadVenues();
 
     if (this.venues.length > 0) {
@@ -350,10 +353,11 @@ export class VenuesTabComponent implements OnInit {
       this.selectedVenueId = null;
     }
 
-    if (this.expandedVenueId === v.id) {
+    if (this.expandedVenueId === idNum) {
       this.expandedVenueId = null;
     }
   }
+
 
   // ---------- Back to main menu (like History) ----------
 
