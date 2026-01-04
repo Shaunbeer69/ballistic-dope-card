@@ -1378,7 +1378,17 @@ y += boxH + boxPadAfter;
 
   projects: LoadDevProject[] = [];
   selectedProjectId: number | null = null;
-  selectedProject: LoadDevProject | null = null;
+ selectedProject:
+  | (LoadDevProject & {
+      powder?: string;
+      bullet?: string;
+      bulletWeightGr?: number | null;
+      oal?: number | null;
+      oalOgive?: number | null;
+      distanceM?: number | null;
+    })
+  | null = null;
+
 
   // Project form
   projectFormVisible = false;
@@ -2066,6 +2076,11 @@ if (type === 'ladder' || type === 'ocw') {
         name: this.projectForm.name.trim(),
         type,
         notes: this.projectForm.notes.trim(),
+                powder: this.projectForm.powder?.trim?.() || undefined,
+        bullet: this.projectForm.bullet?.trim?.() || undefined,
+        bulletWeightGr: this.projectForm.bulletWeightGr ?? null,
+
+
         oal: this.projectForm.oal ?? null,
         oalOgive: (this.projectForm as any).oalOgive ?? null,
         distanceM: (type === 'ladder' || type === 'ocw') ? (this.planner.distanceM ?? null) : null
@@ -2082,6 +2097,11 @@ if (type === 'ladder' || type === 'ocw') {
         name: this.projectForm.name.trim(),
         type,
         notes: this.projectForm.notes.trim() || undefined,
+                      powder: this.projectForm.powder?.trim?.() || undefined,
+        bullet: this.projectForm.bullet?.trim?.() || undefined,
+        bulletWeightGr: this.projectForm.bulletWeightGr ?? null,
+
+
         dateStarted: new Date().toISOString(),
         entries: [],
         oal: this.projectForm.oal ?? null,
@@ -2229,6 +2249,7 @@ if (type === 'ladder' || type === 'ocw') {
   }
 
   entriesForSelectedProject(): LoadDevEntry[] {
+   
     if (!this.selectedProject) return [];
     const list = [...(this.selectedProject.entries ?? [])];
 
@@ -2247,6 +2268,22 @@ if (type === 'ladder' || type === 'ocw') {
       default:
         return list.sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
     }
+  }
+  selectedProjectChargeRangeText(): string {
+    const entries = (this.selectedProject as any)?.entries as any[] | undefined;
+    if (!entries || !entries.length) return '—';
+
+    const charges = entries
+      .map((e: any) => e?.chargeGr)
+      .filter((v: any): v is number => typeof v === 'number' && Number.isFinite(v));
+
+    if (!charges.length) return '—';
+
+    const min = Math.min(...charges);
+    const max = Math.max(...charges);
+
+    const fmt = (n: number) => (Number.isInteger(n) ? n.toFixed(0) : n.toFixed(1));
+    return `${fmt(min)} – ${fmt(max)} gr`;
   }
 
   // ---------- velocity stats & parsing ----------

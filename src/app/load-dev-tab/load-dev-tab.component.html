@@ -741,60 +741,109 @@
               </div>
             </div>
             <!-- Notes panel (collapsed by default) -->
-            <div *ngIf="showNotesPanel" class="mt-2 space-y-2">
-              <textarea
-                rows="2"
-                class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-gray-100 text-[11px]"
-                [(ngModel)]="selectedProject.notes"
-                placeholder="Notes for this load development…"
-              ></textarea>
-              <!-- Media (Photo now, Audio later) -->
-              <div class="mt-2 space-y-2">
-                <div class="text-[10px] text-gray-400">Media</div>
+            <div class="mt-2 space-y-2">
+              <!-- Notes + Summary (2-column on wide screens, stacked on mobile) -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <!-- LEFT: Notes + Media -->
+                <div *ngIf="showNotesPanel; else notesCollapsedHint" class="space-y-2">
+                  <textarea
+                    rows="2"
+                    class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-gray-100 text-[11px]"
+                    [(ngModel)]="selectedProject.notes"
+                    placeholder="Notes for this load development…"
+                  ></textarea>
 
-                <div *ngIf="targetPhotoDataUrl; else noPhoto">
-                  <div class="flex gap-2 overflow-x-auto py-1">
-                    <img
-                      [src]="targetPhotoDataUrl"
-                      alt="Target photo"
-                      class="h-20 w-20 object-cover rounded-xl border border-gray-700 flex-shrink-0 cursor-pointer"
-                      (click)="openProjectPhotoViewer(targetPhotoDataUrl, $event)"
-                    />
+                  <!-- Media (Photo now, Audio later) -->
+                  <div class="mt-2 space-y-2">
+                    <div class="text-[10px] text-gray-400">Media</div>
+
+                    <div *ngIf="targetPhotoDataUrl; else noPhoto">
+                      <div class="flex gap-2 overflow-x-auto py-1">
+                        <img
+                          [src]="targetPhotoDataUrl"
+                          alt="Target photo"
+                          class="h-20 w-20 object-cover rounded-xl border border-gray-700 flex-shrink-0 cursor-pointer"
+                          (click)="openProjectPhotoViewer(targetPhotoDataUrl, $event)"
+                        />
+                      </div>
+                    </div>
+
+                    <ng-template #noPhoto>
+                      <div class="text-[10px] text-gray-500">No target photo saved yet.</div>
+                    </ng-template>
+
+                    <!-- AUDIO -->
+                    <div class="mt-2 space-y-1">
+                      <!-- Recording status -->
+                      <div *ngIf="isVoiceRecording" class="text-[9px] text-amber-300">
+                        Recording… tap ⏹ to stop
+                      </div>
+
+                      <!-- Playback -->
+                      <div *ngIf="voiceNoteDataUrl; else noAudio" class="flex items-center gap-2">
+                        <audio [src]="voiceNoteDataUrl" controls class="flex-1 h-8"></audio>
+
+                        <button
+                          type="button"
+                          class="px-2 py-1 rounded-md bg-red-700/80 text-red-50 text-[10px] font-semibold hover:bg-red-600 active:scale-95 transition"
+                          (click)="deleteVoiceNote()"
+                        >
+                          Del
+                        </button>
+                      </div>
+
+                      <ng-template #noAudio>
+                        <div class="text-[10px] text-gray-500">No voice note saved yet.</div>
+                      </ng-template>
+                    </div>
                   </div>
                 </div>
-
-                <ng-template #noPhoto>
-                  <div class="text-[10px] text-gray-500">No target photo saved yet.</div>
+                <ng-template #notesCollapsedHint>
+                  <div
+                    class="rounded-2xl border border-gray-700 bg-black/30 p-2 text-[10px] text-gray-400"
+                  >
+                    Tap <span class="font-semibold text-gray-200">Notes</span> to edit notes, photos
+                    and voice notes.
+                  </div>
                 </ng-template>
 
-                <!-- AUDIO -->
-                <div class="mt-2 space-y-1">
-                  <!-- Recording status -->
-                  <div *ngIf="isVoiceRecording" class="text-[9px] text-amber-300">
-                    Recording… tap ⏹ to stop
+                <!-- RIGHT: Summary -->
+                <div class="rounded-2xl border border-gray-700 bg-black/30 p-2">
+                  <div class="text-[10px] text-gray-300 font-semibold mb-1">Summary</div>
+
+                  <div class="grid grid-cols-[1fr,1fr] gap-x-2 gap-y-1 text-[10px] text-gray-200">
+                    <div class="text-gray-400">Powder</div>
+                    <div class="font-semibold truncate">{{ selectedProject.powder || '—' }}</div>
+
+                    <div class="text-gray-400">Bullet</div>
+                    <div class="font-semibold truncate">{{ selectedProject.bullet || '—' }}</div>
+
+                    <div class="text-gray-400">Bullet weight</div>
+                    <div class="font-semibold">
+                      {{ selectedProject.bulletWeightGr ?? '—'
+                      }}<span *ngIf="selectedProject.bulletWeightGr != null"> gr</span>
+                    </div>
+
+                    <div class="text-gray-400">COAL</div>
+                    <div class="font-semibold">
+                      {{ selectedProject.oal ?? '—'
+                      }}<span *ngIf="selectedProject.oal != null"> mm</span>
+                    </div>
+
+                    <div class="text-gray-400">COAL Ogive</div>
+                    <div class="font-semibold">
+                      {{ selectedProject.oalOgive ?? '—'
+                      }}<span *ngIf="selectedProject.oalOgive != null"> mm</span>
+                    </div>
+
+                    <div class="text-gray-400">Charge range</div>
+                    <div class="font-semibold">{{ selectedProjectChargeRangeText() }}</div>
                   </div>
-
-                  <!-- Playback -->
-                  <div *ngIf="voiceNoteDataUrl; else noAudio" class="flex items-center gap-2">
-                    <audio [src]="voiceNoteDataUrl" controls class="flex-1 h-8"></audio>
-
-                    <button
-                      type="button"
-                      class="px-2 py-1 rounded-md bg-red-700/80 text-red-50 text-[10px] font-semibold hover:bg-red-600 active:scale-95 transition"
-                      (click)="deleteVoiceNote()"
-                    >
-                      Del
-                    </button>
-                  </div>
-
-                  <ng-template #noAudio>
-                    <div class="text-[10px] text-gray-500">No voice note saved yet.</div>
-                  </ng-template>
                 </div>
               </div>
 
               <!-- Save button -->
-              <div class="flex justify-end">
+              <div *ngIf="showNotesPanel" class="flex justify-end">
                 <button
                   type="button"
                   class="px-3 py-1.5 rounded-xl bg-emerald-500 text-black text-xs font-semibold"
@@ -803,6 +852,7 @@
                   Save &amp; Close
                 </button>
               </div>
+
               <div
                 *ngIf="photoViewerOpen"
                 class="fixed inset-0 z-[9999] bg-black/90 flex flex-col"
