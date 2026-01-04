@@ -35,8 +35,13 @@ interface ProjectForm {
   bullet: string;
   bulletWeightGr: number | null;
   brass: string;
+
   oal: number | null;
   oalOgive: number | null;
+
+  // ✅ NEW: unit selector for COAL / Ogive input
+  oalUnit: 'mm' | 'in';
+
   distanceM: number | null;
 }
 
@@ -60,11 +65,16 @@ interface EntryForm {
 
 interface PlannerForm {
   distanceM: number | null;
+
+  // ✅ NEW: unit selector for distance
+  distanceUnit: 'm' | 'mi';
+
   startChargeGr: number | null;
   endChargeGr: number | null;
   stepGr: number | null;
   shotsPerGroup: number | null;
 }
+
 
 interface VelocityStats {
   avg: number;
@@ -1534,19 +1544,24 @@ y += boxH + boxPadAfter;
 
   // ---------- helpers ----------
    private createEmptyProjectForm(): ProjectForm {
-    return {
-      rifleId: null,
-      name: '',
-      type: 'ladder',
-      notes: '',
-      powder: '',
-      bullet: '',
-      bulletWeightGr: null,
-      brass: '',
-      oal: null,
-      oalOgive: null,
-      distanceM: null
-    };
+ return {
+  rifleId: null,
+  name: '',
+  type: 'ladder',
+  notes: '',
+
+  powder: '',
+  bullet: '',
+  bulletWeightGr: null,
+  brass: '',
+
+  oal: null,
+  oalOgive: null,
+  oalUnit: 'mm',
+
+  distanceM: null,
+};
+
   }
 
 
@@ -1590,13 +1605,15 @@ getEntryPhotoLabel(entry: LoadDevEntry): string {
 }
 
   private createEmptyPlannerForm(): PlannerForm {
-    return {
-      distanceM: null,
-      startChargeGr: null,
-      endChargeGr: null,
-      stepGr: null,
-      shotsPerGroup: null
-    };
+ return {
+  distanceM: null,
+  distanceUnit: 'm',
+  startChargeGr: null,
+  endChargeGr: null,
+  stepGr: null,
+  shotsPerGroup: null,
+};
+
   }
 entryHasPhoto(entry: LoadDevEntry): boolean {
   const any = entry as any;
