@@ -808,6 +808,24 @@ deleteEntryPhoto(): void {
   this.refreshSelectedProject();
   this.closePhotoViewer();
 }
+private buildLoadSummaryLine(): string {
+  if (!this.selectedProject) return '';
+
+  const p = this.selectedProject as any;
+
+  const parts: string[] = [];
+
+  if (p.powder) parts.push(`Powder: ${p.powder}`);
+  if (p.bullet) parts.push(`Bullet: ${p.bullet}`);
+  if (p.bulletWeightGr != null) parts.push(`Wt: ${p.bulletWeightGr}gr`);
+  if (p.oal != null) parts.push(`COAL: ${p.oal}mm`);
+  if (p.oalOgive != null) parts.push(`Ogive: ${p.oalOgive}mm`);
+
+  const range = this.selectedProjectChargeRangeText();
+  if (range && range !== '—') parts.push(`Charge: ${range}`);
+
+  return parts.join(' | ');
+}
 
 
   // ---------- PDF export (Graph + table inside #pdfContent) ----------
@@ -1152,7 +1170,7 @@ const reserveForBottom = 10 + 12 + 10 + 220 + 10;
 
         y += neededHeight;
       }
-    // ----- Comments + bottom boxes (ONE-PAGER, auto-fit) -----
+  // ----- Comments + bottom boxes (ONE-PAGER, auto-fit) -----
 // We do NOT add pages here. Instead, we adapt:
 // 1) reduce comment lines if needed
 // 2) keep a bottom box area (left blank placeholder + right photo)
@@ -1175,12 +1193,22 @@ y += 10;
 const commentsHeight = (n: number) => commentTitleH + n * commentLineGap + commentPadAfter;
 const boxesReservedAbs = boxH + boxPadAfter;
 
-
 let commentLines = 15;
+
+// ✅ Build / fetch summary line for export (must be a single-line string)
+const summaryLine = (typeof this.buildLoadSummaryLine === 'function')
+  ? (this.buildLoadSummaryLine() || '')
+  : '';
+
+// ✅ If we have a summary line, reserve 1 comment row for it
+const summaryConsumesOneLine = !!summaryLine;
 
 // Ensure we have room for at least absolute-min boxes.
 // If not, reduce comment lines until it fits (down to 0 if required).
-while (commentLines > 0 && y + commentsHeight(commentLines) + boxesReservedAbs > pageBottom) {
+while (
+  commentLines > 0 &&
+  y + commentsHeight(commentLines) + boxesReservedAbs > pageBottom
+) {
   commentLines--;
 }
 
@@ -1189,6 +1217,34 @@ doc.setFontSize(11);
 doc.setTextColor(0);
 doc.text('Comments', leftMargin, y);
 y += 12;
+
+// ✅ Draw summary as FIRST comment line (bold), then move y down one line
+if (summaryConsumesOneLine && commentLines > 0) {
+  // Fit summary on one line (truncate if needed)
+  const maxW = (pageW - rightMargin) - leftMargin;
+  const oneLine = doc.splitTextToSize(summaryLine, maxW)?.[0] ?? summaryLine;
+
+  // Make sure it truly stays one line with an ellipsis if splitText would wrap
+  let summaryOut = oneLine;
+  if (doc.getTextWidth(summaryOut) > maxW) {
+    while (summaryOut.length > 0 && doc.getTextWidth(summaryOut + '…') > maxW) {
+      summaryOut = summaryOut.slice(0, -1);
+    }
+    summaryOut = summaryOut + '…';
+  }
+
+  // Bold summary
+  (doc as any).setFont(undefined, 'bold');
+  doc.setFontSize(10);
+  doc.text(summaryOut, leftMargin, y - 3); // slight baseline tweak
+
+  // Back to normal for lines
+  (doc as any).setFont(undefined, 'normal');
+
+  // Consume one ruled line for summary
+  y += commentLineGap;
+  commentLines = Math.max(0, commentLines - 1);
+}
 
 // Draw comment lines (lighter grey for printing, but still visible)
 doc.setLineWidth(0.7);
