@@ -798,6 +798,7 @@
                     </div>
                   </div>
                 </div>
+
                 <ng-template #notesCollapsedHint>
                   <div
                     class="rounded-2xl border border-gray-700 bg-black/30 p-2 text-[10px] text-gray-400"
@@ -811,37 +812,47 @@
                 <div class="rounded-2xl border border-gray-700 bg-black/30 p-2">
                   <div class="text-[10px] text-gray-300 font-semibold mb-1">Summary</div>
 
-                  <div class="grid grid-cols-[1fr,1fr] gap-x-2 gap-y-1 text-[10px] text-gray-200">
+                  <div
+                    class="grid grid-cols-[auto,1fr,auto,1fr] gap-x-3 gap-y-1 text-[10px] text-gray-200"
+                  >
+                    <!-- Row 1 -->
                     <div class="text-gray-400">Powder</div>
-                    <div class="font-semibold truncate">{{ selectedProject.powder || '—' }}</div>
+                    <div class="font-semibold truncate">{{ selectedProject?.powder || '—' }}</div>
 
                     <div class="text-gray-400">Bullet</div>
-                    <div class="font-semibold truncate">{{ selectedProject.bullet || '—' }}</div>
+                    <div class="font-semibold truncate">{{ selectedProject?.bullet || '—' }}</div>
 
-                    <div class="text-gray-400">Bullet weight</div>
+                    <!-- Row 2 -->
+                    <div class="text-gray-400">Bullet wt</div>
                     <div class="font-semibold">
-                      {{ selectedProject.bulletWeightGr ?? '—'
-                      }}<span *ngIf="selectedProject.bulletWeightGr != null"> gr</span>
+                      {{ selectedProject?.bulletWeightGr ?? '—' }}
+                      <span *ngIf="selectedProject?.bulletWeightGr != null"> gr</span>
                     </div>
 
                     <div class="text-gray-400">COAL</div>
                     <div class="font-semibold">
-                      {{ selectedProject.oal ?? '—'
-                      }}<span *ngIf="selectedProject.oal != null"> mm</span>
+                      {{ selectedProject?.oal ?? '—' }}
+                      <span *ngIf="selectedProject?.oal != null"> mm</span>
                     </div>
+                    <div></div>
+                    <div></div>
 
+                    <!-- Row 3 -->
                     <div class="text-gray-400">COAL Ogive</div>
                     <div class="font-semibold">
-                      {{ selectedProject.oalOgive ?? '—'
-                      }}<span *ngIf="selectedProject.oalOgive != null"> mm</span>
+                      {{ selectedProject?.oalOgive ?? '—' }}
+                      <span *ngIf="selectedProject?.oalOgive != null"> mm</span>
                     </div>
 
-                    <div class="text-gray-400">Charge range</div>
-                    <div class="font-semibold">{{ selectedProjectChargeRangeText() }}</div>
+                    <div class="col-span-4 flex items-baseline gap-2">
+                      <div class="text-gray-400 whitespace-nowrap">Charge range</div>
+                      <div class="font-semibold whitespace-nowrap">
+                        {{ selectedProjectChargeRangeText() }}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-
               <!-- Save button -->
               <div *ngIf="showNotesPanel" class="flex justify-end">
                 <button
