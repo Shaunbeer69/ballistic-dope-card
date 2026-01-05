@@ -503,10 +503,14 @@ export class DataService {
     const project = this.getLoadDevProjectById(projectId);
     if (!project) return null;
 
-    const newEntry: LoadDevEntry = {
-      id: this.store.nextLoadDevEntryId++,
-      ...entry
-    };
+   const nowIso = new Date().toISOString();
+
+const newEntry: LoadDevEntry = {
+  id: this.store.nextLoadDevEntryId++,
+  createdAt: (entry as any)?.createdAt ?? nowIso,
+  updatedAt: (entry as any)?.updatedAt ?? nowIso,
+  ...entry
+};
 
     project.entries = [...(project.entries ?? []), newEntry];
     this.updateLoadDevProject(project);
@@ -529,11 +533,26 @@ export class DataService {
 
     const idx = project.entries.findIndex(e => e.id === entry.id);
 
-    if (idx >= 0) {
-      project.entries[idx] = { ...project.entries[idx], ...entry };
-    } else {
-      project.entries.push({ ...entry });
-    }
+  const nowIso = new Date().toISOString();
+
+if (idx >= 0) {
+  const prev = project.entries[idx];
+
+  project.entries[idx] = {
+    ...prev,
+    ...entry,
+    // never lose original createdAt
+    createdAt: (prev as any)?.createdAt ?? (entry as any)?.createdAt ?? nowIso,
+    // always bump updatedAt on edit
+    updatedAt: nowIso,
+  };
+} else {
+  project.entries.push({
+    ...entry,
+    createdAt: (entry as any)?.createdAt ?? nowIso,
+    updatedAt: (entry as any)?.updatedAt ?? nowIso,
+  });
+}
 
     this.updateLoadDevProject(project);
   }

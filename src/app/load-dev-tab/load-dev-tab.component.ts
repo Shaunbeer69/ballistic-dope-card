@@ -1718,8 +1718,20 @@ hasAnyPhoto(): boolean {
       day: '2-digit'
     });
 
-   
+    }
+    shortDateTime(value: string | Date | null | undefined): string {
+    if (!value) return '';
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString(undefined, {
+      year: '2-digit',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
+
 // ===============================
 // PDF: load and draw placeholder image in a box
 // ===============================
@@ -2268,11 +2280,11 @@ if (type === 'ladder' || type === 'ocw') {
 
       this.postSaveMessage =
         type === 'ocw'
-          ? 'OCW planned and saved. Load and "Go Shoot" your groups, then come back here and use the OCW wizard or Edit buttons to enter velocities.'
-          : 'Ladder test planned and saved. Load as per table: Go shoot the ladder, then come back here and use the wizard or Edit buttons to enter velocities and view the graph with node highlights.';
+          ? 'OCW planned and saved. Export this document and use it as guidance.  Load as per table and "Go Shoot" your groups, use this document to take notes.  Come back here and use the OCW wizard or Edit buttons to enter velocities.'
+          : 'Ladder test planned and saved.  Export this document and use it as guidance.  Load as per table and "Go Shoot" your groups, use this document to take notes.  Come back here and use the wizard or Edit buttons to enter velocities and view the graph with node highlights.';
     }
 
-    setTimeout(() => (this.postSaveMessage = null), 15000);
+    setTimeout(() => (this.postSaveMessage = null), 25000);
 
     this.projectFormVisible = false;
     this.editingProject = null;

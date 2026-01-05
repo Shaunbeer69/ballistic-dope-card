@@ -118,12 +118,16 @@ export interface LoadDevEntry {
   bulletWeightGr?: number;
   bulletBc?: string;          // G7/G1 BC for this load
   distanceM?: number;
-  shotsFired?: number;
+   shotsFired?: number;
   groupSize?: number;
   groupUnit?: GroupSizeUnit;
   poiNote?: string;           // POI description
   notes?: string;
+
+  createdAt?: string; // ISO datetime when entry was first captured
+  updatedAt?: string; // ISO datetime when entry was last edited
 }
+
 
 export interface LoadDevProject {
   id: number;
