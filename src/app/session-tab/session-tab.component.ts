@@ -46,10 +46,76 @@ export class SessionTabComponent implements OnInit {
 
   title = '';
   environment: Environment = {};
+  // Wind speed unit toggle (display only). Internally we store windSpeedMps on environment.
+  windSpeedUnit: 'mph' | 'mps' = 'mph'; // default mph (as requested)
+
+  // Simple inline toast for Environment validation
+  envToastMessage: string | null = null;
+  private envToastTimer: any | null = null;
+
+  private showEnvToast(msg: string): void {
+    this.envToastMessage = msg;
+    if (this.envToastTimer) clearTimeout(this.envToastTimer);
+    this.envToastTimer = setTimeout(() => (this.envToastMessage = null), 2500);
+  }
+
+  private isFiniteNumber(v: any): v is number {
+    return typeof v === 'number' && Number.isFinite(v);
+  }
+
+private kmhToMps(kmh: number): number {
+  return kmh / 3.6;
+}
+
+private mpsToKmh(mps: number): number {
+  return mps * 3.6;
+}
+
+
+  private mphToMps(mph: number): number {
+    return mph * 0.44704;
+  }
+
+  private mpsToMph(mps: number): number {
+    return mps / 0.44704;
+  }
+
+  toggleWindSpeedUnit(): void {
+    this.windSpeedUnit = this.windSpeedUnit === 'mph' ? 'mps' : 'mph';
+  }
+
+  // ngModel bridge for the wind speed input (display unit ⇄ stored mps)
+  get windSpeedInputValue(): number | null {
+  const mps = this.environment?.windSpeedMps;
+  if (!this.isFiniteNumber(mps)) return null;
+
+  return this.windSpeedUnit === 'mph'
+    ? Number(this.mpsToMph(mps).toFixed(1))
+    : Number(this.mpsToKmh(mps).toFixed(1));
+}
+
+
+ set windSpeedInputValue(v: number | null) {
+  if (v === null || v === undefined || v === ('' as any)) {
+    this.environment.windSpeedMps = undefined;
+    return;
+  }
+
+  const num = typeof v === 'string' ? Number(v) : v;
+  if (!Number.isFinite(num)) {
+    this.environment.windSpeedMps = undefined;
+    return;
+  }
+
+  this.environment.windSpeedMps =
+    this.windSpeedUnit === 'mph'
+      ? this.mphToMps(num)
+      : this.kmhToMps(num);
+}
 
   // Wind clock (1–12, relative to target at 12)
   windClock: number | null = null;
-
+    // Wind speed unit toggle (UI shows mph or km/h; internally we store mph in environment.windSpeedMps)
   shotCount: number | null = null;
   selectedDistances: number[] = [];
   notes = '';
@@ -107,10 +173,12 @@ export class SessionTabComponent implements OnInit {
     return sr?.distancesM ?? [];
   }
 
-  get windHint(): string {
-    const speed = this.environment.windSpeedMps;
+    get windHint(): string {
+    // Keep a single internal basis: mph stored in environment.windSpeedMps (name is legacy)
+    const mph = this.environment.windSpeedMps;
     let clock = this.windClock;
-    if (!clock || !speed || speed <= 0) return '';
+
+    if (!clock || !mph || mph <= 0) return '';
 
     // Normalize clock to 1..12
     clock = ((clock - 1) % 12) + 1;
@@ -118,8 +186,8 @@ export class SessionTabComponent implements OnInit {
     const c = clock;
     const isFront = c === 11 || c === 12 || c === 1;
     const isBack = c === 5 || c === 6 || c === 7;
-    const isRight = c >= 1 && c <= 5;   // wind from right side
-    const isLeft = c >= 7 && c <= 11;   // wind from left side
+    const isRight = c >= 1 && c <= 5; // wind from right side
+    const isLeft = c >= 7 && c <= 11; // wind from left side
 
     let directionText = '';
 
@@ -133,14 +201,20 @@ export class SessionTabComponent implements OnInit {
     else if (isLeft) directionText = 'drift to the right';
 
     let intensity = '';
-    if (speed < 2) intensity = 'Very light wind – small effect.';
-    else if (speed < 5) intensity = 'Light wind – moderate correction.';
-    else if (speed < 8) intensity = 'Medium wind – expect noticeable drift.';
+    if (mph < 2) intensity = 'Very light wind – small effect.';
+    else if (mph < 5) intensity = 'Light wind – moderate correction.';
+    else if (mph < 8) intensity = 'Medium wind – expect noticeable drift.';
     else intensity = 'Strong wind – expect significant drift.';
 
-    // Note: variable is named windSpeedMps but we describe in mph here; keep text as-is for now.
-    return `Wind from ${c} o'clock at ${speed} mph: expect ${directionText}. ${intensity}`;
+    const speedDisplay =
+      this.windSpeedUnit === 'mph' ? mph : mph * 1.609344; // mph -> km/h
+    const unitLabel = this.windSpeedUnit === 'mph' ? 'mph' : 'km/h';
+
+    const speedText = Number.isFinite(speedDisplay) ? speedDisplay.toFixed(2) : `${speedDisplay}`;
+
+    return `Wind from ${c} o'clock at ${speedText} ${unitLabel}: expect ${directionText}. ${intensity}`;
   }
+
 
   // Called by (ngModelChange) in the template – logic is in the getter
   updateWindHint(): void {
@@ -209,6 +283,24 @@ export class SessionTabComponent implements OnInit {
 
   nextFromEnvironment(): void {
     // Convert windClock -> approximate windDirectionDeg (0° = from target / headwind)
+        // Validation: all manual numeric fields must be populated (Light conditions excluded)
+    const t = this.environment?.temperatureC;
+    const p = this.environment?.pressureInHg;
+    const h = this.environment?.humidityPercent;
+    const w = this.environment?.windSpeedMps;
+    const c = this.windClock;
+
+    if (
+      !this.isFiniteNumber(t) ||
+      !this.isFiniteNumber(p) ||
+      !this.isFiniteNumber(h) ||
+      !this.isFiniteNumber(w) ||
+      !this.isFiniteNumber(c)
+    ) {
+      this.showEnvToast('Please complete all Environment fields (numeric).');
+      return;
+    }
+
     if (this.windClock != null) {
       let c = ((this.windClock - 1) % 12) + 1; // 1..12
       const fraction = c === 12 ? 0 : c / 12;
