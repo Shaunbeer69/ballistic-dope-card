@@ -76,7 +76,7 @@
   <!-- Wind dial -->
   <div
     #circleArea
-    class="relative w-full max-w-xs mx-auto aspect-square select-none touch-none"
+    class="relative w-full max-w-xs md:max-w-[calc(100%-2cm)] md:my-[0.5cm] mx-auto aspect-square select-none touch-none"
     (pointerdown)="startDrag($event)"
     (pointermove)="onDrag($event)"
     (pointerup)="endDrag($event)"
