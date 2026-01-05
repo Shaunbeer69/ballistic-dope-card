@@ -1144,14 +1144,14 @@ doc.text(noteLines, leftMargin, y);
 
       doc.setFontSize(9);
 
-      const cols = isOcwProject
+           const cols = isOcwProject
         ? ['Charge', 'Avg', 'SD', 'ES', 'Group', 'Notes']
-        : ['Charge', 'Velocity', 'Shot ', 'Notes'];
+        : ['Charge', 'Velocity', 'Shot', 'Node', 'Notes'];
 
       // Column anchors (tuned for A4 portrait)
       const colX = isOcwProject
-      ? [leftMargin, leftMargin + 70, leftMargin + 120, leftMargin + 160, leftMargin + 205, leftMargin + 255]
-: [leftMargin, leftMargin + 85, leftMargin + 145, leftMargin + 190];
+        ? [leftMargin, leftMargin + 70, leftMargin + 120, leftMargin + 160, leftMargin + 205, leftMargin + 255]
+        : [leftMargin, leftMargin + 80, leftMargin + 140, leftMargin + 190, leftMargin + 240];
 
 
       cols.forEach((c, i) => doc.text(c, colX[i], y));
@@ -1167,7 +1167,7 @@ doc.text(noteLines, leftMargin, y);
       for (const e of entries) {
         const notesTxt = this.buildExportNotesForEntry(e);
 
-        const notesX = isOcwProject ? colX[5] : colX[3];
+                const notesX = isOcwProject ? colX[5] : colX[4];
         const notesW = (pageW - rightMargin) - notesX;
 
 
@@ -1201,33 +1201,35 @@ const reserveForBottom = 10 + 12 + 10 + 220 + 10;
 
 
         const s = this.statsForEntry(e);
+               const isNode = !isOcwProject && this.ladderIsInNodeBand(e);
 
-        doc.text(`${e.chargeGr ?? ''}`, colX[0], y);
+        const chargeTxt = `${e.chargeGr ?? ''}`;
+
+
+                doc.text(chargeTxt, colX[0], y);
+
         doc.text(s ? `${Math.round(s.avg)}` : '—', colX[1], y);
 
         if (isOcwProject) {
           doc.text(s ? `${s.sd.toFixed(1)}` : '—', colX[2], y);
           doc.text(s ? `${Math.round(s.es)}` : '—', colX[3], y);
           doc.text(this.formatGroupSize(e), colX[4], y);
-      } else {
-  // Use the SAME completion boolean already used elsewhere (graph/colour logic)
-  const isLoadCompleted = this.isProjectComplete(this.selectedProject!);
+             } else {
+          // Match the UI: 1/Total ... N/Total
+          // (shownRows is 0-based count already printed so far)
+          const shotLabel = `${shownRows + 1}/${entries.length}`;
+          doc.text(shotLabel, colX[2], y);
 
-  // Match the UI: 1/Total ... N/Total
-  // (shownRows is 0-based count already printed so far)
-  const shotLabel = `${shownRows + 1}/${entries.length}`;
-
-  // Always print the same label; no extra "1" overlay
-  doc.text(shotLabel, colX[2], y);
-
-  // If you ever want different behavior for incomplete loads, this is where it would go:
-  // if (!isLoadCompleted) { ... }
-}
-
-
-        if (notesLines.length) {
-         doc.text(`${shownRows + 1}/${entries.length}`, colX[2], y);
+          // New PDF column: Node indicator (matches on-screen NODE pills)
+          doc.text(isNode ? 'NODE' : '', colX[3], y);
         }
+
+
+
+                if (notesLines.length) {
+          doc.text(notesLines[0], notesX, y);
+        }
+
            shownRows++;
 
         y += neededHeight;
