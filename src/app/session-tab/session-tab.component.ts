@@ -119,6 +119,25 @@ private mpsToKmh(mps: number): number {
   shotCount: number | null = null;
   selectedDistances: number[] = [];
   notes = '';
+
+    // ---------- Shots step toast ----------
+  shotsToastMessage: string | null = null;
+  private shotsToastTimer: any | null = null;
+
+  private showShotsToast(msg: string): void {
+    this.shotsToastMessage = msg;
+    if (this.shotsToastTimer) clearTimeout(this.shotsToastTimer);
+    this.shotsToastTimer = setTimeout(() => (this.shotsToastMessage = null), 2500);
+  }
+
+  clearShotsToast(): void {
+    this.shotsToastMessage = null;
+    if (this.shotsToastTimer) {
+      clearTimeout(this.shotsToastTimer);
+      this.shotsToastTimer = null;
+    }
+  }
+
   // ---------- Session Voice Note (Mic) ----------
   sessionMicInlineMessage: string | null = null;
   sessionVoiceNoteDataUrl: string | null = null;
@@ -320,7 +339,9 @@ private mpsToKmh(mps: number): number {
 
   // ---------- Shot planning step ----------
 
-  toggleDistance(d: number): void {
+   toggleDistance(d: number): void {
+    this.clearShotsToast();
+
     if (this.selectedDistances.includes(d)) {
       this.selectedDistances = this.selectedDistances.filter(x => x !== d);
     } else {
@@ -328,17 +349,48 @@ private mpsToKmh(mps: number): number {
     }
   }
 
-  canCompleteSession(): boolean {
-    return this.selectedDistances.length > 0;
+   canCompleteSession(): boolean {
+    return (
+      this.selectedDistances.length > 0 &&
+      !!this.shotCount &&
+      this.shotCount > 0 &&
+      !!this.notes &&
+      this.notes.trim().length > 0
+    );
   }
 
+
   completeSession(): void {
+    this.clearShotsToast();
+
+    const missing: string[] = [];
+
     if (this.selectedDistances.length === 0) {
-      alert('Select at least one distance to shoot.');
+      missing.push('distance selection');
+    }
+
+    if (!this.shotCount || this.shotCount <= 0) {
+      missing.push('planned shots');
+    }
+
+    if (!this.notes || this.notes.trim().length === 0) {
+      missing.push('comments');
+    }
+
+    if (missing.length) {
+      this.showShotsToast(`Please complete: ${missing.join(', ')}.`);
       return;
     }
-    if (!this.rifleId || !this.venueId) {
-      alert('Setup is incomplete. Please go back and select rifle and venue.');
+
+
+    if (!this.shotCount || this.shotCount <= 0) {
+    this.showShotsToast('Incomplete: enter the planned number of shots.');
+
+      return;
+    }
+
+    if (!this.rifleId || !this.venueId || this.venueId <= 0) {
+      this.showShotsToast('Setup is incomplete. Please go back and select rifle and venue.');
       return;
     }
 
@@ -347,7 +399,6 @@ private mpsToKmh(mps: number): number {
       subRangeId: this.subRangeId ?? undefined,
       distanceM: distance
     }));
-
     const sessionNotesParts: string[] = [];
     if (this.notes?.trim()) {
       sessionNotesParts.push(this.notes.trim());
