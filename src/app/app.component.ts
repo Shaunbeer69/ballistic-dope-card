@@ -144,7 +144,8 @@ importBusy = false;
 
   // TOOLS / KESTREL / CONVERTER
   showTools = false;
-  selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | null = null;
+ selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | null = null;
+
 exportSubMenuOpen = false;
 
 

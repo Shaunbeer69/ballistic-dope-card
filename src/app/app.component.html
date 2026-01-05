@@ -334,7 +334,14 @@
               <!-- TOOLS -->
               <div *ngIf="showTools" class="rounded-2xl p-3 shadow space-y-3 mt-3">
                 <!-- Tool icons -->
-                <div class="grid grid-cols-4 gap-4 justify-items-center">
+                <div
+                  *ngIf="
+                    $any(selectedTool) !== 'converter' &&
+                    $any(selectedTool) !== 'targets' &&
+                    $any(selectedTool) !== 'kestrel'
+                  "
+                  class="grid grid-cols-4 gap-4 justify-items-center"
+                >
                   <!-- Kestrel -->
                   <div class="flex flex-col items-center">
                     <button
@@ -365,7 +372,7 @@
 
                     <span class="mt-1 text-[10px] text-gray-300">Kestrel env</span>
                     <span class="text-[9px] text-gray-500 italic mt-0.5">
-                      {{ selectedTool === 'kestrel' ? 'Tap to close' : 'Tap to read' }}
+                      {{ $any(selectedTool) === 'kestrel' ? 'Tap to close' : 'Tap to read' }}
                     </span>
                   </div>
 
@@ -568,7 +575,7 @@
 
                     <span class="mt-1 text-[10px] text-gray-300">Mil ↔ MOA</span>
                     <span class="text-[9px] text-gray-500 italic mt-0.5">
-                      {{ selectedTool === 'converter' ? 'Tap to close' : 'Tap to open' }}
+                      {{ $any(selectedTool) === 'converter' ? 'Tap to close' : 'Tap to open' }}
                     </span>
                   </div>
 
@@ -628,9 +635,23 @@
                     </button>
                   </div>
                 </div>
+                <!-- Kestrel header (grid hidden when open) -->
+                <div
+                  *ngIf="$any(selectedTool) === 'kestrel'"
+                  class="mt-2 flex items-center justify-between"
+                >
+                  <div class="text-[12px] font-semibold text-gray-100">Kestrel env</div>
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
+                    (click)="selectedTool = null"
+                  >
+                    Close
+                  </button>
+                </div>
 
                 <!-- Kestrel details -->
-                <div *ngIf="selectedTool === 'kestrel'" class="mt-2 space-y-1 text-[10px]">
+                <div *ngIf="$any(selectedTool) === 'kestrel'" class="mt-2 space-y-1 text-[10px]">
                   <p [ngClass]="kestrel.kestrelError ? 'text-red-400' : 'text-gray-300'">
                     {{ kestrel.kestrelStatus$ | async }}
                   </p>
@@ -672,9 +693,23 @@
                     </div>
                   </div>
                 </div>
+                <!-- Converter header (grid hidden when open) -->
+                <div
+                  *ngIf="$any(selectedTool) === 'converter'"
+                  class="mt-2 flex items-center justify-between"
+                >
+                  <div class="text-[12px] font-semibold text-gray-100">Mil ↔ MOA converter</div>
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
+                    (click)="selectedTool = null"
+                  >
+                    Close
+                  </button>
+                </div>
 
                 <!-- Converter panel -->
-                <div *ngIf="selectedTool === 'converter'" class="mt-2 text-[10px] space-y-2">
+                <div *ngIf="$any(selectedTool) === 'converter'" class="mt-2 text-[10px] space-y-2">
                   <div class="grid grid-cols-2 gap-2">
                     <div>
                       <label class="block text-gray-300 mb-0.5">Input value</label>
