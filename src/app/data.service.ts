@@ -114,28 +114,37 @@ export class DataService {
       // ----- Build ID maps (old -> new/existing) -----
       const rifleIdMap = new Map<number, number>();
       const venueIdMap = new Map<number, number>();
+            let addedRifles = 0;
+      let addedVenues = 0;
+
 
       // ----- Rifles: match by name, else add -----
       for (const r of riflesIn) {
         const oldId = Number(r?.id);
         const nameKey = norm(r?.name);
+        
 
-        const existing = this.getRifles().find(x => norm(x.name) === nameKey && nameKey);
-                      const newId = existing
-          ? existing.id
-          : this.addRifle({
-              name: r?.name ?? '',
-              caliber: r?.caliber ?? '',
-              barrelLength: r?.barrelLength ?? null,
-              barrelUnit: r?.barrelUnit ?? 'inch',
-              twistRate: r?.twistRate ?? '',
-              muzzleVelocityFps: r?.muzzleVelocityFps ?? 0,
-              scopeUnit: r?.scopeUnit ?? 'MIL',
-              scope: r?.scope ?? '',
-              notes: r?.notes ?? '',
-              roundCount: r?.roundCount ?? 0,
-              loads: Array.isArray(r?.loads) ? r.loads : [],
-            } as any).id;
+               const existing = this.getRifles().find(x => norm(x.name) === nameKey && nameKey);
+
+        let newId: number;
+        if (existing) {
+          newId = existing.id;
+        } else {
+          newId = this.addRifle({
+            name: r?.name ?? '',
+            caliber: r?.caliber ?? '',
+            barrelLength: r?.barrelLength ?? null,
+            barrelUnit: r?.barrelUnit ?? 'inch',
+            twistRate: r?.twistRate ?? '',
+            muzzleVelocityFps: r?.muzzleVelocityFps ?? 0,
+            scopeUnit: r?.scopeUnit ?? 'MIL',
+            scope: r?.scope ?? '',
+            notes: r?.notes ?? '',
+            roundCount: r?.roundCount ?? 0,
+            loads: Array.isArray(r?.loads) ? r.loads : [],
+          } as any).id;
+          addedRifles++;
+        }
 
 
 
@@ -163,7 +172,14 @@ export class DataService {
 
         if (dist) venuePayload.distances = dist;
 
-        const newId = existing ? existing.id : this.addVenue(venuePayload).id;
+                let newId: number;
+        if (existing) {
+          newId = existing.id;
+        } else {
+          newId = this.addVenue(venuePayload).id;
+          addedVenues++;
+        }
+
 
 
 
@@ -262,9 +278,10 @@ export class DataService {
       return {
         ok: true,
         message:
-          `Merge import complete. Added ${riflesIn.length} rifles (mapped), ` +
-          `${venuesIn.length} venues (mapped), ${addedSessions} sessions, ` +
+                  `Merge import complete. Added ${addedRifles} rifles, ` +
+          `${addedVenues} venues, ${addedSessions} sessions, ` +
           `${addedProjects} load-dev projects, ${addedEntries} load-dev entries.`
+
       };
     } catch (e: any) {
       return { ok: false, message: e?.message ?? 'Unknown error.' };
