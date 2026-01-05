@@ -108,6 +108,8 @@ export type GroupSizeUnit = 'MOA' | 'mm';
 
 export interface LoadDevEntry {
   id: number;
+   createdAt?: string; // ISO datetime when entry was first captured
+  updatedAt?: string; // ISO datetime when entry was last edited
   // nested under project; no projectId needed
   loadLabel: string;          // e.g. "42.3 gr N570 140 ELD-M"
   powder?: string;
@@ -124,8 +126,7 @@ export interface LoadDevEntry {
   poiNote?: string;           // POI description
   notes?: string;
 
-  createdAt?: string; // ISO datetime when entry was first captured
-  updatedAt?: string; // ISO datetime when entry was last edited
+ 
 }
 
 

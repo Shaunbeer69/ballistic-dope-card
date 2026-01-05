@@ -470,11 +470,14 @@
           </div>
 
           <!-- RESULTS -->
+
           <div
             #pdfContent
             *ngIf="hasResultsForSelectedProject && !resultsCollapsed"
             class="mt-3 relative left-[-12px] w-[calc(100%+24px)] border border-gray-800 bg-black/70 rounded-2xl px-3 py-3 space-y-2 overflow-x-hidden"
           >
+            <!-- PDF HEADER: timestamps -->
+
             <div class="mb-2">
               <!-- Row 1: Results + Wizard button -->
               <div class="flex items-center justify-between">
@@ -507,6 +510,7 @@
                 <div class="truncate">
                   Shot:
                   {{
+                    (graphCoords.length || ocwShotPoints.length) &&
                     entriesForSelectedProject().length
                       ? shortDateTime(
                           entriesForSelectedProject()[entriesForSelectedProject().length - 1]
@@ -663,7 +667,17 @@
                     >
                       <td class="px-2 py-1 text-gray-100">
                         <div class="leading-tight">
-                          <div>{{ entry.chargeGr | number : '1.0-2' }}</div>
+                          <div class="flex items-center gap-1">
+                            <span>{{ entry.chargeGr | number : '1.0-2' }}</span>
+
+                            <!-- ✅ Node indicator (shows in UI + PDF export) -->
+                            <span
+                              *ngIf="nodeCssClass(entry)?.includes('emerald')"
+                              class="px-1.5 py-[1px] rounded-full bg-emerald-500/20 border border-emerald-400/60 text-emerald-200 text-[9px] font-semibold"
+                            >
+                              NODE
+                            </span>
+                          </div>
                         </div>
                       </td>
 

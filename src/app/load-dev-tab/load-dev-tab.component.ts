@@ -880,6 +880,58 @@ y += 15;
 doc.setFontSize(16);
 doc.text(`Rifle: ${rifleName}`, leftMargin, y);
 y += 15;
+      // Planned / Shot dates (export header)
+      const fmtDateTime = (v: any): string => {
+        if (!v) return '';
+        const d = v instanceof Date ? v : new Date(v);
+        if (Number.isNaN(d.getTime())) return '';
+        const ds = d.toLocaleDateString(undefined, { year: '2-digit', month: '2-digit', day: '2-digit' });
+        const ts = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+        return `${ds}, ${ts}`;
+      };
+
+      const plannedIso =
+        (this.selectedProject as any)?.datePlanned ??
+        (this.selectedProject as any)?.dateStarted ??
+        this.selectedProject.dateStarted;
+
+      // Shot date: prefer explicit project field, else infer from latest entry timestamp that has shot/velocity data
+      let shotIso =
+        (this.selectedProject as any)?.dateShot ??
+        (this.selectedProject as any)?.dateDeveloped ??
+        null;
+
+      if (!shotIso) {
+        const entries = this.entriesForSelectedProject?.() ?? [];
+        let best: string | null = null;
+
+        for (const e of entries) {
+          const anyE: any = e as any;
+
+          // "has shot data" heuristics (covers your different entry shapes)
+          const hasVel =
+            (typeof anyE.velocity === 'number' && Number.isFinite(anyE.velocity)) ||
+            (Array.isArray(anyE.velocities) && anyE.velocities.length > 0) ||
+            (typeof anyE.velocityInput === 'string' && anyE.velocityInput.trim().length > 0);
+
+          if (!hasVel) continue;
+
+          const t = (anyE.updatedAt ?? anyE.createdAt ?? null) as string | null;
+          if (!t) continue;
+
+          if (!best || new Date(t).getTime() > new Date(best).getTime()) best = t;
+        }
+
+        shotIso = best;
+      }
+
+      doc.setFontSize(10);
+      doc.text(`Planned: ${fmtDateTime(plannedIso) || '—'}`, leftMargin, y);
+      y += 12;
+
+      doc.text(`Shot: ${shotIso ? fmtDateTime(shotIso) : '—'}`, leftMargin, y);
+      y += 15;
+
 
 
 
@@ -2149,7 +2201,7 @@ openProjectPhoto(): void {
     if (
       startChargeGr == null ||
       endChargeGr == null ||
-      stepGr == null ||
+            stepGr == null ||
       stepGr <= 0
     ) {
       this.plannerError =
@@ -2158,6 +2210,15 @@ openProjectPhoto(): void {
     }
 
     if (endChargeGr < startChargeGr) {
+          // ✅ OCW: enforce 3–5 shots per group
+    if (type === 'ocw') {
+      const n = Number(shotsPerGroup ?? 0);
+      if (!Number.isFinite(n) || n < 3 || n > 5) {
+        this.plannerError = 'OCW requires 3 to 5 shots per group.';
+        return;
+      }
+    }
+
       this.plannerError = 'End charge must be greater than start charge.';
       return;
     }
@@ -2205,13 +2266,21 @@ openProjectPhoto(): void {
 
   saveProject(): void {
     if (!this.selectedRifleId || !this.projectForm.name.trim()) {
-      alert('Please select rifle and enter a name for the load development.');
-      return;
+  alert('Please select rifle and enter a name for the load development.');
+  
+  return;
+}
 
-      
-    }
 const type: LoadDevType = (this.projectForm.type as LoadDevType) || 'ladder';
 this.postSaveMessage = null;
+
+if (type === 'ocw') {
+  const n = Number(this.planner.shotsPerGroup ?? 0);
+  if (!Number.isFinite(n) || n < 3 || n > 5) {
+    alert('OCW requires 3 to 5 shots per group.');
+    return;
+  }
+}
 
 // ✅ ADD THIS GUARD (prevents empty ladder/ocw projects)
 if (type === 'ladder' || type === 'ocw') {
