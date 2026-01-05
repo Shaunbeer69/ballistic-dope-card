@@ -234,9 +234,14 @@
               <div>
                 <div class="text-gray-400 mb-0.5">Step (gr)</div>
                 <input
-                  type="number"
+                  type="text"
+                  inputmode="decimal"
+                  pattern="[0-9.]*"
+                  maxlength="4"
                   class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
-                  [(ngModel)]="planner.stepGr"
+                  [ngModel]="plannerStepText"
+                  (ngModelChange)="onStepChange($event)"
+                  (focus)="onStepFocus($event)"
                 />
               </div>
             </div>

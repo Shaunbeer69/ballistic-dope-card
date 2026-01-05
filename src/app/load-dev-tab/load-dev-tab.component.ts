@@ -1466,6 +1466,8 @@ y += boxH + boxPadAfter;
 
   // Planner + validation
   planner: PlannerForm = this.createEmptyPlannerForm();
+  plannerStepText: string = '.';
+
   plannerError: string | null = null;
 
 
@@ -1564,7 +1566,6 @@ y += boxH + boxPadAfter;
 
   }
 
-
   private createEmptyEntryForm(): EntryForm {
     return {
       loadLabel: '',
@@ -1604,17 +1605,92 @@ getEntryPhotoLabel(entry: LoadDevEntry): string {
   return ts ? `Photo • ${ts}` : 'Photo';
 }
 
-  private createEmptyPlannerForm(): PlannerForm {
- return {
-  distanceM: null,
-  distanceUnit: 'm',
-  startChargeGr: null,
-  endChargeGr: null,
-  stepGr: null,
-  shotsPerGroup: null,
-};
+private createEmptyPlannerForm(): PlannerForm {
+  this.plannerStepText = '.';
 
+  return {
+    distanceUnit: 'm',
+    distanceM: null,
+    startChargeGr: null,
+    endChargeGr: null,
+    stepGr: null,
+    shotsPerGroup: null
+  };
+}
+onStepFocus(ev: FocusEvent): void {
+  const el = ev.target as HTMLInputElement | null;
+  if (!el) return;
+
+  if (!el.value) {
+    el.value = '.';
+    this.plannerStepText = '.';
   }
+
+  // Cursor must start after the fullstop
+  if (el.value === '.') {
+    setTimeout(() => {
+      try {
+        el.setSelectionRange(1, 1);
+      } catch {}
+    }, 0);
+  }
+}
+
+onStepChange(raw: any): void {
+  let s = (raw ?? '').toString();
+
+  // keep only digits and dots, and allow only ONE dot
+  s = s.replace(/[^0-9.]/g, '');
+  const firstDot = s.indexOf('.');
+  if (firstDot !== -1) {
+    s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '');
+  }
+
+  // If user clears it, keep the dot placeholder
+  if (s === '') {
+    this.plannerStepText = '.';
+    this.planner.stepGr = null;
+    return;
+  }
+
+  // If it's only ".", don't set a number yet
+  if (s === '.') {
+    this.plannerStepText = '.';
+    this.planner.stepGr = null;
+    return;
+  }
+
+  // Auto-correct "1" => ".1"
+  if (s === '1') {
+    s = '.1';
+    this.postSaveMessage = 'Auto-corrected 1 → .1';
+    setTimeout(() => (this.postSaveMessage = null), 2000);
+  }
+
+  // Parse (".1" works in parseFloat)
+  let n = Number.parseFloat(s);
+
+  if (!Number.isFinite(n)) {
+    this.plannerStepText = '.';
+    this.planner.stepGr = null;
+    return;
+  }
+
+  // Hard block > 0.6 (cap) + toast
+  if (n > 0.6) {
+    n = 0.0;
+    s = '0.0';
+    this.postSaveMessage = 'Step max is 0.6 gr';
+    setTimeout(() => (this.postSaveMessage = null), 2000);
+  }
+
+  // Normalize display so user sees ".x" instead of "0.x"
+  if (s.startsWith('0.') && n < 1) s = s.slice(1);
+
+  this.plannerStepText = s;
+  this.planner.stepGr = n;
+}
+
 entryHasPhoto(entry: LoadDevEntry): boolean {
   const any = entry as any;
   return !!any?.targetPhoto?.dataUrl || !!any?.targetPhotoBase64;
@@ -1641,6 +1717,8 @@ hasAnyPhoto(): boolean {
       month: '2-digit',
       day: '2-digit'
     });
+
+   
   }
 // ===============================
 // PDF: load and draw placeholder image in a box
