@@ -1243,7 +1243,7 @@ const pageBottom = doc.internal.pageSize.getHeight() - 40;
 
 // Layout knobs
 const commentLineGap = 14;
-const commentTitleH = 12;
+const commentTitleH = 22; // title (bigger) + 1 blank line gap
 const commentPadAfter = 10;
 
 const boxPadAfter = 10;
@@ -1276,11 +1276,19 @@ while (
   commentLines--;
 }
 
-// Draw Comments title
-doc.setFontSize(11);
+// Draw Comments title (bold + 50% larger) + one-line gap below
+(doc as any).setFont(undefined, 'bold');
+doc.setFontSize(17); // 11 * 1.5 ≈ 16.5
 doc.setTextColor(0);
 doc.text('Comments', leftMargin, y);
-y += 12;
+
+(doc as any).setFont(undefined, 'normal');
+doc.setFontSize(10);
+
+// use the reserved title height (includes blank line)
+y += commentTitleH;
+
+
 
 // ✅ Draw summary as FIRST comment line (bold), then move y down one line
 if (summaryConsumesOneLine && commentLines > 0) {
@@ -1536,10 +1544,7 @@ y += boxH + boxPadAfter;
     const n2 = (any.poiNote ?? '').toString().trim();
     if (n2) parts.push(n2);
 
-    // Optional: show raw velocities when present (handy in PDF)
-    const v = (any.velocityInput ?? '').toString().trim();
-    if (v) parts.push(`Vels: ${v}`);
-
+   
     return parts.join(' | ');
   }
 
