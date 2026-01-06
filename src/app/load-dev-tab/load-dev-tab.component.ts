@@ -1040,37 +1040,121 @@ doc.text(noteLines, leftMargin, y);
             doc.setDrawColor(170);
             doc.setLineWidth(0.6);
             (doc as any).ellipse(x, cy, rx, ry);
-                        // ✅ Label charge OUTSIDE the ellipse (above it) for clarity in export
-            try {
-              const txt = `${Number(charge).toFixed(2)} gr`;
-              doc.setFontSize(8);
-              doc.setTextColor(0);
+                      
+          }
+                  // ✅ OCW: draw shot dots + velocity labels (no connecting lines)
+          try {
+            const pts = [...(this.ocwShotPoints || [])]
+              .filter(p => Number.isFinite(p.charge) && Number.isFinite(p.v))
+              .sort((a, b) => (a.charge - b.charge) || (a.shotIndex - b.shotIndex));
 
-              const tw = doc.getTextWidth(txt);
-              let tx = x - tw / 2;
+                        doc.setDrawColor(0);
+            doc.setTextColor(0);
+            doc.setFontSize(7);
 
-              // clamp within chart frame
-              tx = Math.max(chartX + 2, Math.min(chartX + chartW - 2 - tw, tx));
+            // ✅ Keep velocity labels from overlapping each other
+            const placedLabels: { x: number; y: number; w: number; h: number }[] = [];
+            const labelH = 9;
 
-              // place just above ellipse top (outside), but clamp so it stays visible
-              let ty = top - 2;
-              if (ty < chartY + 10) ty = chartY + 10;
+            const overlaps = (a: any, b: any) =>
+              !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
 
-              doc.text(txt, tx, ty);
-            } catch {
-              // ignore
+            for (const p of pts) {
+              // small x-jitter so shots at same charge don't overlap perfectly
+              const jitter = ((p.shotIndex % 7) - 3) * 1.2;
+
+              const px = Math.max(xMin, Math.min(xMax, sx(p.charge) + jitter));
+              const py = Math.max(yMin, Math.min(yMax, sy(p.v)));
+
+              // dot
+              doc.setLineWidth(0.8);
+              doc.circle(px, py, 2.0, 'S');
+
+              // velocity label next to dot (outside the dot)
+              const vTxt = `${Math.round(p.v)}`;
+              const tw = doc.getTextWidth(vTxt);
+
+              let tx = px + 4;
+              if (tx + tw > xMax) tx = px - 4 - tw; // flip left near right edge
+
+              const topLimit = yMin + 6;
+              const botLimit = yMax - 2;
+
+              // baseline default
+              const baseTy = Math.max(topLimit, Math.min(botLimit, py - 2));
+
+              // try down first, then up, in labelH steps until no overlap
+              let chosenTy: number | null = null;
+
+              for (const dir of [1, -1]) {
+                let tyTry = baseTy;
+                for (let tries = 0; tries < 12; tries++) {
+                  const box = { x: tx - 1, y: tyTry - labelH, w: tw + 2, h: labelH + 2 };
+
+                  if (box.y < topLimit - labelH) {
+                    tyTry += dir * labelH;
+                    continue;
+                  }
+                  if (box.y + box.h > botLimit + 2) {
+                    tyTry += dir * labelH;
+                    continue;
+                  }
+
+                  const hit = placedLabels.some(b => overlaps(box, b));
+                  if (!hit) {
+                    chosenTy = tyTry;
+                    placedLabels.push(box);
+                    break;
+                  }
+
+                  tyTry += dir * labelH;
+                }
+                if (chosenTy != null) break;
+              }
+
+              const finalTy = chosenTy ?? Math.max(topLimit, Math.min(botLimit, baseTy));
+              doc.text(vTxt, tx, finalTy);
             }
 
+          } catch {
+            // ignore
           }
-        
+
+          // ✅ OCW: charge labels BELOW the chart frame (outside the block at the bottom)
+          try {
+            const charges = Array.from(
+              new Set(
+                (entries || [])
+                  .map(e => e.chargeGr)
+                  .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+                  .map(v => Number(v.toFixed(2)))
+              )
+            ).sort((a, b) => a - b);
+
+            doc.setFontSize(8);
+            doc.setTextColor(0);
+
+            const labelY = chartY + chartH + 12; // outside the graph frame
+
+            for (const c of charges) {
+              const txt = `${c.toFixed(2)} gr`;
+              const tw = doc.getTextWidth(txt);
+
+              let tx = sx(c) - tw / 2;
+              tx = Math.max(chartX + 2, Math.min(chartX + chartW - 2 - tw, tx)); // clamp
+
+              doc.text(txt, tx, labelY);
+            }
+          } catch {
+            // ignore
+          }
+
         
 
           // Axis hints
           doc.setFontSize(9);
-          doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
-          doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
-          doc.text(`${Math.round(maxYv)} fps`, chartX + chartW - 55, chartY + 10);
-          doc.text(`${Math.round(minYv)} fps`, chartX + chartW - 55, chartY + chartH - 4);
+           
+
 
           y += chartH + 26;
         } else {
@@ -1100,8 +1184,7 @@ doc.text(noteLines, leftMargin, y);
           doc.setFontSize(9);
           doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
           doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
-          doc.text(`${Math.round(maxYv)} fps`, chartX + chartW - 55, chartY + 10);
-          doc.text(`${Math.round(minYv)} fps`, chartX + chartW - 55, chartY + chartH - 4);
+         
 
           y += chartH + 26;
         }
