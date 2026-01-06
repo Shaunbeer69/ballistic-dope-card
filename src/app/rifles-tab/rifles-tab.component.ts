@@ -31,12 +31,21 @@ export class RiflesTabComponent implements OnInit {
   editingLoadId: number | string | null = null;
 
   // Forms
-    rifleForm: any = {
-    scope: '',
-    scopeUnit: 'MIL',
+      rifleForm: any = {
+    name: '',
+    caliber: '',
+    barrelLength: null,
     barrelUnit: 'inch',
+    twistRate: '',
+    muzzleVelocityFps: 0,
+    scopeUnit: 'MIL',
+    scope: '',
+    notes: '',
+    riflePhotoBase64: null,
+    riflePhotoCapturedAt: null,
     roundCount: 0,
   };
+
   // Rifle photo (same pattern as Load Development photo handling)
   photoViewerOpen = false;
   photoViewerImgUrl: string | null = null;
@@ -111,8 +120,9 @@ export class RiflesTabComponent implements OnInit {
       (this.rifleForm as any).riflePhotoBase64 = base64;
       (this.rifleForm as any).riflePhotoCapturedAt = new Date().toISOString();
 
-      const url = this.rifleFormPhotoDataUrl();
-      this.openRiflePhotoViewer(url, 'form', null, event);
+     this.riflePhotoInlineMessage = '📷 Rifle photo saved (tap thumbnail to view)';
+setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
+
     } catch {
       this.riflePhotoInlineMessage = 'Photo capture cancelled';
       setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
@@ -202,6 +212,7 @@ export class RiflesTabComponent implements OnInit {
       doc.setFontSize(12);
       doc.text(`${r.name ?? 'Rifle'}${r.caliber ? ` (${r.caliber})` : ''}`, 10, y);
       y += 5;
+      
 
       const rifleRows: Array<[string, string]> = [
         ['Caliber', `${r.caliber ?? '-'}`],
@@ -296,6 +307,54 @@ export class RiflesTabComponent implements OnInit {
         }
       }
 
+            // --------------------------
+      // Rifle photo (use remaining space under Loads)
+      // --------------------------
+      const riflePhotoDataUrl = this.riflePhotoDataUrl(r);
+
+
+      if (riflePhotoDataUrl) {
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 10;
+
+        // If we don't have enough space left on this page, move photo to next page
+        const minPhotoBlockH = 45; // label + usable photo
+        if (y + minPhotoBlockH > pageHeight - margin) {
+          doc.addPage();
+          y = 12;
+        }
+
+        doc.setFontSize(12);
+        doc.text('Rifle photo', 10, y);
+        y += 4;
+
+        const maxW = pageWidth - 20; // 10mm margins
+        const maxH = pageHeight - margin - y;
+
+        // Keep aspect ratio using image properties
+        const fmt = riflePhotoDataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+        const props = (doc as any).getImageProperties
+          ? (doc as any).getImageProperties(riflePhotoDataUrl)
+          : null;
+
+        let imgW = maxW;
+        let imgH = maxH;
+
+        if (props?.width && props?.height) {
+          const ratio = props.width / props.height;
+          imgW = maxW;
+          imgH = imgW / ratio;
+
+          if (imgH > maxH) {
+            imgH = maxH;
+            imgW = imgH * ratio;
+          }
+        }
+
+        const x = (pageWidth - imgW) / 2;
+        (doc as any).addImage(riflePhotoDataUrl, fmt, x, y, imgW, imgH, undefined, 'FAST');
+        y += imgH + 4;
+      }
 
 
       const filenameSafe = `${(r.name ?? 'rifle').toString().replace(/[^\w\-]+/g, '_')}_rifle_export.pdf`;
@@ -398,12 +457,21 @@ export class RiflesTabComponent implements OnInit {
   }
 
   clearRifleForm(): void {
-    this.rifleForm = {
-      scope: '',
-      scopeUnit: 'MIL',
+      this.rifleForm = {
+      name: '',
+      caliber: '',
+      barrelLength: null,
       barrelUnit: 'inch',
+      twistRate: '',
+      muzzleVelocityFps: 0,
+      scopeUnit: 'MIL',
+      scope: '',
+      notes: '',
+      riflePhotoBase64: null,
+      riflePhotoCapturedAt: null,
       roundCount: 0,
     };
+
     this.editingRifle = null;
   }
 

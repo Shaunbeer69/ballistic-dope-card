@@ -140,6 +140,8 @@ export class DataService {
             scopeUnit: r?.scopeUnit ?? 'MIL',
             scope: r?.scope ?? '',
             notes: r?.notes ?? '',
+            riflePhotoBase64: (r as any)?.riflePhotoBase64 ?? null,
+            riflePhotoCapturedAt: (r as any)?.riflePhotoCapturedAt ?? null,
             roundCount: r?.roundCount ?? 0,
             loads: Array.isArray(r?.loads) ? r.loads : [],
           } as any).id;

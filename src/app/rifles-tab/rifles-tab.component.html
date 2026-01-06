@@ -112,15 +112,46 @@
       </label>
     </div>
 
-    <label class="flex flex-col">
-      Notes
-      <textarea
-        [(ngModel)]="rifleForm.notes"
-        name="notes"
-        rows="2"
-        class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
-      ></textarea>
-    </label>
+    <div class="flex gap-2 items-start">
+      <!-- Notes -->
+      <label class="flex flex-col flex-1">
+        Notes
+        <textarea
+          [(ngModel)]="rifleForm.notes"
+          name="notes"
+          rows="2"
+          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+        ></textarea>
+      </label>
+
+      <!-- Photo (same idea as Load Dev) -->
+      <div class="flex flex-col items-end gap-1 pt-[18px]">
+        <button
+          type="button"
+          class="px-3 py-1 rounded-xl bg-slate-700 text-slate-100 text-xs font-semibold"
+          title="Take rifle photo"
+          (click)="onRiflePhotoClick($event)"
+        >
+          📷 Photo
+        </button>
+
+        <span
+          *ngIf="riflePhotoInlineMessage"
+          class="text-[10px] rounded-xl bg-sky-500/10 border border-sky-400/60 text-sky-200 px-2 py-1"
+        >
+          {{ riflePhotoInlineMessage }}
+        </span>
+
+        <ng-container *ngIf="rifleFormPhotoDataUrl() as photoUrl">
+          <img
+            [src]="photoUrl"
+            alt="Rifle photo"
+            class="h-14 w-14 object-cover rounded-xl border border-slate-700 cursor-pointer"
+            (click)="openRiflePhotoViewer(photoUrl, 'form', null, $event)"
+          />
+        </ng-container>
+      </div>
+    </div>
 
     <div class="flex justify-end gap-2 mt-2">
       <button class="px-3 py-1 text-xs rounded bg-slate-700" (click)="clearRifleForm()">
@@ -194,6 +225,17 @@
 
         <!-- Small build label so we know version everywhere -->
         <div class="text-[9px] text-slate-500 mt-1">Rifles build: v1-back-fix</div>
+        <!-- Rifle photo -->
+        <div *ngIf="hasRiflePhoto(r) && riflePhotoDataUrl(r) as rp" class="mt-2">
+          <div class="text-[10px] text-slate-400 font-semibold">Rifle photo</div>
+          <img
+            [src]="rp"
+            alt="Rifle photo"
+            class="h-20 w-20 object-cover rounded-xl border border-slate-700 cursor-pointer mt-1"
+            (click)="openRiflePhotoViewer(rp, 'saved', r.id, $event)"
+          />
+        </div>
+
         <!-- Rifle notes (separate section above loads) -->
         <div *ngIf="r.notes" class="mt-2">
           <div class="text-[10px] text-slate-400 font-semibold">Rifle notes</div>
@@ -441,6 +483,40 @@
       >
         Back
       </button>
+    </div>
+    <!-- Photo Viewer -->
+    <div
+      *ngIf="photoViewerOpen"
+      class="fixed inset-0 z-[9999] bg-black/90 flex flex-col"
+      (click)="closePhotoViewer()"
+    >
+      <div class="p-3 flex items-center justify-between" (click)="$event.stopPropagation()">
+        <div class="text-white text-sm font-semibold">Rifle photo</div>
+
+        <div class="flex gap-2">
+          <button
+            class="px-3 py-1 rounded-xl bg-red-600 text-white text-xs font-semibold"
+            (click)="deleteRiflePhoto()"
+          >
+            Delete
+          </button>
+          <button
+            class="px-3 py-1 rounded-xl bg-gray-700 text-white text-xs"
+            (click)="closePhotoViewer()"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-1 flex items-center justify-center p-3" (click)="$event.stopPropagation()">
+        <img
+          *ngIf="photoViewerImgUrl"
+          [src]="photoViewerImgUrl"
+          alt="Rifle photo"
+          class="max-h-full max-w-full object-contain rounded-xl"
+        />
+      </div>
     </div>
   </div>
 </div>
