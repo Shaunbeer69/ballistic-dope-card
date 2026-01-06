@@ -273,6 +273,7 @@
                     <th class="px-2 py-1 text-left font-semibold">Powder</th>
                     <th class="px-2 py-1 text-left font-semibold">Charge</th>
                     <th class="px-2 py-1 text-left font-semibold">COAL</th>
+                    <th class="px-2 py-1 text-left font-semibold">Ogive</th>
                     <th class="px-2 py-1 text-left font-semibold">Primer</th>
                     <th class="px-2 py-1 text-left font-semibold">Bullet</th>
                   </tr>
@@ -284,7 +285,17 @@
                     <tr class="border-b border-slate-800">
                       <td class="px-2 py-1">{{ l.powder }}</td>
                       <td class="px-2 py-1">{{ l.chargeGn }}</td>
-                      <td class="px-2 py-1">{{ l.coal }}</td>
+
+                      <td class="px-2 py-1">
+                        {{ l.coal }}
+                        <span class="ml-1 text-[9px] text-slate-400">{{ l.coalUnit || 'mm' }}</span>
+                      </td>
+
+                      <td class="px-2 py-1">
+                        {{ l.coalOgive }}
+                        <span class="ml-1 text-[9px] text-slate-400">{{ l.coalUnit || 'mm' }}</span>
+                      </td>
+
                       <td class="px-2 py-1">{{ l.primer }}</td>
 
                       <!-- Bullet text column -->
@@ -370,10 +381,34 @@
                 </label>
 
                 <label class="flex flex-col">
-                  COAL
+                  <div class="flex items-center justify-between gap-2">
+                    <span>COAL</span>
+                    <select
+                      [(ngModel)]="loadForm.coalUnit"
+                      name="loadCoalUnit"
+                      class="bg-slate-950 border border-slate-700 rounded-xl px-2 py-0.5 text-slate-100 text-[10px]"
+                    >
+                      <option value="mm">mm</option>
+                      <option value="in">in</option>
+                    </select>
+                  </div>
+
                   <input
+                    type="number"
                     [(ngModel)]="loadForm.coal"
                     name="loadCoal"
+                    placeholder="Overall length"
+                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                  />
+                </label>
+
+                <label class="flex flex-col">
+                  Coal Ogive
+                  <input
+                    type="number"
+                    [(ngModel)]="loadForm.coalOgive"
+                    name="loadCoalOgive"
+                    placeholder="Ogive length"
                     class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>

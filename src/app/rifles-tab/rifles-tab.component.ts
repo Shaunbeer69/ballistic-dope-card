@@ -289,7 +289,7 @@ setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
           const l: any = loadsWithNotes[i];
           const note = (l?.notes ?? '').toString().trim();
 
-          const header = `${i + 1}) ${l?.powder ?? ''} ${l?.chargeGn ?? ''}gn | ${l?.bullet ?? ''} ${l?.bulletWeightGr ?? ''}gr | COAL ${l?.coal ?? ''}`;
+          const header = `${i + 1}) ${l?.powder ?? ''} ${l?.chargeGn ?? ''}gn | ${l?.bullet ?? ''} ${l?.bulletWeightGr ?? ''}gr | Coal ${l?.coal ?? ''}`;
 
           // Page break if needed
           if (y > 270) {
@@ -628,7 +628,8 @@ setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
 
   // Load form logic
     resetLoadForm(): void {
-    this.loadForm = { notes: '' };
+    this.loadForm = { notes: '', coalUnit: 'mm' };
+
     this.editingLoadId = null;
   }
 
@@ -658,16 +659,21 @@ setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
       }
     } else {
             const newLoad = {
-        id: Date.now(),
-        powder: this.loadForm.powder || '',
-        chargeGn: this.loadForm.chargeGn || null,
-        coal: this.loadForm.coal || '',
-        primer: this.loadForm.primer || '',
-        bullet: this.loadForm.bullet || '',
-        bulletWeightGr: this.loadForm.bulletWeightGr || null,
-        bulletBc: this.loadForm.bulletBc || '',
-        notes: (this.loadForm.notes || '').toString(), // <-- ADD THIS LINE
-      };
+  id: Date.now(),
+  powder: this.loadForm.powder || '',
+  chargeGn: this.loadForm.chargeGn || null,
+
+  coalUnit: this.loadForm.coalUnit || 'mm',
+  coal: this.loadForm.coal || '',
+  coalOgive: this.loadForm.coalOgive || '',
+
+  primer: this.loadForm.primer || '',
+  bullet: this.loadForm.bullet || '',
+  bulletWeightGr: this.loadForm.bulletWeightGr || null,
+  bulletBc: this.loadForm.bulletBc || '',
+  notes: (this.loadForm.notes || '').toString(), // <-- ADD THIS LINE
+};
+
 
       
 
@@ -711,6 +717,8 @@ setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
       id: load.id,
       powder: load.powder,
       chargeGn: load.chargeGn,
+      coalUnit: load.coalUnit || 'mm',
+coalOgive: load.coalOgive || '',
       coal: load.coal,
       primer: load.primer,
       bullet: load.bullet,
