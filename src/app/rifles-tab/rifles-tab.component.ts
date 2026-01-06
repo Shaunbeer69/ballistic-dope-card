@@ -5,6 +5,7 @@ import { DataService } from '../data.service';
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 @Component({
   selector: 'app-rifles-tab',
@@ -36,6 +37,117 @@ export class RiflesTabComponent implements OnInit {
     barrelUnit: 'inch',
     roundCount: 0,
   };
+  // Rifle photo (same pattern as Load Development photo handling)
+  photoViewerOpen = false;
+  photoViewerImgUrl: string | null = null;
+  photoViewerRifleId: number | string | null = null;
+  photoViewerMode: 'form' | 'saved' = 'form';
+  riflePhotoInlineMessage: string | null = null;
+
+  private riflePhotoDataUrlFromBase64(base64: string | null | undefined): string | null {
+    if (!base64) return null;
+    // Stored as base64 (no data: prefix) to keep offline backups JSON-safe
+    return `data:image/jpeg;base64,${base64}`;
+    }
+
+  rifleFormPhotoDataUrl(): string | null {
+    return this.riflePhotoDataUrlFromBase64(this.rifleForm?.riflePhotoBase64);
+  }
+
+  hasRiflePhoto(r: any): boolean {
+    return !!(r && (r as any).riflePhotoBase64);
+  }
+
+  riflePhotoDataUrl(r: any): string | null {
+    return this.riflePhotoDataUrlFromBase64((r as any)?.riflePhotoBase64);
+  }
+
+  openRiflePhotoViewer(
+    url: string | null,
+    mode: 'form' | 'saved' = 'form',
+    rifleId: any = null,
+    event?: Event
+  ): void {
+    try {
+      event?.preventDefault();
+      event?.stopPropagation();
+    } catch {}
+
+    if (!url) return;
+    this.photoViewerImgUrl = url;
+    this.photoViewerOpen = true;
+    this.photoViewerMode = mode;
+    this.photoViewerRifleId = rifleId;
+  }
+
+  closePhotoViewer(): void {
+    this.photoViewerOpen = false;
+    this.photoViewerImgUrl = null;
+    this.photoViewerRifleId = null;
+    this.photoViewerMode = 'form';
+  }
+
+  async onRiflePhotoClick(event?: Event): Promise<void> {
+    try {
+      event?.preventDefault();
+      event?.stopPropagation();
+    } catch {}
+
+    try {
+      const photo = await Camera.getPhoto({
+        quality: 85,
+        allowEditing: false,
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Camera,
+      });
+
+      const base64 = photo?.base64String;
+      if (!base64) {
+        this.riflePhotoInlineMessage = 'No photo captured';
+        setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
+        return;
+      }
+
+      (this.rifleForm as any).riflePhotoBase64 = base64;
+      (this.rifleForm as any).riflePhotoCapturedAt = new Date().toISOString();
+
+      const url = this.rifleFormPhotoDataUrl();
+      this.openRiflePhotoViewer(url, 'form', null, event);
+    } catch {
+      this.riflePhotoInlineMessage = 'Photo capture cancelled';
+      setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
+    }
+  }
+
+  deleteRiflePhoto(): void {
+    const anyData: any = this.data;
+
+    if (this.photoViewerMode === 'saved' && this.photoViewerRifleId != null) {
+      // Delete directly from the stored rifle
+      const idNum = Number(this.photoViewerRifleId);
+      const r = this.rifles.find((x: any) => Number(x?.id) === idNum);
+      if (r) {
+        (r as any).riflePhotoBase64 = null;
+        (r as any).riflePhotoCapturedAt = null;
+
+        if (typeof anyData.updateRifle === 'function') {
+          anyData.updateRifle({ ...(r as any) });
+        } else if (typeof anyData.setRifles === 'function') {
+          const list = this.rifles.map((x: any) => (Number(x?.id) === idNum ? r : x));
+          anyData.setRifles(list);
+        }
+      }
+
+      this.refresh();
+      this.closePhotoViewer();
+      return;
+    }
+
+    // Delete from the current add/edit form (persisted once you Save rifle)
+    (this.rifleForm as any).riflePhotoBase64 = null;
+    (this.rifleForm as any).riflePhotoCapturedAt = null;
+    this.closePhotoViewer();
+  }
 
 
   loadForm: any = {};

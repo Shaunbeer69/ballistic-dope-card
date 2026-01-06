@@ -411,9 +411,16 @@
             <input
               #velocityInputEl
               type="text"
-              class="w-full bg-black/60 border border-sky-400/60 rounded-2xl px-2 py-1.5 text-xs text-sky-50 ring-2 ring-sky-400/60"
+              class="w-full bg-black/60 border border-sky-...nded-2xl px-2 py-1.5 text-xs text-sky-50 ring-2 ring-sky-400/60"
               [(ngModel)]="velocityEditValue"
+              [placeholder]="
+                selectedProject?.type === 'ocw' ? 'e.g. 2765, 2772, 2768' : 'e.g. 2765 2772 2768'
+              "
             />
+
+            <div *ngIf="selectedProject?.type === 'ocw'" class="text-[10px] text-sky-200/80">
+              Hint: Separate speeds with commas (e.g. 2765, 2772, 2768)
+            </div>
 
             <div class="flex justify-end gap-2">
               <button

@@ -7,6 +7,7 @@ import {
   Output,
   ViewChild
 } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import jsPDF from 'jspdf';
 import { CapacitorVoiceRecorder } from '@lgicc/capacitor-voice-recorder';
@@ -1472,14 +1473,25 @@ y += boxH + boxPadAfter;
           directory: Directory.Documents
         });
 
-        await Share.share({
-          title: 'Load development PDF',
-          text: fileName,
-          url: res.uri
-        });
+               // Share (Print is also a share-target on Android). Some print targets can reject
+        // the share promise even after the print job is created — do NOT treat that as export failure.
+        try {
+          await Share.share({
+            title: 'Load development PDF',
+            text: fileName,
+            url: res.uri
+          });
 
-        this.postSaveMessage = 'Saved & shared ✅';
-        setTimeout(() => (this.postSaveMessage = null), 2000);
+          this.postSaveMessage = 'Sent to printer / shared ✅';
+          setTimeout(() => (this.postSaveMessage = null), 2000);
+        } catch (shareErr) {
+          console.warn('Share/Print returned an error (non-fatal):', shareErr);
+
+          // File was still saved successfully
+          this.postSaveMessage = 'Saved ✅';
+          setTimeout(() => (this.postSaveMessage = null), 2000);
+        }
+
       } else {
         const blob = doc.output('blob');
         const url = URL.createObjectURL(blob);
@@ -2203,7 +2215,43 @@ openProjectPhoto(): void {
     this.plannerError = null;
 
     const { distanceM, startChargeGr, endChargeGr, stepGr, shotsPerGroup } =
-      this.planner;
+          this.planner;
+              // ✅ OCW: allow single-charge plan (start === end) by forcing Step = 0.0
+    if (
+      type === 'ocw' &&
+      startChargeGr != null &&
+      endChargeGr != null &&
+      startChargeGr === endChargeGr
+    ) {
+      // Force the UI field + planner numeric value
+      this.planner.stepGr = 0;
+      this.plannerStepText = '0.0';
+
+      const dist = distanceM ?? undefined;
+      const defaultShots: number | undefined = shotsPerGroup ?? undefined;
+
+      const entry: LoadDevEntry = {
+        id: 1,
+        loadLabel: '',
+        powder: undefined,
+        chargeGr: Number(startChargeGr.toFixed(2)),
+        coal: undefined,
+        primer: undefined,
+        bullet: undefined,
+        bulletWeightGr: undefined,
+        bulletBc: undefined,
+        distanceM: dist,
+        shotsFired: defaultShots,
+        groupSize: undefined,
+        groupUnit: 'MOA',
+        poiNote: undefined,
+        notes: undefined
+      } as LoadDevEntry;
+
+      this.data.updateLoadDevEntry(projectId, entry);
+      return;
+    }
+
 
     if (
       startChargeGr == null ||
@@ -2280,6 +2328,19 @@ openProjectPhoto(): void {
 
 const type: LoadDevType = (this.projectForm.type as LoadDevType) || 'ladder';
 this.postSaveMessage = null;
+// ✅ OCW: allow single-charge plan (start === end) → force Step = 0.0
+if (type === 'ocw') {
+  const { startChargeGr, endChargeGr } = this.planner;
+  if (
+    startChargeGr != null &&
+    endChargeGr != null &&
+    startChargeGr === endChargeGr
+  ) {
+    this.planner.stepGr = 0;
+    this.plannerStepText = '0.0';
+  }
+}
+
 
 if (type === 'ocw') {
   const n = Number(this.planner.shotsPerGroup ?? 0);
@@ -2293,11 +2354,23 @@ if (type === 'ocw') {
 if (type === 'ladder' || type === 'ocw') {
   const { startChargeGr, endChargeGr, stepGr } = this.planner;
 
-  if (startChargeGr == null || endChargeGr == null || stepGr == null || stepGr <= 0) {
+  const isOcwSingleCharge =
+    type === 'ocw' &&
+    startChargeGr != null &&
+    endChargeGr != null &&
+    startChargeGr === endChargeGr;
+
+  if (
+    startChargeGr == null ||
+    endChargeGr == null ||
+    stepGr == null ||
+    (stepGr <= 0 && !isOcwSingleCharge)
+  ) {
     alert('Please enter Start, End and a positive Step to plan the ladder/OCW charges.');
     return;
   }
 }
+
 if (type === 'ladder' || type === 'ocw') {
   const { startChargeGr, endChargeGr } = this.planner;
   if (startChargeGr != null && endChargeGr != null && endChargeGr < startChargeGr) {
