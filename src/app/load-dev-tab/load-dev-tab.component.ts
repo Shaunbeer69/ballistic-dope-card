@@ -1040,46 +1040,30 @@ doc.text(noteLines, leftMargin, y);
             doc.setDrawColor(170);
             doc.setLineWidth(0.6);
             (doc as any).ellipse(x, cy, rx, ry);
+                        // ✅ Label charge OUTSIDE the ellipse (above it) for clarity in export
+            try {
+              const txt = `${Number(charge).toFixed(2)} gr`;
+              doc.setFontSize(8);
+              doc.setTextColor(0);
+
+              const tw = doc.getTextWidth(txt);
+              let tx = x - tw / 2;
+
+              // clamp within chart frame
+              tx = Math.max(chartX + 2, Math.min(chartX + chartW - 2 - tw, tx));
+
+              // place just above ellipse top (outside), but clamp so it stays visible
+              let ty = top - 2;
+              if (ty < chartY + 10) ty = chartY + 10;
+
+              doc.text(txt, tx, ty);
+            } catch {
+              // ignore
+            }
+
           }
-
-          // Connect shot points (dark)
-          doc.setDrawColor(0);
-          doc.setLineWidth(1.2);
-
-          const sorted = [...this.ocwShotPoints].sort((a, b) => a.charge - b.charge);
-          for (let i = 0; i < sorted.length - 1; i++) {
-            const a = sorted[i];
-            const b = sorted[i + 1];
-            doc.line(
-              Math.max(xMin, Math.min(xMax, sx(a.charge))),
-              Math.max(yMin, Math.min(yMax, sy(a.v))),
-              Math.max(xMin, Math.min(xMax, sx(b.charge))),
-              Math.max(yMin, Math.min(yMax, sy(b.v)))
-            );
-          }
-
-          // Labels on unique charges
-          doc.setFontSize(8);
-          doc.setTextColor(0);
-
-          const labelInsidePad = 10;
-          const uniqueCharges = Array.from(
-            new Set(sorted.map(p => Number(p.charge).toFixed(2)))
-          ).map(s => Number(s));
-
-          for (const c of uniqueCharges) {
-            const x = Math.max(xMin, Math.min(xMax, sx(c)));
-            const txt = `${c.toFixed(2)} gr`;
-
-            let tx = x + 4;
-            if (tx > xMax - 22) tx = x - 22;
-
-            let ty = chartY + 16;
-            if (ty < yMin + labelInsidePad) ty = yMin + labelInsidePad;
-            if (ty > yMax - labelInsidePad) ty = yMax - labelInsidePad;
-
-            doc.text(txt, tx, ty);
-          }
+        
+        
 
           // Axis hints
           doc.setFontSize(9);
@@ -1674,7 +1658,29 @@ getEntryPhotoLabel(entry: LoadDevEntry): string {
   const p = this.getEntryPhotoObj(entry);
   const ts = p?.takenAt ? this.shortDate(p.takenAt) : '';
   return ts ? `Photo • ${ts}` : 'Photo';
+  
 }
+  // ===============================
+  // NOTES: OCW entry photos (by charge)
+  // ===============================
+  ocwPhotoNotesItems(): { charge: number; entry: LoadDevEntry; url: string; label: string }[] {
+    const p = this.selectedProject as any;
+    if (!p || p.type !== 'ocw') return [];
+
+    const entries: LoadDevEntry[] = [...(p.entries ?? [])];
+    entries.sort((a, b) => (a.chargeGr ?? 9999) - (b.chargeGr ?? 9999));
+
+    const out: { charge: number; entry: LoadDevEntry; url: string; label: string }[] = [];
+    for (const e of entries) {
+      if (!this.hasEntryPhoto(e)) continue;
+      const url = this.getEntryPhotoDataUrl(e);
+      if (!url) continue;
+
+      const charge = Number((e.chargeGr ?? 0));
+      out.push({ charge, entry: e, url, label: this.getEntryPhotoLabel(e) });
+    }
+    return out;
+  }
 
 private createEmptyPlannerForm(): PlannerForm {
   this.plannerStepText = '.';
