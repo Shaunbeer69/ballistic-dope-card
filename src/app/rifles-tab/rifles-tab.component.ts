@@ -593,18 +593,38 @@ setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
     }
   }
 
-  toggleLoadForm(rifleId: number | string): void {
+      toggleLoadForm(rifleId: number | string): void {
     if (this.activeLoadFormRifleId === rifleId) {
       this.activeLoadFormRifleId = null;
       this.editingLoadId = null;
       this.resetLoadForm();
     } else {
       this.activeLoadFormRifleId = rifleId;
+
+      // Ensure the loads section is expanded so the form can render
+      this.activeLoadsRifleId = rifleId;
+
       if (!this.editingLoadId) {
         this.resetLoadForm();
       }
+
+      // Jump cursor to first field (and scroll it into view)
+      this.focusFirstLoadField();
     }
   }
+  private focusFirstLoadField(): void {
+    // Allow Angular to render the form first
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        const el = document.querySelector('input[name="loadPowder"]') as HTMLInputElement | null;
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.focus();
+      });
+    }, 50);
+  }
+
+
 
   // Load form logic
     resetLoadForm(): void {
