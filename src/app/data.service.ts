@@ -260,16 +260,28 @@ export class DataService {
 
           if (already) continue;
 
-          const created = this.addLoadDevEntry(targetProject.id, {
+                     const created = this.addLoadDevEntry(targetProject.id, {
             chargeGr: e?.chargeGr,
-            velocity: e?.velocity,
-            velocities: Array.isArray(e?.velocities) ? e.velocities : undefined,
-            notes: e?.notes,
-            targetPhotoDataUrl: e?.targetPhotoDataUrl,
-            entryPhotoDataUrl: e?.entryPhotoDataUrl,
+            velocity: (e as any)?.velocity,
+            velocities: Array.isArray((e as any)?.velocities) ? (e as any).velocities : undefined,
+
+            // ✅ THIS is what Ladder restores from (shot strings)
+            velocityInput: (e as any)?.velocityInput ?? undefined,
+
+            // ✅ keep shot count if you stored it
+            shotsFired: (e as any)?.shotsFired ?? undefined,
+
+            notes: (e as any)?.notes,
+            targetPhotoDataUrl: (e as any)?.targetPhotoDataUrl,
+            entryPhotoDataUrl: (e as any)?.entryPhotoDataUrl,
+
             // keep any extra fields safely
-            ...(e?.groupSizeCm !== undefined ? { groupSizeCm: e.groupSizeCm } : {})
+            ...( (e as any)?.groupSizeCm !== undefined ? { groupSizeCm: (e as any).groupSizeCm } : {} ),
+            ...( (e as any)?.createdAt ? { createdAt: (e as any).createdAt } : {} ),
+            ...( (e as any)?.updatedAt ? { updatedAt: (e as any).updatedAt } : {} ),
           } as any);
+
+
 
           if (created) addedEntries++;
         }
