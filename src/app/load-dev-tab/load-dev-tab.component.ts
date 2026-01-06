@@ -517,22 +517,10 @@ async onEntryFileChosen(ev: Event): Promise<void> {
 private async attachPhotoToEntry(entry: LoadDevEntry, stampedDataUrl: string): Promise<void> {
   const takenAt = new Date().toISOString();
 
-  // Prompt group size only when photo is added
-  const sizeRaw = prompt('Enter group size? (number, optional)', '');
+    // Group size prompt removed — we calculate automatically from grid overlay later
   let groupSize: number | undefined = undefined;
-
-  if (sizeRaw !== null) {
-    const v = parseFloat(sizeRaw.replace(',', '.'));
-    if (!Number.isNaN(v)) groupSize = v;
-  }
-
-   // Unit must match your GroupSizeUnit type (your code uses 'MOA' elsewhere)
   let unit: GroupSizeUnit | undefined = undefined;
-  if (groupSize != null) {
-    const unitRaw = (prompt('Unit? Enter: MOA / MM', 'MOA') || '').toUpperCase().trim();
-    if (unitRaw === 'MM' || unitRaw === 'MILLIMETER' || unitRaw === 'MILLIMETERS') unit = 'mm';
-    else unit = 'MOA';
-  }
+
 
 
   // Store on the entry (typed model doesn't include targetPhoto, so keep it on "any")
@@ -1177,7 +1165,9 @@ doc.text(noteLines, leftMargin, y);
             doc.circle(x, yv, 2.2, 'S');
 
             // label (charge)
-            doc.text(p.charge.toFixed(2), x + 4, yv - 2);
+            doc.text(`${Math.round(p.avg)} fps`, x + 4, yv - 2);
+
+
           }
 
           // Axis hints

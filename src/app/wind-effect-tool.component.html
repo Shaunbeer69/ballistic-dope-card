@@ -1,4 +1,6 @@
-<div class="w-full h-full flex flex-col gap-3 text-gray-100 text-[11px] overflow-y-auto pt-2 pb-24">
+<div
+  class="w-full h-full flex flex-col gap-3 text-gray-100 text-[11px] overflow-hidden pt-2 pb-2 items-center"
+>
   <!-- Choose rifle -->
   <div class="bg-gray-900/70 border border-gray-700 rounded-xl p-2">
     <div class="text-[9px] text-gray-400 mb-1">Rifle</div>
@@ -16,7 +18,7 @@
 
   <!-- Rifle / wind from -->
   <div class="bg-gray-900/70 border border-gray-700 rounded-xl p-2">
-    <div class="grid grid-cols-3 gap-2">
+    <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_112px] gap-1">
       <div>
         <div class="text-[9px] text-gray-400">Range (m)</div>
         <input
@@ -76,7 +78,7 @@
   <!-- Wind dial -->
   <div
     #circleArea
-    class="relative mx-auto aspect-square w-full flex-1 min-h-[260px] max-w-[70vh] md:max-w-[75vh] select-none touch-none"
+    class="relative mx-auto aspect-square flex-none w-full max-h-[42vh] md:max-h-[40vh] select-none touch-none"
     (pointerdown)="startDrag($event)"
     (pointermove)="onDrag($event)"
     (pointerup)="endDrag($event)"
@@ -148,7 +150,7 @@
   </div>
 
   <!-- Drift result cards -->
-  <div class="grid grid-cols-2 gap-2 mt-1">
+  <div class="grid grid-cols-2 gap-2 mt-1 shrink-0">
     <!-- Mil + cm -->
     <div class="bg-gray-900/90 border border-emerald-500/70 rounded-xl px-2 py-1">
       <div class="flex items-center text-[9px] font-semibold">
