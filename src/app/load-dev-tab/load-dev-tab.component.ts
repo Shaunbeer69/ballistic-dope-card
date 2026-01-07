@@ -1190,12 +1190,6 @@ doc.text(noteLines, leftMargin, y);
             // ignore
           }
 
-        
-
-          // Axis hints
-          doc.setFontSize(9);
-           
-
 
           y += chartH + 26;
         } else {
@@ -1222,11 +1216,31 @@ doc.text(noteLines, leftMargin, y);
 
 
           }
+          // LADDER: charge labels BELOW the chart frame (under the graph)
+          try {
+            const labelY = chartY + chartH + 12;
+            doc.setFontSize(8);
 
-          // Axis hints
-          doc.setFontSize(9);
-          doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
-          doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
+            for (const p of this.graphCoords) {
+              const txt = `${p.charge.toFixed(2)} gr`;
+              const tw = doc.getTextWidth(txt);
+
+              let tx = sx(p.charge) - tw / 2;
+              tx = Math.max(chartX + 2, Math.min(chartX + chartW - 2 - tw, tx)); // clamp inside frame
+
+              doc.text(txt, tx, labelY);
+            }
+          } catch {
+            // ignore
+          }
+
+                    // Axis hints (min/max) - disabled for Ladder because we print ALL charges below the graph
+          if (!includeLadderGraph) {
+            doc.setFontSize(9);
+            doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
+            doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
+          }
+
          
 
           y += chartH + 26;
@@ -1550,163 +1564,78 @@ doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH);
 }
 
 y += boxH + boxPadAfter;
- // ----- OCW line photos: Page 2+ (table + photos, max 4 photos per page) -----
-if (isOcwProject) {
-  const pAny: any = this.selectedProject as any;
-  const pid = Number(pAny?.id ?? 0);
+  // ----- OCW line photos: Page 2+ (two columns, max 4 photos per page, charge under + note lines) -----
+  if (isOcwProject) {
+    const photoItems = this.ocwPhotoNotesItems(); // sorted by charge, only entries with photos
 
-  // Build a stable list of OCW entries that have a photo
-  const entries = this.entriesForSelectedProject?.() ?? [];
-  const photoEntries = entries
-    .filter((e) => this.hasEntryPhoto(e))
-    .map((e) => {
-      const anyE: any = e as any;
-      const tp: any = anyE?.targetPhoto ?? null;
-      const charge = Number(anyE?.chargeGr ?? NaN);
-      const path = tp?.path ? String(tp.path) : null;
+    if (photoItems.length) {
+      const innerW = pageW - leftMargin - rightMargin;
+      const colGap = 12;
+      const colW = (innerW - colGap) / 2;
 
-      // If legacy dataUrl still exists, use it
-      const legacyUrl =
-        tp?.annotatedDataUrl && String(tp.annotatedDataUrl).startsWith('data:image/')
-          ? String(tp.annotatedDataUrl)
-          : tp?.dataUrl && String(tp.dataUrl).startsWith('data:image/')
-            ? String(tp.dataUrl)
-            : null;
+      const imgH = 250;        // keep your existing tile size
+      const captionGap = 12;   // caption baseline distance under image
+      const pad = 6;
 
-      return { entry: e, charge, path, legacyUrl };
-    })
-    .filter((x) => Number.isFinite(x.charge))
-    .sort((a, b) => a.charge - b.charge);
+      const noteLineCount = 5;
+      const noteLineGap = 10;  // spacing between note lines
+      const noteTopGap = 16;   // gap after caption before first note line
+      const afterNotesGap = 18;
 
-  if (photoEntries.length) {
-    // Layout
-    const innerW = pageW - leftMargin - rightMargin;
-    const colGap = 12;
-    const colW = (innerW - colGap) / 2;
-
-    const imgH = 250;
-    const captionGap = 12;
-    const pad = 6;
-
-    const noteLineCount = 5;
-    const noteLineGap = 10;
-    const noteTopGap = 16;
-    const afterNotesGap = 18;
-
-    const maxPhotosPerPage = 4;
-
-    // Charges table columns (same anchors as page 1 OCW table)
-    const cols = ['Charge', 'Avg', 'SD', 'ES', 'Group', 'Notes'];
-    const colX = [leftMargin, leftMargin + 70, leftMargin + 120, leftMargin + 160, leftMargin + 205, leftMargin + 255];
-
-    const drawChargesTableHeader = () => {
-      y = topMargin;
-
-      // Table header row
-      doc.setFontSize(11);
-      (doc as any).setFont(undefined, 'bold');
-      cols.forEach((c, i) => doc.text(c, colX[i], y));
-      (doc as any).setFont(undefined, 'normal');
-
-      y += 10;
-      doc.setLineWidth(0.4);
-      doc.setDrawColor(0);
-      doc.line(leftMargin, y, pageW - rightMargin, y);
-      y += 12;
-    };
-
-    const drawChargesTableRows = (items: { entry: LoadDevEntry; charge: number }[]) => {
-      doc.setFontSize(10);
-      doc.setTextColor(0);
-
-      const lineH = 12;
-
-      for (const it of items) {
-        const e = it.entry;
-        const s = this.statsForEntry(e);
-        const notesTxt = this.buildExportNotesForEntry(e);
-
-        const notesX = colX[5];
-        const notesW = (pageW - rightMargin) - notesX;
-        const notesLines = notesTxt ? doc.splitTextToSize(notesTxt, Math.max(50, notesW)) : [];
-
-        // Values
-        doc.text(`${(e.chargeGr ?? '').toString()}`, colX[0], y);
-        doc.text(s ? `${Math.round(s.avg)}` : '—', colX[1], y);
-        doc.text(s ? `${s.sd.toFixed(1)}` : '—', colX[2], y);
-        doc.text(s ? `${Math.round(s.es)}` : '—', colX[3], y);
-        doc.text(this.formatGroupSize(e), colX[4], y);
-
-        // Notes (first line only, like page 1)
-        if (notesLines.length) {
-          doc.text(notesLines[0], notesX, y);
-        }
-
-        y += lineH;
-      }
-
-      // Divider under the table block
-      doc.setLineWidth(0.3);
-      doc.setDrawColor(160);
-      doc.line(leftMargin, y, pageW - rightMargin, y);
-      doc.setDrawColor(0);
-
-      y += 14; // gap before photos
-    };
-
-    const drawNoteLines = (startY: number) => {
-      doc.setLineWidth(0.3);
-      doc.setDrawColor(160);
-
-      for (let i = 0; i < noteLineCount; i++) {
-        const ly = startY + i * noteLineGap;
-        doc.line(leftMargin, ly, pageW - rightMargin, ly);
-      }
-
-      doc.setDrawColor(0);
-    };
-
-    const resolveDataUrl = async (item: { path: string | null; legacyUrl: string | null }) => {
-      if (item.legacyUrl) return item.legacyUrl;
-      if (item.path) {
-        // Read directly from filesystem for export (no dependency on cache)
-        const u = await this.readJpegDataUrlFromFs(String(item.path));
-        return u;
-      }
-      return null;
-    };
-
-    // Start page 2+
-    let index = 0;
-
-    while (index < photoEntries.length) {
-      doc.addPage();
-
-      // New page: Charges table header + rows for this page’s photos
-      drawChargesTableHeader();
-
-      const pageSlice = photoEntries.slice(index, index + maxPhotosPerPage);
-      drawChargesTableRows(pageSlice.map((x) => ({ entry: x.entry, charge: x.charge })));
-
-      // Photos layout
       let col = 0; // 0 left, 1 right
       let photosOnPage = 0;
+      let yStart = topMargin;
 
-      for (const it of pageSlice) {
+      const drawChargesHeader = () => {
+        // Header ONLY on page 1 (already drawn earlier). Page 2+ uses "Charges" column header only.
+        y = topMargin;
+
+        doc.setFontSize(14);
+        doc.setTextColor(0);
+        doc.text('Charges', leftMargin, y);
+
+        y += 8;
+        doc.setLineWidth(0.4);
+        doc.setDrawColor(0);
+        doc.line(leftMargin, y, pageW - rightMargin, y);
+
+        y += 14;
+        yStart = y;
+      };
+
+      const drawNoteLines = (startY: number) => {
+        doc.setLineWidth(0.3);
+        doc.setDrawColor(160);
+
+        for (let i = 0; i < noteLineCount; i++) {
+          const ly = startY + i * noteLineGap;
+          doc.line(leftMargin, ly, pageW - rightMargin, ly);
+        }
+
+        doc.setDrawColor(0);
+      };
+
+      const startNewPhotosPage = () => {
+        doc.addPage();
+        drawChargesHeader();
+        col = 0;
+        photosOnPage = 0;
+        y = yStart;
+      };
+
+      // Start Page 2 (or next pages)
+      startNewPhotosPage();
+
+      for (const it of photoItems) {
+        // Max 4 photos per page
+        if (photosOnPage >= 4) {
+          startNewPhotosPage();
+        }
+
         const x = leftMargin + (col === 0 ? 0 : (colW + colGap));
 
-        const url = await resolveDataUrl(it);
-        if (!url) {
-          // Skip quietly if missing
-          photosOnPage++;
-          col = col === 0 ? 1 : 0;
-          if (col === 0) {
-            const linesStartY = y + imgH + captionGap + noteTopGap;
-            drawNoteLines(linesStartY);
-            y = linesStartY + (noteLineCount * noteLineGap) + afterNotesGap;
-          }
-          continue;
-        }
+        // Draw the image fitted into a tile area (no stretch)
+        const url = it.url;
 
         try {
           const imgType = url.includes('data:image/png') ? 'PNG' : 'JPEG';
@@ -1717,6 +1646,7 @@ if (isOcwProject) {
           const boxW = colW;
           const boxH = imgH;
 
+          // optional light frame
           doc.setLineWidth(0.6);
           doc.setDrawColor(160);
           doc.rect(boxX, boxY, boxW, boxH);
@@ -1753,38 +1683,50 @@ if (isOcwProject) {
           doc.setTextColor(0);
         }
 
-        // Charge caption BELOW the photo
+        // Charge caption BELOW the photo (centered)
         const chargeTxt = `${Number(it.charge).toFixed(2)} gr`;
         doc.setFontSize(10);
         doc.setTextColor(0);
+
         const tw = doc.getTextWidth(chargeTxt);
         doc.text(chargeTxt, x + (colW - tw) / 2, y + imgH + captionGap);
 
+        // advance column/row
         photosOnPage++;
 
-        // advance column/row
         if (col === 0) {
           col = 1;
         } else {
-          // Row complete: draw 5 lines across full page
+          // row complete (2 photos): add 5 note lines across the page
           col = 0;
+
           const linesStartY = y + imgH + captionGap + noteTopGap;
           drawNoteLines(linesStartY);
+
+          // move to next row start
           y = linesStartY + (noteLineCount * noteLineGap) + afterNotesGap;
         }
       }
 
-      // If odd count on page, still add lines after the single-photo row
+      // If we ended on left column (odd count), still add note lines after that single photo row
       if (col === 1) {
         const linesStartY = y + imgH + captionGap + noteTopGap;
         drawNoteLines(linesStartY);
         y = linesStartY + (noteLineCount * noteLineGap) + afterNotesGap;
       }
-
-      index += maxPhotosPerPage;
     }
   }
-}
+
+            // -------------------------------
+      // PAGE 2+: (Disabled)
+      // OCW line photos are rendered by the OCW block above:
+      // - Header only on Page 1
+      // - Page 2+ header is "Charges"
+      // - 2 columns, max 4 photos per page
+      // - Charge under each photo + 5 note lines after each row
+      // -------------------------------
+
+
 
       // ----- Save / Share -----
       const safeName = (projectName || 'load-dev')

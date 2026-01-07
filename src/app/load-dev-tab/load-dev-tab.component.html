@@ -547,6 +547,22 @@
 
                   <ng-container *ngFor="let p of graphCoords">
                     <circle [attr.cx]="p.x" [attr.cy]="p.y" r="1.7" fill="#facc15"></circle>
+
+                    <!-- velocity label (next to / slightly above the dot) -->
+                    <text [attr.x]="p.x + 2" [attr.y]="p.y - 2" font-size="2.6" fill="#e5e7eb">
+                      {{ p.avg | number : '1.0-0' }}
+                    </text>
+
+                    <!-- charge label (under the dot) -->
+                    <text
+                      [attr.x]="p.x"
+                      [attr.y]="p.y + 6"
+                      font-size="2.6"
+                      fill="#e5e7eb"
+                      text-anchor="middle"
+                    >
+                      {{ p.charge | number : '1.0-2' }}
+                    </text>
                   </ng-container>
                 </ng-container>
 
@@ -572,6 +588,16 @@
                   </ng-container>
                 </ng-template>
               </svg>
+              <!-- LADDER: Charges under the graph (export-safe) -->
+              <div
+                *ngIf="selectedProject?.type !== 'ocw' && graphCoords.length"
+                class="w-full -mt-1 grid text-[10px] text-gray-200"
+                [style.gridTemplateColumns]="'repeat(' + graphCoords.length + ', 1fr)'"
+              >
+                <div *ngFor="let p of graphCoords" class="text-center">
+                  {{ p.charge | number : '1.0-2' }}
+                </div>
+              </div>
             </div>
 
             <!-- DATA TABLE -->
