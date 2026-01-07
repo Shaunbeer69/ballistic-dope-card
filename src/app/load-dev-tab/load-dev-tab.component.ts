@@ -551,14 +551,31 @@ private async stampTimestampOnDataUrl(dataUrl: string): Promise<string> {
     img.src = dataUrl;
   });
 
-  const canvas = document.createElement('canvas');
-  canvas.width = img.naturalWidth || img.width;
-  canvas.height = img.naturalHeight || img.height;
+    const canvas = document.createElement('canvas');
+
+  // ✅ Downscale before saving (prevents localStorage quota loss)
+  const srcW = img.naturalWidth || img.width;
+  const srcH = img.naturalHeight || img.height;
+  const maxDim = 1600; // keep quality, much smaller base64
+
+  let outW = srcW;
+  let outH = srcH;
+
+  if (outW > maxDim || outH > maxDim) {
+    const scale = maxDim / Math.max(outW, outH);
+    outW = Math.max(1, Math.round(outW * scale));
+    outH = Math.max(1, Math.round(outH * scale));
+  }
+
+  canvas.width = outW;
+  canvas.height = outH;
+
 
   const ctx = canvas.getContext('2d');
   if (!ctx) return dataUrl;
 
-  ctx.drawImage(img, 0, 0);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
 
   // Timestamp text (bottom-left)
   const stamp = new Date().toLocaleString();
@@ -579,7 +596,8 @@ private async stampTimestampOnDataUrl(dataUrl: string): Promise<string> {
   ctx.fillStyle = 'rgba(255,255,255,0.95)';
   ctx.fillText(stamp, pad, canvas.height - pad);
 
-  return canvas.toDataURL('image/jpeg', 0.92);
+    // ✅ smaller file = survives app exit/restart
+  return canvas.toDataURL('image/jpeg', 0.78);
 }
 openProjectPhotoViewer(url: string | null, event?: Event): void {
   try {
@@ -846,6 +864,8 @@ private buildLoadSummaryLine(): string {
       });
 
       const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+
       const leftMargin = 55;     // ✅ punch-hole space (increase/decrease as you like)
 const rightMargin = 28;    // normal right margin
 const topMargin = 40;      // normal top margin
@@ -1431,29 +1451,14 @@ doc.setLineWidth(0.8);
 doc.setDrawColor(120, 120, 120);
 doc.rect(photoX, photoY, photoW, boxH);
 
-// Try find a photo to render (project-level or entry-level)
+// Project-level only (single-page target photo area is reserved for the Notes/Project photo)
 const projectAny = this.selectedProject as any;
 
-// Project-level: stored base64 (your current approach)
-const projectPhotoDataUrl =
+const photoDataUrl =
   projectAny?.targetPhotoBase64
     ? `data:image/jpeg;base64,${projectAny.targetPhotoBase64}`
     : (projectAny?.targetPhotoDataUrl ?? null);
 
-// Entry-level: allow either dataUrl or base64
-const entryWithPhoto = entries?.find(e =>
-  !!(e as any)?.targetPhoto?.dataUrl || !!(e as any)?.targetPhotoBase64
-) as any;
-
-const entryPhotoDataUrl =
-  entryWithPhoto?.targetPhoto?.dataUrl
-    ? entryWithPhoto.targetPhoto.dataUrl
-    : (entryWithPhoto?.targetPhotoBase64
-        ? `data:image/jpeg;base64,${entryWithPhoto.targetPhotoBase64}`
-        : null);
-
-// Prefer entry photo if any exists, else project photo
-const photoDataUrl = entryPhotoDataUrl ?? projectPhotoDataUrl;
 
 if (photoDataUrl && typeof photoDataUrl === 'string' && photoDataUrl.startsWith('data:image/')) {
   try {
@@ -1511,6 +1516,175 @@ doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH);
 }
 
 y += boxH + boxPadAfter;
+// ----- OCW line photos: Page 2+ (two columns, charge below) -----
+if (isOcwProject) {
+  const photoItems = this.ocwPhotoNotesItems(); // sorted by charge, only entries with photos
+
+  if (photoItems.length) {
+    const drawHeader = () => {
+      y = topMargin;
+
+      doc.setFontSize(20);
+      doc.text(`${projectName}`, leftMargin, y);
+      y += 15;
+
+      doc.setLineWidth(0.4);
+      doc.line(leftMargin, y, pageW - rightMargin, y);
+      y += 15;
+
+      doc.setFontSize(16);
+      doc.text(`Rifle: ${rifleName}`, leftMargin, y);
+      y += 15;
+
+      doc.setFontSize(10);
+      doc.text(`Planned: ${fmtDateTime(plannedIso) || '—'}`, leftMargin, y);
+      y += 12;
+
+      doc.text(`Shot: ${shotIso ? fmtDateTime(shotIso) : '—'}`, leftMargin, y);
+      y += 15;
+    };
+
+    doc.addPage();
+    drawHeader();
+
+    const bottomPad = 40;
+
+    const innerW = pageW - leftMargin - rightMargin;
+    const colGap = 12;
+    const colW = (innerW - colGap) / 2;
+
+    const imgH = 250;        // adjust if you want larger/smaller tiles
+    const captionGap = 12;   // distance under image for caption baseline
+    const rowGap = 18;
+
+    let col = 0; // 0 left, 1 right
+    let startY = y + 10;
+    y = startY;
+
+    for (const it of photoItems) {
+      const x = col === 0 ? leftMargin : (leftMargin + colW + colGap);
+
+      // If next tile doesn't fit, go to new page (and redraw header)
+      const neededH = imgH + captionGap + rowGap;
+      if (y + neededH > pageH - bottomPad) {
+        doc.addPage();
+        drawHeader();
+        y = y + 10;
+        col = 0;
+      }
+
+      // Draw the image fitted into a tile area (no stretch)
+      const url = it.url;
+      try {
+        const imgType = url.includes('data:image/png') ? 'PNG' : 'JPEG';
+        const base64 = url.split(',')[1];
+
+        const pad = 6;
+        const boxX = x;
+        const boxY = y;
+        const boxW = colW;
+        const boxH = imgH;
+
+        // optional light frame
+        doc.setLineWidth(0.6);
+        doc.setDrawColor(160);
+        doc.rect(boxX, boxY, boxW, boxH);
+
+        let drawX = boxX + pad;
+        let drawY = boxY + pad;
+        let drawW = Math.max(1, boxW - pad * 2);
+        let drawH = Math.max(1, boxH - pad * 2);
+
+        try {
+          const props = (doc as any).getImageProperties?.(url);
+          const iw = props?.width ?? props?.w;
+          const ih = props?.height ?? props?.h;
+
+          if (iw && ih) {
+            const scale = Math.min(drawW / iw, drawH / ih);
+            const w = iw * scale;
+            const h = ih * scale;
+            drawX = (boxX + pad) + (drawW - w) / 2;
+            drawY = (boxY + pad) + (drawH - h) / 2;
+            drawW = w;
+            drawH = h;
+          }
+        } catch {
+          // keep default
+        }
+
+        doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH);
+
+      } catch {
+        doc.setFontSize(10);
+        doc.setTextColor(80);
+        doc.text('Photo load failed', x + 10, y + 18);
+        doc.setTextColor(0);
+      }
+
+      // Charge caption BELOW the photo (centered)
+      const chargeTxt = `${Number(it.charge).toFixed(2)} gr`;
+      doc.setFontSize(10);
+      const tw = doc.getTextWidth(chargeTxt);
+      doc.text(chargeTxt, x + (colW - tw) / 2, y + imgH + captionGap);
+
+      // advance column/row
+      if (col === 0) {
+        col = 1;
+      } else {
+        col = 0;
+        y += imgH + captionGap + rowGap;
+      }
+    }
+  }
+}
+      // -------------------------------
+      // PAGE 2+: Line photos header uses Load Data (NOT rifle data column)
+      // -------------------------------
+      try {
+        const entriesForPhotos = this.entriesForSelectedProject?.() ?? [];
+        const linePhotos = entriesForPhotos
+          .map(e => {
+            const anyE: any = e as any;
+            const dataUrl =
+              anyE?.targetPhoto?.dataUrl ??
+              (anyE?.targetPhotoBase64 ? `data:image/jpeg;base64,${anyE.targetPhotoBase64}` : null);
+            const charge = Number(anyE?.chargeGr ?? NaN);
+            return dataUrl && typeof dataUrl === 'string' && dataUrl.startsWith('data:image/')
+              ? { dataUrl, charge }
+              : null;
+          })
+          .filter(Boolean) as { dataUrl: string; charge: number }[];
+
+        // Only if you are actually exporting line photos to Page 2+
+        if (linePhotos.length) {
+          // Add Page 2
+          (doc as any).addPage();
+
+          const plannedText = fmtDateTime(plannedIso) || '—';
+          const shotText = shotIso ? fmtDateTime(shotIso) : '—';
+
+          // Header: LEFT = rifle/dates, RIGHT = Load Data
+          y = this.drawExportHeader_Page2WithLoadData(
+            doc,
+            pageW,
+            leftMargin,
+            rightMargin,
+            topMargin,
+            projectName,
+            rifleName,
+            plannedText,
+            shotText
+          );
+
+          // NOTE: Your existing "two columns of photos with charge below" rendering
+          // should continue from current y after this header.
+          // (No other layout changes here.)
+        }
+      } catch {
+        // non-fatal: export should still succeed
+      }
+
 
       // ----- Save / Share -----
       const safeName = (projectName || 'load-dev')
@@ -2072,6 +2246,11 @@ private async drawAssetImageInBox(
     if (this.selectedProjectId == null) {
       this.selectedProject = null;
     }
+    // Always resync previews after reloading projects (prevents "photo disappeared" after re-entering)
+    if (this.selectedProject) {
+      this.syncTargetPhotoFromProject();
+      this.syncVoiceNoteFromProject();
+    }
 
     this.rebuildFilterOptions();
     this.applyProjectFilters();
@@ -2089,6 +2268,11 @@ private async drawAssetImageInBox(
     this.projects = this.data.getLoadDevProjectsForRifle(this.selectedRifleId);
     this.selectedProject =
       this.projects.find(p => p.id === this.selectedProjectId) ?? null;
+    // Always resync previews after refresh (prevents "photo disappeared" after navigation)
+    if (this.selectedProject) {
+      this.syncTargetPhotoFromProject();
+      this.syncVoiceNoteFromProject();
+    }
 
     this.rebuildFilterOptions();
     this.applyProjectFilters();
@@ -3231,6 +3415,96 @@ allEntriesHaveVelocity(): boolean {
 
   skipVelocityAndNext(): void {
     this.goToNextWizardEntry();
+  }
+  // ================================
+  // EXPORT: Page 2 header Load Data
+  // ================================
+
+  private getExportLoadDataLines(): string[] {
+    const p: any = this.selectedProject as any;
+    if (!p) return [];
+
+    const lines: string[] = [];
+
+    const powder = (p.powder ?? '').toString().trim();
+    const bullet = (p.bullet ?? '').toString().trim();
+    const brass = (p.brass ?? '').toString().trim();
+
+    if (powder) lines.push(`Powder: ${powder}`);
+    if (bullet) {
+      const bw = Number(p.bulletWeightGr ?? 0);
+      lines.push(`Bullet: ${bullet}${bw > 0 ? ` (${bw}gr)` : ''}`);
+    }
+    if (brass) lines.push(`Brass: ${brass}`);
+
+    const oal = p.oal;
+    const ogive = p.oalOgive;
+
+    if (oal != null && oal !== '') lines.push(`COAL: ${oal}mm`);
+    if (ogive != null && ogive !== '') lines.push(`Ogive: ${ogive}mm`);
+
+    const dist = p.distanceM;
+    if (dist != null && dist !== '') lines.push(`Distance: ${dist}m`);
+
+    return lines;
+  }
+
+  private drawExportHeader_Page2WithLoadData(
+    doc: any,
+    pageW: number,
+    leftMargin: number,
+    rightMargin: number,
+    topMargin: number,
+    projectName: string,
+    rifleName: string,
+    plannedText: string,
+    shotText: string
+  ): number {
+    let y = topMargin;
+
+    // Title (same as page 1)
+    doc.setFontSize(20);
+    doc.text(`${projectName}`, leftMargin, y);
+    y += 15;
+
+    doc.setLineWidth(0.4);
+    doc.line(leftMargin, y, pageW - rightMargin, y);
+    y += 14;
+
+    // Two columns: LEFT = Rifle/Dates, RIGHT = Load Data
+    const gap = 14;
+    const colW = (pageW - leftMargin - rightMargin - gap) / 2;
+
+    const leftX = leftMargin;
+    const rightX = leftMargin + colW + gap;
+
+    // LEFT column (rifle + planned + shot)
+    doc.setFontSize(12);
+    doc.text(`Rifle: ${rifleName}`, leftX, y);
+
+    doc.setFontSize(10);
+    doc.text(`Planned: ${plannedText || '—'}`, leftX, y + 12);
+    doc.text(`Shot: ${shotText || '—'}`, leftX, y + 24);
+
+    // RIGHT column (load data)
+    const loadLines = this.getExportLoadDataLines();
+    doc.setFontSize(12);
+    doc.text(`Load Data`, rightX, y);
+
+    doc.setFontSize(10);
+    let ly = y + 12;
+
+    for (const line of loadLines) {
+      // keep inside the right column width
+      const wrapped = doc.splitTextToSize(line, colW);
+      doc.text(wrapped, rightX, ly);
+      ly += wrapped.length * 12;
+      if (ly > y + 36) break; // keep header compact
+    }
+
+    // advance y to below the tallest column content
+    y += 40;
+    return y;
   }
 
   cancelLadderWizard(): void {

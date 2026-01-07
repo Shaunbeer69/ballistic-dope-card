@@ -71,9 +71,12 @@ export class DataService {
   private saveStore(): void {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.store));
-    } catch {
-      // ignore for now
+        } catch (err) {
+      // IMPORTANT: if storage is full, the newest photo will "look saved" but vanish after restart
+      console.error('saveStore failed (storage quota likely exceeded):', err);
+      alert('Storage is full — last change (photo) may not be saved. Please export/backup and clear space.');
     }
+
   }
    // ---------- Import / Export helpers ----------
 
