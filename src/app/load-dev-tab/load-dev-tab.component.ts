@@ -287,32 +287,41 @@ targetPhotoDataUrl: string | null = null;
 targetPhotoInlineMessage: string | null = null;
 
 /** Pulls any previously-saved target photo from the selected project into the UI preview. */
-private syncTargetPhotoFromProject(): void {
-  try {
-    const any = this.selectedProject as any;
+  private async syncTargetPhotoFromProject(): Promise<void> {
+    try {
+      const any: any = this.selectedProject as any;
+      if (!any) {
+        this.targetPhotoDataUrl = null;
+        return;
+      }
 
-    // ✅ New: prefer structured shape if present
-    const structuredDataUrl = (any?.targetPhoto?.dataUrl ?? '').toString().trim();
-    const base64 = (any?.targetPhotoBase64 ?? '').toString().trim();
-    const dataUrl = (any?.targetPhotoDataUrl ?? '').toString().trim();
+      // 1) Migrate any existing base64/dataUrl onto Filesystem once
+      await this.ensureProjectPhotoOnFs(any);
 
-    if (structuredDataUrl) {
-      this.targetPhotoDataUrl = structuredDataUrl;
-      return;
+      // 2) Load from Filesystem path (preferred)
+      if (any?.targetPhotoPath) {
+        const path = String(any.targetPhotoPath);
+        const cached = this.photoDataUrlCache.get(path);
+        if (cached) {
+          this.targetPhotoDataUrl = cached;
+        } else {
+          const url = await this.readJpegDataUrlFromFs(path);
+          this.targetPhotoDataUrl = url;
+          if (url) this.photoDataUrlCache.set(path, url);
+        }
+        // Also preload entry photos so Notes shows instantly
+        this.preloadSelectedProjectEntryPhotos();
+        return;
+      }
+
+      // 3) Nothing
+      this.targetPhotoDataUrl = null;
+      this.preloadSelectedProjectEntryPhotos();
+    } catch {
+      this.targetPhotoDataUrl = null;
     }
-    if (dataUrl) {
-      this.targetPhotoDataUrl = dataUrl;
-      return;
-    }
-    if (base64) {
-      this.targetPhotoDataUrl = `data:image/jpeg;base64,${base64}`;
-      return;
-    }
-    this.targetPhotoDataUrl = null;
-  } catch {
-    this.targetPhotoDataUrl = null;
   }
-}
+
 
 
 async onTargetPhotoClick(event?: Event): Promise<void> {
@@ -408,23 +417,32 @@ async onTargetFileChosen(event: Event): Promise<void> {
       reader.readAsDataURL(file);
     });
 
-    this.targetPhotoDataUrl = dataUrl;
+        // Save to Filesystem and store only a path on the project
+    const pid = Number((this.selectedProject as any)?.id ?? 0);
+    if (pid) {
+      const path = this.makeProjectPhotoPath(pid);
+      await this.writeJpegDataUrlToFs(path, dataUrl);
 
-    // Store base64 on project for consistency
-    const base64 = dataUrl.split(',')[1] ?? '';
-    if (this.selectedProject && base64) {
-      (this.selectedProject as any).targetPhotoBase64 = base64;
+      (this.selectedProject as any).targetPhotoPath = path;
       (this.selectedProject as any).targetPhotoCapturedAt = new Date().toISOString();
+
+      // Remove large legacy fields so localStorage stays small
+      try { delete (this.selectedProject as any).targetPhotoBase64; } catch {}
+      try { delete (this.selectedProject as any).targetPhotoDataUrl; } catch {}
+      try { delete (this.selectedProject as any).targetPhoto; } catch {}
+
+      // Cache for instant UI preview
+      this.photoDataUrlCache.set(path, dataUrl);
+
       try {
         this.data.updateLoadDevProject({ ...(this.selectedProject as any) });
         this.refreshSelectedProject();
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
 
     // Keep preview in sync
-    this.syncTargetPhotoFromProject();
+    void this.syncTargetPhotoFromProject();
+
 
     // reset input so selecting same file again still triggers change
     input.value = '';
@@ -443,13 +461,11 @@ async onEntryTargetPhotoClick(entry: LoadDevEntry, event?: Event): Promise<void>
     setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
     return;
   }
-// ✅ Persist photo onto the entry (THIS is the field name)
-(entry as any).targetPhoto = {
-  dataUrl: this.targetPhotoDataUrl,
-  takenAt: new Date().toISOString(),
-  groupSize: entry.groupSize ?? null,
-  groupUnit: entry.groupUnit ?? null
-};
+ // IMPORTANT:
+  // Do NOT overwrite entry.targetPhoto here.
+  // The correct photo is written after capture in attachPhotoToEntry(...)
+  // which saves to Filesystem and stores targetPhoto.path.
+
 
   // Web fallback (file picker)
   if (!Capacitor.isNativePlatform()) {
@@ -523,16 +539,33 @@ private async attachPhotoToEntry(entry: LoadDevEntry, stampedDataUrl: string): P
 
 
 
-  // Store on the entry (typed model doesn't include targetPhoto, so keep it on "any")
+    // Store on the entry: save to Filesystem and persist only path (not big dataUrl)
+  if (!this.selectedProject) return;
+
+  const pid = Number((this.selectedProject as any)?.id ?? 0);
+  const eid = Number((entry as any)?.id ?? 0);
+
+  const savedPath = (pid && eid)
+    ? this.makeEntryPhotoPath(pid, eid)
+    : null;
+
+  if (!savedPath) return;
+
+  await this.writeJpegDataUrlToFs(savedPath, stampedDataUrl);
+
+  // Cache for instant UI preview
+  this.photoDataUrlCache.set(savedPath, stampedDataUrl);
+
   const updatedEntry: LoadDevEntry = {
     ...(entry as any),
     targetPhoto: {
-      dataUrl: stampedDataUrl,
+      path: savedPath,
       takenAt,
       groupSize,
       groupUnit: unit
     }
   } as any;
+
 
   // ✅ Persist using your REAL, existing persistence method
   if (this.selectedProject) {
@@ -1455,9 +1488,10 @@ doc.rect(photoX, photoY, photoW, boxH);
 const projectAny = this.selectedProject as any;
 
 const photoDataUrl =
-  projectAny?.targetPhotoBase64
-    ? `data:image/jpeg;base64,${projectAny.targetPhotoBase64}`
-    : (projectAny?.targetPhotoDataUrl ?? null);
+  projectAny?.targetPhotoPath
+    ? (this.photoDataUrlCache.get(String(projectAny.targetPhotoPath)) ?? await this.readJpegDataUrlFromFs(String(projectAny.targetPhotoPath)))
+    : (projectAny?.targetPhotoBase64 ? `data:image/jpeg;base64,${projectAny.targetPhotoBase64}` : (projectAny?.targetPhotoDataUrl ?? null));
+
 
 
 if (photoDataUrl && typeof photoDataUrl === 'string' && photoDataUrl.startsWith('data:image/')) {
@@ -1516,175 +1550,241 @@ doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH);
 }
 
 y += boxH + boxPadAfter;
-// ----- OCW line photos: Page 2+ (two columns, charge below) -----
+ // ----- OCW line photos: Page 2+ (table + photos, max 4 photos per page) -----
 if (isOcwProject) {
-  const photoItems = this.ocwPhotoNotesItems(); // sorted by charge, only entries with photos
+  const pAny: any = this.selectedProject as any;
+  const pid = Number(pAny?.id ?? 0);
 
-  if (photoItems.length) {
-    const drawHeader = () => {
-      y = topMargin;
+  // Build a stable list of OCW entries that have a photo
+  const entries = this.entriesForSelectedProject?.() ?? [];
+  const photoEntries = entries
+    .filter((e) => this.hasEntryPhoto(e))
+    .map((e) => {
+      const anyE: any = e as any;
+      const tp: any = anyE?.targetPhoto ?? null;
+      const charge = Number(anyE?.chargeGr ?? NaN);
+      const path = tp?.path ? String(tp.path) : null;
 
-      doc.setFontSize(20);
-      doc.text(`${projectName}`, leftMargin, y);
-      y += 15;
+      // If legacy dataUrl still exists, use it
+      const legacyUrl =
+        tp?.annotatedDataUrl && String(tp.annotatedDataUrl).startsWith('data:image/')
+          ? String(tp.annotatedDataUrl)
+          : tp?.dataUrl && String(tp.dataUrl).startsWith('data:image/')
+            ? String(tp.dataUrl)
+            : null;
 
-      doc.setLineWidth(0.4);
-      doc.line(leftMargin, y, pageW - rightMargin, y);
-      y += 15;
+      return { entry: e, charge, path, legacyUrl };
+    })
+    .filter((x) => Number.isFinite(x.charge))
+    .sort((a, b) => a.charge - b.charge);
 
-      doc.setFontSize(16);
-      doc.text(`Rifle: ${rifleName}`, leftMargin, y);
-      y += 15;
-
-      doc.setFontSize(10);
-      doc.text(`Planned: ${fmtDateTime(plannedIso) || '—'}`, leftMargin, y);
-      y += 12;
-
-      doc.text(`Shot: ${shotIso ? fmtDateTime(shotIso) : '—'}`, leftMargin, y);
-      y += 15;
-    };
-
-    doc.addPage();
-    drawHeader();
-
-    const bottomPad = 40;
-
+  if (photoEntries.length) {
+    // Layout
     const innerW = pageW - leftMargin - rightMargin;
     const colGap = 12;
     const colW = (innerW - colGap) / 2;
 
-    const imgH = 250;        // adjust if you want larger/smaller tiles
-    const captionGap = 12;   // distance under image for caption baseline
-    const rowGap = 18;
+    const imgH = 250;
+    const captionGap = 12;
+    const pad = 6;
 
-    let col = 0; // 0 left, 1 right
-    let startY = y + 10;
-    y = startY;
+    const noteLineCount = 5;
+    const noteLineGap = 10;
+    const noteTopGap = 16;
+    const afterNotesGap = 18;
 
-    for (const it of photoItems) {
-      const x = col === 0 ? leftMargin : (leftMargin + colW + colGap);
+    const maxPhotosPerPage = 4;
 
-      // If next tile doesn't fit, go to new page (and redraw header)
-      const neededH = imgH + captionGap + rowGap;
-      if (y + neededH > pageH - bottomPad) {
-        doc.addPage();
-        drawHeader();
-        y = y + 10;
-        col = 0;
-      }
+    // Charges table columns (same anchors as page 1 OCW table)
+    const cols = ['Charge', 'Avg', 'SD', 'ES', 'Group', 'Notes'];
+    const colX = [leftMargin, leftMargin + 70, leftMargin + 120, leftMargin + 160, leftMargin + 205, leftMargin + 255];
 
-      // Draw the image fitted into a tile area (no stretch)
-      const url = it.url;
-      try {
-        const imgType = url.includes('data:image/png') ? 'PNG' : 'JPEG';
-        const base64 = url.split(',')[1];
+    const drawChargesTableHeader = () => {
+      y = topMargin;
 
-        const pad = 6;
-        const boxX = x;
-        const boxY = y;
-        const boxW = colW;
-        const boxH = imgH;
+      // Table header row
+      doc.setFontSize(11);
+      (doc as any).setFont(undefined, 'bold');
+      cols.forEach((c, i) => doc.text(c, colX[i], y));
+      (doc as any).setFont(undefined, 'normal');
 
-        // optional light frame
-        doc.setLineWidth(0.6);
-        doc.setDrawColor(160);
-        doc.rect(boxX, boxY, boxW, boxH);
+      y += 10;
+      doc.setLineWidth(0.4);
+      doc.setDrawColor(0);
+      doc.line(leftMargin, y, pageW - rightMargin, y);
+      y += 12;
+    };
 
-        let drawX = boxX + pad;
-        let drawY = boxY + pad;
-        let drawW = Math.max(1, boxW - pad * 2);
-        let drawH = Math.max(1, boxH - pad * 2);
+    const drawChargesTableRows = (items: { entry: LoadDevEntry; charge: number }[]) => {
+      doc.setFontSize(10);
+      doc.setTextColor(0);
 
-        try {
-          const props = (doc as any).getImageProperties?.(url);
-          const iw = props?.width ?? props?.w;
-          const ih = props?.height ?? props?.h;
+      const lineH = 12;
 
-          if (iw && ih) {
-            const scale = Math.min(drawW / iw, drawH / ih);
-            const w = iw * scale;
-            const h = ih * scale;
-            drawX = (boxX + pad) + (drawW - w) / 2;
-            drawY = (boxY + pad) + (drawH - h) / 2;
-            drawW = w;
-            drawH = h;
-          }
-        } catch {
-          // keep default
+      for (const it of items) {
+        const e = it.entry;
+        const s = this.statsForEntry(e);
+        const notesTxt = this.buildExportNotesForEntry(e);
+
+        const notesX = colX[5];
+        const notesW = (pageW - rightMargin) - notesX;
+        const notesLines = notesTxt ? doc.splitTextToSize(notesTxt, Math.max(50, notesW)) : [];
+
+        // Values
+        doc.text(`${(e.chargeGr ?? '').toString()}`, colX[0], y);
+        doc.text(s ? `${Math.round(s.avg)}` : '—', colX[1], y);
+        doc.text(s ? `${s.sd.toFixed(1)}` : '—', colX[2], y);
+        doc.text(s ? `${Math.round(s.es)}` : '—', colX[3], y);
+        doc.text(this.formatGroupSize(e), colX[4], y);
+
+        // Notes (first line only, like page 1)
+        if (notesLines.length) {
+          doc.text(notesLines[0], notesX, y);
         }
 
-        doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH);
+        y += lineH;
+      }
 
-      } catch {
+      // Divider under the table block
+      doc.setLineWidth(0.3);
+      doc.setDrawColor(160);
+      doc.line(leftMargin, y, pageW - rightMargin, y);
+      doc.setDrawColor(0);
+
+      y += 14; // gap before photos
+    };
+
+    const drawNoteLines = (startY: number) => {
+      doc.setLineWidth(0.3);
+      doc.setDrawColor(160);
+
+      for (let i = 0; i < noteLineCount; i++) {
+        const ly = startY + i * noteLineGap;
+        doc.line(leftMargin, ly, pageW - rightMargin, ly);
+      }
+
+      doc.setDrawColor(0);
+    };
+
+    const resolveDataUrl = async (item: { path: string | null; legacyUrl: string | null }) => {
+      if (item.legacyUrl) return item.legacyUrl;
+      if (item.path) {
+        // Read directly from filesystem for export (no dependency on cache)
+        const u = await this.readJpegDataUrlFromFs(String(item.path));
+        return u;
+      }
+      return null;
+    };
+
+    // Start page 2+
+    let index = 0;
+
+    while (index < photoEntries.length) {
+      doc.addPage();
+
+      // New page: Charges table header + rows for this page’s photos
+      drawChargesTableHeader();
+
+      const pageSlice = photoEntries.slice(index, index + maxPhotosPerPage);
+      drawChargesTableRows(pageSlice.map((x) => ({ entry: x.entry, charge: x.charge })));
+
+      // Photos layout
+      let col = 0; // 0 left, 1 right
+      let photosOnPage = 0;
+
+      for (const it of pageSlice) {
+        const x = leftMargin + (col === 0 ? 0 : (colW + colGap));
+
+        const url = await resolveDataUrl(it);
+        if (!url) {
+          // Skip quietly if missing
+          photosOnPage++;
+          col = col === 0 ? 1 : 0;
+          if (col === 0) {
+            const linesStartY = y + imgH + captionGap + noteTopGap;
+            drawNoteLines(linesStartY);
+            y = linesStartY + (noteLineCount * noteLineGap) + afterNotesGap;
+          }
+          continue;
+        }
+
+        try {
+          const imgType = url.includes('data:image/png') ? 'PNG' : 'JPEG';
+          const base64 = url.split(',')[1];
+
+          const boxX = x;
+          const boxY = y;
+          const boxW = colW;
+          const boxH = imgH;
+
+          doc.setLineWidth(0.6);
+          doc.setDrawColor(160);
+          doc.rect(boxX, boxY, boxW, boxH);
+
+          let drawX = boxX + pad;
+          let drawY = boxY + pad;
+          let drawW = Math.max(1, boxW - pad * 2);
+          let drawH = Math.max(1, boxH - pad * 2);
+
+          try {
+            const props = (doc as any).getImageProperties?.(url);
+            const iw = props?.width ?? props?.w;
+            const ih = props?.height ?? props?.h;
+
+            if (iw && ih) {
+              const scale = Math.min(drawW / iw, drawH / ih);
+              const w = iw * scale;
+              const h = ih * scale;
+
+              drawX = boxX + (boxW - w) / 2;
+              drawY = boxY + (boxH - h) / 2;
+              drawW = w;
+              drawH = h;
+            }
+          } catch {
+            // keep default
+          }
+
+          doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH);
+        } catch {
+          doc.setFontSize(10);
+          doc.setTextColor(80);
+          doc.text('Photo load failed', x + 10, y + 18);
+          doc.setTextColor(0);
+        }
+
+        // Charge caption BELOW the photo
+        const chargeTxt = `${Number(it.charge).toFixed(2)} gr`;
         doc.setFontSize(10);
-        doc.setTextColor(80);
-        doc.text('Photo load failed', x + 10, y + 18);
         doc.setTextColor(0);
+        const tw = doc.getTextWidth(chargeTxt);
+        doc.text(chargeTxt, x + (colW - tw) / 2, y + imgH + captionGap);
+
+        photosOnPage++;
+
+        // advance column/row
+        if (col === 0) {
+          col = 1;
+        } else {
+          // Row complete: draw 5 lines across full page
+          col = 0;
+          const linesStartY = y + imgH + captionGap + noteTopGap;
+          drawNoteLines(linesStartY);
+          y = linesStartY + (noteLineCount * noteLineGap) + afterNotesGap;
+        }
       }
 
-      // Charge caption BELOW the photo (centered)
-      const chargeTxt = `${Number(it.charge).toFixed(2)} gr`;
-      doc.setFontSize(10);
-      const tw = doc.getTextWidth(chargeTxt);
-      doc.text(chargeTxt, x + (colW - tw) / 2, y + imgH + captionGap);
-
-      // advance column/row
-      if (col === 0) {
-        col = 1;
-      } else {
-        col = 0;
-        y += imgH + captionGap + rowGap;
+      // If odd count on page, still add lines after the single-photo row
+      if (col === 1) {
+        const linesStartY = y + imgH + captionGap + noteTopGap;
+        drawNoteLines(linesStartY);
+        y = linesStartY + (noteLineCount * noteLineGap) + afterNotesGap;
       }
+
+      index += maxPhotosPerPage;
     }
   }
 }
-      // -------------------------------
-      // PAGE 2+: Line photos header uses Load Data (NOT rifle data column)
-      // -------------------------------
-      try {
-        const entriesForPhotos = this.entriesForSelectedProject?.() ?? [];
-        const linePhotos = entriesForPhotos
-          .map(e => {
-            const anyE: any = e as any;
-            const dataUrl =
-              anyE?.targetPhoto?.dataUrl ??
-              (anyE?.targetPhotoBase64 ? `data:image/jpeg;base64,${anyE.targetPhotoBase64}` : null);
-            const charge = Number(anyE?.chargeGr ?? NaN);
-            return dataUrl && typeof dataUrl === 'string' && dataUrl.startsWith('data:image/')
-              ? { dataUrl, charge }
-              : null;
-          })
-          .filter(Boolean) as { dataUrl: string; charge: number }[];
-
-        // Only if you are actually exporting line photos to Page 2+
-        if (linePhotos.length) {
-          // Add Page 2
-          (doc as any).addPage();
-
-          const plannedText = fmtDateTime(plannedIso) || '—';
-          const shotText = shotIso ? fmtDateTime(shotIso) : '—';
-
-          // Header: LEFT = rifle/dates, RIGHT = Load Data
-          y = this.drawExportHeader_Page2WithLoadData(
-            doc,
-            pageW,
-            leftMargin,
-            rightMargin,
-            topMargin,
-            projectName,
-            rifleName,
-            plannedText,
-            shotText
-          );
-
-          // NOTE: Your existing "two columns of photos with charge below" rendering
-          // should continue from current y after this header.
-          // (No other layout changes here.)
-        }
-      } catch {
-        // non-fatal: export should still succeed
-      }
-
 
       // ----- Save / Share -----
       const safeName = (projectName || 'load-dev')
@@ -1890,16 +1990,46 @@ if (isOcwProject) {
 private getEntryPhotoObj(entry: LoadDevEntry): any | null {
   return (entry as any)?.targetPhoto ?? null;
 }
+  hasEntryPhoto(entry: LoadDevEntry): boolean {
+    const p: any = this.getEntryPhotoObj(entry);
+    return !!(p?.path || p?.annotatedDataUrl || p?.dataUrl || (entry as any)?.targetPhotoBase64);
+  }
 
-hasEntryPhoto(entry: LoadDevEntry): boolean {
-  const p = this.getEntryPhotoObj(entry);
-  return !!(p?.annotatedDataUrl || p?.dataUrl);
-}
+  getEntryPhotoDataUrl(entry: LoadDevEntry): string | null {
+    const anyE: any = entry as any;
+    const p: any = this.getEntryPhotoObj(entry);
 
-getEntryPhotoDataUrl(entry: LoadDevEntry): string | null {
-  const p = this.getEntryPhotoObj(entry);
-  return (p?.annotatedDataUrl || p?.dataUrl || null) ?? null;
-}
+    // Preferred: Filesystem path (sync via cache)
+    if (p?.path) {
+      const path = String(p.path);
+      const cached = this.photoDataUrlCache.get(path);
+      if (cached) return cached;
+
+      // Warm cache in background
+      const pid = Number((this.selectedProject as any)?.id ?? 0);
+      if (pid) {
+        void this.ensureEntryPhotoOnFs(entry, pid).then(async () => {
+          const tp2: any = (entry as any)?.targetPhoto ?? null;
+          if (tp2?.path) {
+            const url = await this.readJpegDataUrlFromFs(String(tp2.path));
+            if (url) this.photoDataUrlCache.set(String(tp2.path), url);
+          }
+        });
+      }
+
+      return null;
+    }
+
+    // Legacy (still supported)
+    if (p?.annotatedDataUrl) return p.annotatedDataUrl;
+    if (p?.dataUrl) return p.dataUrl;
+
+    // Very old legacy
+    if (anyE?.targetPhotoBase64) return `data:image/jpeg;base64,${String(anyE.targetPhotoBase64).trim()}`;
+
+    return null;
+  }
+
 
 getEntryPhotoLabel(entry: LoadDevEntry): string {
   const p = this.getEntryPhotoObj(entry);
@@ -1910,24 +2040,47 @@ getEntryPhotoLabel(entry: LoadDevEntry): string {
   // ===============================
   // NOTES: OCW entry photos (by charge)
   // ===============================
-  ocwPhotoNotesItems(): { charge: number; entry: LoadDevEntry; url: string; label: string }[] {
-    const p = this.selectedProject as any;
+   ocwPhotoNotesItems(): { charge: number; entry: LoadDevEntry; url: string; label: string }[] {
+    const p: any = this.selectedProject as any;
     if (!p || p.type !== 'ocw') return [];
 
     const entries: LoadDevEntry[] = [...(p.entries ?? [])];
     entries.sort((a, b) => (a.chargeGr ?? 9999) - (b.chargeGr ?? 9999));
 
     const out: { charge: number; entry: LoadDevEntry; url: string; label: string }[] = [];
+
+    const pid = Number(p.id ?? 0);
+
     for (const e of entries) {
+      const anyE: any = e as any;
+      const tp: any = anyE?.targetPhoto ?? null;
+
+      // If photo is FS-based, warm cache (so UI fills in within a tick)
+      if (tp?.path && !this.photoDataUrlCache.has(String(tp.path))) {
+        void this.readJpegDataUrlFromFs(String(tp.path)).then((u) => {
+          if (u) this.photoDataUrlCache.set(String(tp.path), u);
+        });
+      }
+
       if (!this.hasEntryPhoto(e)) continue;
+
       const url = this.getEntryPhotoDataUrl(e);
-      if (!url) continue;
+      if (!url && tp?.path && pid) {
+        // Ensure legacy migration happens (if this entry was old dataUrl/base64)
+        void this.ensureEntryPhotoOnFs(e, pid);
+      }
+
+      // Only add once we have a usable URL (cache will make it appear)
+      const finalUrl = url || (tp?.path ? (this.photoDataUrlCache.get(String(tp.path)) ?? null) : null);
+      if (!finalUrl) continue;
 
       const charge = Number((e.chargeGr ?? 0));
-      out.push({ charge, entry: e, url, label: this.getEntryPhotoLabel(e) });
+      out.push({ charge, entry: e, url: finalUrl, label: this.getEntryPhotoLabel(e) });
     }
+
     return out;
   }
+
 
 private createEmptyPlannerForm(): PlannerForm {
   this.plannerStepText = '.';
@@ -2156,7 +2309,7 @@ private async drawAssetImageInBox(
 
   // When opening Notes, load the saved project photo into targetPhotoDataUrl
   if (this.showNotesPanel) {
-    this.syncTargetPhotoFromProject();
+        void this.syncTargetPhotoFromProject();
      this.syncVoiceNoteFromProject();
   }
 }
@@ -3646,4 +3799,178 @@ allEntriesHaveVelocity(): boolean {
 
     this.resetWizard();
   }
+    // ==========================================================
+  // PHOTO STORAGE (Option A): Filesystem (Directory.Data)
+  // - Persist photos to app folder so they never depend on localStorage quota
+  // - Store only small "path" strings in the project/entry objects
+  // ==========================================================
+  private readonly PHOTO_ROOT = 'gs_photos';
+
+  private photoDataUrlCache = new Map<string, string>(); // path -> dataUrl
+
+  private dataUrlToBase64(dataUrl: string): string {
+    const b64 = (dataUrl || '').split(',')[1] ?? '';
+    return b64.toString().trim();
+  }
+
+  private makeProjectPhotoPath(projectId: number): string {
+    return `${this.PHOTO_ROOT}/loaddev/project/p${projectId}-${Date.now()}.jpg`;
+  }
+
+  private makeEntryPhotoPath(projectId: number, entryId: number): string {
+    return `${this.PHOTO_ROOT}/loaddev/entry/p${projectId}-e${entryId}-${Date.now()}.jpg`;
+  }
+
+  private async writeJpegDataUrlToFs(path: string, dataUrl: string): Promise<void> {
+    const base64 = this.dataUrlToBase64(dataUrl);
+    if (!base64) throw new Error('No base64 image data');
+    await Filesystem.writeFile({
+      path,
+      data: base64,
+      directory: Directory.Data,
+      recursive: true,
+    });
+  }
+
+  private async readJpegDataUrlFromFs(path: string): Promise<string | null> {
+    try {
+      const res = await Filesystem.readFile({
+        path,
+        directory: Directory.Data,
+      });
+      const base64 = (res?.data ?? '').toString().trim();
+      if (!base64) return null;
+      return `data:image/jpeg;base64,${base64}`;
+    } catch {
+      return null;
+    }
+  }
+
+  // Project photo: migrate legacy base64/dataUrl -> Filesystem path once
+  private async ensureProjectPhotoOnFs(project: any): Promise<void> {
+    if (!project) return;
+
+    // Already on FS
+    if (project.targetPhotoPath) return;
+
+    // Legacy sources (what you had before)
+    const legacyDataUrl =
+      (project?.targetPhotoDataUrl && String(project.targetPhotoDataUrl).startsWith('data:image/'))
+        ? String(project.targetPhotoDataUrl)
+        : null;
+
+    const legacyBase64 =
+      (project?.targetPhotoBase64 && String(project.targetPhotoBase64).trim())
+        ? `data:image/jpeg;base64,${String(project.targetPhotoBase64).trim()}`
+        : null;
+
+    const toSave = legacyDataUrl || legacyBase64;
+    if (!toSave) return;
+
+    const pid = Number(project.id ?? this.selectedProject?.id ?? 0);
+    if (!pid) return;
+
+    const path = this.makeProjectPhotoPath(pid);
+    await this.writeJpegDataUrlToFs(path, toSave);
+
+    project.targetPhotoPath = path;
+    project.targetPhotoCapturedAt = project.targetPhotoCapturedAt ?? new Date().toISOString();
+
+    // IMPORTANT: remove large legacy fields so localStorage stays tiny
+    try { delete project.targetPhotoBase64; } catch {}
+    try { delete project.targetPhotoDataUrl; } catch {}
+    try { delete project.targetPhoto; } catch {}
+
+    // Persist the updated project
+    try {
+      this.data.updateLoadDevProject({ ...(project as any) });
+    } catch {}
+  }
+
+  // Entry photo: migrate legacy dataUrl/base64 -> Filesystem path once
+  private async ensureEntryPhotoOnFs(entry: LoadDevEntry, projectId: number): Promise<void> {
+    const anyE: any = entry as any;
+    const tp: any = anyE?.targetPhoto ?? null;
+    if (!tp) return;
+
+    if (tp.path) return;
+
+    const legacyDataUrl =
+      (tp?.dataUrl && String(tp.dataUrl).startsWith('data:image/')) ? String(tp.dataUrl) : null;
+
+    const legacyAnnotated =
+      (tp?.annotatedDataUrl && String(tp.annotatedDataUrl).startsWith('data:image/'))
+        ? String(tp.annotatedDataUrl)
+        : null;
+
+    const legacyBase64 =
+      (anyE?.targetPhotoBase64 && String(anyE.targetPhotoBase64).trim())
+        ? `data:image/jpeg;base64,${String(anyE.targetPhotoBase64).trim()}`
+        : null;
+
+    const toSave = legacyAnnotated || legacyDataUrl || legacyBase64;
+    if (!toSave) return;
+
+    const pid = Number(projectId);
+    const eid = Number((entry as any)?.id ?? 0);
+    if (!pid || !eid) return;
+
+    const path = this.makeEntryPhotoPath(pid, eid);
+    await this.writeJpegDataUrlToFs(path, toSave);
+
+    tp.path = path;
+
+    // Remove big legacy payloads
+    try { delete tp.dataUrl; } catch {}
+    try { delete tp.annotatedDataUrl; } catch {}
+    try { delete anyE.targetPhotoBase64; } catch {}
+
+    // Persist entry
+    try {
+      const updated: LoadDevEntry = { ...(anyE as any), targetPhoto: { ...(tp as any) } } as any;
+      this.data.updateLoadDevEntry(pid, updated);
+    } catch {}
+  }
+
+  // Preload all entry photos into memory cache so HTML can bind synchronously
+  private preloadSelectedProjectEntryPhotos(): void {
+    const p: any = this.selectedProject as any;
+    if (!p || !p.entries) return;
+
+    const pid = Number(p.id ?? 0);
+    for (const e of (p.entries as LoadDevEntry[])) {
+      const anyE: any = e as any;
+      const tp: any = anyE?.targetPhoto ?? null;
+      if (tp?.path) {
+        const path = String(tp.path);
+        if (!this.photoDataUrlCache.has(path)) {
+          void this.readJpegDataUrlFromFs(path).then((url) => {
+            if (url) this.photoDataUrlCache.set(path, url);
+          });
+        }
+      }
+    }
+  }
+
+  private async getPhotoDataUrlFromAnyPhotoObj(tp: any): Promise<string | null> {
+    if (!tp) return null;
+
+    // Memory cache by path
+    if (tp.path) {
+      const path = String(tp.path);
+      const cached = this.photoDataUrlCache.get(path);
+      if (cached) return cached;
+
+      const url = await this.readJpegDataUrlFromFs(path);
+      if (url) this.photoDataUrlCache.set(path, url);
+      return url;
+    }
+
+    // Legacy in-memory (should migrate away, but still supported)
+    if (tp.annotatedDataUrl && String(tp.annotatedDataUrl).startsWith('data:image/')) return String(tp.annotatedDataUrl);
+    if (tp.dataUrl && String(tp.dataUrl).startsWith('data:image/')) return String(tp.dataUrl);
+
+    return null;
+  }
+
 }

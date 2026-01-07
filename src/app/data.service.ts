@@ -68,16 +68,15 @@ export class DataService {
     };
   }
 
-  private saveStore(): void {
+     private saveStore(): void {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.store));
-        } catch (err) {
-      // IMPORTANT: if storage is full, the newest photo will "look saved" but vanish after restart
-      console.error('saveStore failed (storage quota likely exceeded):', err);
-      alert('Storage is full — last change (photo) may not be saved. Please export/backup and clear space.');
+    } catch (err) {
+      // With Option A (Filesystem photos), this should be rare now.
+      console.error('saveStore failed:', err);
     }
-
   }
+
    // ---------- Import / Export helpers ----------
 
   /** Full backup of the entire persisted app store (includes all nested data). */

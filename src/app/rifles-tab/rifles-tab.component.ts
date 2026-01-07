@@ -53,23 +53,45 @@ export class RiflesTabComponent implements OnInit {
   photoViewerMode: 'form' | 'saved' = 'form';
   riflePhotoInlineMessage: string | null = null;
 
-  private riflePhotoDataUrlFromBase64(base64: string | null | undefined): string | null {
+    private riflePhotoDataUrlFromBase64(base64: string | null | undefined): string | null {
     if (!base64) return null;
-    // Stored as base64 (no data: prefix) to keep offline backups JSON-safe
     return `data:image/jpeg;base64,${base64}`;
-    }
+  }
 
   rifleFormPhotoDataUrl(): string | null {
+    const p = (this.rifleForm as any)?.riflePhotoPath;
+    if (p) {
+      const cached = this.riflePhotoCache.get(String(p));
+      if (cached) return cached;
+      void this.readJpegDataUrlFromFs(String(p)).then((u) => {
+        if (u) this.riflePhotoCache.set(String(p), u);
+      });
+      return null;
+    }
     return this.riflePhotoDataUrlFromBase64(this.rifleForm?.riflePhotoBase64);
   }
 
   hasRiflePhoto(r: any): boolean {
-    return !!(r && (r as any).riflePhotoBase64);
+    return !!(r && ((r as any).riflePhotoPath || (r as any).riflePhotoBase64));
   }
 
   riflePhotoDataUrl(r: any): string | null {
+    const p = (r as any)?.riflePhotoPath;
+    if (p) {
+      const cached = this.riflePhotoCache.get(String(p));
+      if (cached) return cached;
+      void this.ensureRiflePhotoOnFs(r).then(async () => {
+        const p2 = (r as any)?.riflePhotoPath;
+        if (p2) {
+          const u = await this.readJpegDataUrlFromFs(String(p2));
+          if (u) this.riflePhotoCache.set(String(p2), u);
+        }
+      });
+      return null;
+    }
     return this.riflePhotoDataUrlFromBase64((r as any)?.riflePhotoBase64);
   }
+
 
   openRiflePhotoViewer(
     url: string | null,
@@ -117,11 +139,24 @@ export class RiflesTabComponent implements OnInit {
         return;
       }
 
-      (this.rifleForm as any).riflePhotoBase64 = base64;
-      (this.rifleForm as any).riflePhotoCapturedAt = new Date().toISOString();
+          const dataUrl = `data:image/jpeg;base64,${base64}`;
 
-     this.riflePhotoInlineMessage = '📷 Rifle photo saved (tap thumbnail to view)';
-setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
+      const tmpId = (this.rifleForm as any)?.id ?? 'new';
+      const path = this.makeRiflePhotoPath(tmpId);
+
+      await this.writeJpegDataUrlToFs(path, dataUrl);
+
+      // store path only (base64 removed so localStorage stays small)
+      (this.rifleForm as any).riflePhotoPath = path;
+      (this.rifleForm as any).riflePhotoCapturedAt = new Date().toISOString();
+      (this.rifleForm as any).riflePhotoBase64 = null;
+
+      // cache for instant thumbnail
+      this.riflePhotoCache.set(path, dataUrl);
+
+      this.riflePhotoInlineMessage = '📷 Rifle photo saved (tap thumbnail to view)';
+      setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
+
 
     } catch {
       this.riflePhotoInlineMessage = 'Photo capture cancelled';
@@ -310,7 +345,8 @@ setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
             // --------------------------
       // Rifle photo (use remaining space under Loads)
       // --------------------------
-      const riflePhotoDataUrl = this.riflePhotoDataUrl(r);
+            let riflePhotoDataUrl: string | null = this.riflePhotoDataUrl(r);
+
 
 
       if (riflePhotoDataUrl) {
@@ -332,6 +368,16 @@ setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
         const maxH = pageHeight - margin - y;
 
         // Keep aspect ratio using image properties
+                // If FS based and not cached yet, load now for PDF export
+        const p = (r as any)?.riflePhotoPath;
+        if (!riflePhotoDataUrl && p) {
+          const u = await this.readJpegDataUrlFromFs(String(p));
+          if (u) {
+            this.riflePhotoCache.set(String(p), u);
+            riflePhotoDataUrl = u;
+          }
+        }
+
         const fmt = riflePhotoDataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
         const props = (doc as any).getImageProperties
           ? (doc as any).getImageProperties(riflePhotoDataUrl)
@@ -491,6 +537,8 @@ setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
 
     const { loads, ...rest } = r;
     this.rifleForm = { ...rest };
+        delete (this.rifleForm as any).riflePhotoBase64;
+
   }
 
   saveRifle(): void {
@@ -758,4 +806,71 @@ coalOgive: load.coalOgive || '',
     this.editingLoadId = null;
     this.resetLoadForm();
   }
+  // ==========================================================
+  // PHOTO STORAGE (Option A): Filesystem (Directory.Data)
+  // ==========================================================
+  private readonly RIFLE_PHOTO_ROOT = 'gs_photos/rifles';
+  private riflePhotoCache = new Map<string, string>(); // path -> dataUrl
+
+  private dataUrlToBase64(dataUrl: string): string {
+    const b64 = (dataUrl || '').split(',')[1] ?? '';
+    return b64.toString().trim();
+  }
+
+  private makeRiflePhotoPath(rifleId: number | string): string {
+    const rid = String(rifleId ?? 'new').replace(/[^a-z0-9_-]/gi, '');
+    return `${this.RIFLE_PHOTO_ROOT}/r${rid}-${Date.now()}.jpg`;
+  }
+
+  private async writeJpegDataUrlToFs(path: string, dataUrl: string): Promise<void> {
+    const base64 = this.dataUrlToBase64(dataUrl);
+    if (!base64) throw new Error('No base64 image data');
+    await Filesystem.writeFile({
+      path,
+      data: base64,
+      directory: Directory.Data,
+      recursive: true,
+    });
+  }
+
+  private async readJpegDataUrlFromFs(path: string): Promise<string | null> {
+    try {
+      const res = await Filesystem.readFile({ path, directory: Directory.Data });
+      const base64 = (res?.data ?? '').toString().trim();
+      if (!base64) return null;
+      return `data:image/jpeg;base64,${base64}`;
+    } catch {
+      return null;
+    }
+  }
+
+  private async ensureRiflePhotoOnFs(r: any): Promise<void> {
+    if (!r) return;
+    if (r.riflePhotoPath) return;
+
+    const legacyBase64 = (r?.riflePhotoBase64 && String(r.riflePhotoBase64).trim())
+      ? `data:image/jpeg;base64,${String(r.riflePhotoBase64).trim()}`
+      : null;
+
+    if (!legacyBase64) return;
+
+    const path = this.makeRiflePhotoPath(r.id ?? 'saved');
+    await this.writeJpegDataUrlToFs(path, legacyBase64);
+
+    r.riflePhotoPath = path;
+    r.riflePhotoCapturedAt = r.riflePhotoCapturedAt ?? new Date().toISOString();
+
+    try { delete r.riflePhotoBase64; } catch {}
+
+    // persist
+    try {
+      const anyData: any = this.data;
+      if (typeof anyData.updateRifle === 'function') anyData.updateRifle({ ...(r as any) });
+      else if (typeof anyData.setRifles === 'function') {
+        const list = this.rifles.map((x: any) => (x.id === r.id ? r : x));
+        anyData.setRifles(list);
+      }
+    } catch {}
+  }
+
 }
