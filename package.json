@@ -9,7 +9,10 @@
     "test": "ng test",
     "cap:add": "npx cap add android",
     "cap:sync": "npx cap copy",
-    "android": "npx cap open android"
+    "android": "npx cap open android",
+    "prestart": "node scripts/write-version.js",
+    "prebuild": "node scripts/write-version.js",
+    "precap": "node scripts/write-version.js"
   },
   "prettier": {
     "printWidth": 100,

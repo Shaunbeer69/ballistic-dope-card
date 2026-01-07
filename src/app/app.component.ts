@@ -12,7 +12,7 @@ import { SessionTabComponent } from './session-tab/session-tab.component';
 import { HistoryTabComponent } from './history-tab/history-tab.component';
 import { LoadDevTabComponent } from './load-dev-tab/load-dev-tab.component';
 import { WindEffectToolComponent } from './wind-effect-tool.component';
-
+import { environment } from './environments/environment';
 import { DataService } from './data.service';
 import { BleClient } from '@capacitor-community/bluetooth-le';
 import {
@@ -92,7 +92,8 @@ interface WindTrendSummary {
 export class AppComponent implements OnInit {
   appTitle = 'Gunstuff Ballistic Dope Card';
   appSubtitle = 'Field log for rifles, venues & sessions';
-  appVersion = '1.0.0';
+      appVersion = environment.appVersion;
+
 
   currentTab: 'menu' | 'sessions' | 'rifles' | 'venues' | 'history' | 'loadDev' =
     'menu';

@@ -1586,22 +1586,57 @@ y += boxH + boxPadAfter;
       let photosOnPage = 0;
       let yStart = topMargin;
 
-      const drawChargesHeader = () => {
-        // Header ONLY on page 1 (already drawn earlier). Page 2+ uses "Charges" column header only.
+           const drawChargesHeader = () => {
+        // Page 2+ header: repeat the same OCW charge table header + rows (like page 1)
         y = topMargin;
 
+        // Optional title (kept)
         doc.setFontSize(14);
         doc.setTextColor(0);
         doc.text('Charges', leftMargin, y);
 
+        y += 10;
+
+        // Table header (same columns as page 1 for OCW)
+        doc.setFontSize(9);
+        doc.setTextColor(0);
+        cols.forEach((c, i) => doc.text(c, colX[i], y));
         y += 8;
+
         doc.setLineWidth(0.4);
         doc.setDrawColor(0);
         doc.line(leftMargin, y, pageW - rightMargin, y);
+        y += 10;
 
-        y += 14;
+        // Table rows (same data as page 1)
+        doc.setFontSize(8);
+
+        for (const e of entries) {
+          const s = this.statsForEntry(e);
+          const notesTxt = this.buildExportNotesForEntry(e);
+          const notesX = colX[5];
+          const notesW = (pageW - rightMargin) - notesX;
+          const notesLine = notesTxt ? (doc.splitTextToSize(notesTxt, Math.max(50, notesW))[0] ?? '') : '';
+
+          doc.text(`${e.chargeGr ?? ''}`, colX[0], y);
+          doc.text(s ? `${Math.round(s.avg)}` : '—', colX[1], y);
+          doc.text(s ? `${s.sd.toFixed(1)}` : '—', colX[2], y);
+          doc.text(s ? `${Math.round(s.es)}` : '—', colX[3], y);
+          doc.text(this.formatGroupSize(e), colX[4], y);
+          if (notesLine) doc.text(notesLine, notesX, y);
+
+          y += 10;
+        }
+
+        // Separator line before photos
+        y += 2;
+        doc.setLineWidth(0.4);
+        doc.line(leftMargin, y, pageW - rightMargin, y);
+        y += 10;
+
         yStart = y;
       };
+
 
       const drawNoteLines = (startY: number) => {
         doc.setLineWidth(0.3);
