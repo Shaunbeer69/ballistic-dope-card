@@ -10,8 +10,9 @@
     "cap:add": "npx cap add android",
     "cap:sync": "npx cap copy",
     "android": "npx cap open android",
-    "release:minor": "npm version minor && npm run build && npm run cap:sync && npm run android"
-  },
+  "release:minor": "npm version minor && node write-version.js && npm run android:version && npm run build && npm run cap:sync && npm run android",
+  "android:version": "node scripts/write-android-version.js"
+},
   "prettier": {
     "printWidth": 100,
     "singleQuote": true,
