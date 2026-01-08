@@ -13,6 +13,7 @@ import jsPDF from 'jspdf';
 import { CapacitorVoiceRecorder } from '@lgicc/capacitor-voice-recorder';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+
 import { Share } from '@capacitor/share';
 import {
   Rifle,
@@ -24,6 +25,15 @@ import {
 
 import { DataService } from '../data.service';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { registerPlugin } from '@capacitor/core';
+interface AudioRoutePlugin {
+  forceSpeaker(): Promise<void>;
+}
+
+const AudioRoute = Capacitor.isNativePlatform()
+  ? registerPlugin<AudioRoutePlugin>('AudioRoute')
+  : null;
+
 
 
 interface ProjectForm {
@@ -171,6 +181,12 @@ micInlineMessage: string | null = null;
 isVoiceRecording = false;
 voiceNoteDataUrl: string | null = null;
 voiceNoteDurationMs: number | null = null;
+isVoicePlaying = false;
+private audioRoute: AudioRoutePlugin | null = AudioRoute;
+
+
+private voiceAudioCtx: AudioContext | null = null;
+private voiceSource: AudioBufferSourceNode | null = null;
 
 private syncVoiceNoteFromProject(): void {
   try {
@@ -183,6 +199,90 @@ private syncVoiceNoteFromProject(): void {
   } catch {
     this.voiceNoteDurationMs = null;
     this.voiceNoteDataUrl = null;
+  }
+}
+async toggleVoicePlayback(): Promise<void> {
+  if (this.isVoicePlaying) {
+    this.stopVoicePlayback();
+    return;
+  }
+  await this.playVoicePlayback();
+}
+async forceSpeakerForPlayback(): Promise<void> {
+  try {
+    if (this.audioRoute) {
+      await this.audioRoute.forceSpeaker();
+    }
+  } catch {
+    // ignore
+  }
+}
+
+
+private async playVoicePlayback(): Promise<void> {
+  if (!this.voiceNoteDataUrl) return;
+
+
+  this.stopVoicePlayback();
+
+// ✅ Force loudspeaker BEFORE starting audio
+await this.forceSpeakerForPlayback();
+
+
+  // WebAudio tends to route as "media" -> speaker on Android WebView
+  const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  this.voiceAudioCtx = ctx;
+
+  const resp = await fetch(this.voiceNoteDataUrl);
+  const arr = await resp.arrayBuffer();
+  const buf = await ctx.decodeAudioData(arr.slice(0));
+
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+
+  src.onended = () => {
+    this.isVoicePlaying = false;
+    try {
+      src.disconnect();
+    } catch {}
+    this.voiceSource = null;
+    if (this.voiceAudioCtx) {
+      try {
+        this.voiceAudioCtx.close();
+      } catch {}
+    }
+    this.voiceAudioCtx = null;
+  };
+
+  this.voiceSource = src;
+  this.isVoicePlaying = true;
+
+  try {
+    await ctx.resume();
+  } catch {}
+
+  src.start(0);
+}
+
+private stopVoicePlayback(): void {
+  this.isVoicePlaying = false;
+
+  if (this.voiceSource) {
+    try {
+      this.voiceSource.stop();
+    } catch {}
+    try {
+      this.voiceSource.disconnect();
+    } catch {}
+    this.voiceSource = null;
+  }
+
+  if (this.voiceAudioCtx) {
+    try {
+      this.voiceAudioCtx.close();
+    } catch {}
+    this.voiceAudioCtx = null;
   }
 }
 
@@ -222,6 +322,8 @@ if (status !== 'GRANTED') {
 
     // Stop + save
     const result = await CapacitorVoiceRecorder.stopRecording();
+    await this.forceSpeakerForPlayback();
+
     this.isVoiceRecording = false;
 
     const base64 = (result?.base64 ?? '').toString().trim();
@@ -260,6 +362,8 @@ this.syncVoiceNoteFromProject();
 
 deleteVoiceNote(): void {
   if (!this.selectedProject) return;
+  this.stopVoicePlayback();
+
 
   const updated: any = { ...(this.selectedProject as any) };
   delete updated.voiceNoteBase64;
@@ -407,7 +511,8 @@ async onTargetPhotoClick(event?: Event): Promise<void> {
 async onTargetFileChosen(event: Event): Promise<void> {
   try {
     const input = event.target as HTMLInputElement;
-    const file = input?.files?.[0];
+    const file = input.files?.[0];
+
     if (!file) return;
 
     const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -506,7 +611,8 @@ async onEntryTargetPhotoClick(entry: LoadDevEntry, event?: Event): Promise<void>
 }
 async onEntryFileChosen(ev: Event): Promise<void> {
   const input = ev.target as HTMLInputElement;
-  const file = input?.files?.[0];
+  const file = input.files?.[0];
+
   if (!file) return;
 
   const entry = this.pendingEntryForPhoto;
@@ -956,7 +1062,8 @@ y += 15;
         null;
 
       if (!shotIso) {
-        const entries = this.entriesForSelectedProject?.() ?? [];
+      const entries = this.entriesForSelectedProject();
+
         let best: string | null = null;
 
         for (const e of entries) {
@@ -1928,11 +2035,14 @@ y += boxH + boxPadAfter;
 
   // ---------- lifecycle ----------
   ngOnInit(): void {
+    
     this.rifles = this.data.getRifles();
     if (this.rifles.length > 0) {
       this.selectedRifleId = this.rifles[0].id;
       this.loadProjects();
     }
+ 
+
   }
 
   // ---------- helpers ----------
