@@ -165,20 +165,25 @@ export class WindEffectToolComponent implements OnInit {
     this.updatePoiFromDrift();
   }
 
-  onWindUnitChange(unit: WindUnit): void {
+    onWindUnitChange(unit: WindUnit): void {
     if (unit === this.windUnit) return;
 
     // keep internal mph stable, just convert display
     const speedMph = this.windSpeedMph;
+
+    // ✅ actually apply the new unit
     this.windUnit = unit;
-    this.windSpeedInput = this.fromMph(
-      speedMph,
-      this.windUnit
-    );
+
+    // ✅ convert display value using the NEW unit
+    this.windSpeedInput = this.fromMph(speedMph, this.windUnit);
+
+    // optional: keep display tidy
+    this.windSpeedInput = Number(this.windSpeedInput.toFixed(2));
 
     // ensure dot + numbers refresh immediately
     this.updatePoiFromDrift();
   }
+
 
   private updateWindSpeedInputFromMph(): void {
     this.windSpeedInput = this.fromMph(
