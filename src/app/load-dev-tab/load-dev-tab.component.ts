@@ -840,6 +840,18 @@ deleteEntryPhoto(): void {
 
   // 2) Otherwise we are viewing the PROJECT "Target photo" from Notes panel
   if (!this.selectedProject) return;
+  // remove filesystem-backed photo too (this is the real "Overall photo" source now)
+const anyP: any = this.selectedProject as any;
+const path = anyP?.targetPhotoPath ? String(anyP.targetPhotoPath) : null;
+
+if (path) {
+  this.photoDataUrlCache.delete(path);
+  // best effort: remove the actual file
+  void Filesystem.deleteFile({ path, directory: Directory.Data }).catch(() => {});
+}
+
+try { delete anyP.targetPhotoPath; } catch {}
+
 
   // clear stored photo on the project (covers both legacy keys)
   delete (this.selectedProject as any).targetPhotoBase64;
@@ -2147,13 +2159,15 @@ onStepChange(raw: any): void {
 
 entryHasPhoto(entry: LoadDevEntry): boolean {
   const any = entry as any;
-  return !!any?.targetPhoto?.dataUrl || !!any?.targetPhotoBase64;
+  const tp = any?.targetPhoto;
+  return !!tp?.path || !!tp?.annotatedDataUrl || !!tp?.dataUrl || !!any?.targetPhotoBase64;
 }
 
 projectHasPhoto(): boolean {
   const p: any = this.selectedProject as any;
-  return !!p?.targetPhoto?.dataUrl || !!p?.targetPhotoBase64 || !!p?.targetPhotoDataUrl;
+  return !!p?.targetPhotoPath || !!p?.targetPhoto?.path || !!p?.targetPhoto?.dataUrl || !!p?.targetPhotoBase64 || !!p?.targetPhotoDataUrl;
 }
+
 
 
 hasAnyPhoto(): boolean {

@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
-
+import { APP_VERSION } from './environments/version';
 import { RiflesTabComponent } from './rifles-tab/rifles-tab.component';
 import { VenuesTabComponent } from './venues-tab/venues-tab.component';
 import { SessionTabComponent } from './session-tab/session-tab.component';
@@ -92,7 +92,8 @@ interface WindTrendSummary {
 export class AppComponent implements OnInit {
   appTitle = 'Gunstuff Ballistic Dope Card';
   appSubtitle = 'Field log for rifles, venues & sessions';
-      appVersion = environment.appVersion;
+    appVersion = APP_VERSION;
+
 
 
   currentTab: 'menu' | 'sessions' | 'rifles' | 'venues' | 'history' | 'loadDev' =
