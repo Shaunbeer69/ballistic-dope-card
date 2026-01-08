@@ -477,7 +477,7 @@
           <!-- RESULTS -->
           <div
             #pdfContent
-            *ngIf="hasResultsForSelectedProject && !resultsCollapsed"
+            *ngIf="hasResultsForSelectedProject"
             class="mt-3 relative left-[-12px] w-[calc(100%+24px)] border border-gray-800 bg-black/70 rounded-2xl px-3 py-3 space-y-2 overflow-x-hidden"
           >
             <!-- PDF HEADER: timestamps -->
@@ -637,7 +637,8 @@
                   </text>
                 </ng-container>
               </svg>
-
+            </div>
+            <ng-container *ngIf="!resultsCollapsed">
               <!-- DATA TABLE -->
               <div class="overflow-x-auto rounded-2xl border border-gray-800 bg-black/60">
                 <table class="min-w-full text-[11px]">
@@ -983,7 +984,13 @@
                             *ngIf="voiceNoteDataUrl; else noAudio"
                             class="flex items-center gap-2"
                           >
-                            <audio [src]="voiceNoteDataUrl" controls class="flex-1 h-8"></audio>
+                            <audio
+                              [src]="voiceNoteDataUrl"
+                              controls
+                              playsinline
+                              preload="auto"
+                              class="flex-1 h-8"
+                            ></audio>
 
                             <button
                               type="button"
@@ -1121,7 +1128,8 @@
                   Export
                 </div>
               </ng-container>
-            </div>
+            </ng-container>
+
             <!-- Bottom Back (always visible, even when results are collapsed/hidden) -->
             <div class="w-100 flex justify-between gap-2">
               <button
