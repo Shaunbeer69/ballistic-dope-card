@@ -172,9 +172,18 @@ isAnnotatingPhoto = false;
   }
 
   // ---- navigation back from history/footer button ----
-  onBackFromHistory(): void {
-    this.backToMenu.emit();
-  }
+ onBackFromHistory(): void {
+  // Go back ONE level: from project detail → project list
+  this.selectedProjectId = null;
+  this.selectedProject = null;
+
+  // Reset project-level UI only
+  this.resultsCollapsed = true;
+  this.showGraph = false;
+  this.ladderWizardActive = false;
+  this.singleVelocityEditActive = false;
+}
+
 
   // ==========================
 // MIC (VOICE NOTE - ACTIVE)
@@ -2579,6 +2588,7 @@ this.syncVoiceNoteFromProject();
     if (!this.graphCoords.length && !this.ocwShotPoints.length) this.showGraph = false;
 
     this.resetWizard();
+    
   }
 
   openSelectedProject(): void {
