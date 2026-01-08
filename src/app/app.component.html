@@ -27,8 +27,8 @@
       <ng-container *ngIf="currentTab === 'menu'; else otherTabs">
         <!-- WIND EFFECT TOOL FULLSCREEN INSIDE MENU -->
         <ng-container *ngIf="selectedTool === 'windEffect'; else normalMenu">
-          <div class="rounded-3xl p-2 flex-1 flex flex-col">
-            <div class="flex-1 overflow-y-auto flex justify-center">
+          <div class="rounded-3xl p-2 flex flex-col">
+            <div class="overflow-y-auto flex justify-center">
               <div
                 class="origin-top w-full"
                 [ngClass]="'md:scale-[1.15] lg:scale-[1.25] xl:scale-[1.35]'"
