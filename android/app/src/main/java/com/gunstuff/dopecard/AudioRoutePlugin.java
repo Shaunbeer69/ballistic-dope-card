@@ -21,7 +21,7 @@ public class AudioRoutePlugin extends Plugin {
                 return;
             }
 
-            // Kill any communication routing left by recorder
+            // Kill any recorder / SCO / communication routing
             try {
                 am.stopBluetoothSco();
             } catch (Exception ignored) {
@@ -31,7 +31,15 @@ public class AudioRoutePlugin extends Plugin {
             } catch (Exception ignored) {
             }
 
-            // Ensure media mode
+            // CRITICAL: fully reset communication routing (Android 12+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    am.clearCommunicationDevice();
+                } catch (Exception ignored) {
+                }
+            }
+
+            // Reset audio mode BEFORE enabling speaker
             try {
                 am.setMode(AudioManager.MODE_NORMAL);
             } catch (Exception ignored) {
@@ -43,7 +51,7 @@ public class AudioRoutePlugin extends Plugin {
             } catch (Exception ignored) {
             }
 
-            // Android 12+ explicit device routing
+            // Explicitly select built-in speaker (Android 12+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 try {
                     for (AudioDeviceInfo d : am.getAvailableCommunicationDevices()) {
@@ -57,7 +65,7 @@ public class AudioRoutePlugin extends Plugin {
             }
 
         } catch (Exception ignored) {
-            // Never crash app for routing
+            // Never crash app due to routing
         }
 
         call.resolve();

@@ -1047,12 +1047,14 @@
                         <div class="text-gray-400">Bullet wt:</div>
                         <div class="font-semibold">
                           {{ selectedProject.bulletWeightGr ?? '—' }}
+
                           <span *ngIf="selectedProject.bulletWeightGr != null"> gr</span>
                         </div>
 
                         <div class="text-gray-400">COAL:</div>
                         <div class="font-semibold">
                           {{ selectedProject.oal ?? '—' }}
+
                           <span *ngIf="selectedProject.oal != null"> mm</span>
                         </div>
 
@@ -1060,6 +1062,7 @@
                         <div class="text-gray-400">COAL Ogive:</div>
                         <div class="font-semibold">
                           {{ selectedProject.oalOgive ?? '—' }}
+
                           <span *ngIf="selectedProject.oalOgive != null"> mm</span>
                         </div>
 
