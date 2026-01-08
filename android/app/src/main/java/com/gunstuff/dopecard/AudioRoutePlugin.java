@@ -39,10 +39,32 @@ public class AudioRoutePlugin extends Plugin {
                 }
             }
 
-            // Reset audio mode BEFORE enabling speaker
+            // Force "communication" mode and speaker. Some devices keep routing to earpiece
+            // after recording
+            // unless we stay in COMMUNICATION while selecting the built-in speaker.
             try {
-                am.setMode(AudioManager.MODE_NORMAL);
+                am.setMode(AudioManager.MODE_IN_COMMUNICATION);
             } catch (Exception ignored) {
+            }
+            try {
+                am.setSpeakerphoneOn(true);
+            } catch (Exception ignored) {
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    am.setMode(AudioManager.MODE_IN_COMMUNICATION);
+                    for (AudioDeviceInfo d : am.getAvailableCommunicationDevices()) {
+                        if (d != null && d.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
+                            am.setCommunicationDevice(d);
+                            break;
+                        }
+                    }
+                    am.setSpeakerphoneOn(true);
+                    // return to normal for media
+
+                } catch (Exception ignored) {
+                }
             }
 
             // Force loudspeaker

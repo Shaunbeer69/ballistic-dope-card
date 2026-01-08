@@ -1,12 +1,15 @@
 import { CommonModule } from '@angular/common';
 import {
   Component,
+  ChangeDetectorRef,
   ElementRef,
   EventEmitter,
+  NgZone,
   OnInit,
   Output,
   ViewChild
 } from '@angular/core';
+
 
 import { FormsModule } from '@angular/forms';
 import jsPDF from 'jspdf';
@@ -241,19 +244,25 @@ await this.forceSpeakerForPlayback();
   src.buffer = buf;
   src.connect(ctx.destination);
 
-  src.onended = () => {
+ src.onended = () => {
+  this.zone.run(() => {
     this.isVoicePlaying = false;
     try {
       src.disconnect();
     } catch {}
     this.voiceSource = null;
-    if (this.voiceAudioCtx) {
+    if (this.voiceAudioCtx && typeof this.voiceAudioCtx.close === 'function') {
       try {
         this.voiceAudioCtx.close();
       } catch {}
+      this.voiceAudioCtx = null;
     }
-    this.voiceAudioCtx = null;
-  };
+    try {
+      this.cdr.detectChanges();
+    } catch {}
+  });
+};
+
 
   this.voiceSource = src;
   this.isVoicePlaying = true;
@@ -263,6 +272,20 @@ await this.forceSpeakerForPlayback();
   } catch {}
 
   src.start(0);
+  setTimeout(() => {
+  void this.forceSpeakerForPlayback();
+}, 500);
+
+setTimeout(() => {
+  void this.forceSpeakerForPlayback();
+}, 1200);
+
+  // 🔊 Android sometimes flips back to earpiece AFTER start.
+// Force speaker again a moment later.
+setTimeout(() => {
+  void this.forceSpeakerForPlayback();
+}, 150);
+
 }
 
 private stopVoicePlayback(): void {
@@ -2031,7 +2054,8 @@ y += boxH + boxPadAfter;
   ocwShotPoints: OcwShotPoint[] = [];
   ocwGroupEllipses: OcwGroupEllipse[] = [];
 
-  constructor(private data: DataService) {}
+ constructor(private data: DataService, private zone: NgZone, private cdr: ChangeDetectorRef) {}
+
 
   // ---------- lifecycle ----------
   ngOnInit(): void {
