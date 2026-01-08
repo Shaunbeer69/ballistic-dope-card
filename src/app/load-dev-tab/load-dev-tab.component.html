@@ -417,7 +417,6 @@
                 selectedProject?.type === 'ocw' ? 'e.g. 2765, 2772, 2768' : 'e.g. 2765 2772 2768'
               "
             />
-
             <div *ngIf="selectedProject?.type === 'ocw'" class="text-[10px] text-sky-200/80">
               Hint: Separate speeds with commas (e.g. 2765, 2772, 2768)
             </div>
@@ -443,7 +442,6 @@
               </button>
             </div>
           </div>
-
           <!-- SINGLE EDIT -->
           <div
             *ngIf="singleVelocityEditActive && velocityEditEntry"
@@ -477,7 +475,6 @@
           </div>
 
           <!-- RESULTS -->
-
           <div
             #pdfContent
             *ngIf="hasResultsForSelectedProject && !resultsCollapsed"
@@ -506,7 +503,6 @@
                   }}
                 </button>
               </div>
-
               <!-- Row 2: Dates (under wizard button) -->
               <div
                 *ngIf="selectedProject"
@@ -528,7 +524,6 @@
                 </div>
               </div>
             </div>
-
             <!-- GRAPH -->
             <div
               *ngIf="showGraph && (graphCoords.length || ocwShotPoints.length)"
@@ -542,26 +537,28 @@
                     [attr.points]="graphSvgPoints"
                     fill="none"
                     stroke="#22c55e"
-                    stroke-width="1.5"
+                    stroke-width="0.5"
                   ></polyline>
 
                   <ng-container *ngFor="let p of graphCoords">
-                    <circle [attr.cx]="p.x" [attr.cy]="p.y" r="1.7" fill="#facc15"></circle>
+                    <circle
+                      [attr.cx]="p.x"
+                      [attr.cy]="p.y"
+                      r="1.7"
+                      fill="#facc15"
+                      stroke="#000"
+                      stroke-width="0.6"
+                    ></circle>
 
                     <!-- velocity label (next to / slightly above the dot) -->
-                    <text [attr.x]="p.x + 2" [attr.y]="p.y - 2" font-size="2.6" fill="#e5e7eb">
-                      {{ p.avg | number : '1.0-0' }}
-                    </text>
-
-                    <!-- charge label (under the dot) -->
                     <text
-                      [attr.x]="p.x"
-                      [attr.y]="p.y + 6"
+                      [attr.x]="p.x > 92 ? p.x - 2 : p.x + 2"
+                      [attr.y]="p.y - 2"
+                      [attr.text-anchor]="p.x > 92 ? 'end' : 'start'"
                       font-size="2.6"
                       fill="#e5e7eb"
-                      text-anchor="middle"
                     >
-                      {{ p.charge | number : '1.0-2' }}
+                      {{ p.avg | number : '1.0-0' }}
                     </text>
                   </ng-container>
                 </ng-container>
@@ -576,520 +573,571 @@
                       [attr.rx]="g.rx"
                       [attr.ry]="g.ry"
                       fill="none"
-                      stroke="#facc15"
-                      stroke-width="0.8"
+                      stroke="#22c55e"
+                      stroke-width="0.5"
                       opacity="0.9"
                     ></ellipse>
                   </ng-container>
-
                   <!-- every shot plotted -->
                   <ng-container *ngFor="let s of ocwShotPoints">
-                    <circle [attr.cx]="s.x" [attr.cy]="s.y" r="1.4" fill="#22c55e"></circle>
+                    <circle
+                      [attr.cx]="s.x"
+                      [attr.cy]="s.y"
+                      r="1.4"
+                      fill="#facc15"
+                      stroke="#000"
+                      stroke-width="0.6"
+                    ></circle>
+
+                    <text
+                      [attr.x]="s.x + 2.2"
+                      [attr.y]="s.y - 2 - s.shotIndex * 2.8"
+                      font-size="2.6"
+                      fill="#e5e7eb"
+                    >
+                      {{ s.v | number : '1.0-0' }}
+                    </text>
                   </ng-container>
                 </ng-template>
               </svg>
-              <!-- LADDER: Charges under the graph (export-safe) -->
-              <div
+              <!-- LADDER: Charges under the graph (aligned to dot x positions) -->
+              <svg
                 *ngIf="selectedProject?.type !== 'ocw' && graphCoords.length"
-                class="w-full -mt-1 grid text-[10px] text-gray-200"
-                [style.gridTemplateColumns]="'repeat(' + graphCoords.length + ', 1fr)'"
+                viewBox="0 0 100 10"
+                class="w-full -mt-1"
               >
-                <div *ngFor="let p of graphCoords" class="text-center">
-                  {{ p.charge | number : '1.0-2' }}
-                </div>
-              </div>
-            </div>
+                <ng-container *ngFor="let p of graphCoords">
+                  <text
+                    [attr.x]="p.x < 6 ? 6 : p.x > 94 ? 94 : p.x"
+                    y="8"
+                    font-size="3"
+                    fill="#e5e7eb"
+                    [attr.text-anchor]="p.x < 6 ? 'start' : p.x > 94 ? 'end' : 'middle'"
+                  >
+                    {{ p.charge | number : '1.0-2' }}
+                  </text>
+                </ng-container>
+              </svg>
 
-            <!-- DATA TABLE -->
-            <div class="overflow-x-auto rounded-2xl border border-gray-800 bg-black/60">
-              <table class="min-w-full text-[11px]">
-                <thead class="bg-gray-900/70 text-gray-300">
-                  <tr *ngIf="selectedProject?.type === 'ocw'; else ladderHead">
-                    <th class="px-2 py-1 text-left">Charge (gr)</th>
-                    <th class="px-2 py-1 text-left">Vel</th>
-                    <th class="px-2 py-1 text-left">SD</th>
-                    <th class="px-2 py-1 text-left">ES</th>
-                    <th class="px-2 py-1 text-right">Group size</th>
-                  </tr>
+              <!-- OCW: Charges under the graph (SVG so font matches velocity labels) -->
+              <svg
+                *ngIf="selectedProject?.type === 'ocw' && ocwGroupEllipses.length"
+                viewBox="0 0 100 10"
+                class="w-full -mt-1"
+              >
+                <ng-container *ngFor="let g of ocwGroupEllipses">
+                  <text
+                    [attr.x]="g.cx < 6 ? 6 : g.cx > 94 ? 94 : g.cx"
+                    y="8"
+                    font-size="2.6"
+                    fill="#e5e7eb"
+                    [attr.text-anchor]="g.cx < 6 ? 'start' : g.cx > 94 ? 'end' : 'middle'"
+                  >
+                    {{ g.charge | number : '1.0-2' }}
+                  </text>
+                </ng-container>
+              </svg>
 
-                  <ng-template #ladderHead>
-                    <tr>
+              <!-- DATA TABLE -->
+              <div class="overflow-x-auto rounded-2xl border border-gray-800 bg-black/60">
+                <table class="min-w-full text-[11px]">
+                  <thead class="bg-gray-900/70 text-gray-300">
+                    <tr *ngIf="selectedProject?.type === 'ocw'; else ladderHead">
                       <th class="px-2 py-1 text-left">Charge (gr)</th>
-                      <th class="px-2 py-1 text-left">Velocity</th>
-                      <th class="px-2 py-1 text-left">Shot # (Total)</th>
-
-                      <th class="px-2 py-1 text-right">Actions</th>
+                      <th class="px-2 py-1 text-left">Vel</th>
+                      <th class="px-2 py-1 text-left">SD</th>
+                      <th class="px-2 py-1 text-left">ES</th>
+                      <th class="px-2 py-1 text-right">Group size</th>
                     </tr>
-                  </ng-template>
-                </thead>
 
-                <tbody>
-                  <!-- OCW: 2-line rows (metrics, then actions) -->
-                  <ng-container *ngIf="selectedProject?.type === 'ocw'; else ladderBody">
-                    <ng-container *ngFor="let entry of entriesForSelectedProject()">
-                      <!-- Line 1: metrics -->
-                      <tr [ngClass]="ocwSdCssClass(entry)">
+                    <ng-template #ladderHead>
+                      <tr>
+                        <th class="px-2 py-1 text-left">Charge (gr)</th>
+                        <th class="px-2 py-1 text-left">Velocity</th>
+                        <th class="px-2 py-1 text-left">Shot # (Total)</th>
+
+                        <th class="px-2 py-1 text-right">Actions</th>
+                      </tr>
+                    </ng-template>
+                  </thead>
+
+                  <tbody>
+                    <!-- OCW: 2-line rows (metrics, then actions) -->
+                    <ng-container *ngIf="selectedProject?.type === 'ocw'; else ladderBody">
+                      <ng-container *ngFor="let entry of entriesForSelectedProject()">
+                        <!-- Line 1: metrics -->
+                        <tr [ngClass]="ocwSdCssClass(entry)">
+                          <td class="px-2 py-1 text-gray-100">
+                            <div class="leading-tight">
+                              <div>
+                                {{ entry.chargeGr | number : '1.0-2' }}
+                                <span *ngIf="hasEntryPhoto(entry)" class="ml-1 opacity-80">📷</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td class="px-2 py-1 text-gray-100">
+                            <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl">
+                              {{ s.avg | number : '1.0-0' }}
+                            </ng-container>
+                          </td>
+
+                          <td class="px-2 py-1 text-gray-100">
+                            <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl">
+                              {{ s.sd | number : '1.1-1' }}
+                            </ng-container>
+                          </td>
+
+                          <td class="px-2 py-1 text-gray-100">
+                            <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl">
+                              {{ s.es | number : '1.0-0' }}
+                            </ng-container>
+                          </td>
+
+                          <td class="px-2 py-1 text-right text-gray-100">
+                            {{ formatGroupSize(entry) }}
+                          </td>
+                        </tr>
+
+                        <!-- Line 2: actions -->
+                        <tr class="border-t border-gray-800 bg-black/40">
+                          <td colspan="5" class="px-2 py-1.5 text-right whitespace-nowrap">
+                            <button
+                              class="text-[10px] px-2 py-0.5 rounded-full bg-gray-600/90 text-white mr-2"
+                              title="Target photo"
+                              (click)="onEntryTargetPhotoClick(entry, $event)"
+                            >
+                              📷
+                            </button>
+
+                            <button
+                              class="text-[10px] px-3 py-0.5 rounded-full bg-sky-600/90 text-black mr-2"
+                              (click)="editVelocityForEntry(entry)"
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              class="text-[10px] px-3 py-0.5 rounded-full bg-red-700/90 text-red-50"
+                              (click)="deleteEntry(entry)"
+                            >
+                              Del
+                            </button>
+                          </td>
+                        </tr>
+                      </ng-container>
+
+                      <ng-template #dashTpl>—</ng-template>
+                    </ng-container>
+
+                    <!-- Ladder: single-line rows -->
+                    <ng-template #ladderBody>
+                      <tr
+                        *ngFor="let entry of entriesForSelectedProject(); let i = index"
+                        [ngClass]="nodeCssClass(entry)"
+                      >
                         <td class="px-2 py-1 text-gray-100">
                           <div class="leading-tight">
-                            <div>
-                              {{ entry.chargeGr | number : '1.0-2' }}
-                              <span *ngIf="hasEntryPhoto(entry)" class="ml-1 opacity-80">📷</span>
+                            <div class="flex items-center gap-1">
+                              <span>{{ entry.chargeGr | number : '1.0-2' }}</span>
+
+                              <!-- ✅ Node indicator (shows in UI + PDF export) -->
+                              <span
+                                *ngIf="nodeCssClass(entry)?.includes('emerald')"
+                                class="px-1.5 py-[1px] rounded-full bg-emerald-500/20 border border-emerald-400/60 text-emerald-200 text-[9px] font-semibold"
+                              >
+                                Node
+                              </span>
                             </div>
                           </div>
                         </td>
 
                         <td class="px-2 py-1 text-gray-100">
-                          <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl">
+                          <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl2">
                             {{ s.avg | number : '1.0-0' }}
                           </ng-container>
+                          <ng-template #dashTpl2>—</ng-template>
                         </td>
 
                         <td class="px-2 py-1 text-gray-100">
-                          <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl">
-                            {{ s.sd | number : '1.1-1' }}
-                          </ng-container>
+                          {{ i + 1 }} / {{ entriesForSelectedProject().length }}
                         </td>
 
-                        <td class="px-2 py-1 text-gray-100">
-                          <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl">
-                            {{ s.es | number : '1.0-0' }}
-                          </ng-container>
-                        </td>
-
-                        <td class="px-2 py-1 text-right text-gray-100">
-                          {{ formatGroupSize(entry) }}
-                        </td>
-                      </tr>
-
-                      <!-- Line 2: actions -->
-                      <tr class="border-t border-gray-800 bg-black/40">
-                        <td colspan="5" class="px-2 py-1.5 text-right whitespace-nowrap">
+                        <td class="px-2 py-1 text-right whitespace-nowrap">
                           <button
-                            class="text-[10px] px-2 py-0.5 rounded-full bg-gray-600/90 text-white mr-2"
-                            title="Target photo"
-                            (click)="onEntryTargetPhotoClick(entry, $event)"
-                          >
-                            📷
-                          </button>
-
-                          <button
-                            class="text-[10px] px-3 py-0.5 rounded-full bg-sky-600/90 text-black mr-2"
+                            class="text-[10px] px-2 py-0.5 rounded-full bg-sky-600/90 text-black mr-1"
                             (click)="editVelocityForEntry(entry)"
                           >
                             Edit
                           </button>
 
                           <button
-                            class="text-[10px] px-3 py-0.5 rounded-full bg-red-700/90 text-red-50"
+                            class="text-[10px] px-2 py-0.5 rounded-full bg-red-700/90 text-red-50"
                             (click)="deleteEntry(entry)"
                           >
                             Del
                           </button>
                         </td>
                       </tr>
-                    </ng-container>
+                    </ng-template>
+                  </tbody>
+                </table>
+              </div>
 
-                    <ng-template #dashTpl>—</ng-template>
-                  </ng-container>
+              <!-- OCW hint (explains SD colour ranking) -->
+              <div
+                *ngIf="selectedProject?.type === 'ocw'"
+                class="mt-3 text-[10px] rounded-2xl bg-emerald-500/10 border border-emerald-400/40 text-gray-200 px-2 py-2"
+              >
+                <div class="font-semibold text-emerald-200 mb-0.5">How to use this:</div>
+                <div>
+                  The <span class="font-semibold text-emerald-200">green</span> SD row is currently
+                  the most consistent (best SD). Next: keep the charge the same and fine-tune
+                  <span class="font-semibold">seating depth</span> (and/or neck tension) to tighten
+                  groups. <span class="text-amber-200">Orange</span> is second-best,
+                  <span class="text-red-200">red</span> is third.
+                </div>
+              </div>
 
-                  <!-- Ladder: single-line rows -->
-                  <ng-template #ladderBody>
-                    <tr
-                      *ngFor="let entry of entriesForSelectedProject(); let i = index"
-                      [ngClass]="nodeCssClass(entry)"
+              <!-- ✅ Ladder hint (same placement as OCW, right under table) -->
+              <div
+                *ngIf="selectedProject?.type === 'ladder'"
+                class="mt-3 text-[10px] rounded-2xl bg-emerald-500/10 border border-emerald-400/40 text-gray-200 px-2 py-2"
+              >
+                <div class="font-semibold text-emerald-200 mb-0.5">How to use this:</div>
+                <div>
+                  The <span class="font-semibold text-emerald-200">green</span> rows mark a likely
+                  <span class="font-semibold">node band</span> (a “flat spot” where velocity changes
+                  very little across neighbouring charges). Pick the
+                  <span class="font-semibold">middle charge</span> of the green band as your first
+                  node to confirm. This load will form the basis of your OCW testing.
+                </div>
+              </div>
+
+              <ng-container *ngIf="selectedProject as sp">
+                <!-- ✅ Notes + MIC + inline message on LEFT; Delete on RIGHT -->
+                <div class="flex items-center gap-2 mt-3">
+                  <!-- Left: Notes + MIC + inline message -->
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      class="px-3 py-2 rounded-xl bg-gray-700 text-white text-xs"
+                      (click)="toggleNotesPanel()"
                     >
-                      <td class="px-2 py-1 text-gray-100">
-                        <div class="leading-tight">
-                          <div class="flex items-center gap-1">
-                            <span>{{ entry.chargeGr | number : '1.0-2' }}</span>
+                      Notes
+                    </button>
 
-                            <!-- ✅ Node indicator (shows in UI + PDF export) -->
-                            <span
-                              *ngIf="nodeCssClass(entry)?.includes('emerald')"
-                              class="px-1.5 py-[1px] rounded-full bg-emerald-500/20 border border-emerald-400/60 text-emerald-200 text-[9px] font-semibold"
-                            >
-                              Node
-                            </span>
-                          </div>
-                        </div>
-                      </td>
+                    <button
+                      type="button"
+                      class="px-3 py-2 rounded-xl text-white text-xs relative"
+                      [ngClass]="
+                        isVoiceRecording || voiceNoteDataUrl ? 'bg-emerald-600' : 'bg-gray-700'
+                      "
+                      title="Audio note"
+                      (click)="onMicToggle($event)"
+                    >
+                      {{ isVoiceRecording ? '⏹' : '🎤' }}
 
-                      <td class="px-2 py-1 text-gray-100">
-                        <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl2">
-                          {{ s.avg | number : '1.0-0' }}
-                        </ng-container>
-                        <ng-template #dashTpl2>—</ng-template>
-                      </td>
-
-                      <td class="px-2 py-1 text-gray-100">
-                        {{ i + 1 }} / {{ entriesForSelectedProject().length }}
-                      </td>
-
-                      <td class="px-2 py-1 text-right whitespace-nowrap">
-                        <button
-                          class="text-[10px] px-2 py-0.5 rounded-full bg-sky-600/90 text-black mr-1"
-                          (click)="editVelocityForEntry(entry)"
-                        >
-                          Edit
-                        </button>
-
-                        <button
-                          class="text-[10px] px-2 py-0.5 rounded-full bg-red-700/90 text-red-50"
-                          (click)="deleteEntry(entry)"
-                        >
-                          Del
-                        </button>
-                      </td>
-                    </tr>
-                  </ng-template>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- OCW hint (explains SD colour ranking) -->
-            <div
-              *ngIf="selectedProject?.type === 'ocw'"
-              class="mt-3 text-[10px] rounded-2xl bg-emerald-500/10 border border-emerald-400/40 text-gray-200 px-2 py-2"
-            >
-              <div class="font-semibold text-emerald-200 mb-0.5">How to use this:</div>
-              <div>
-                The <span class="font-semibold text-emerald-200">green</span> SD row is currently
-                the most consistent (best SD). Next: keep the charge the same and fine-tune
-                <span class="font-semibold">seating depth</span> (and/or neck tension) to tighten
-                groups. <span class="text-amber-200">Orange</span> is second-best,
-                <span class="text-red-200">red</span> is third.
-              </div>
-            </div>
-
-            <!-- ✅ Ladder hint (same placement as OCW, right under table) -->
-            <div
-              *ngIf="selectedProject?.type === 'ladder'"
-              class="mt-3 text-[10px] rounded-2xl bg-emerald-500/10 border border-emerald-400/40 text-gray-200 px-2 py-2"
-            >
-              <div class="font-semibold text-emerald-200 mb-0.5">How to use this:</div>
-              <div>
-                The <span class="font-semibold text-emerald-200">green</span> rows mark a likely
-                <span class="font-semibold">node band</span> (a “flat spot” where velocity changes
-                very little across neighbouring charges). Pick the
-                <span class="font-semibold">middle charge</span> of the green band as your first
-                node to confirm. This load will form the basis of your OCW testing.
-              </div>
-            </div>
-
-            <ng-container *ngIf="selectedProject as sp">
-              <!-- ✅ Notes + MIC + inline message on LEFT; Delete on RIGHT -->
-              <div class="flex items-center gap-2 mt-3">
-                <!-- Left: Notes + MIC + inline message -->
-                <div class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    class="px-3 py-2 rounded-xl bg-gray-700 text-white text-xs"
-                    (click)="toggleNotesPanel()"
-                  >
-                    Notes
-                  </button>
-
-                  <button
-                    type="button"
-                    class="px-3 py-2 rounded-xl text-white text-xs relative"
-                    [ngClass]="
-                      isVoiceRecording || voiceNoteDataUrl ? 'bg-emerald-600' : 'bg-gray-700'
-                    "
-                    title="Audio note"
-                    (click)="onMicToggle($event)"
-                  >
-                    {{ isVoiceRecording ? '⏹' : '🎤' }}
+                      <span
+                        *ngIf="voiceNoteDataUrl && !isVoiceRecording"
+                        class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400"
+                      ></span>
+                    </button>
 
                     <span
-                      *ngIf="voiceNoteDataUrl && !isVoiceRecording"
+                      *ngIf="micInlineMessage"
+                      class="text-[10px] rounded-xl bg-amber-500/10 border border-amber-400/60 text-amber-200 px-2 py-1"
+                    >
+                      {{ micInlineMessage }}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    class="icon-btn relative"
+                    title="Take target photo"
+                    (click)="onTargetPhotoClick($event)"
+                  >
+                    📷
+
+                    <!-- ✅ indicator dot when ANY photo exists -->
+                    <span
+                      *ngIf="hasAnyPhoto()"
                       class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400"
                     ></span>
                   </button>
 
                   <span
-                    *ngIf="micInlineMessage"
-                    class="text-[10px] rounded-xl bg-amber-500/10 border border-amber-400/60 text-amber-200 px-2 py-1"
+                    *ngIf="targetPhotoInlineMessage"
+                    class="ml-1 text-[10px] rounded-xl bg-sky-500/10 border border-sky-400/60 text-sky-200 px-2 py-1"
                   >
-                    {{ micInlineMessage }}
+                    {{ targetPhotoInlineMessage }}
                   </span>
+
+                  <!-- Right: Delete -->
+                  <!-- Right: Delete -->
+                  <div class="ml-auto flex justify-end">
+                    <button
+                      type="button"
+                      class="px-2 py-1 rounded-md bg-red-700/80 text-red-50 text-[10px] font-semibold hover:bg-red-600 active:scale-95 transition"
+                      (click)="deleteProject(sp)"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  class="icon-btn relative"
-                  title="Take target photo"
-                  (click)="onTargetPhotoClick($event)"
-                >
-                  📷
+                <!-- Notes panel (collapsed by default) -->
+                <div class="mt-2 space-y-2">
+                  <!-- Notes + Summary (2-column on wide screens, stacked on mobile) -->
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <!-- LEFT: Notes + Media -->
+                    <div *ngIf="showNotesPanel; else notesCollapsedHint" class="space-y-2">
+                      <textarea
+                        rows="2"
+                        class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-gray-100 text-[11px]"
+                        [(ngModel)]="selectedProject.notes"
+                        placeholder="Notes for this load development…"
+                      ></textarea>
 
-                  <!-- ✅ indicator dot when ANY photo exists -->
-                  <span
-                    *ngIf="hasAnyPhoto()"
-                    class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400"
-                  ></span>
-                </button>
-
-                <span
-                  *ngIf="targetPhotoInlineMessage"
-                  class="ml-1 text-[10px] rounded-xl bg-sky-500/10 border border-sky-400/60 text-sky-200 px-2 py-1"
-                >
-                  {{ targetPhotoInlineMessage }}
-                </span>
-
-                <!-- Right: Delete -->
-                <!-- Right: Delete -->
-                <div class="ml-auto flex justify-end">
-                  <button
-                    type="button"
-                    class="px-2 py-1 rounded-md bg-red-700/80 text-red-50 text-[10px] font-semibold hover:bg-red-600 active:scale-95 transition"
-                    (click)="deleteProject(sp)"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-              <!-- Notes panel (collapsed by default) -->
-              <div class="mt-2 space-y-2">
-                <!-- Notes + Summary (2-column on wide screens, stacked on mobile) -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <!-- LEFT: Notes + Media -->
-                  <div *ngIf="showNotesPanel; else notesCollapsedHint" class="space-y-2">
-                    <textarea
-                      rows="2"
-                      class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-gray-100 text-[11px]"
-                      [(ngModel)]="selectedProject.notes"
-                      placeholder="Notes for this load development…"
-                    ></textarea>
-
-                    <!-- Media (Photo now, Audio later) -->
-                    <div class="mt-2 space-y-2">
-                      <!-- Overall (project-level) photo -->
-                      <div class="mt-1">
-                        <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-1">
-                          OverView
-                        </div>
-
-                        <button
-                          *ngIf="targetPhotoDataUrl; else noOverallPhoto"
-                          type="button"
-                          class="w-full flex items-center gap-3 p-2 rounded-xl bg-white/5 border border-white/10"
-                          (click)="openProjectPhotoViewer(targetPhotoDataUrl, $event)"
-                        >
-                          <div
-                            class="w-10 h-10 rounded-lg overflow-hidden border border-white/10 bg-black/20 flex-shrink-0"
-                          >
-                            <img [src]="targetPhotoDataUrl" class="w-full h-full object-cover" />
+                      <!-- Media (Photo now, Audio later) -->
+                      <div class="mt-2 space-y-2">
+                        <!-- Overall (project-level) photo -->
+                        <div class="mt-1">
+                          <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-1">
+                            OverView
                           </div>
 
-                          <div class="flex-1 text-left">
-                            <div class="text-xs font-semibold text-white">Overall photo</div>
-                            <div class="text-[11px] text-gray-300">Tap to view</div>
-                          </div>
-
-                          <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 flex-shrink-0"></div>
-                        </button>
-
-                        <ng-template #noOverallPhoto>
-                          <div class="text-[10px] text-gray-500">No Overall photo taken.</div>
-                        </ng-template>
-                      </div>
-
-                      <!-- OCW: entry photos grouped by charge (saved on entries) -->
-                      <div
-                        *ngIf="selectedProject?.type === 'ocw' && ocwPhotoNotesItems().length > 0"
-                        class="mt-3"
-                      >
-                        <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-1">
-                          OCW photos (by charge)
-                        </div>
-
-                        <div class="space-y-2">
                           <button
+                            *ngIf="targetPhotoDataUrl; else noOverallPhoto"
                             type="button"
-                            *ngFor="let it of ocwPhotoNotesItems()"
                             class="w-full flex items-center gap-3 p-2 rounded-xl bg-white/5 border border-white/10"
-                            (click)="openEntryPhotoViewer(it.entry)"
+                            (click)="openProjectPhotoViewer(targetPhotoDataUrl, $event)"
                           >
                             <div
                               class="w-10 h-10 rounded-lg overflow-hidden border border-white/10 bg-black/20 flex-shrink-0"
                             >
-                              <img [src]="it.url" class="w-full h-full object-cover" />
+                              <img [src]="targetPhotoDataUrl" class="w-full h-full object-cover" />
                             </div>
 
                             <div class="flex-1 text-left">
-                              <div class="text-xs font-semibold text-white">
-                                {{ it.charge | number : '1.1-1' }} gr
-                              </div>
-                              <div class="text-[11px] text-gray-300">
-                                {{ it.label }}
-                              </div>
+                              <div class="text-xs font-semibold text-white">Overall photo</div>
+                              <div class="text-[11px] text-gray-300">Tap to view</div>
                             </div>
 
                             <div
                               class="w-2.5 h-2.5 rounded-full bg-emerald-400 flex-shrink-0"
                             ></div>
                           </button>
-                        </div>
-                      </div>
 
-                      <!-- AUDIO -->
-                      <div class="mt-2 space-y-1">
-                        <!-- Recording status -->
-                        <div *ngIf="isVoiceRecording" class="text-[9px] text-amber-300">
-                          Recording… tap ⏹ to stop
+                          <ng-template #noOverallPhoto>
+                            <div class="text-[10px] text-gray-500">No Overall photo taken.</div>
+                          </ng-template>
                         </div>
 
-                        <!-- Playback -->
-                        <div *ngIf="voiceNoteDataUrl; else noAudio" class="flex items-center gap-2">
-                          <audio [src]="voiceNoteDataUrl" controls class="flex-1 h-8"></audio>
+                        <!-- OCW: entry photos grouped by charge (saved on entries) -->
+                        <div
+                          *ngIf="selectedProject?.type === 'ocw' && ocwPhotoNotesItems().length > 0"
+                          class="mt-3"
+                        >
+                          <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-1">
+                            OCW photos (by charge)
+                          </div>
 
-                          <button
-                            type="button"
-                            class="px-2 py-1 rounded-md bg-red-700/80 text-red-50 text-[10px] font-semibold hover:bg-red-600 active:scale-95 transition"
-                            (click)="deleteVoiceNote()"
+                          <div class="space-y-2">
+                            <button
+                              type="button"
+                              *ngFor="let it of ocwPhotoNotesItems()"
+                              class="w-full flex items-center gap-3 p-2 rounded-xl bg-white/5 border border-white/10"
+                              (click)="openEntryPhotoViewer(it.entry)"
+                            >
+                              <div
+                                class="w-10 h-10 rounded-lg overflow-hidden border border-white/10 bg-black/20 flex-shrink-0"
+                              >
+                                <img [src]="it.url" class="w-full h-full object-cover" />
+                              </div>
+
+                              <div class="flex-1 text-left">
+                                <div class="text-xs font-semibold text-white">
+                                  {{ it.charge | number : '1.1-1' }} gr
+                                </div>
+                                <div class="text-[11px] text-gray-300">
+                                  {{ it.label }}
+                                </div>
+                              </div>
+
+                              <div
+                                class="w-2.5 h-2.5 rounded-full bg-emerald-400 flex-shrink-0"
+                              ></div>
+                            </button>
+                          </div>
+                        </div>
+
+                        <!-- AUDIO -->
+                        <div class="mt-2 space-y-1">
+                          <!-- Recording status -->
+                          <div *ngIf="isVoiceRecording" class="text-[9px] text-amber-300">
+                            Recording… tap ⏹ to stop
+                          </div>
+
+                          <!-- Playback -->
+                          <div
+                            *ngIf="voiceNoteDataUrl; else noAudio"
+                            class="flex items-center gap-2"
                           >
-                            Del
-                          </button>
-                        </div>
+                            <audio [src]="voiceNoteDataUrl" controls class="flex-1 h-8"></audio>
 
-                        <ng-template #noAudio>
-                          <div class="text-[10px] text-gray-500">No voice note saved yet.</div>
-                        </ng-template>
-                      </div>
-                    </div>
-                  </div>
+                            <button
+                              type="button"
+                              class="px-2 py-1 rounded-md bg-red-700/80 text-red-50 text-[10px] font-semibold hover:bg-red-600 active:scale-95 transition"
+                              (click)="deleteVoiceNote()"
+                            >
+                              Del
+                            </button>
+                          </div>
 
-                  <ng-template #notesCollapsedHint>
-                    <div
-                      class="rounded-2xl border border-gray-700 bg-black/30 p-2 text-[10px] text-gray-400"
-                    >
-                      Tap <span class="font-semibold text-gray-200">Notes</span> to edit notes,
-                      photos and voice notes.
-                    </div>
-                  </ng-template>
-
-                  <!-- RIGHT: Summary -->
-                  <div class="rounded-2xl border border-gray-700 bg-black/30 p-2">
-                    <div class="text-[10px] text-gray-300 font-semibold mb-1">Summary</div>
-
-                    <div
-                      class="grid grid-cols-[auto,1fr,auto,1fr] gap-x-3 gap-y-1 text-[10px] text-gray-200"
-                    >
-                      <!-- Row 1 -->
-                      <div class="text-gray-400">Powder:</div>
-                      <div class="font-semibold truncate">{{ selectedProject?.powder || '—' }}</div>
-
-                      <div class="text-gray-400">Bullet:</div>
-                      <div class="font-semibold truncate">{{ selectedProject?.bullet || '—' }}</div>
-
-                      <!-- Row 2 -->
-                      <div class="text-gray-400">Bullet wt:</div>
-                      <div class="font-semibold">
-                        {{ selectedProject?.bulletWeightGr ?? '—' }}
-                        <span *ngIf="selectedProject?.bulletWeightGr != null"> gr</span>
-                      </div>
-
-                      <div class="text-gray-400">COAL:</div>
-                      <div class="font-semibold">
-                        {{ selectedProject?.oal ?? '—' }}
-                        <span *ngIf="selectedProject?.oal != null"> mm</span>
-                      </div>
-
-                      <!-- Row 3 -->
-                      <div class="text-gray-400">COAL Ogive:</div>
-                      <div class="font-semibold">
-                        {{ selectedProject?.oalOgive ?? '—' }}
-                        <span *ngIf="selectedProject?.oalOgive != null"> mm</span>
-                      </div>
-
-                      <div class="col-span-4 flex items-baseline gap-2">
-                        <div class="text-gray-400 whitespace-nowrap">Charge range:</div>
-                        <div class="font-semibold whitespace-nowrap">
-                          {{ selectedProjectChargeRangeText() }}
+                          <ng-template #noAudio>
+                            <div class="text-[10px] text-gray-500">No voice note saved yet.</div>
+                          </ng-template>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-                <!-- Save button -->
-                <div *ngIf="showNotesPanel" class="flex justify-end">
-                  <button
-                    type="button"
-                    class="px-3 py-1.5 rounded-xl bg-emerald-500 text-black text-xs font-semibold"
-                    (click)="saveSelectedProjectNotes()"
-                  >
-                    Save &amp; Close
-                  </button>
-                </div>
 
-                <div
-                  *ngIf="photoViewerOpen"
-                  class="fixed inset-0 z-[9999] bg-black/90 flex flex-col"
-                  (click)="closePhotoViewer()"
-                >
-                  <div
-                    class="p-3 flex items-center justify-between"
-                    (click)="$event.stopPropagation()"
-                  >
-                    <div class="text-white text-sm font-semibold">Target photo</div>
-
-                    <div class="flex gap-2">
-                      <button
-                        class="px-3 py-1 rounded-xl bg-gray-700 text-white text-xs"
-                        (click)="closePhotoViewer()"
-                      >
-                        Close
-                      </button>
-                      <button
-                        class="px-3 py-1 rounded-xl bg-red-600 text-white text-xs"
-                        (click)="deleteEntryPhoto()"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-
-                  <div class="flex-1 overflow-auto p-3" (click)="$event.stopPropagation()">
-                    <div *ngIf="photoViewerImgUrl" class="relative w-full max-w-[520px] mx-auto">
-                      <img
-                        [src]="photoViewerImgUrl"
-                        class="w-full rounded-2xl border border-gray-700"
-                        alt="Target photo"
-                      />
-
-                      <!-- Step 1: auto-scaled 1cm grid overlay -->
+                    <ng-template #notesCollapsedHint>
                       <div
-                        *ngIf="gridPxPerCm"
-                        class="absolute inset-0 pointer-events-none rounded-2xl"
-                        [ngStyle]="gridOverlayStyle"
-                      ></div>
+                        class="rounded-2xl border border-gray-700 bg-black/30 p-2 text-[10px] text-gray-400"
+                      >
+                        Tap <span class="font-semibold text-gray-200">Notes</span> to edit notes,
+                        photos and voice notes.
+                      </div>
+                    </ng-template>
+
+                    <!-- RIGHT: Summary -->
+                    <div class="rounded-2xl border border-gray-700 bg-black/30 p-2">
+                      <div class="text-[10px] text-gray-300 font-semibold mb-1">Summary</div>
+
+                      <div
+                        class="grid grid-cols-[auto,1fr,auto,1fr] gap-x-3 gap-y-1 text-[10px] text-gray-200"
+                      >
+                        <!-- Row 1 -->
+                        <div class="text-gray-400">Powder:</div>
+                        <div class="font-semibold truncate">
+                          {{ selectedProject?.powder || '—' }}
+                        </div>
+
+                        <div class="text-gray-400">Bullet:</div>
+                        <div class="font-semibold truncate">
+                          {{ selectedProject?.bullet || '—' }}
+                        </div>
+
+                        <!-- Row 2 -->
+                        <div class="text-gray-400">Bullet wt:</div>
+                        <div class="font-semibold">
+                          {{ selectedProject?.bulletWeightGr ?? '—' }}
+                          <span *ngIf="selectedProject?.bulletWeightGr != null"> gr</span>
+                        </div>
+
+                        <div class="text-gray-400">COAL:</div>
+                        <div class="font-semibold">
+                          {{ selectedProject?.oal ?? '—' }}
+                          <span *ngIf="selectedProject?.oal != null"> mm</span>
+                        </div>
+
+                        <!-- Row 3 -->
+                        <div class="text-gray-400">COAL Ogive:</div>
+                        <div class="font-semibold">
+                          {{ selectedProject?.oalOgive ?? '—' }}
+                          <span *ngIf="selectedProject?.oalOgive != null"> mm</span>
+                        </div>
+
+                        <div class="col-span-4 flex items-baseline gap-2">
+                          <div class="text-gray-400 whitespace-nowrap">Charge range:</div>
+                          <div class="font-semibold whitespace-nowrap">
+                            {{ selectedProjectChargeRangeText() }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Save button -->
+                  <div *ngIf="showNotesPanel" class="flex justify-end">
+                    <button
+                      type="button"
+                      class="px-3 py-1.5 rounded-xl bg-emerald-500 text-black text-xs font-semibold"
+                      (click)="saveSelectedProjectNotes()"
+                    >
+                      Save &amp; Close
+                    </button>
+                  </div>
+
+                  <div
+                    *ngIf="photoViewerOpen"
+                    class="fixed inset-0 z-[9999] bg-black/90 flex flex-col"
+                    (click)="closePhotoViewer()"
+                  >
+                    <div
+                      class="p-3 flex items-center justify-between"
+                      (click)="$event.stopPropagation()"
+                    >
+                      <div class="text-white text-sm font-semibold">Target photo</div>
+
+                      <div class="flex gap-2">
+                        <button
+                          class="px-3 py-1 rounded-xl bg-gray-700 text-white text-xs"
+                          (click)="closePhotoViewer()"
+                        >
+                          Close
+                        </button>
+                        <button
+                          class="px-3 py-1 rounded-xl bg-red-600 text-white text-xs"
+                          (click)="deleteEntryPhoto()"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="flex-1 overflow-auto p-3" (click)="$event.stopPropagation()">
+                      <div *ngIf="photoViewerImgUrl" class="relative w-full max-w-[520px] mx-auto">
+                        <img
+                          [src]="photoViewerImgUrl"
+                          class="w-full rounded-2xl border border-gray-700"
+                          alt="Target photo"
+                        />
+
+                        <!-- Step 1: auto-scaled 1cm grid overlay -->
+                        <div
+                          *ngIf="gridPxPerCm"
+                          class="absolute inset-0 pointer-events-none rounded-2xl"
+                          [ngStyle]="gridOverlayStyle"
+                        ></div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- Export removed (keep layout spacing identical) -->
-              <div
-                class="px-3 py-1.5 rounded-2xl bg-white text-black font-semibold text-[11px] border border-gray-300 invisible pointer-events-none select-none"
+                <!-- Export removed (keep layout spacing identical) -->
+                <div
+                  class="px-3 py-1.5 rounded-2xl bg-white text-black font-semibold text-[11px] border border-gray-300 invisible pointer-events-none select-none"
+                >
+                  Export
+                </div>
+              </ng-container>
+            </div>
+            <!-- Bottom Back (always visible, even when results are collapsed/hidden) -->
+            <div class="w-100 flex justify-between gap-2">
+              <button
+                class="px-3 py-[4px] rounded-full bg-gray-100 text-black text-[12px] font-semibold shadow"
+                (click)="exportPdf()"
               >
-                Export
-              </div>
-            </ng-container>
-          </div>
-          <!-- Bottom Back (always visible, even when results are collapsed/hidden) -->
-          <div class="w-100 flex justify-between gap-2">
-            <button
-              class="px-3 py-[4px] rounded-full bg-gray-100 text-black text-[12px] font-semibold shadow"
-              (click)="exportPdf()"
-            >
-              Export PDF
-            </button>
-            <button
-              type="button"
-              class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black text-[11px] font-semibold"
-              (click)="onBackFromHistory()"
-            >
-              Back
-            </button>
+                Export PDF
+              </button>
+              <button
+                type="button"
+                class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black text-[11px] font-semibold"
+                (click)="onBackFromHistory()"
+              >
+                Back
+              </button>
+            </div>
           </div>
         </div>
       </div>
