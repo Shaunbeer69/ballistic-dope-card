@@ -9,7 +9,9 @@
     "test": "ng test",
     "cap:add": "npx cap add android",
     "cap:sync": "npx cap copy",
-    "android": "npx cap open android"
+    "android": "npx cap open android",
+    "release:minor": "npm version minor && npm run build && npm run cap:sync && npm run android"
+
   },
   "prettier": {
     "printWidth": 100,
