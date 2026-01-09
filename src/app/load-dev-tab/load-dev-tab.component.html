@@ -602,11 +602,11 @@
               </svg>
               <!-- LADDER: Charges under the graph (aligned to dot x positions) -->
               <svg
-                *ngIf="selectedProject?.type !== 'ocw' && graphCoords.length"
+                *ngIf="selectedProject?.type !== 'ocw' && graphChargeLabels.length"
                 viewBox="0 0 100 10"
                 class="w-full -mt-1"
               >
-                <ng-container *ngFor="let p of graphCoords">
+                <ng-container *ngFor="let p of graphChargeLabels">
                   <text
                     [attr.x]="p.x < 6 ? 6 : p.x > 94 ? 94 : p.x"
                     y="8"

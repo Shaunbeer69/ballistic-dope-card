@@ -2056,6 +2056,7 @@ y += boxH + boxPadAfter;
   showGraph = false;
   graphCoords: { x: number; y: number; charge: number; avg: number }[] = [];
   graphSvgPoints = '';
+    graphChargeLabels: { x: number; charge: number }[] = [];
   graphMinVel = 0;
   graphMaxVel = 0;
 
@@ -3511,6 +3512,7 @@ allEntriesHaveVelocity(): boolean {
   private rebuildGraphData(): void {
     this.graphCoords = [];
     this.graphSvgPoints = '';
+        this.graphChargeLabels = [];
     this.graphMinVel = 0;
     this.graphMaxVel = 0;
 
@@ -3558,12 +3560,53 @@ allEntriesHaveVelocity(): boolean {
 
       this.graphCoords = coords;
       this.graphSvgPoints = coords.map(c => `${c.x},${c.y}`).join(' ');
+            this.graphChargeLabels = this.buildGraphChargeLabels(coords, 6);
+
     }
 
     if (this.selectedProject.type === 'ocw') {
       const sorted = [...entries].sort((a, b) => (a.chargeGr ?? 9999) - (b.chargeGr ?? 9999));
       this.buildOcwShotAndGroupGeometry(sorted);
     }
+  }
+  private buildGraphChargeLabels(
+    coords: { x: number; charge: number }[],
+    minGap: number = 6
+  ): { x: number; charge: number }[] {
+    if (!coords || coords.length === 0) return [];
+
+    const out: { x: number; charge: number }[] = [];
+
+    const lastIdx = coords.length - 1;
+    const first = coords[0];
+    const last = coords[lastIdx];
+
+    // Always include first
+    out.push({ x: first.x, charge: first.charge });
+    let lastX = first.x;
+
+    // Greedy include labels only when spacing allows
+    for (let i = 1; i < lastIdx; i++) {
+      const c = coords[i];
+      if (c.x - lastX >= minGap) {
+        out.push({ x: c.x, charge: c.charge });
+        lastX = c.x;
+      }
+    }
+
+    // Always include last
+    out.push({ x: last.x, charge: last.charge });
+
+    // If the last label overlaps the previous one, drop the previous (unless it is the first)
+    if (out.length >= 3) {
+      const prev = out[out.length - 2];
+      const end = out[out.length - 1];
+      if (end.x - prev.x < minGap && prev.x !== first.x) {
+        out.splice(out.length - 2, 1);
+      }
+    }
+
+    return out;
   }
 
   toggleGraph(): void {
