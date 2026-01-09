@@ -3262,7 +3262,7 @@ if (type === 'ladder' || type === 'ocw') {
     });
   }
 
-  ocwRankForEntry(entry: LoadDevEntry): 'best' | 'second' | 'third' | null {
+    ocwRankForEntry(entry: LoadDevEntry): 'best' | 'second' | 'third' | null {
     if (!this.selectedProject || this.selectedProject.type !== 'ocw') return null;
 
     const ranked = this.sortOcwEntriesBySd(this.selectedProject.entries ?? []).filter(
@@ -3274,26 +3274,49 @@ if (type === 'ladder' || type === 'ocw') {
 
     if (ranked.length < 1) return null;
 
-    const id = String((entry as any).id ?? '');
-    if (id === String((ranked[0] as any).id ?? '')) return 'best';
-    if (ranked.length >= 2 && id === String((ranked[1] as any).id ?? ''))
-      return 'second';
-    if (ranked.length >= 3 && id === String((ranked[2] as any).id ?? ''))
-      return 'third';
+    const id = Number((entry as any).id);
+    if (!Number.isFinite(id)) return null; // ✅ change: numeric + guard
+
+    if (id === Number((ranked[0] as any).id)) return 'best'; // ✅ change
+    if (ranked.length >= 2 && id === Number((ranked[1] as any).id)) return 'second'; // ✅ change
+    if (ranked.length >= 3 && id === Number((ranked[2] as any).id)) return 'third'; // ✅ change
 
     return null;
   }
 
+  ocwBestEntryId(): number | null {
+    if (!this.selectedProject || this.selectedProject.type !== 'ocw') return null;
+
+    const ranked = this.sortOcwEntriesBySd(this.selectedProject.entries ?? []).filter(e => {
+      const sd = this.statsForEntry(e)?.sd;
+      return typeof sd === 'number' && isFinite(sd);
+    });
+
+    if (!ranked.length) return null;
+
+    const id = Number((ranked[0] as any).id);
+    return Number.isFinite(id) ? id : null;
+  }
+
+  isOcwBestEntryId(entryId: number): boolean {
+    const best = this.ocwBestEntryId();
+    return best != null && Number(entryId) === best;
+  }
+
   ocwSdCssClass(entry: LoadDevEntry): string {
+
     const r = this.ocwRankForEntry(entry);
+
     if (r === 'best') return 'bg-emerald-900/30 ring-1 ring-emerald-500/50';
     if (r === 'second') return 'bg-amber-900/25 ring-1 ring-amber-500/40';
     if (r === 'third') return 'bg-rose-900/25 ring-1 ring-rose-500/40';
     return '';
-    
+
   }
+
 // ===============================
 // LADDER: node band classification
+
 // ===============================
 
 /**
