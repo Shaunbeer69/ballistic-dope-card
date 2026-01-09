@@ -2054,7 +2054,18 @@ y += boxH + boxPadAfter;
 
   // Graph (existing ladder/avg line)
   showGraph = false;
-  graphCoords: { x: number; y: number; charge: number; avg: number }[] = [];
+     graphCoords: {
+    x: number;
+    y: number;
+    charge: number;
+    avg: number;
+    labelX?: number;
+    labelY?: number;
+    labelAnchor?: 'start' | 'middle' | 'end';
+    labelFontSize?: number;
+  }[] = [];
+
+
   graphSvgPoints = '';
     graphChargeLabels: { x: number; charge: number }[] = [];
   graphMinVel = 0;
@@ -3550,12 +3561,53 @@ allEntriesHaveVelocity(): boolean {
       const n = pts.length;
       const span = this.graphMaxVel - this.graphMinVel || 1;
 
-      const coords: { x: number; y: number; charge: number; avg: number }[] = [];
+            const coords: {
+        x: number;
+        y: number;
+        charge: number;
+        avg: number;
+        labelX?: number;
+        labelY?: number;
+        labelAnchor?: 'start' | 'middle' | 'end';
+        labelFontSize?: number;
+      }[] = [];
+
       for (let i = 0; i < n; i++) {
         const p = pts[i];
         const x = n === 1 ? 50 : (i / (n - 1)) * 100;
         const y = 55 - ((p.avg - this.graphMinVel) / span) * 45;
-        coords.push({ x, y, charge: p.charge, avg: p.avg });
+                const dx = n === 1 ? 100 : 100 / (n - 1);
+        const compact = dx < 9;
+        const tiny = dx < 6;
+        const labelFontSize = tiny ? 2.4 : dx < 8 ? 2.6 : 3;
+
+        const labelY = compact ? (i % 2 === 0 ? 8 : 4) : 8;
+
+        let labelX = x;
+        let labelAnchor: 'start' | 'middle' | 'end' = 'middle';
+
+        if (i === 0) {
+          labelX = 2;
+          labelAnchor = 'start';
+        } else if (i === n - 1) {
+          labelX = 98;
+          labelAnchor = 'end';
+        } else {
+          labelX = Math.min(96, Math.max(4, x));
+          labelAnchor = 'middle';
+        }
+
+        coords.push({
+          x,
+          y,
+          charge: p.charge,
+          avg: p.avg,
+          labelX,
+          labelY,
+          labelAnchor,
+          labelFontSize
+        });
+
       }
 
       this.graphCoords = coords;
