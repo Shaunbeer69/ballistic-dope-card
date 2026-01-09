@@ -2568,10 +2568,10 @@ private async drawAssetImageInBox(
     this.rebuildGraphData();
     if (!this.graphCoords.length && !this.ocwShotPoints.length) this.showGraph = false;
   }
-
   onProjectSelectChange(): void {
     if (this.selectedProjectId == null) {
       this.selectedProject = null;
+      this.resultsCollapsed = true;
       this.updateHasResultsFlag();
       this.rebuildGraphData();
       this.showGraph = false;
@@ -2581,6 +2581,8 @@ private async drawAssetImageInBox(
 
     this.selectedProject =
       this.projects.find(p => p.id === this.selectedProjectId) ?? null;
+      this.projectFormVisible = false;
+this.resultsCollapsed = false;
 this.syncTargetPhotoFromProject();
 this.syncVoiceNoteFromProject();
     this.updateHasResultsFlag();
