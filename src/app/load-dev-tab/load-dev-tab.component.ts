@@ -606,9 +606,9 @@ async onEntryTargetPhotoClick(entry: LoadDevEntry, event?: Event): Promise<void>
 
   // Web fallback (file picker)
   if (!Capacitor.isNativePlatform()) {
-    this.pendingEntryForPhoto = entry;
+   /* this.pendingEntryForPhoto = entry;
     this.targetPhotoInlineMessage = 'Choose a photo (web)';
-    setTimeout(() => (this.targetPhotoInlineMessage = null), 1600);
+    setTimeout(() => (this.targetPhotoInlineMessage = null), 1600);*/
     this.entryFileInput?.nativeElement?.click();
     return;
   }
@@ -2034,6 +2034,17 @@ y += boxH + boxPadAfter;
   editingEntry: LoadDevEntry | null = null;
   entryForm: EntryForm = this.createEmptyEntryForm();
   entrySortMode: 'default' | 'chargeAsc' | 'groupAsc' | 'groupDesc' = 'default';
+   visibleEntries: LoadDevEntry[] = [];
+
+  // Cache for OCW photo list so template doesn't rebuild arrays every change detection tick
+  ocwPhotoNotesCache: { charge: number; entry: LoadDevEntry; url: string; label: string }[] = [];
+
+  private rebuildVisibleEntries(): void {
+    this.visibleEntries = this.entriesForSelectedProject();
+
+    // Keep OCW photo list cache in sync (cheap when not OCW)
+    this.ocwPhotoNotesCache = this.ocwPhotoNotesItems();
+  }
 
   // Results visibility
   resultsCollapsed = false;
@@ -2520,12 +2531,14 @@ private async drawAssetImageInBox(
       this.projects = [];
       this.selectedProject = null;
       this.selectedProjectId = null;
-
+      this.visibleEntries = [];
       this.hasResultsForSelectedProject = false;
 
       this.availablePowders = [];
       this.availableBullets = [];
       this.filteredProjects = null;
+      this.visibleEntries = [];
+      this.ocwPhotoNotesCache = [];
 
       this.rebuildGraphData();
       this.resetWizard();
@@ -2553,7 +2566,9 @@ private async drawAssetImageInBox(
 
     this.rebuildFilterOptions();
     this.applyProjectFilters();
+        this.rebuildVisibleEntries();
 
+    this.rebuildVisibleEntries();
     this.updateHasResultsFlag();
     this.rebuildGraphData();
     if (!this.graphCoords.length && !this.ocwShotPoints.length) this.showGraph = false;
@@ -2575,35 +2590,45 @@ private async drawAssetImageInBox(
 
     this.rebuildFilterOptions();
     this.applyProjectFilters();
+        this.rebuildVisibleEntries();
 
+    this.rebuildVisibleEntries();
     this.updateHasResultsFlag();
     this.rebuildGraphData();
     if (!this.graphCoords.length && !this.ocwShotPoints.length) this.showGraph = false;
-  }
-  onProjectSelectChange(): void {
+  }  onProjectSelectChange(): void {
     if (this.selectedProjectId == null) {
       this.selectedProject = null;
+      this.visibleEntries = []; // ✅ keep cache in sync
       this.resultsCollapsed = true;
+
       this.updateHasResultsFlag();
       this.rebuildGraphData();
       this.showGraph = false;
+
       this.resetWizard();
       return;
     }
 
     this.selectedProject =
       this.projects.find(p => p.id === this.selectedProjectId) ?? null;
-      this.projectFormVisible = false;
-this.resultsCollapsed = false;
-this.syncTargetPhotoFromProject();
-this.syncVoiceNoteFromProject();
+
+    this.projectFormVisible = false;
+    this.resultsCollapsed = false;
+
+    this.syncTargetPhotoFromProject();
+    this.syncVoiceNoteFromProject();
+
+    this.rebuildVisibleEntries(); // ✅ rebuild cache for template
     this.updateHasResultsFlag();
+
     this.rebuildGraphData();
     if (!this.graphCoords.length && !this.ocwShotPoints.length) this.showGraph = false;
 
     this.resetWizard();
-    
   }
+
+
 
   openSelectedProject(): void {
     if (!this.selectedProjectId) {
@@ -3124,7 +3149,7 @@ if (type === 'ladder' || type === 'ocw') {
     this.data.deleteLoadDevEntry(this.selectedProject.id, entry.id);
     this.loadProjects();
   }
-
+  // Removed duplicate implementation of rebuildVisibleEntries()
   entriesForSelectedProject(): LoadDevEntry[] {
    
     if (!this.selectedProject) return [];

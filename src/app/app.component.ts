@@ -90,7 +90,7 @@ interface WindTrendSummary {
   ],
 })
 export class AppComponent implements OnInit {
-  appTitle = 'Gunstuff Ballistic Dope Card';
+  appTitle = 'GS Dope Card';
   appSubtitle = 'Field log for rifles, venues & sessions';
     appVersion = APP_VERSION;
 
@@ -1211,8 +1211,8 @@ async exportLoadDevBackup(shareAfterSave: boolean = true): Promise<void> {
 
      if (shareAfterSave) {
   await Share.share({
-    title: 'Gunstuff Backup',
-    text: 'Gunstuff Ballistics backup file',
+    title: 'GS Backup',
+    text: 'GS Ballistics backup file',
     url: uri,
   });
 

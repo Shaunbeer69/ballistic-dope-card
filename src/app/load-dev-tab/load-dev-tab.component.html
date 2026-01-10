@@ -145,9 +145,10 @@
 
           <!-- OAL + COAL (Ogive) -->
           <div class="grid grid-cols-2 gap-2">
+            <!-- LEFT: Overall length + unit -->
             <div>
               <div class="text-gray-400 mb-0.5 flex items-center justify-between gap-2">
-                <span>Coal </span>
+                <span>Coal</span>
                 <select
                   class="bg-black/40 border border-gray-700 rounded-xl px-2 py-0.5 text-gray-100 text-[10px]"
                   [(ngModel)]="projectForm.oalUnit"
@@ -165,16 +166,10 @@
               />
             </div>
 
+            <!-- RIGHT: Ogive length (same unit) -->
             <div>
-              <div class="text-gray-400 mb-0.5 flex items-center justify-between gap-2">
-                <span>Coal </span>
-                <select
-                  class="bg-black/40 border border-gray-700 rounded-xl px-2 py-0.5 text-gray-100 text-[10px]"
-                  [(ngModel)]="projectForm.oalUnit"
-                >
-                  <option value="mm">mm</option>
-                  <option value="in">in</option>
-                </select>
+              <div class="text-gray-400 mb-0.5 flex items-center justify-end gap-2">
+                <span class="text-[10px] text-gray-500"> ({{ projectForm.oalUnit || 'mm' }}) </span>
               </div>
 
               <input
@@ -184,26 +179,6 @@
                 placeholder="Ogive length"
               />
             </div>
-          </div>
-
-          <!-- Distance (wrap to next line) -->
-          <div *ngIf="projectForm.type === 'ladder' || projectForm.type === 'ocw'" class="mt-2">
-            <div class="text-gray-400 mb-0.5 flex items-center justify-between gap-2">
-              <span>Distance</span>
-              <select
-                class="bg-black/40 border border-gray-700 rounded-xl px-2 py-0.5 text-gray-100 text-[10px]"
-                [(ngModel)]="planner.distanceUnit"
-              >
-                <option value="m">m</option>
-                <option value="mi">mi</option>
-              </select>
-            </div>
-
-            <input
-              type="number"
-              class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
-              [(ngModel)]="planner.distanceM"
-            />
           </div>
 
           <!-- Ladder planning values -->
@@ -411,7 +386,7 @@
             <input
               #velocityInputEl
               type="text"
-              class="w-full bg-black/60 border border-sky-...nded-2xl px-2 py-1.5 text-xs text-sky-50 ring-2 ring-sky-400/60"
+              class="w-full bg-black/60 border border-sky-400/60 rounded-2xl px-2 py-1.5 text-xs text-sky-50 ring-2 ring-sky-400/60"
               [(ngModel)]="velocityEditValue"
               [placeholder]="
                 selectedProject?.type === 'ocw' ? 'e.g. 2765, 2772, 2768' : 'e.g. 2765 2772 2768'
@@ -513,12 +488,8 @@
                 <div class="truncate">
                   Shot:
                   {{
-                    (graphCoords.length || ocwShotPoints.length) &&
-                    entriesForSelectedProject().length
-                      ? shortDateTime(
-                          entriesForSelectedProject()[entriesForSelectedProject().length - 1]
-                            .createdAt
-                        )
+                    (graphCoords.length || ocwShotPoints.length) && visibleEntries.length
+                      ? shortDateTime(visibleEntries[visibleEntries.length - 1].createdAt)
                       : '—'
                   }}
                 </div>
@@ -681,8 +652,8 @@
                   <tbody>
                     <!-- OCW: 2-line rows (metrics, then actions) -->
                     <ng-container *ngIf="selectedProject?.type === 'ocw'; else ladderBody">
-                      <ng-container *ngFor="let entry of entriesForSelectedProject()">
-                        <!-- Line 1: metrics -->
+                      <ng-container *ngFor="let entry of visibleEntries">
+                        <!-- Line 1: metrics (matches header: Charge / Vel / SD / ES / Group size) -->
                         <tr [ngClass]="ocwSdCssClass(entry)">
                           <td class="px-2 py-1 text-gray-100">
                             <div class="leading-tight">
@@ -694,21 +665,25 @@
                           </td>
 
                           <td class="px-2 py-1 text-gray-100">
-                            <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl">
-                              {{ s.avg | number : '1.0-0' }}
-                            </ng-container>
-                          </td>
+                            <ng-container *ngIf="statsForEntry(entry) as s; else dashTplStatsRow">
+                              <td class="px-2 py-1 text-gray-100">
+                                {{ s.avg | number : '1.0-0' }}
+                              </td>
 
-                          <td class="px-2 py-1 text-gray-100">
-                            <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl">
-                              {{ s.sd | number : '1.1-1' }}
-                            </ng-container>
-                          </td>
+                              <td class="px-2 py-1 text-gray-100">
+                                {{ s.sd | number : '1.1-1' }}
+                              </td>
 
-                          <td class="px-2 py-1 text-gray-100">
-                            <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl">
-                              {{ s.es | number : '1.0-0' }}
+                              <td class="px-2 py-1 text-gray-100">
+                                {{ s.es | number : '1.0-0' }}
+                              </td>
                             </ng-container>
+
+                            <ng-template #dashTplStatsRow>
+                              <td class="px-2 py-1 text-gray-100">—</td>
+                              <td class="px-2 py-1 text-gray-100">—</td>
+                              <td class="px-2 py-1 text-gray-100">—</td>
+                            </ng-template>
                           </td>
 
                           <td class="px-2 py-1 text-right text-gray-100">
@@ -750,7 +725,7 @@
                     <!-- Ladder: single-line rows -->
                     <ng-template #ladderBody>
                       <tr
-                        *ngFor="let entry of entriesForSelectedProject(); let i = index"
+                        *ngFor="let entry of visibleEntries; let i = index"
                         [ngClass]="nodeCssClass(entry)"
                       >
                         <td class="px-2 py-1 text-gray-100">
@@ -777,7 +752,7 @@
                         </td>
 
                         <td class="px-2 py-1 text-gray-100">
-                          {{ i + 1 }} / {{ entriesForSelectedProject().length }}
+                          {{ i + 1 }} / {{ visibleEntries.length }}
                         </td>
 
                         <td class="px-2 py-1 text-right whitespace-nowrap">
@@ -891,7 +866,6 @@
                   </span>
 
                   <!-- Right: Delete -->
-                  <!-- Right: Delete -->
                   <div class="ml-auto flex justify-end">
                     <button
                       type="button"
@@ -952,7 +926,7 @@
 
                         <!-- OCW: entry photos grouped by charge (saved on entries) -->
                         <div
-                          *ngIf="selectedProject.type === 'ocw' && ocwPhotoNotesItems().length > 0"
+                          *ngIf="selectedProject.type === 'ocw' && ocwPhotoNotesCache.length > 0"
                           class="mt-3"
                         >
                           <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-1">
@@ -962,7 +936,7 @@
                           <div class="space-y-2">
                             <button
                               type="button"
-                              *ngFor="let it of ocwPhotoNotesItems()"
+                              *ngFor="let it of ocwPhotoNotesCache"
                               class="w-full flex items-center gap-3 p-2 rounded-xl bg-white/5 border border-white/10"
                               (click)="openEntryPhotoViewer(it.entry)"
                             >
