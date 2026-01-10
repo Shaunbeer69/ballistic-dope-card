@@ -2225,12 +2225,13 @@ getEntryPhotoLabel(entry: LoadDevEntry): string {
         void this.ensureEntryPhotoOnFs(e, pid);
       }
 
-      // Only add once we have a usable URL (cache will make it appear)
-      const finalUrl = url || (tp?.path ? (this.photoDataUrlCache.get(String(tp.path)) ?? null) : null);
-      if (!finalUrl) continue;
+            // Add even if URL is not ready yet (cache will fill it in)
+      const finalUrl =
+        url || (tp?.path ? (this.photoDataUrlCache.get(String(tp.path)) ?? null) : null);
 
       const charge = Number((e.chargeGr ?? 0));
-      out.push({ charge, entry: e, url: finalUrl, label: this.getEntryPhotoLabel(e) });
+      out.push({ charge, entry: e, url: finalUrl ?? '', label: this.getEntryPhotoLabel(e) });
+
     }
 
     return out;

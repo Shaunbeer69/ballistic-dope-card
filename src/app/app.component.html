@@ -29,10 +29,7 @@
         <ng-container *ngIf="selectedTool === 'windEffect'; else normalMenu">
           <div class="rounded-3xl p-2 flex flex-col">
             <div class="overflow-y-auto flex justify-center">
-              <div
-                class="origin-top w-full"
-                [ngClass]="'md:scale-[1.15] lg:scale-[1.25] xl:scale-[1.35]'"
-              >
+              <div class="w-full max-w-[980px] mx-auto">
                 <app-wind-effect-tool></app-wind-effect-tool>
               </div>
             </div>

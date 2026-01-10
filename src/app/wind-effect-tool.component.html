@@ -1,10 +1,10 @@
 <div
-  class="w-full h-full flex flex-col gap-3 text-gray-100 text-[11px] overflow-hidden pt-2 pb-2 mx-auto max-w-[980px] items-stretch"
+  class="w-full h-full flex flex-col gap-2 sm:gap-3 md:gap-4 text-gray-100 text-[11px] overflow-hidden pt-2 pb-2 px-2 sm:px-3 mx-auto max-w-[980px] items-stretch"
 >
   <!-- Choose rifle -->
   <div class="w-full bg-gray-900/70 border border-gray-700 rounded-xl p-2">
     <select
-      class="w-full bg-black border border-gray-700 rounded-lg px-2 py-1 text-[10px]"
+      class="w-full bg-black border border-gray-700 rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px]"
       [(ngModel)]="selectedRifleId"
       (ngModelChange)="onRifleChanged($event)"
     >
@@ -18,32 +18,35 @@
   <!-- Rifle / wind from -->
   <div class="bg-gray-900/70 border border-gray-700 rounded-xl p-2">
     <div
-      class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_112px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_140px] gap-1"
+      class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_112px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_140px] gap-2 sm:gap-3"
     >
       <div>
-        <div class="text-[9px] text-gray-400">Range (m)</div>
+        <div class="text-[9px] sm:text-[10px] md:text-[11px] text-gray-400">Range (m)</div>
+
         <input
           type="number"
           [(ngModel)]="rangeMeters"
           (ngModelChange)="onRangeMetersChange($event)"
-          class="w-full bg-black border border-gray-700 rounded-lg px-2 py-0.5 text-[10px]"
+          class="w-full bg-black border border-gray-700 rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px]"
         />
       </div>
 
       <div>
-        <div class="text-[9px] text-gray-400">MV (fps)</div>
+        <div class="text-[9px] sm:text-[10px] md:text-[11px] text-gray-400">MV (fps)</div>
+
         <input
           type="number"
           [(ngModel)]="muzzleVelocityFps"
           (ngModelChange)="updatePoiFromDrift()"
-          class="w-full bg-black border border-gray-700 rounded-lg px-2 py-0.5 text-[10px]"
+          class="w-full bg-black border border-gray-700 rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px]"
         />
       </div>
 
       <div>
-        <div class="text-[9px] text-gray-400">Wind from</div>
+        <div class="text-[9px] sm:text-[10px] md:text-[11px] text-gray-400">Wind from</div>
+
         <div
-          class="w-full bg-black border border-gray-700 rounded-lg px-2 py-0.5 text-[10px] text-center font-semibold"
+          class="w-full bg-black border border-gray-700 rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px] text-center font-semibold"
         >
           {{ windFromClock }}
         </div>
@@ -53,20 +56,22 @@
 
   <!-- Wind speed -->
   <div class="bg-gray-900/70 border border-gray-700 rounded-xl p-2">
-    <div class="flex items-center gap-2">
-      <span class="text-[10px] text-gray-300 whitespace-nowrap"> Wind speed </span>
+    <div class="flex items-center gap-2 sm:gap-3">
+      <span class="text-[10px] sm:text-[11px] md:text-[12px] text-gray-300 whitespace-nowrap">
+        Wind speed
+      </span>
 
       <input
         type="number"
         [ngModel]="windSpeedInput"
         (ngModelChange)="onWindSpeedInputChange($event)"
-        class="w-20 bg-black border border-gray-700 rounded-lg px-2 py-0.5 text-[11px]"
+        class="w-20 sm:w-24 md:w-28 bg-black border border-gray-700 rounded-lg px-2 py-1 sm:py-1.5 text-[11px] sm:text-[12px] md:text-[13px]"
       />
 
       <select
         [ngModel]="windUnit"
         (ngModelChange)="onWindUnitChange($event)"
-        class="w-20 bg-black border border-gray-700 rounded-lg px-1 py-0.5 text-[10px]"
+        class="w-20 sm:w-24 md:w-28 bg-black border border-gray-700 rounded-lg px-1.5 py-1 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px]"
       >
         <option value="mph">mph</option>
         <option value="kmh">km/h</option>
@@ -78,7 +83,7 @@
   <!-- Wind dial -->
   <div
     #circleArea
-    class="relative mx-auto aspect-square flex-none w-full max-w-[720px] max-h-[50vh] md:max-h-[56vh] lg:max-h-[64vh] select-none touch-none"
+    class="relative mx-auto aspect-square flex-none w-full max-w-[340px] sm:max-w-[420px] md:max-w-[560px] lg:max-w-[680px] xl:max-w-[720px] max-h-[38vh] sm:max-h-[44vh] md:max-h-[52vh] lg:max-h-[58vh] xl:max-h-[62vh] select-none touch-none"
     (pointerdown)="startDrag($event)"
     (pointermove)="onDrag($event)"
     (pointerup)="endDrag($event)"
@@ -150,15 +155,19 @@
   </div>
 
   <!-- Drift result cards -->
-  <div class="w-full max-w-[520px] lg:max-w-[820px] grid grid-cols-2 gap-2 mt-1 shrink-0 px-2 mb-2">
+  <div
+    class="w-full max-w-[520px] sm:max-w-[640px] lg:max-w-[820px] mx-auto grid grid-cols-2 gap-2 sm:gap-3 mt-1 shrink-0 px-2 sm:px-0 mb-2"
+  >
     <!-- Mil + cm -->
-    <div class="bg-gray-900/90 border border-emerald-500/70 rounded-xl px-2 py-1">
-      <div class="flex items-center text-[9px] font-semibold">
+    <div class="bg-gray-900/90 border border-emerald-500/70 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5">
+      <div class="flex items-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold">
         <span class="flex-1 text-emerald-400"> Drift (mil) </span>
         <span class="flex-1 text-emerald-300 text-right"> Drift (cm) </span>
       </div>
       <div class="h-px bg-gray-800 my-0.5"></div>
-      <div class="flex items-baseline text-[12px] text-gray-50 font-bold">
+      <div
+        class="flex items-baseline text-[12px] sm:text-[13px] md:text-[14px] lg:text-[15px] text-gray-50 font-bold"
+      >
         <span class="flex-1">
           {{ milDrift | number : '1.2-2' }}
         </span>
@@ -170,13 +179,15 @@
     </div>
 
     <!-- MOA + inch -->
-    <div class="bg-gray-900/90 border border-sky-500/70 rounded-xl px-2 py-1">
-      <div class="flex items-center text-[9px] font-semibold">
+    <div class="bg-gray-900/90 border border-sky-500/70 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5">
+      <div class="flex items-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold">
         <span class="flex-1 text-sky-400"> Drift (MOA) </span>
         <span class="flex-1 text-sky-300 text-right"> Drift (inch) </span>
       </div>
       <div class="h-px bg-gray-800 my-0.5"></div>
-      <div class="flex items-baseline text-[12px] text-gray-50 font-bold">
+      <div
+        class="flex items-baseline text-[12px] sm:text-[13px] md:text-[14px] lg:text-[15px] text-gray-50 font-bold"
+      >
         <span class="flex-1">
           {{ moaDrift | number : '1.2-2' }}
         </span>

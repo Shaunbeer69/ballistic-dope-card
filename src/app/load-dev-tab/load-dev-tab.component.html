@@ -589,13 +589,13 @@
               <svg
                 *ngIf="selectedProject?.type !== 'ocw' && graphChargeLabels.length"
                 viewBox="0 0 100 10"
-                class="w-full -mt-1"
+                class="w-full h-8 sm:h-9 md:h-10 lg:h-11 -mt-1"
               >
                 <ng-container *ngFor="let p of graphCoords">
                   <text
                     [attr.x]="p.labelX ?? (p.x < 6 ? 6 : p.x > 94 ? 94 : p.x)"
                     [attr.y]="p.labelY ?? 8"
-                    [attr.font-size]="p.labelFontSize ?? 3"
+                    [attr.font-size]="p.labelFontSize ?? 2.6"
                     fill="#e5e7eb"
                     [attr.text-anchor]="
                       p.labelAnchor ?? (p.x < 6 ? 'start' : p.x > 94 ? 'end' : 'middle')
@@ -610,7 +610,7 @@
               <svg
                 *ngIf="selectedProject?.type === 'ocw' && ocwGroupEllipses.length"
                 viewBox="0 0 100 10"
-                class="w-full -mt-1"
+                class="w-full h-8 sm:h-9 md:h-10 lg:h-11 -mt-1"
               >
                 <ng-container *ngFor="let g of ocwGroupEllipses">
                   <text
@@ -664,27 +664,25 @@
                             </div>
                           </td>
 
-                          <td class="px-2 py-1 text-gray-100">
-                            <ng-container *ngIf="statsForEntry(entry) as s; else dashTplStatsRow">
-                              <td class="px-2 py-1 text-gray-100">
-                                {{ s.avg | number : '1.0-0' }}
-                              </td>
+                          <ng-container *ngIf="statsForEntry(entry) as s; else dashTplStatsRow">
+                            <td class="px-2 py-1 text-gray-100">
+                              {{ s.avg | number : '1.0-0' }}
+                            </td>
 
-                              <td class="px-2 py-1 text-gray-100">
-                                {{ s.sd | number : '1.1-1' }}
-                              </td>
+                            <td class="px-2 py-1 text-gray-100">
+                              {{ s.sd | number : '1.1-1' }}
+                            </td>
 
-                              <td class="px-2 py-1 text-gray-100">
-                                {{ s.es | number : '1.0-0' }}
-                              </td>
-                            </ng-container>
+                            <td class="px-2 py-1 text-gray-100">
+                              {{ s.es | number : '1.0-0' }}
+                            </td>
+                          </ng-container>
 
-                            <ng-template #dashTplStatsRow>
-                              <td class="px-2 py-1 text-gray-100">—</td>
-                              <td class="px-2 py-1 text-gray-100">—</td>
-                              <td class="px-2 py-1 text-gray-100">—</td>
-                            </ng-template>
-                          </td>
+                          <ng-template #dashTplStatsRow>
+                            <td class="px-2 py-1 text-gray-100">—</td>
+                            <td class="px-2 py-1 text-gray-100">—</td>
+                            <td class="px-2 py-1 text-gray-100">—</td>
+                          </ng-template>
 
                           <td class="px-2 py-1 text-right text-gray-100">
                             {{ formatGroupSize(entry) }}
@@ -891,39 +889,84 @@
 
                       <!-- Media (Photo now, Audio later) -->
                       <div class="mt-2 space-y-2">
-                        <!-- Overall (project-level) photo -->
-                        <div class="mt-1">
-                          <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-1">
-                            OverView
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
+                          <!-- Overall (project-level) photo -->
+                          <div>
+                            <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-1">
+                              OverView
+                            </div>
+
+                            <button
+                              *ngIf="targetPhotoDataUrl; else noOverallPhoto"
+                              type="button"
+                              class="w-full flex items-center gap-3 p-2 rounded-xl bg-white/5 border border-white/10"
+                              (click)="openProjectPhotoViewer(targetPhotoDataUrl, $event)"
+                            >
+                              <div
+                                class="w-10 h-10 rounded-lg overflow-hidden border border-white/10 bg-black/20 flex-shrink-0"
+                              >
+                                <img
+                                  [src]="targetPhotoDataUrl"
+                                  class="w-full h-full object-cover"
+                                />
+                              </div>
+
+                              <div class="flex-1 text-left">
+                                <div class="text-xs font-semibold text-white">OverView photo</div>
+                              </div>
+
+                              <div
+                                class="w-2.5 h-2.5 rounded-full bg-emerald-400 flex-shrink-0"
+                              ></div>
+                            </button>
+
+                            <ng-template #noOverallPhoto>
+                              <div class="text-[10px] text-gray-500">No Overview photo taken.</div>
+                            </ng-template>
                           </div>
 
-                          <button
-                            *ngIf="targetPhotoDataUrl; else noOverallPhoto"
-                            type="button"
-                            class="w-full flex items-center gap-3 p-2 rounded-xl bg-white/5 border border-white/10"
-                            (click)="openProjectPhotoViewer(targetPhotoDataUrl, $event)"
-                          >
+                          <!-- AUDIO -->
+                          <div class="h-full flex flex-col justify-end space-y-1">
+                            <!-- Recording status -->
+                            <div *ngIf="isVoiceRecording" class="text-[9px] text-amber-300">
+                              Recording… tap ⏹ to stop
+                            </div>
+
+                            <!-- Playback -->
                             <div
-                              class="w-10 h-10 rounded-lg overflow-hidden border border-white/10 bg-black/20 flex-shrink-0"
+                              *ngIf="voiceNoteDataUrl; else noAudio"
+                              class="flex items-center gap-2"
                             >
-                              <img [src]="targetPhotoDataUrl" class="w-full h-full object-cover" />
+                              <button
+                                type="button"
+                                class="px-3 py-1 rounded-md bg-emerald-600/80 text-emerald-50 text-[10px] font-semibold hover:bg-emerald-500 active:scale-95 transition"
+                                (click)="toggleVoicePlayback()"
+                              >
+                                {{ isVoicePlaying ? 'Stop' : 'Play VoiceNote' }}
+                              </button>
+
+                              <div class="flex-1 text-[10px] text-gray-300 truncate">
+                                {{
+                                  voiceNoteDurationMs
+                                    ? (voiceNoteDurationMs / 1000 | number : '1.0-0') + 's'
+                                    : 'Voice note'
+                                }}
+                              </div>
+
+                              <button
+                                type="button"
+                                class="px-2 py-1 rounded-md bg-red-700/80 text-red-50 text-[10px] font-semibold hover:bg-red-600 active:scale-95 transition"
+                                (click)="deleteVoiceNote()"
+                              >
+                                Del
+                              </button>
                             </div>
+                          </div>
 
-                            <div class="flex-1 text-left">
-                              <div class="text-xs font-semibold text-white">OverView photo</div>
-                              <div class="text-[11px] text-gray-300">Tap to view</div>
-                            </div>
-
-                            <div
-                              class="w-2.5 h-2.5 rounded-full bg-emerald-400 flex-shrink-0"
-                            ></div>
-                          </button>
-
-                          <ng-template #noOverallPhoto>
-                            <div class="text-[10px] text-gray-500">No Overview photo taken.</div>
+                          <ng-template #noAudio>
+                            <div class="text-[10px] text-gray-500">No voice note saved yet.</div>
                           </ng-template>
                         </div>
-
                         <!-- OCW: entry photos grouped by charge (saved on entries) -->
                         <div
                           *ngIf="selectedProject.type === 'ocw' && ocwPhotoNotesCache.length > 0"
@@ -933,7 +976,7 @@
                             OCW photos (by charge)
                           </div>
 
-                          <div class="space-y-2">
+                          <div class="grid grid-cols-1 md:grid-cols-2 items-end gap-2 md:gap-3">
                             <button
                               type="button"
                               *ngFor="let it of ocwPhotoNotesCache"
@@ -943,15 +986,15 @@
                               <div
                                 class="w-10 h-10 rounded-lg overflow-hidden border border-white/10 bg-black/20 flex-shrink-0"
                               >
-                                <img [src]="it.url" class="w-full h-full object-cover" />
+                                <img
+                                  [src]="it.url || getEntryPhotoDataUrl(it.entry) || ''"
+                                  class="w-full h-full object-cover"
+                                />
                               </div>
 
                               <div class="flex-1 text-left">
                                 <div class="text-xs font-semibold text-white">
                                   {{ it.charge | number : '1.1-1' }} gr
-                                </div>
-                                <div class="text-[11px] text-gray-300">
-                                  {{ it.label }}
                                 </div>
                               </div>
 
@@ -960,48 +1003,6 @@
                               ></div>
                             </button>
                           </div>
-                        </div>
-
-                        <!-- AUDIO -->
-                        <div class="mt-2 space-y-1">
-                          <!-- Recording status -->
-                          <div *ngIf="isVoiceRecording" class="text-[9px] text-amber-300">
-                            Recording… tap ⏹ to stop
-                          </div>
-
-                          <!-- Playback -->
-                          <div
-                            *ngIf="voiceNoteDataUrl; else noAudio"
-                            class="flex items-center gap-2"
-                          >
-                            <button
-                              type="button"
-                              class="px-3 py-1 rounded-md bg-emerald-600/80 text-emerald-50 text-[10px] font-semibold hover:bg-emerald-500 active:scale-95 transition"
-                              (click)="toggleVoicePlayback()"
-                            >
-                              {{ isVoicePlaying ? 'Stop' : 'Play VoiceNote' }}
-                            </button>
-
-                            <div class="flex-1 text-[10px] text-gray-300 truncate">
-                              {{
-                                voiceNoteDurationMs
-                                  ? (voiceNoteDurationMs / 1000 | number : '1.0-0') + 's'
-                                  : 'Voice note'
-                              }}
-                            </div>
-
-                            <button
-                              type="button"
-                              class="px-2 py-1 rounded-md bg-red-700/80 text-red-50 text-[10px] font-semibold hover:bg-red-600 active:scale-95 transition"
-                              (click)="deleteVoiceNote()"
-                            >
-                              Del
-                            </button>
-                          </div>
-
-                          <ng-template #noAudio>
-                            <div class="text-[10px] text-gray-500">No voice note saved yet.</div>
-                          </ng-template>
                         </div>
                       </div>
                     </div>
