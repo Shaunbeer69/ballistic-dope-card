@@ -132,6 +132,7 @@ export class LoadDevTabComponent implements OnInit {
   @ViewChild('pdfContent') pdfContent?: ElementRef<HTMLElement>;
 @ViewChild('targetFileInput') targetFileInput?: ElementRef<HTMLInputElement>;
 @ViewChild('entryFileInput') entryFileInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('projectSelectEl') projectSelectEl?: ElementRef<HTMLSelectElement>;
 
 
 photoViewerEntry: LoadDevEntry | null = null;
@@ -171,8 +172,8 @@ isAnnotatingPhoto = false;
     }, 0);
   }
 
-  // ---- navigation back from history/footer button ----
- onBackFromHistory(): void {
+   // ---- navigation back from history/footer button ----
+  onBackFromHistory(): void {
   // Go back ONE level: from project detail → project list
   this.selectedProjectId = null;
   this.selectedProject = null;
@@ -182,7 +183,27 @@ isAnnotatingPhoto = false;
   this.showGraph = false;
   this.ladderWizardActive = false;
   this.singleVelocityEditActive = false;
+
+   // Open the inline project picker list (reliable on Android)
+  this.projectPickerOpen = true;
+
+  // Bring selector into view
+  setTimeout(() => {
+    const sel = this.projectSelectEl?.nativeElement;
+    try {
+      sel?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    } catch {
+      // ignore
+    }
+  }, 0);
+
 }
+  selectProjectFromPicker(id: number): void {
+    this.projectPickerOpen = false;
+    this.selectedProjectId = id;
+    this.onProjectSelectChange();
+  }
+
 
 
   // ==========================
@@ -1977,6 +1998,8 @@ y += boxH + boxPadAfter;
 
   projects: LoadDevProject[] = [];
   selectedProjectId: number | null = null;
+    projectPickerOpen = false;
+
  selectedProject:
   | (LoadDevProject & {
       powder?: string;

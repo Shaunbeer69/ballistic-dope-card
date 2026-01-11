@@ -285,6 +285,14 @@
             <span>📁</span>
             <span>History</span>
           </div>
+
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black text-[11px] font-semibold"
+            (click)="onBackFromHistory()"
+          >
+            Back
+          </button>
         </div>
 
         <!-- Filters -->
@@ -317,6 +325,7 @@
           <div class="relative flex items-center gap-2">
             <!-- Native select (hidden text, still opens Android picker) -->
             <select
+              #projectSelectEl
               class="flex-1 min-w-0 w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 pr-8 text-xs text-transparent"
               [(ngModel)]="selectedProjectId"
               (ngModelChange)="onProjectSelectChange()"
@@ -342,6 +351,33 @@
               </ng-container>
               <ng-template #noProject>Select load development…</ng-template>
             </span>
+          </div>
+          <!-- Inline expanded project picker (opens after Blue Back) -->
+          <div
+            *ngIf="projectPickerOpen"
+            class="mt-2 rounded-2xl bg-gray-900/80 border border-gray-700 overflow-hidden"
+          >
+            <div class="max-h-56 overflow-auto">
+              <button
+                *ngFor="let p of filteredProjects ?? projects"
+                type="button"
+                class="w-full text-left px-3 py-2 text-xs text-gray-100 border-b border-gray-800 hover:bg-gray-800/60"
+                (click)="selectProjectFromPicker(p.id)"
+              >
+                {{ p.name }} • {{ shortDateTime(p.dateStarted) }} • {{ projectTypeLabel(p.type) }}
+                <ng-container *ngIf="isProjectComplete(p)">✅</ng-container>
+              </button>
+            </div>
+
+            <div class="p-2 flex justify-end">
+              <button
+                type="button"
+                class="px-3 py-1.5 rounded-2xl bg-gray-700 text-gray-100 text-[11px] font-semibold"
+                (click)="projectPickerOpen = false"
+              >
+                Close
+              </button>
+            </div>
           </div>
 
           <!-- Quick actions row -->
@@ -1142,7 +1178,7 @@
               </button>
               <button
                 type="button"
-                class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black text-[11px] font-semibold"
+                class="px-3 py-1.5 rounded-2xl bg-blue-500 text-black text-[11px] font-semibold"
                 (click)="onBackFromHistory()"
               >
                 Back
