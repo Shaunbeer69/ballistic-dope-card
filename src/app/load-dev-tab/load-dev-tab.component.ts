@@ -2042,7 +2042,7 @@ y += boxH + boxPadAfter;
   private ladderNodeBandIds = new Set<number>();
   private ocwRankCache = new Map<number, 'best' | 'second' | 'third' | null>();
   private ocwBestIdCache: number | null = null;
-
+  private readonly LADDER_NODE_MAX_VEL_RANGE_FPS = 10;
   private entryIdOf(e: LoadDevEntry): number | null {
     const id = Number((e as any)?.id);
     return Number.isFinite(id) ? id : null;
@@ -2119,7 +2119,7 @@ y += boxH + boxPadAfter;
       const vMin = Math.min(...nums);
       const vMax = Math.max(...nums);
 
-      if ((vMax - vMin) <= 14) {
+            if ((vMax - vMin) <= this.LADDER_NODE_MAX_VEL_RANGE_FPS) {
         for (let j = i; j < i + k; j++) inBand[j] = true;
       }
     }
@@ -3503,7 +3503,7 @@ private ladderIsInNodeBand(entry: LoadDevEntry): boolean {
     const vMin = Math.min(...nums);
     const vMax = Math.max(...nums);
 
-    if ((vMax - vMin) <= 14) {
+       if ((vMax - vMin) <= this.LADDER_NODE_MAX_VEL_RANGE_FPS) {
       for (let j = i; j < i + k; j++) inBand[j] = true;
     }
   }
