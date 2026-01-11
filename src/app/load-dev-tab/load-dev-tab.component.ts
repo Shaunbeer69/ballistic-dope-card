@@ -173,31 +173,38 @@ isAnnotatingPhoto = false;
   }
 
    // ---- navigation back from history/footer button ----
-  onBackFromHistory(): void {
-  // Go back ONE level: from project detail → project list
-  this.selectedProjectId = null;
-  this.selectedProject = null;
-
-  // Reset project-level UI only
-  this.resultsCollapsed = true;
-  this.showGraph = false;
-  this.ladderWizardActive = false;
-  this.singleVelocityEditActive = false;
-
-   // Open the inline project picker list (reliable on Android)
-  this.projectPickerOpen = true;
-
-  // Bring selector into view
-  setTimeout(() => {
-    const sel = this.projectSelectEl?.nativeElement;
-    try {
-      sel?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    } catch {
-      // ignore
+   onBackFromHistory(): void {
+    // If we are already at the "project list" level, this Back must still work → go to main menu
+    if (!this.selectedProjectId && !this.selectedProject) {
+      this.projectPickerOpen = false;
+      this.backToMenu.emit();
+      return;
     }
-  }, 0);
 
-}
+    // Go back ONE level: from project detail → project list
+    this.selectedProjectId = null;
+    this.selectedProject = null;
+
+    // Reset project-level UI only
+    this.resultsCollapsed = true;
+    this.showGraph = false;
+    this.ladderWizardActive = false;
+    this.singleVelocityEditActive = false;
+
+    // Open the inline project picker list (reliable on Android)
+    this.projectPickerOpen = true;
+
+    // Bring selector into view
+    setTimeout(() => {
+      const sel = this.projectSelectEl?.nativeElement;
+      try {
+        sel?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      } catch {
+        // ignore
+      }
+    }, 0);
+  }
+
   selectProjectFromPicker(id: number): void {
     this.projectPickerOpen = false;
     this.selectedProjectId = id;
