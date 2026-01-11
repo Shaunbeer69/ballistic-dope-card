@@ -50,7 +50,7 @@
     <div class="flex items-center justify-between gap-2">
       <h2 class="text-sm font-semibold">History</h2>
       <span class="text-[10px] text-slate-300">
-        {{ filteredSessions.length }} session{{ filteredSessions.length !== 1 ? 's' : '' }}
+        {{ filteredSessionsList.length }} session{{ filteredSessionsList.length !== 1 ? 's' : '' }}
       </span>
     </div>
 
@@ -59,6 +59,7 @@
       <input
         type="text"
         [(ngModel)]="searchTerm"
+        (ngModelChange)="onSearchTermChange($event)"
         placeholder="Search by venue, rifle, title or notes…"
         class="flex-1 px-2 py-1 rounded bg-slate-900 border border-slate-600 text-[11px] placeholder-slate-500"
       />
@@ -73,7 +74,10 @@
 
     <!-- Venue groups -->
     <div class="space-y-2">
-      <div *ngFor="let group of venueGroups" class="bg-slate-900 rounded-xl p-2 space-y-1">
+      <div
+        *ngFor="let group of venueGroupsList; trackBy: trackByVenueId"
+        class="bg-slate-900 rounded-xl p-2 space-y-1"
+      >
         <!-- Venue header -->
         <button
           type="button"
@@ -100,7 +104,7 @@
         <!-- Sessions list for this venue (sorted oldest → newest) -->
         <div *ngIf="expandedVenueId === group.venueId" class="mt-1 space-y-1">
           <div
-            *ngFor="let s of group.sessions"
+            *ngFor="let s of group.sessions; trackBy: trackBySessionId"
             class="bg-slate-950 rounded-lg p-2 flex items-center justify-between gap-2"
           >
             <div class="flex-1">

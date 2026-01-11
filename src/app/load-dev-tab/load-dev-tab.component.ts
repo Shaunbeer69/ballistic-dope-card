@@ -2673,8 +2673,6 @@ private async drawAssetImageInBox(
 
     this.rebuildFilterOptions();
     this.applyProjectFilters();
-        this.rebuildVisibleEntries();
-
     this.rebuildVisibleEntries();
     this.updateHasResultsFlag();
     this.rebuildGraphData();
@@ -2697,8 +2695,6 @@ private async drawAssetImageInBox(
 
     this.rebuildFilterOptions();
     this.applyProjectFilters();
-        this.rebuildVisibleEntries();
-
     this.rebuildVisibleEntries();
     this.updateHasResultsFlag();
     this.rebuildGraphData();

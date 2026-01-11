@@ -24,6 +24,10 @@ export class HistoryTabComponent implements OnInit {
   private saveMessageTimeout: any = null;
 
   searchTerm: string = '';
+    // PERF: precomputed lists (avoid template getters that filter/sort/group every CD tick)
+  filteredSessionsList: any[] = [];
+  venueGroupsList: { venueId: number | null; venueName: string; sessions: any[] }[] = [];
+
   expandedVenueId: number | null = null;
     // PERF: avoid rebuilding massive data: URLs on every change detection tick
   private rowVoiceUrlCache = new WeakMap<any, { b64: string; url: string }>();
@@ -170,6 +174,8 @@ focusNotes(row: any): void {
     }
 
     this.rebuildPendingSessions();
+    this.rebuildHistoryLists();
+
   }
 
   // --------------------------------------------------
@@ -212,32 +218,31 @@ focusNotes(row: any): void {
       return 'Unknown venue';
     }
   }
-
-  // --------------------------------------------------
-  // Search & grouping (read-only history list)
-  // --------------------------------------------------
-  get filteredSessions(): any[] {
+  private rebuildHistoryLists(): void {
     const base = (this.sessions || []).filter((s: any) => !this.isSessionEditable(s));
     const term = this.searchTerm?.trim().toLowerCase();
-   if (!term)    return [...base].sort((a, b) => this.getSessionTime(b) - this.getSessionTime(a));
-    return base.filter((s: any) => {
-      const venueName = (this.getVenueName(s.venueId) || '').toLowerCase();
-      const rifleName = (this.getRifleName(s.rifleId) || '').toLowerCase();
-      const title = (s.title || '').toLowerCase();
-      const notes = (s.notes || '').toLowerCase();
-      return (
-        venueName.includes(term) ||
-        rifleName.includes(term) ||
-        title.includes(term) ||
-        notes.includes(term)
-      );
-    });
-  }
 
-  get venueGroups(): { venueId: number | null; venueName: string; sessions: any[] }[] {
+    // Keep newest first (same behavior you had)
+    let filtered = base;
+    if (term) {
+      filtered = base.filter((s: any) => {
+        const venueName = (this.getVenueName(s.venueId) || '').toLowerCase();
+        const rifleName = (this.getRifleName(s.rifleId) || '').toLowerCase();
+        const title = (s.title || '').toLowerCase();
+        const notes = (s.notes || '').toLowerCase();
+        return (
+          venueName.includes(term) ||
+          rifleName.includes(term) ||
+          title.includes(term) ||
+          notes.includes(term)
+        );
+      });
+    }
+
+    this.filteredSessionsList = [...filtered].sort((a, b) => this.getSessionTime(b) - this.getSessionTime(a));
+
     const map = new Map<number | null, { venueId: number | null; venueName: string; sessions: any[] }>();
-
-    for (const s of this.filteredSessions) {
+    for (const s of this.filteredSessionsList) {
       const vid = (s.venueId ?? null) as number | null;
       const vname = this.getVenueName(s.venueId) || 'Unknown venue';
       let group = map.get(vid);
@@ -250,29 +255,41 @@ focusNotes(row: any): void {
 
     const groups = Array.from(map.values());
 
-    // sessions oldest → newest
+    // sessions newest → oldest (your comment said oldest→newest but your sort is newest→oldest)
     for (const g of groups) {
-  g.sessions.sort((a, b) => this.getSessionTime(b) - this.getSessionTime(a));
-
+      g.sessions.sort((a, b) => this.getSessionTime(b) - this.getSessionTime(a));
     }
 
     // venues alphabetical
     groups.sort((a, b) => a.venueName.localeCompare(b.venueName));
-    return groups;
+    this.venueGroupsList = groups;
   }
 
+  // --------------------------------------------------
+  // Search & grouping (read-only history list)
+  // --------------------------------------------------
+  
+ 
   private getSessionTime(s: any): number {
     if (!s || !s.date) return 0;
     return new Date(s.date).getTime();
   }
 
-  clearSearch(): void {
-    this.searchTerm = '';
-  }
+ clearSearch(): void {
+  this.searchTerm = '';
+  this.rebuildHistoryLists();
+}
+onSearchTermChange(v: string): void {
+  this.searchTerm = (v ?? '').toString();
+  this.rebuildHistoryLists();
+}
+
 
   toggleVenue(venueId: number | null): void {
     this.expandedVenueId = this.expandedVenueId === venueId ? null : venueId;
   }
+trackByVenueId = (_: number, g: { venueId: number | null }) => g.venueId;
+trackBySessionId = (_: number, s: any) => s?.id ?? _;
 
   summarizeDateRange(sessions: any[]): string {
     if (!sessions || sessions.length === 0) return '';
@@ -340,6 +357,8 @@ deleteSession(s: any): void {
 
     // 4) Rebuild any derived lists you use
     this.rebuildPendingSessions?.();
+    this.rebuildHistoryLists();
+
   } catch (err) {
     console.error('Error deleting session from DataService:', err);
   }
@@ -643,6 +662,7 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
     this.sessions[idx] = updated;
 
     this.persistEditedSession(updated);
+this.rebuildHistoryLists();
 
     this.rebuildPendingSessions();
     this.showSaveMessage('Session saved (In progress).');
@@ -669,7 +689,8 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
 
     this.persistEditedSession(updated);
 
-    this.rebuildPendingSessions();
+    this.rebuildHistoryLists();
+
     this.showSaveMessage('Session saved & marked as completed.');
 
     // close detail view after completion (as before)
