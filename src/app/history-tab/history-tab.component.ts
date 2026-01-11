@@ -25,6 +25,9 @@ export class HistoryTabComponent implements OnInit {
 
   searchTerm: string = '';
   expandedVenueId: number | null = null;
+    // PERF: avoid rebuilding massive data: URLs on every change detection tick
+  private rowVoiceUrlCache = new WeakMap<any, { b64: string; url: string }>();
+
 onAveVelEnter(ev: Event): void {
   ev.preventDefault();
 
@@ -501,13 +504,21 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
     const b64 = (row?.voiceNoteBase64 ?? '').toString().trim();
     return b64.length > 0;
   }
-
   rowVoiceDataUrl(row: any): string | null {
     const base64 = (row?.voiceNoteBase64 ?? '').toString().trim();
-    if (!base64) return null;
+
+    if (!base64) {
+      this.rowVoiceUrlCache.delete(row);
+      return null;
+    }
+
+    const cached = this.rowVoiceUrlCache.get(row);
+    if (cached && cached.b64 === base64) return cached.url;
 
     // plugin returns WAV base64 in your current flow
-    return `data:audio/wav;base64,${base64}`;
+    const url = `data:audio/wav;base64,${base64}`;
+    this.rowVoiceUrlCache.set(row, { b64: base64, url });
+    return url;
   }
 
   async onRowMicClick(row: any, ev?: Event): Promise<void> {

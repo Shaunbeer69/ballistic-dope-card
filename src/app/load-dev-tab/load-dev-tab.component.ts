@@ -2035,16 +2035,122 @@ y += boxH + boxPadAfter;
   entryForm: EntryForm = this.createEmptyEntryForm();
   entrySortMode: 'default' | 'chargeAsc' | 'groupAsc' | 'groupDesc' = 'default';
    visibleEntries: LoadDevEntry[] = [];
+  // ----------------------------
+  // PERF CACHES (avoid hangs)
+  // ----------------------------
+  private statsCache = new Map<number, VelocityStats | null>();
+  private ladderNodeBandIds = new Set<number>();
+  private ocwRankCache = new Map<number, 'best' | 'second' | 'third' | null>();
+  private ocwBestIdCache: number | null = null;
+
+  private entryIdOf(e: LoadDevEntry): number | null {
+    const id = Number((e as any)?.id);
+    return Number.isFinite(id) ? id : null;
+  }
+
+  private clearPerfCaches(): void {
+    this.statsCache.clear();
+    this.ladderNodeBandIds.clear();
+    this.ocwRankCache.clear();
+    this.ocwBestIdCache = null;
+  }
+
+  private rebuildPerfCachesFrom(entries: LoadDevEntry[]): void {
+    this.clearPerfCaches();
+
+    // Warm stats cache once
+    for (const e of entries) this.statsForEntry(e);
+
+    if (this.selectedProject?.type === 'ladder') {
+      this.rebuildLadderNodeBandCache(entries);
+    }
+
+    if (this.selectedProject?.type === 'ocw') {
+      this.rebuildOcwRankCache(entries);
+    }
+  }
+
+  private rebuildOcwRankCache(entries: LoadDevEntry[]): void {
+    // rank only entries with numeric SD
+    const ranked = [...entries]
+      .map(e => ({ e, sd: this.statsForEntry(e)?.sd }))
+      .filter(x => typeof x.sd === 'number' && isFinite(x.sd as number))
+      .sort((a, b) => (a.sd as number) - (b.sd as number));
+
+    // reset
+    this.ocwBestIdCache = null;
+
+    const first = ranked[0]?.e;
+    const second = ranked[1]?.e;
+    const third = ranked[2]?.e;
+
+    const id1 = first ? this.entryIdOf(first) : null;
+    const id2 = second ? this.entryIdOf(second) : null;
+    const id3 = third ? this.entryIdOf(third) : null;
+
+    if (id1 != null) {
+      this.ocwRankCache.set(id1, 'best');
+      this.ocwBestIdCache = id1;
+    }
+    if (id2 != null) this.ocwRankCache.set(id2, 'second');
+    if (id3 != null) this.ocwRankCache.set(id3, 'third');
+  }
+
+  private rebuildLadderNodeBandCache(entries: LoadDevEntry[]): void {
+    // Only applies to ladder projects
+    if (this.selectedProject?.type !== 'ladder') return;
+
+    const sorted = [...entries].sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
+    const k = this.ladderNodeWindowSize(sorted);
+
+    const vels = sorted.map(e => {
+      const s = this.statsForEntry(e);
+      const v = s?.avg;
+      return typeof v === 'number' && isFinite(v) ? v : null;
+    });
+
+    const inBand = new Array(sorted.length).fill(false);
+
+    for (let i = 0; i <= sorted.length - k; i++) {
+      const window = vels.slice(i, i + k);
+      if (window.some(v => v == null)) continue;
+
+      const nums = window as number[];
+      const vMin = Math.min(...nums);
+      const vMax = Math.max(...nums);
+
+      if ((vMax - vMin) <= 14) {
+        for (let j = i; j < i + k; j++) inBand[j] = true;
+      }
+    }
+
+    for (let idx = 0; idx < sorted.length; idx++) {
+      if (!inBand[idx]) continue;
+      const id = this.entryIdOf(sorted[idx]);
+      if (id != null) this.ladderNodeBandIds.add(id);
+    }
+  }
+
+  isLadderNode(entry: LoadDevEntry): boolean {
+    if (this.selectedProject?.type !== 'ladder') return false;
+    const id = this.entryIdOf(entry);
+    return id != null && this.ladderNodeBandIds.has(id);
+  }
 
   // Cache for OCW photo list so template doesn't rebuild arrays every change detection tick
   ocwPhotoNotesCache: { charge: number; entry: LoadDevEntry; url: string; label: string }[] = [];
 
-  private rebuildVisibleEntries(): void {
-    this.visibleEntries = this.entriesForSelectedProject();
+   private rebuildVisibleEntries(): void {
+    const entries = this.entriesForSelectedProject();
+    this.visibleEntries = entries;
+
+    // PERF: build caches once per rebuild
+    this.rebuildPerfCachesFrom(entries);
 
     // Keep OCW photo list cache in sync (cheap when not OCW)
     this.ocwPhotoNotesCache = this.ocwPhotoNotesItems();
   }
+
 
   // Results visibility
   resultsCollapsed = false;
@@ -3237,11 +3343,18 @@ if (type === 'ladder' || type === 'ocw') {
     return values;
   }
 
-  statsForEntry(entry: LoadDevEntry): VelocityStats | null {
+   statsForEntry(entry: LoadDevEntry): VelocityStats | null {
+    const id = this.entryIdOf(entry);
+    if (id != null && this.statsCache.has(id)) return this.statsCache.get(id)!;
+
     const any = entry as any;
     const values = this.parseVelocityInput(any.velocityInput);
-    return this.computeVelocityStats(values);
+    const stats = this.computeVelocityStats(values);
+
+    if (id != null) this.statsCache.set(id, stats);
+    return stats;
   }
+
 
   private computeVelocityStats(values: number[]): VelocityStats | null {
     if (!values.length) return null;
@@ -3289,40 +3402,19 @@ if (type === 'ladder' || type === 'ocw') {
   }
 
     ocwRankForEntry(entry: LoadDevEntry): 'best' | 'second' | 'third' | null {
-    if (!this.selectedProject || this.selectedProject.type !== 'ocw') return null;
+  if (!this.selectedProject || this.selectedProject.type !== 'ocw') return null;
 
-    const ranked = this.sortOcwEntriesBySd(this.selectedProject.entries ?? []).filter(
-      e => {
-        const s = this.statsForEntry(e)?.sd;
-        return typeof s === 'number' && isFinite(s);
-      }
-    );
+  const id = this.entryIdOf(entry);
+  if (id == null) return null;
 
-    if (ranked.length < 1) return null;
+  return this.ocwRankCache.get(id) ?? null;
+}
 
-    const id = Number((entry as any).id);
-    if (!Number.isFinite(id)) return null; // ✅ change: numeric + guard
 
-    if (id === Number((ranked[0] as any).id)) return 'best'; // ✅ change
-    if (ranked.length >= 2 && id === Number((ranked[1] as any).id)) return 'second'; // ✅ change
-    if (ranked.length >= 3 && id === Number((ranked[2] as any).id)) return 'third'; // ✅ change
-
-    return null;
-  }
-
-  ocwBestEntryId(): number | null {
-    if (!this.selectedProject || this.selectedProject.type !== 'ocw') return null;
-
-    const ranked = this.sortOcwEntriesBySd(this.selectedProject.entries ?? []).filter(e => {
-      const sd = this.statsForEntry(e)?.sd;
-      return typeof sd === 'number' && isFinite(sd);
-    });
-
-    if (!ranked.length) return null;
-
-    const id = Number((ranked[0] as any).id);
-    return Number.isFinite(id) ? id : null;
-  }
+ ocwBestEntryId(): number | null {
+  if (!this.selectedProject || this.selectedProject.type !== 'ocw') return null;
+  return this.ocwBestIdCache ?? null;
+}
 
   isOcwBestEntryId(entryId: number): boolean {
     const best = this.ocwBestEntryId();
@@ -3441,8 +3533,7 @@ private ladderIsInNodeBand(entry: LoadDevEntry): boolean {
 nodeCssClass(entry: LoadDevEntry): string {
   if (this.selectedProject?.type !== 'ladder') return '';
 
-  const isNode = this.ladderIsInNodeBand(entry);
-  return isNode
+  return this.isLadderNode(entry)
     ? 'bg-emerald-500/10 border-l-2 border-emerald-400'
     : '';
 }
