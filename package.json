@@ -1,9 +1,10 @@
 {
   "name": "ballistic-dope-card",
-  "version": "1.0.3",
+  "version": "1.0.18",
   "scripts": {
     "ng": "ng",
     "start": "ng serve --port 5030",
+    "prebuild": "node scripts/bump-and-sync.js",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
