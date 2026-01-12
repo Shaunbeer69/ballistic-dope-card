@@ -3,12 +3,13 @@ apply plugin: 'com.android.application'
 android {
     namespace "com.gunstuff.dopecard"
     compileSdk rootProject.ext.compileSdkVersion
+
     defaultConfig {
         applicationId "com.gunstuff.dopecard"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10018
-        versionName "1.0.18"
+        versionCode 10021
+        versionName "1.0.21"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +17,32 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+
+            // ✅ APK filename: AppName-Date-vVersion.apk
+            applicationVariants.all { variant ->
+                variant.outputs.all { output ->
+                    def appName = "GunstuffDopeCard"          // <-- change if you want
+                    def versionName = variant.versionName
+                    def date = new Date().format("yyyy-MM-dd")
+                    outputFileName = "${appName}-${date}-v${versionName}.apk"
+                }
+            }
+        }
+        debug {
+            // ✅ Also apply to debug builds (optional)
+            applicationVariants.all { variant ->
+                variant.outputs.all { output ->
+                    def appName = "GunstuffDopeCard"
+                    def versionName = variant.versionName
+                    def date = new Date().format("yyyy-MM-dd")
+                    outputFileName = "${appName}-${date}-v${versionName}-debug.apk"
+                }
+            }
         }
     }
 }
