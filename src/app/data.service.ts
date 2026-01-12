@@ -39,33 +39,60 @@ export class DataService {
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<AppStore>;
 
-        return {
-          nextRifleId: parsed.nextRifleId ?? 1,
-          nextVenueId: parsed.nextVenueId ?? 1,
-          nextSessionId: parsed.nextSessionId ?? 1,
-          nextLoadDevProjectId: parsed.nextLoadDevProjectId ?? 1,
-          nextLoadDevEntryId: parsed.nextLoadDevEntryId ?? 1,
-          rifles: parsed.rifles ?? [],
-          venues: parsed.venues ?? [],
-          sessions: parsed.sessions ?? [],
-          loadDevProjects: parsed.loadDevProjects ?? []
-        };
+      const store: AppStore = {
+  nextRifleId: parsed.nextRifleId ?? 1,
+  nextVenueId: parsed.nextVenueId ?? 1,
+  nextSessionId: parsed.nextSessionId ?? 1,
+  nextLoadDevProjectId: parsed.nextLoadDevProjectId ?? 1,
+  nextLoadDevEntryId: parsed.nextLoadDevEntryId ?? 1,
+  rifles: parsed.rifles ?? [],
+  venues: parsed.venues ?? [],
+  sessions: parsed.sessions ?? [],
+  loadDevProjects: parsed.loadDevProjects ?? []
+};
+
+this.normalizeStore(store);
+return store;
+
       }
     } catch {
       // ignore parse errors
     }
 
-    return {
-      nextRifleId: 1,
-      nextVenueId: 1,
-      nextSessionId: 1,
-      nextLoadDevProjectId: 1,
-      nextLoadDevEntryId: 1,
-      rifles: [],
-      venues: [],
-      sessions: [],
-      loadDevProjects: []
-    };
+    const store: AppStore = {
+  nextRifleId: 1,
+  nextVenueId: 1,
+  nextSessionId: 1,
+  nextLoadDevProjectId: 1,
+  nextLoadDevEntryId: 1,
+  rifles: [],
+  venues: [],
+  sessions: [],
+  loadDevProjects: []
+};
+
+this.normalizeStore(store);
+return store;
+  }
+
+  private normalizeStore(store: AppStore): void {
+    // Fix known bad “inch” inputs that were entered as thousandths.
+    // Example from your backup: coalUnit="in" but coal=3820, ogive=3456.
+    // Those should be 3.820 and 3.456.
+    for (const r of store.rifles as any[]) {
+      const loads = Array.isArray(r?.loads) ? r.loads : [];
+      for (const l of loads) {
+        const unit = String(l?.coalUnit ?? '').toLowerCase();
+
+        if (unit === 'in') {
+          const c = Number(l?.coal);
+          if (!Number.isNaN(c) && c > 50) l.coal = c / 1000;
+
+          const o = Number(l?.coalOgive);
+          if (!Number.isNaN(o) && o > 50) l.coalOgive = o / 1000;
+        }
+      }
+    }
   }
 
      private saveStore(): void {

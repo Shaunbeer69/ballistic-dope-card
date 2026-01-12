@@ -59,15 +59,27 @@ export class RiflesTabComponent implements OnInit {
   }
 
   rifleFormPhotoDataUrl(): string | null {
-    const p = (this.rifleForm as any)?.riflePhotoPath;
-    if (p) {
-      const cached = this.riflePhotoCache.get(String(p));
-      if (cached) return cached;
-      void this.readJpegDataUrlFromFs(String(p)).then((u) => {
-        if (u) this.riflePhotoCache.set(String(p), u);
-      });
-      return null;
-    }
+   const p = (this.rifleForm as any)?.riflePhotoPath;
+if (p) {
+  const key = String(p);
+
+  const cached = this.riflePhotoCache.get(key);
+  if (cached) return cached;
+
+  if (this.riflePhotoMissing.has(key)) return null;
+  if (this.riflePhotoLoadInFlight.has(key)) return null;
+
+  this.riflePhotoLoadInFlight.add(key);
+  void this.readJpegDataUrlFromFs(key).then((u) => {
+    if (u) this.riflePhotoCache.set(key, u);
+    else this.riflePhotoMissing.add(key);
+  }).finally(() => {
+    this.riflePhotoLoadInFlight.delete(key);
+  });
+
+  return null;
+}
+
     return this.riflePhotoDataUrlFromBase64(this.rifleForm?.riflePhotoBase64);
   }
 
@@ -78,15 +90,34 @@ export class RiflesTabComponent implements OnInit {
   riflePhotoDataUrl(r: any): string | null {
     const p = (r as any)?.riflePhotoPath;
     if (p) {
-      const cached = this.riflePhotoCache.get(String(p));
-      if (cached) return cached;
-      void this.ensureRiflePhotoOnFs(r).then(async () => {
-        const p2 = (r as any)?.riflePhotoPath;
-        if (p2) {
-          const u = await this.readJpegDataUrlFromFs(String(p2));
-          if (u) this.riflePhotoCache.set(String(p2), u);
-        }
-      });
+     const key = String(p);
+
+const cached = this.riflePhotoCache.get(key);
+if (cached) return cached;
+
+if (this.riflePhotoMissing.has(key)) return null;
+if (this.riflePhotoLoadInFlight.has(key)) return null;
+
+this.riflePhotoLoadInFlight.add(key);
+
+void this.ensureRiflePhotoOnFs(r).then(async () => {
+  const p2 = (r as any)?.riflePhotoPath;
+  if (!p2) return;
+
+  const key2 = String(p2);
+
+  // if path changed after migration, guard that too
+  if (this.riflePhotoMissing.has(key2)) return;
+
+  const u = await this.readJpegDataUrlFromFs(key2);
+  if (u) this.riflePhotoCache.set(key2, u);
+  else this.riflePhotoMissing.add(key2);
+}).finally(() => {
+  this.riflePhotoLoadInFlight.delete(key);
+});
+
+return null;
+
       return null;
     }
     return this.riflePhotoDataUrlFromBase64((r as any)?.riflePhotoBase64);
@@ -526,8 +557,10 @@ export class RiflesTabComponent implements OnInit {
       this.selectedRifleId = null;
       return;
     }
-    this.selectedRifleId =
-      typeof rawId === 'number' ? rawId : Number(rawId) || rawId;
+   const n = Number(rawId);
+this.selectedRifleId =
+  typeof rawId === 'number' ? rawId : (!Number.isNaN(n) ? n : rawId);
+
   }
 
   editRifle(r: any): void {
@@ -811,6 +844,9 @@ coalOgive: load.coalOgive || '',
   // ==========================================================
   private readonly RIFLE_PHOTO_ROOT = 'gs_photos/rifles';
   private riflePhotoCache = new Map<string, string>(); // path -> dataUrl
+  private riflePhotoLoadInFlight = new Set<string>(); // prevent repeated FS reads
+private riflePhotoMissing = new Set<string>();      // remember missing/unreadable files
+
 
   private dataUrlToBase64(dataUrl: string): string {
     const b64 = (dataUrl || '').split(',')[1] ?? '';

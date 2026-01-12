@@ -182,7 +182,9 @@
           name="selectedRifle"
           class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
         >
-          <option *ngFor="let r of rifles" [ngValue]="r.id">{{ r.name }} ({{ r.caliber }})</option>
+          <option *ngFor="let r of rifles" [ngValue]="r.id ?? r.rifleId">
+            {{ r.name }} ({{ r.caliber }})
+          </option>
         </select>
       </label>
 
