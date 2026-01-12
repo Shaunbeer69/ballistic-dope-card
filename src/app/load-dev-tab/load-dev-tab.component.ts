@@ -212,6 +212,26 @@ isAnnotatingPhoto = false;
   }
 
 
+  openProjectPicker(ev?: Event): void {
+    try {
+      ev?.preventDefault();
+      ev?.stopPropagation();
+    } catch {
+      // ignore
+    }
+
+    this.projectPickerOpen = true;
+
+    // Bring selector into view
+    setTimeout(() => {
+      const sel = this.projectSelectEl?.nativeElement;
+      try {
+        sel?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      } catch {
+        // ignore
+      }
+    }, 0);
+  }
 
   // ==========================
 // MIC (VOICE NOTE - ACTIVE)
@@ -2730,6 +2750,8 @@ private async drawAssetImageInBox(
     this.rebuildGraphData();
     if (!this.graphCoords.length && !this.ocwShotPoints.length) this.showGraph = false;
   }  onProjectSelectChange(): void {
+        this.projectPickerOpen = false;
+
     if (this.selectedProjectId == null) {
       this.selectedProject = null;
       this.visibleEntries = []; // ✅ keep cache in sync
