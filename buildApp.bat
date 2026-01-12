@@ -60,7 +60,6 @@ if errorlevel 1 goto error
 
 echo.
 echo DONE SUCCESSFULLY
-pause
 exit /b 0
 
 :error
