@@ -2205,6 +2205,7 @@ y += boxH + boxPadAfter;
   // Results visibility
   resultsCollapsed = false;
   hasResultsForSelectedProject = false;
+  howToExpanded = false; // How-to hint collapsible (default collapsed)
 
   // Post-save banner (top)
   postSaveMessage: string | null = null;
@@ -2756,6 +2757,7 @@ private async drawAssetImageInBox(
       this.selectedProject = null;
       this.visibleEntries = []; // ✅ keep cache in sync
       this.resultsCollapsed = true;
+      this.howToExpanded = false;
 
       this.updateHasResultsFlag();
       this.rebuildGraphData();
@@ -2770,6 +2772,8 @@ private async drawAssetImageInBox(
 
     this.projectFormVisible = false;
     this.resultsCollapsed = false;
+        this.howToExpanded = false;
+
 
     this.syncTargetPhotoFromProject();
     this.syncVoiceNoteFromProject();
@@ -2806,6 +2810,9 @@ private async drawAssetImageInBox(
 
   toggleResultsCollapsed(): void {
     this.resultsCollapsed = !this.resultsCollapsed;
+      }
+      toggleHowToHint(): void {
+    this.howToExpanded = !this.howToExpanded;
   }
 
   // ---------- filters ----------
