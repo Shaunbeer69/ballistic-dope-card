@@ -175,6 +175,23 @@ kestrel: KestrelService = inject(KestrelService);
 
     // Load saved prefs on app start (permanent across restarts)
     this.loadPreferences();
+        // First-run: if no saved preferences exist yet, force user into Preferences
+    try {
+      const raw = localStorage.getItem(this.prefsKey);
+      if (!raw) {
+        this.currentTab = 'menu';
+        this.showTools = true;
+        this.selectedTool = 'preferences';
+        this.showReportsForm = false;
+      }
+    } catch {
+      // if storage is blocked, still open Preferences so user can proceed
+      this.currentTab = 'menu';
+      this.showTools = true;
+      this.selectedTool = 'preferences';
+      this.showReportsForm = false;
+    }
+
   }
 
 
