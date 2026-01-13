@@ -1104,7 +1104,9 @@
                         <div class="font-semibold">
                           {{ selectedProject.oal ?? '—' }}
 
-                          <span *ngIf="selectedProject.oal != null"> mm</span>
+                          <span *ngIf="selectedProject.oal != null">
+                            {{ selectedProject.oalUnit || 'mm' }}</span
+                          >
                         </div>
 
                         <!-- Row 3 -->
@@ -1112,7 +1114,9 @@
                         <div class="font-semibold">
                           {{ selectedProject.oalOgive ?? '—' }}
 
-                          <span *ngIf="selectedProject.oalOgive != null"> mm</span>
+                          <span *ngIf="selectedProject.oalOgive != null">
+                            {{ selectedProject.oalUnit || 'mm' }}</span
+                          >
                         </div>
 
                         <div class="col-span-4 flex items-baseline gap-2">

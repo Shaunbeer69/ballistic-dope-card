@@ -18,6 +18,22 @@ interface AppStore {
   sessions: Session[];
   loadDevProjects: LoadDevProject[];
 }
+type LoadDevOalUnit = 'mm' | 'in';
+type WindSpeedUnit = 'mph' | 'kmh' | 'mps';
+
+export interface AppPreferencesV1 {
+  loadDev?: {
+    oalUnit?: LoadDevOalUnit; // default unit for Load Development COAL/Ogive
+  };
+  wind?: {
+    speedUnit?: WindSpeedUnit; // default unit for Wind Tool wind speed input
+  };
+}
+
+const DEFAULT_PREFS_V1: AppPreferencesV1 = {
+  loadDev: { oalUnit: 'mm' },
+  wind: { speedUnit: 'mph' }
+};
 
 const STORAGE_KEY = 'ballistic-dope-card-v1';
 
@@ -607,25 +623,87 @@ if (idx >= 0) {
     project.entries = (project.entries ?? []).filter(e => e.id !== entryId);
     this.updateLoadDevProject(project);
   }
-    // -------- Preferences (Units & Display v1) --------
+     // -------- Preferences (Units & Display v1) --------
+  // -------- Preference defaults used as "goto" (only where Rifle/Project does not override) --------
+
+
+  getDefaultWindUnit(): 'mph' | 'kmh' | 'mps' {
+    const p: any = this.getPreferences() ?? {};
+    const raw =
+      p?.wind?.unit ??
+      p?.windUnit ??
+      p?.units?.windUnit ??
+      p?.units?.windSpeedUnit ??
+      '';
+    const v = String(raw).toLowerCase();
+    if (v === 'kmh' || v === 'km/h') return 'kmh';
+    if (v === 'mps' || v === 'm/s') return 'mps';
+    return 'mph';
+  }
 
   private readonly PREFS_KEY = 'ballistic-dope-card-prefs-v1';
 
-  getPreferences(): any | null {
+  private sanitizePrefs(p: any): AppPreferencesV1 {
+    const out: AppPreferencesV1 = {
+      loadDev: { ...(DEFAULT_PREFS_V1.loadDev ?? {}) },
+      wind: { ...(DEFAULT_PREFS_V1.wind ?? {}) }
+    };
+
+    // LoadDev oalUnit
+    const oalUnit = String(p?.loadDev?.oalUnit ?? '').toLowerCase();
+    if (oalUnit === 'mm' || oalUnit === 'in') {
+      out.loadDev = { ...(out.loadDev ?? {}), oalUnit: oalUnit as any };
+    }
+
+    // Wind speedUnit
+    const speedUnit = String(p?.wind?.speedUnit ?? '').toLowerCase();
+    if (speedUnit === 'mph' || speedUnit === 'kmh' || speedUnit === 'mps') {
+      out.wind = { ...(out.wind ?? {}), speedUnit: speedUnit as any };
+    }
+
+    return out;
+  }
+
+  /** Always returns valid prefs with defaults applied. */
+  getPreferences(): AppPreferencesV1 {
     try {
       const raw = localStorage.getItem(this.PREFS_KEY);
-      return raw ? JSON.parse(raw) : null;
+      const parsed = raw ? JSON.parse(raw) : null;
+      return this.sanitizePrefs(parsed ?? {});
     } catch {
-      return null;
+      return this.sanitizePrefs({});
     }
   }
 
-  savePreferences(prefs: any): void {
+  /** Overwrite all prefs (defaults still enforced/sanitized). */
+  savePreferences(prefs: AppPreferencesV1): void {
     try {
-      localStorage.setItem(this.PREFS_KEY, JSON.stringify(prefs ?? {}));
+      const clean = this.sanitizePrefs(prefs ?? {});
+      localStorage.setItem(this.PREFS_KEY, JSON.stringify(clean));
     } catch {
       // ignore write errors (storage full / private mode)
     }
+  }
+
+  /** Patch-update prefs (safe deep-ish merge). */
+  updatePreferences(patch: Partial<AppPreferencesV1>): AppPreferencesV1 {
+    const cur = this.getPreferences();
+    const merged: AppPreferencesV1 = {
+      loadDev: { ...(cur.loadDev ?? {}), ...(patch.loadDev ?? {}) },
+      wind: { ...(cur.wind ?? {}), ...(patch.wind ?? {}) }
+    };
+
+    this.savePreferences(merged);
+    return this.getPreferences();
+  }
+
+  // Convenience getters used by components for defaults
+  getDefaultLoadDevOalUnit(): LoadDevOalUnit {
+    return (this.getPreferences().loadDev?.oalUnit ?? 'mm') as LoadDevOalUnit;
+  }
+
+  getDefaultWindSpeedUnit(): WindSpeedUnit {
+    return (this.getPreferences().wind?.speedUnit ?? 'mph') as WindSpeedUnit;
   }
 
 }

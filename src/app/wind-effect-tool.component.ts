@@ -88,7 +88,12 @@ export class WindEffectToolComponent implements OnInit {
   // --------------------------------
   ngOnInit(): void {
     this.buildHourMarkers();
+        // Preferences default (Wind Tool only)
+    this.windUnit = this.data.getDefaultWindUnit();
+
     this.loadRifles();
+        this.windUnit = this.data.getDefaultWindUnit();
+
     this.updateWindSpeedInputFromMph();
     this.updatePoiFromDrift();
   }

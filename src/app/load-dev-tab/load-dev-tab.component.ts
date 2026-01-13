@@ -2034,6 +2034,8 @@ y += boxH + boxPadAfter;
       bulletWeightGr?: number | null;
       oal?: number | null;
       oalOgive?: number | null;
+            oalUnit?: 'mm' | 'in';
+
       distanceM?: number | null;
     })
   | null = null;
@@ -2250,6 +2252,8 @@ y += boxH + boxPadAfter;
   ngOnInit(): void {
     
     this.rifles = this.data.getRifles();
+        // Apply preference defaults once DI is ready (prevents blank-screen crash from early init)
+    this.projectForm.oalUnit = this.data.getDefaultLoadDevOalUnit();
     if (this.rifles.length > 0) {
       this.selectedRifleId = this.rifles[0].id;
       this.loadProjects();
@@ -2273,7 +2277,9 @@ y += boxH + boxPadAfter;
 
   oal: null,
   oalOgive: null,
-  oalUnit: 'mm',
+    oalUnit: (this as any).data?.getDefaultLoadDevOalUnit?.() ?? 'mm',
+
+
 
   distanceM: null,
 };
@@ -3147,6 +3153,8 @@ if (type === 'ladder' || type === 'ocw') {
 
         oal: this.projectForm.oal ?? null,
         oalOgive: (this.projectForm as any).oalOgive ?? null,
+                oalUnit: this.projectForm.oalUnit ?? this.data.getDefaultLoadDevOalUnit(),
+
         distanceM: (type === 'ladder' || type === 'ocw') ? (this.planner.distanceM ?? null) : null
       };
       this.data.updateLoadDevProject(updatedAny as LoadDevProject);
@@ -3170,6 +3178,8 @@ if (type === 'ladder' || type === 'ocw') {
         entries: [],
         oal: this.projectForm.oal ?? null,
         oalOgive: (this.projectForm as any).oalOgive ?? null,
+                oalUnit: this.projectForm.oalUnit ?? this.data.getDefaultLoadDevOalUnit(),
+
         distanceM: (type === 'ladder' || type === 'ocw') ? (this.planner.distanceM ?? null) : null
       };
       this.data.updateLoadDevProject(newProjectAny as LoadDevProject);
