@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+
 import { APP_VERSION } from './environments/version';
 import { RiflesTabComponent } from './rifles-tab/rifles-tab.component';
 import { VenuesTabComponent } from './venues-tab/venues-tab.component';
@@ -38,6 +39,7 @@ interface LastSettingsResult {
   distanceM: number | null;
   elevationMil: number | null;
   windageMil: number | null;
+  
   environment: {
     temperatureC: number | null;
     pressureInHg: number | null;
@@ -146,7 +148,12 @@ importBusy = false;
 
   // TOOLS / KESTREL / CONVERTER
   showTools = false;
- selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | null = null;
+  
+  selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | 'preferences' | null = null;
+  // Preferences (Units & Display v1)
+  // (removed duplicate 'prefs' declaration; see below for the strongly typed version)
+
+
 
 exportSubMenuOpen = false;
 
@@ -158,14 +165,21 @@ exportSubMenuOpen = false;
   converterInput: number | null = null;
 
   private dataService: DataService = inject(DataService);
-  kestrel: KestrelService = inject(KestrelService);
+kestrel: KestrelService = inject(KestrelService);
 
-  // ---------- lifecycle ----------
+// ---------- lifecycle ----------
 
-  ngOnInit(): void {
+     ngOnInit(): void {
     this.loadCoreData();
     this.initKestrelSubscription();
+
+    // Load saved prefs on app start (permanent across restarts)
+    this.loadPreferences();
   }
+
+
+
+
 
   private loadCoreData(): void {
     this.allSessions = this.dataService.getSessions();
@@ -587,6 +601,7 @@ this.expandedDistanceM = distanceM;
             typeof windageMil === 'number' && !Number.isNaN(windageMil)
               ? windageMil
               : null,
+              
         };
 
         const list = groupsMap.get(d) ?? [];
@@ -810,7 +825,112 @@ onWindEffectToolClick(): void {
   this.showReportsForm = false;
 }
 
- 
+// ---------------- Preferences ----------------
+private readonly prefsKey = 'gs_preferences_v1';
+
+prefs: {
+  distanceUnit: 'm' | 'yd';
+  velocityUnit: 'mps' | 'fps';
+  temperatureUnit: 'c' | 'f';
+  pressureUnit: 'hpa' | 'inhg' | 'mmhg' | 'kpa';
+  windSpeedUnit: 'kmh' | 'mph' | 'ms' | 'kn';
+  angleDisplay: 'degrees' | 'clock';
+  scopeAdjust: 'mil' | 'moa';
+} = {
+  distanceUnit: 'm',
+  velocityUnit: 'mps',
+  temperatureUnit: 'c',
+  pressureUnit: 'hpa',
+  windSpeedUnit: 'kmh',
+  angleDisplay: 'clock',
+  scopeAdjust: 'mil',
+};
+
+// ✅ this is what your template is complaining about
+preferencesSavedMsg: string = '';
+
+openPreferences(): void {
+  this.showTools = true;
+  this.selectedTool = this.selectedTool === 'preferences' ? null : 'preferences';
+  this.showReportsForm = false;
+  this.loadPreferences();
+}
+
+closePreferences(): void {
+  this.selectedTool = null;
+}
+
+
+// ✅ Save button = "autosave + message + collapse"
+savePreferences(): void {
+  try {
+    localStorage.setItem(this.prefsKey, JSON.stringify(this.prefs));
+  } catch {
+    // ignore storage failure for UX
+  }
+
+  // Simple “Saved” feedback (no Capacitor Toast dependency)
+  this.preferencesSavedMsg = 'Saved';
+  setTimeout(() => (this.preferencesSavedMsg = ''), 1200);
+
+  // Collapse/close the preferences panel
+  this.closePreferences();
+}
+
+
+
+
+private loadPreferences(): void {
+  try {
+    const raw = localStorage.getItem(this.prefsKey);
+    if (!raw) return;
+
+    const parsed: any = JSON.parse(raw);
+
+    // Migration from old profile-style prefs
+    if (parsed && typeof parsed === 'object' && !parsed.distanceUnit) {
+      const units = (parsed.units ?? '').toString().toLowerCase();
+
+      if (units === 'imperial') {
+        parsed.distanceUnit = 'yd';
+        parsed.velocityUnit = 'fps';
+        parsed.temperatureUnit = 'f';
+        parsed.pressureUnit = 'inhg';
+        parsed.windSpeedUnit = 'mph';
+        parsed.angleDisplay = 'clock';
+        parsed.scopeAdjust = 'moa';
+      } else {
+        parsed.distanceUnit = 'm';
+        parsed.velocityUnit = 'mps';
+        parsed.temperatureUnit = 'c';
+        parsed.pressureUnit = 'hpa';
+        parsed.windSpeedUnit = 'kmh';
+        parsed.angleDisplay = 'clock';
+        parsed.scopeAdjust = 'mil';
+      }
+    }
+
+    this.prefs = {
+      distanceUnit: parsed.distanceUnit === 'yd' ? 'yd' : 'm',
+      velocityUnit: parsed.velocityUnit === 'fps' ? 'fps' : 'mps',
+      temperatureUnit: parsed.temperatureUnit === 'f' ? 'f' : 'c',
+      pressureUnit: ['hpa', 'inhg', 'mmhg', 'kpa'].includes(parsed.pressureUnit)
+        ? parsed.pressureUnit
+        : 'hpa',
+      windSpeedUnit: ['kmh', 'mph', 'ms', 'kn'].includes(parsed.windSpeedUnit)
+        ? parsed.windSpeedUnit
+        : 'kmh',
+      angleDisplay: parsed.angleDisplay === 'degrees' ? 'degrees' : 'clock',
+      scopeAdjust: parsed.scopeAdjust === 'moa' ? 'moa' : 'mil'
+    };
+  } catch {
+    // ignore parse errors
+  }
+}
+
+
+
+
 async downloadTarget(type: 'ocw' | 'group' | 'dots'): Promise<void> {
   try {
     const files: Record<string, string> = {

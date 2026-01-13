@@ -607,4 +607,25 @@ if (idx >= 0) {
     project.entries = (project.entries ?? []).filter(e => e.id !== entryId);
     this.updateLoadDevProject(project);
   }
+    // -------- Preferences (Units & Display v1) --------
+
+  private readonly PREFS_KEY = 'ballistic-dope-card-prefs-v1';
+
+  getPreferences(): any | null {
+    try {
+      const raw = localStorage.getItem(this.PREFS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  savePreferences(prefs: any): void {
+    try {
+      localStorage.setItem(this.PREFS_KEY, JSON.stringify(prefs ?? {}));
+    } catch {
+      // ignore write errors (storage full / private mode)
+    }
+  }
+
 }
