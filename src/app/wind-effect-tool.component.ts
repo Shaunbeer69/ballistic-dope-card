@@ -86,19 +86,20 @@ export class WindEffectToolComponent implements OnInit {
   // --------------------------------
   // Lifecycle
   // --------------------------------
-  ngOnInit(): void {
+    ngOnInit(): void {
     this.buildHourMarkers();
-        // Preferences default (Wind Tool only)
-    this.windUnit = this.data.getDefaultWindUnit();
-
     this.loadRifles();
-        this.windUnit = this.data.getDefaultWindUnit();
+
+      // Preferences default wind unit (mph/kmh/mps)
+    const prefUnit = (this.data as any).getDefaultWindSpeedUnit?.();
+    if (prefUnit === 'kmh' || prefUnit === 'mph' || prefUnit === 'mps') {
+      this.windUnit = prefUnit;
+    }
 
     this.updateWindSpeedInputFromMph();
     this.updatePoiFromDrift();
   }
-
-  // --------------------------------
+// --------------------------------
   // Rifle handling
   // --------------------------------
   private loadRifles(): void {

@@ -629,12 +629,14 @@ if (idx >= 0) {
 
   getDefaultWindUnit(): 'mph' | 'kmh' | 'mps' {
     const p: any = this.getPreferences() ?? {};
-    const raw =
+       const raw =
+      p?.wind?.speedUnit ??
       p?.wind?.unit ??
       p?.windUnit ??
       p?.units?.windUnit ??
       p?.units?.windSpeedUnit ??
       '';
+
     const v = String(raw).toLowerCase();
     if (v === 'kmh' || v === 'km/h') return 'kmh';
     if (v === 'mps' || v === 'm/s') return 'mps';
@@ -642,6 +644,8 @@ if (idx >= 0) {
   }
 
   private readonly PREFS_KEY = 'ballistic-dope-card-prefs-v1';
+    private readonly LEGACY_PREFS_KEY = 'gs_preferences_v1';
+
 
   private sanitizePrefs(p: any): AppPreferencesV1 {
     const out: AppPreferencesV1 = {
@@ -655,25 +659,70 @@ if (idx >= 0) {
       out.loadDev = { ...(out.loadDev ?? {}), oalUnit: oalUnit as any };
     }
 
-    // Wind speedUnit
-    const speedUnit = String(p?.wind?.speedUnit ?? '').toLowerCase();
+       // Wind speedUnit
+    const speedUnitRaw = String(
+      p?.wind?.speedUnit ??
+      p?.windSpeedUnit ??       // legacy flat prefs
+      p?.wind?.unit ??
+      p?.windUnit ??
+      p?.units?.windUnit ??
+      p?.units?.windSpeedUnit ??
+      ''
+    ).toLowerCase();
+
+    // normalize UI/legacy values into internal codes used by the wind tool
+    const speedUnit =
+      speedUnitRaw === 'km/h' ? 'kmh' :
+      speedUnitRaw === 'm/s' ? 'mps' :
+      speedUnitRaw === 'ms' ? 'mps' :
+      speedUnitRaw === 'kn' ? 'mph' :  // legacy supports knots; wind tool doesn't, so fall back safely
+      speedUnitRaw;
+
     if (speedUnit === 'mph' || speedUnit === 'kmh' || speedUnit === 'mps') {
       out.wind = { ...(out.wind ?? {}), speedUnit: speedUnit as any };
     }
+
+
 
     return out;
   }
 
   /** Always returns valid prefs with defaults applied. */
-  getPreferences(): AppPreferencesV1 {
+    getPreferences(): AppPreferencesV1 {
     try {
+      // Primary (new) prefs key
       const raw = localStorage.getItem(this.PREFS_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      return this.sanitizePrefs(parsed ?? {});
+      const parsed = raw ? JSON.parse(raw) : {};
+
+      // Legacy prefs key used by the Preferences UI on the menu screen
+      const legacyRaw = localStorage.getItem(this.LEGACY_PREFS_KEY);
+      const legacy = legacyRaw ? JSON.parse(legacyRaw) : {};
+
+      // Bridge: if legacy has a windSpeedUnit, copy it into the structure expected by components
+      const legacyWind = String(legacy?.windSpeedUnit ?? '').toLowerCase();
+      const bridgedWind =
+        legacyWind === 'kmh' || legacyWind === 'km/h'
+          ? 'kmh'
+          : legacyWind === 'ms' || legacyWind === 'm/s'
+            ? 'mps'
+            : legacyWind === 'mph'
+              ? 'mph'
+              : '';
+
+      const bridged = {
+        ...(parsed ?? {}),
+        wind: {
+          ...((parsed ?? {})?.wind ?? {}),
+          ...(bridgedWind ? { speedUnit: bridgedWind } : {})
+        }
+      };
+
+      return this.sanitizePrefs(bridged ?? {});
     } catch {
       return this.sanitizePrefs({});
     }
   }
+
 
   /** Overwrite all prefs (defaults still enforced/sanitized). */
   savePreferences(prefs: AppPreferencesV1): void {
