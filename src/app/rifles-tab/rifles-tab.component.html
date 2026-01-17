@@ -225,8 +225,6 @@
           </div>
         </div>
 
-        <!-- Small build label so we know version everywhere -->
-        <div class="text-[9px] text-slate-500 mt-1">Rifles build: v1-back-fix</div>
         <!-- Rifle photo -->
         <div *ngIf="hasRiflePhoto(r) && riflePhotoDataUrl(r) as rp" class="mt-2">
           <div class="text-[10px] text-slate-400 font-semibold">Rifle photo</div>
@@ -275,10 +273,11 @@
                     <th class="px-2 py-1 text-left font-semibold">Powder</th>
                     <th class="px-2 py-1 text-left font-semibold">Charge</th>
                     <th class="px-2 py-1 text-left font-semibold">Bullet</th>
+                    <th class="px-2 py-1 text-left font-semibold">Primer</th>
                     <th class="px-2 py-1 text-left font-semibold">Lands (Ogive)</th>
                     <th class="px-2 py-1 text-left font-semibold">COAL</th>
                     <th class="px-2 py-1 text-left font-semibold">COAL (Ogive)</th>
-                    <th class="px-2 py-1 text-left font-semibold">Primer</th>
+                    <th class="px-2 py-1 text-left font-semibold">Jump</th>
                   </tr>
                 </thead>
 
@@ -289,34 +288,7 @@
                       <td class="px-2 py-1">{{ l.powder }}</td>
                       <td class="px-2 py-1">{{ l.chargeGn }}</td>
 
-                      <td class="px-2 py-1">
-                        {{ l.coal }}
-                        <span class="ml-1 text-[9px] text-slate-400">{{ l.coalUnit || 'mm' }}</span>
-                      </td>
-
-                      <
-                      <td class="px-2 py-1">
-                        <div>
-                          {{ l.coalOgive }}
-                          <span class="ml-1 text-[9px] text-slate-400">{{
-                            l.coalUnit || 'mm'
-                          }}</span>
-                        </div>
-
-                        <div
-                          *ngIf="l.lands != null && l.lands !== ''"
-                          class="text-[9px] text-slate-400 mt-0.5"
-                        >
-                          Lands: {{ l.lands }} {{ l.coalUnit || 'mm' }}
-                          <span *ngIf="loadLandsMinusOgiveTextForLoad(l) as d" class="ml-2">
-                            Δ: {{ d }} {{ l.coalUnit || 'mm' }}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td class="px-2 py-1">{{ l.primer }}</td>
-
-                      <!-- Bullet text column -->
+                      <!-- Bullet -->
                       <td class="px-2 py-1 align-top text-left">
                         <div class="text-[10px] leading-tight max-w-[90px]">
                           <ng-container *ngIf="l.bulletWeightGr || l.bullet; else noBullet">
@@ -331,11 +303,53 @@
                           </ng-template>
                         </div>
                       </td>
+                      <!-- Primer -->
+                      <td class="px-2 py-1">{{ l.primer }}</td>
+
+                      <!-- Lands (Ogive) -->
+                      <td class="px-2 py-1">
+                        <div>
+                          {{ l.landsOgive ?? l.lands }}
+                          <span class="ml-1 text-[9px] text-slate-400">{{
+                            l.coalUnit || defaultLoadCoalUnit
+                          }}</span>
+                        </div>
+                      </td>
+
+                      <!-- COAL -->
+                      <td class="px-2 py-1">
+                        {{ l.coal }}
+                        <span class="ml-1 text-[9px] text-slate-400">{{
+                          l.coalUnit || defaultLoadCoalUnit
+                        }}</span>
+                      </td>
+
+                      <!-- COAL (Ogive) -->
+                      <td class="px-2 py-1">
+                        {{ l.coalOgive }}
+                        <span class="ml-1 text-[9px] text-slate-400">{{
+                          l.coalUnit || defaultLoadCoalUnit
+                        }}</span>
+                      </td>
+
+                      <!-- Jump (calculated) -->
+                      <td class="px-2 py-1">
+                        <ng-container *ngIf="loadLandsMinusOgiveTextForLoad(l) as j; else noJump">
+                          {{ j }}
+                          <span class="ml-1 text-[9px] text-slate-400">{{
+                            l.coalUnit || defaultLoadCoalUnit
+                          }}</span>
+                        </ng-container>
+                        <ng-template #noJump>
+                          <span class="text-[9px] text-slate-500">–</span>
+                        </ng-template>
+                      </td>
+
+                      <!-- Actions row under the load, right-justified -->
                     </tr>
 
-                    <!-- Actions row under the load, right-justified -->
                     <tr class="border-b border-slate-900">
-                      <td colspan="7" class="px-2 pb-2 pt-0">
+                      <td colspan="8" class="px-2 pb-2 pt-0">
                         <div class="flex justify-end gap-2">
                           <button
                             type="button"
@@ -357,7 +371,7 @@
 
                     <!-- Load notes row (separate from Rifle Notes) -->
                     <tr *ngIf="l.notes" class="border-b border-slate-900">
-                      <td colspan="7" class="px-2 pb-2 pt-0">
+                      <td colspan="8" class="px-2 pb-2 pt-0">
                         <div class="text-[10px] text-slate-300 whitespace-pre-wrap">
                           <span class="text-slate-400 font-semibold">Load notes:</span>
                           {{ l.notes }}
@@ -417,7 +431,7 @@
                 <label class="flex flex-col">
                   <div class="flex items-center justify-end gap-2">
                     <span class="text-[10px] text-slate-400">
-                      Lands - COAL (Ogive) ({{ loadForm.coalUnit || defaultLoadCoalUnit }})
+                      Jump ({{ loadForm.coalUnit || defaultLoadCoalUnit }})
                     </span>
                   </div>
 
