@@ -366,7 +366,7 @@
                           !(kestrel.kestrelIsConnecting$ | async) &&
                           kestrelData &&
                           !kestrel.kestrelError,
-                        'bg-red-600': kestrel.kestrelError
+                        'bg-red-600': kestrel.kestrelError,
                       }"
                       (click)="onKestrelButtonClick()"
                       [disabled]="kestrel.kestrelIsConnecting$ | async"
@@ -685,7 +685,7 @@
                   </p>
 
                   <span class="text-[8px] text-gray-500" *ngIf="kestrel.kestrelLastUpdated">
-                    Last updated: {{ kestrel.kestrelLastUpdated | date : 'yyyy-MM-dd HH:mm:ss' }}
+                    Last updated: {{ kestrel.kestrelLastUpdated | date: 'yyyy-MM-dd HH:mm:ss' }}
                   </span>
 
                   <div *ngIf="kestrelData" class="mt-1 grid grid-cols-2 gap-1">
@@ -704,13 +704,13 @@
                     <div>
                       Pressure:
                       <span class="font-semibold text-gray-100">
-                        {{ kestrelData.pressureInHg | number : '1.2-2' }} inHg
+                        {{ kestrelData.pressureInHg | number: '1.2-2' }} inHg
                       </span>
                     </div>
                     <div>
                       Wind:
                       <span class="font-semibold text-gray-100">
-                        {{ kestrelData.windSpeedMps | number : '1.1-1' }} m/s
+                        {{ kestrelData.windSpeedMps | number: '1.1-1' }} m/s
                       </span>
                     </div>
                     <div>
@@ -765,7 +765,7 @@
                   <div *ngIf="converterOutput !== null" class="mt-1 text-gray-200">
                     Result:
                     <span class="font-semibold">
-                      {{ converterOutput | number : '1.3-3' }}
+                      {{ converterOutput | number: '1.3-3' }}
                     </span>
                   </div>
                 </div>
@@ -806,6 +806,37 @@
                             [(ngModel)]="prefs.distanceUnit"
                           />
                           <span>Yards (yd)</span>
+                        </label>
+                      </div>
+                    </div>
+                    <!-- Load Dev COAL / Ogive -->
+                    <div class="mt-2">
+                      <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                        Load Dev (COAL/Ogive)
+                      </div>
+                      <div class="grid grid-cols-2 gap-2 text-[11px]">
+                        <label
+                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                        >
+                          <input
+                            type="radio"
+                            name="prefLoadDevOal"
+                            [value]="'mm'"
+                            [(ngModel)]="prefs.loadDevOalUnit"
+                          />
+                          <span>mm</span>
+                        </label>
+
+                        <label
+                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                        >
+                          <input
+                            type="radio"
+                            name="prefLoadDevOal"
+                            [value]="'in'"
+                            [(ngModel)]="prefs.loadDevOalUnit"
+                          />
+                          <span>Inches (in)</span>
                         </label>
                       </div>
                     </div>

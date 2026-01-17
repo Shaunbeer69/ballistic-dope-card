@@ -849,6 +849,8 @@ prefs: {
   distanceUnit: 'm' | 'yd';
   velocityUnit: 'mps' | 'fps';
   temperatureUnit: 'c' | 'f';
+    loadDevOalUnit: 'mm' | 'in';
+
   pressureUnit: 'hpa' | 'inhg' | 'mmhg' | 'kpa';
   windSpeedUnit: 'kmh' | 'mph' | 'ms' | 'kn';
   angleDisplay: 'degrees' | 'clock';
@@ -856,6 +858,8 @@ prefs: {
 } = {
   distanceUnit: 'm',
   velocityUnit: 'mps',
+    loadDevOalUnit: 'mm',
+
   temperatureUnit: 'c',
   pressureUnit: 'hpa',
   windSpeedUnit: 'kmh',
@@ -884,6 +888,12 @@ savePreferences(): void {
     localStorage.setItem(this.prefsKey, JSON.stringify(this.prefs));
   } catch {
     // ignore storage failure for UX
+  }
+  // Also save Load Dev COAL/Ogive unit into the structured prefs used by components
+  try {
+    this.dataService.updatePreferences({ loadDev: { oalUnit: this.prefs.loadDevOalUnit } });
+  } catch {
+    // ignore (keep UI save working even if storage blocked)
   }
 
   // Simple “Saved” feedback (no Capacitor Toast dependency)
@@ -930,6 +940,12 @@ private loadPreferences(): void {
     this.prefs = {
       distanceUnit: parsed.distanceUnit === 'yd' ? 'yd' : 'm',
       velocityUnit: parsed.velocityUnit === 'fps' ? 'fps' : 'mps',
+            loadDevOalUnit:
+        String(parsed.loadDevOalUnit ?? parsed.loadDev?.oalUnit ?? this.dataService.getDefaultLoadDevOalUnit?.())
+          .toLowerCase() === 'in'
+          ? 'in'
+          : 'mm',
+
       temperatureUnit: parsed.temperatureUnit === 'f' ? 'f' : 'c',
       pressureUnit: ['hpa', 'inhg', 'mmhg', 'kpa'].includes(parsed.pressureUnit)
         ? parsed.pressureUnit
