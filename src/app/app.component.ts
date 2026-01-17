@@ -149,7 +149,7 @@ importBusy = false;
   // TOOLS / KESTREL / CONVERTER
   showTools = false;
   
-  selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | 'preferences' | 'documents' | null = null;
+ selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | 'preferences' | 'documents' | null = null;
 
   // Preferences (Units & Display v1)
   // (removed duplicate 'prefs' declaration; see below for the strongly typed version)
@@ -241,6 +241,38 @@ importBusy = false;
   deleteDocument(id: string): void {
     this.documents = (this.documents || []).filter((d) => d.id !== id);
     this.saveDocuments();
+  }
+  private async loadDocumentsFromAssets(): Promise<
+    Array<{ id: string; title: string; tags: string[]; link?: string | null; createdAt: number }>
+  > {
+    try {
+      const res = await fetch('assets/documents/index.json', { cache: 'no-store' });
+      if (!res.ok) return [];
+
+      const raw = await res.json();
+      if (!Array.isArray(raw)) return [];
+
+      return raw
+        .filter((x: any) => x && (x.file || x.link || x.title))
+        .map((x: any) => {
+          const file = x.file ?? null;
+          const link = x.link ?? (file ? `assets/documents/${file}` : null);
+          const title = x.title ?? (file ? String(file) : 'Document');
+
+          const tags = Array.isArray(x.tags)
+            ? x.tags.map((t: any) => String(t).trim()).filter(Boolean)
+            : typeof x.tags === 'string'
+              ? x.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+              : [];
+
+          const id = x.id ?? (file ? `asset:${file}` : `asset:${title}`);
+          const createdAt = typeof x.createdAt === 'number' ? x.createdAt : Date.now();
+
+          return { id, title, tags, link, createdAt };
+        });
+    } catch {
+      return [];
+    }
   }
 
 exportSubMenuOpen = false;
