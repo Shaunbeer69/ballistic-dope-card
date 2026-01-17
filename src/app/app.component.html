@@ -348,7 +348,8 @@
                     $any(selectedTool) !== 'converter' &&
                     $any(selectedTool) !== 'targets' &&
                     $any(selectedTool) !== 'kestrel' &&
-                    $any(selectedTool) !== 'preferences'
+                    $any(selectedTool) !== 'preferences' &&
+                    $any(selectedTool) !== 'documents'
                   "
                   class="grid grid-cols-4 gap-4 justify-items-center"
                 >
@@ -635,6 +636,156 @@
                       {{ selectedTool === 'windEffect' ? 'Tap to close' : 'Tap to open' }}
                     </span>
                   </div>
+                  <!-- Documents -->
+                  <div class="flex flex-col items-center">
+                    <button
+                      class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-emerald-500 via-slate-600 to-slate-900 hover:scale-105 active:scale-95 transition"
+                      (click)="onDocumentsToolClick()"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+                        <path
+                          class="fill-white"
+                          d="M7 3h7l3 3v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm7 1.5V7h2.5L14 4.5ZM7 10h10v1.5H7V10Zm0 3.5h10V15H7v-1.5Zm0 3.5h7v1.5H7V17Z"
+                        />
+                      </svg>
+                    </button>
+
+                    <span class="mt-1 text-[10px] text-gray-300">Documents</span>
+                    <span class="text-[9px] text-gray-500 italic mt-0.5">Manuals & notes</span>
+                  </div>
+                </div>
+                <!-- Documents panel -->
+                <div *ngIf="$any(selectedTool) === 'documents'" class="mt-3 space-y-3 text-[11px]">
+                  <div class="flex items-center justify-between">
+                    <div class="text-[12px] font-semibold text-gray-100">Documents</div>
+                    <button
+                      type="button"
+                      class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
+                      (click)="selectedTool = null"
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <div class="rounded-xl bg-black/30 border border-gray-700 p-3 space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                      <div>
+                        <label class="block text-gray-300 mb-0.5">Search</label>
+                        <input
+                          type="text"
+                          class="w-full bg-black border border-gray-700 rounded px-2 py-1 text-[11px]"
+                          [(ngModel)]="documentsSearch"
+                          placeholder="title / tags…"
+                        />
+                      </div>
+
+                      <div>
+                        <label class="block text-gray-300 mb-0.5">Sort</label>
+                        <select
+                          class="w-full bg-black border border-gray-700 rounded px-2 py-1 text-[11px]"
+                          [(ngModel)]="documentsSort"
+                        >
+                          <option value="newest">Newest</option>
+                          <option value="title">Title A–Z</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
+                      (click)="showAddDocumentForm = !showAddDocumentForm"
+                    >
+                      {{ showAddDocumentForm ? 'Cancel' : 'Add Document' }}
+                    </button>
+
+                    <div *ngIf="showAddDocumentForm" class="space-y-2">
+                      <div>
+                        <label class="block text-gray-300 mb-0.5">Title</label>
+                        <input
+                          type="text"
+                          class="w-full bg-black border border-gray-700 rounded px-2 py-1 text-[11px]"
+                          [(ngModel)]="newDocTitle"
+                          placeholder="e.g. Kestrel manual"
+                        />
+                      </div>
+
+                      <div>
+                        <label class="block text-gray-300 mb-0.5">Tags (comma separated)</label>
+                        <input
+                          type="text"
+                          class="w-full bg-black border border-gray-700 rounded px-2 py-1 text-[11px]"
+                          [(ngModel)]="newDocTags"
+                          placeholder="manual, kestrel, ballistic…"
+                        />
+                      </div>
+
+                      <div>
+                        <label class="block text-gray-300 mb-0.5">Link (optional)</label>
+                        <input
+                          type="text"
+                          class="w-full bg-black border border-gray-700 rounded px-2 py-1 text-[11px]"
+                          [(ngModel)]="newDocLink"
+                          placeholder="https://…"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        class="w-full py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-black text-sm font-semibold"
+                        (click)="addDocument()"
+                      >
+                        Save Document
+                      </button>
+                    </div>
+
+                    <div class="text-[10px] text-gray-400">
+                      Saved: {{ filteredDocuments.length }} document{{
+                        filteredDocuments.length === 1 ? '' : 's'
+                      }}
+                    </div>
+
+                    <div *ngIf="!filteredDocuments.length" class="text-[11px] text-gray-400">
+                      No documents yet.
+                    </div>
+
+                    <div
+                      *ngFor="let d of filteredDocuments"
+                      class="rounded-lg border border-gray-700 bg-black/40 p-2"
+                    >
+                      <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                          <div class="text-[11px] font-semibold text-gray-100 truncate">
+                            {{ d.title }}
+                          </div>
+
+                          <div class="text-[10px] text-gray-400" *ngIf="d.tags.length">
+                            Tags: <span class="text-gray-200">{{ d.tags.join(', ') }}</span>
+                          </div>
+
+                          <div class="text-[10px] text-gray-400" *ngIf="d.link">
+                            Link:
+                            <a
+                              class="text-sky-300 underline break-all"
+                              [href]="d.link"
+                              target="_blank"
+                              rel="noopener"
+                            >
+                              {{ d.link }}
+                            </a>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          class="px-2 py-1 rounded bg-red-600 text-white text-[10px]"
+                          (click)="deleteDocument(d.id)"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Target downloads panel -->
@@ -769,6 +920,68 @@
                     </span>
                   </div>
                 </div>
+                <!-- Documents panel -->
+                <div *ngIf="selectedTool === 'documents'" class="mt-3 space-y-3 text-[11px]">
+                  <div class="flex items-center justify-between">
+                    <div class="text-[12px] font-semibold text-gray-100">Documents</div>
+                    <button
+                      type="button"
+                      class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
+                      (click)="selectedTool = null"
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <div class="grid grid-cols-3 gap-2">
+                    <div class="col-span-2">
+                      <label class="block text-gray-300 mb-0.5">Search</label>
+                      <input
+                        type="text"
+                        class="w-full bg-black border border-gray-700 rounded px-2 py-1"
+                        [(ngModel)]="documentsSearch"
+                        placeholder="Search title / tags…"
+                      />
+                    </div>
+
+                    <div>
+                      <label class="block text-gray-300 mb-0.5">Sort</label>
+                      <select
+                        class="w-full bg-black border border-gray-700 rounded px-2 py-1"
+                        [(ngModel)]="documentsSort"
+                      >
+                        <option value="az">A → Z</option>
+                        <option value="za">Z → A</option>
+                        <option value="new">Newest</option>
+                        <option value="old">Oldest</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="rounded-xl bg-black/30 border border-gray-700 p-3 space-y-2">
+                    <div *ngIf="!filteredDocuments.length" class="text-[10px] text-gray-400">
+                      No documents yet. (We’ll add upload/import next.)
+                    </div>
+
+                    <div
+                      *ngFor="let d of filteredDocuments"
+                      class="flex items-start justify-between gap-3 rounded-lg border border-gray-800 bg-black/20 px-3 py-2"
+                    >
+                      <div class="min-w-0">
+                        <div class="text-[11px] text-gray-100 font-semibold truncate">
+                          {{ d.title }}
+                        </div>
+                        <div *ngIf="d.tags" class="text-[9px] text-gray-500 truncate">
+                          {{ d.tags }}
+                        </div>
+                        <div class="text-[9px] text-gray-600 mt-0.5">
+                          {{ d.createdAt | date: 'yyyy-MM-dd HH:mm' }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Preferences panel -->
                 <div *ngIf="selectedTool === 'preferences'" class="mt-3 space-y-3 text-[11px]">
                   <div class="text-[12px] font-semibold text-gray-100">Preferences</div>

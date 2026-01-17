@@ -149,11 +149,99 @@ importBusy = false;
   // TOOLS / KESTREL / CONVERTER
   showTools = false;
   
-  selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | 'preferences' | null = null;
+  selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | 'preferences' | 'documents' | null = null;
+
   // Preferences (Units & Display v1)
   // (removed duplicate 'prefs' declaration; see below for the strongly typed version)
 
 
+  // ---------------- Documents tool ----------------
+  private readonly documentsKey = 'gs_documents_v1';
+    documents: Array<{ id: string; title: string; tags: string[]; link?: string | null; createdAt: number }> = [];
+
+  documentsSearch: string = '';
+  documentsSort: 'az' | 'za' | 'new' | 'old' = 'az';
+  showAddDocumentForm = false;
+  newDocTitle = '';
+  newDocTags = '';
+  newDocLink = '';
+
+    get filteredDocuments(): Array<{ id: string; title: string; tags: string[]; link?: string | null; createdAt: number }> {
+    const q = (this.documentsSearch || '').trim().toLowerCase();
+    let items = [...(this.documents || [])];
+
+        if (q) {
+      items = items.filter((d) => {
+        const t = (d.title || '').toLowerCase();
+        const g = (d.tags || []).join(' ').toLowerCase();
+        const l = (d.link || '').toLowerCase();
+        return t.includes(q) || g.includes(q) || l.includes(q);
+      });
+    }
+
+
+    items.sort((a, b) => {
+      if (this.documentsSort === 'new') return (b.createdAt || 0) - (a.createdAt || 0);
+      if (this.documentsSort === 'old') return (a.createdAt || 0) - (b.createdAt || 0);
+      if (this.documentsSort === 'za') return (b.title || '').localeCompare(a.title || '');
+      return (a.title || '').localeCompare(b.title || '');
+    });
+
+    return items;
+  }
+
+  private loadDocuments(): void {
+    try {
+      const raw = localStorage.getItem(this.documentsKey);
+      if (!raw) {
+        this.documents = [];
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      this.documents = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      this.documents = [];
+    }
+  }
+
+  private saveDocuments(): void {
+    try {
+      localStorage.setItem(this.documentsKey, JSON.stringify(this.documents || []));
+    } catch {
+      // ignore storage failure
+    }
+  }
+  addDocument(): void {
+    const title = (this.newDocTitle || '').trim();
+    if (!title) return;
+
+    const tags = (this.newDocTags || '')
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    const link = (this.newDocLink || '').trim();
+
+    this.documents.unshift({
+      id: `doc_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      title,
+      tags,
+      link: link ? link : null,
+      createdAt: Date.now(),
+    });
+
+    this.saveDocuments();
+
+    this.newDocTitle = '';
+    this.newDocTags = '';
+    this.newDocLink = '';
+    this.showAddDocumentForm = false;
+  }
+
+  deleteDocument(id: string): void {
+    this.documents = (this.documents || []).filter((d) => d.id !== id);
+    this.saveDocuments();
+  }
 
 exportSubMenuOpen = false;
 
@@ -182,6 +270,8 @@ kestrel: KestrelService = inject(KestrelService);
         this.currentTab = 'menu';
         this.showTools = true;
         this.selectedTool = 'preferences';
+            this.loadDocuments();
+
         this.showReportsForm = false;
       }
     } catch {
@@ -840,6 +930,12 @@ onWindEffectToolClick(): void {
   this.showTools = true;
   this.selectedTool = this.selectedTool === 'windEffect' ? null : 'windEffect';
   this.showReportsForm = false;
+}
+onDocumentsToolClick(): void {
+  this.showTools = true;
+  this.selectedTool = this.selectedTool === 'documents' ? null : 'documents';
+  this.showReportsForm = false;
+  this.loadDocuments();
 }
 
 // ---------------- Preferences ----------------
