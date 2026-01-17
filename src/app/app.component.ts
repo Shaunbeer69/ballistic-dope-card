@@ -242,6 +242,96 @@ importBusy = false;
     this.documents = (this.documents || []).filter((d) => d.id !== id);
     this.saveDocuments();
   }
+    private toAbsoluteUrl(url: string): string {
+    return url && url.includes('://') ? url : new URL(url || '', window.location.origin).toString();
+  }
+
+  private sanitizeFileName(name: string): string {
+    return (name || 'document')
+      .trim()
+      .replace(/[/\\?%*:|"<>]/g, '_')
+      .replace(/\s+/g, ' ')
+      .slice(0, 80);
+  }
+
+  private arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode(...Array.from(chunk));
+    }
+    return btoa(binary);
+  }
+
+  private async getShareableDocUrl(doc: {
+    title: string;
+    link?: string | null;
+  }): Promise<string> {
+    const rawLink = doc.link || '';
+    const absoluteUrl = this.toAbsoluteUrl(rawLink);
+
+    // Web: sharing the absolute URL is fine.
+    if (!Capacitor.isNativePlatform()) return absoluteUrl;
+
+    // Native: if it's not an app asset, share the absolute URL
+    const isAsset = rawLink.startsWith('assets/') || absoluteUrl.includes('/assets/');
+    if (!isAsset) return absoluteUrl;
+
+    // Native + asset: copy to Cache and share as a real file:// URI
+    const res = await fetch(absoluteUrl, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Failed to fetch document (${res.status})`);
+
+    const buf = await res.arrayBuffer();
+    const base64 = this.arrayBufferToBase64(buf);
+
+    const safeName = this.sanitizeFileName(doc.title);
+    const path = `gsdocs/${safeName}.pdf`;
+
+    await Filesystem.writeFile({
+      path,
+      data: base64,
+      directory: Directory.Cache,
+           recursive: true,
+    });
+
+    const uri = await Filesystem.getUri({ path, directory: Directory.Cache });
+    return uri.uri;
+  }
+
+  async openDocument(doc: { title: string; link?: string | null }): Promise<void> {
+    try {
+      if (!doc?.link) return;
+
+      // Always open using an absolute URL (prevents "Unsupported url" on device)
+      const absoluteUrl = this.toAbsoluteUrl(doc.link);
+
+      // This will open in the system handler (browser/pdf viewer) in most Capacitor WebViews
+      window.open(absoluteUrl, '_blank');
+    } catch (err) {
+      console.error('openDocument failed', err);
+      alert('Could not open document.');
+    }
+  }
+
+  async shareDocument(doc: { title: string; link?: string | null }): Promise<void> {
+    try {
+      if (!doc?.link) return;
+
+      const shareUrl = await this.getShareableDocUrl(doc);
+
+      await Share.share({
+        title: doc.title,
+        text: doc.title,
+        url: shareUrl,
+      });
+    } catch (err) {
+      console.error('shareDocument failed', err);
+      alert('Could not share document.');
+    }
+  }
+
   private async loadDocumentsFromAssets(): Promise<
     Array<{ id: string; title: string; tags: string[]; link?: string | null; createdAt: number }>
   > {
@@ -967,8 +1057,20 @@ onDocumentsToolClick(): void {
   this.showTools = true;
   this.selectedTool = this.selectedTool === 'documents' ? null : 'documents';
   this.showReportsForm = false;
-  this.loadDocuments();
+
+  // Prefer bundled documents (assets/documents/index.json)
+  this.loadDocumentsFromAssets()
+    .then((assetDocs) => {
+      if (assetDocs && assetDocs.length) {
+        this.documents = assetDocs;
+        this.saveDocuments(); // optional: keeps them visible even if assets load fails later
+      } else {
+        this.loadDocuments(); // fallback
+      }
+    })
+    .catch(() => this.loadDocuments());
 }
+
 
 // ---------------- Preferences ----------------
 private readonly prefsKey = 'gs_preferences_v1';

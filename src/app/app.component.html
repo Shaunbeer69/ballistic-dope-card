@@ -838,12 +838,34 @@
                         <div class="text-[11px] text-gray-100 font-semibold truncate">
                           {{ d.title }}
                         </div>
-                        <div *ngIf="d.tags" class="text-[9px] text-gray-500 truncate">
-                          {{ d.tags }}
+
+                        <div *ngIf="d.tags?.length" class="text-[9px] text-gray-500 truncate">
+                          {{ d.tags.join(', ') }}
                         </div>
+
                         <div class="text-[9px] text-gray-600 mt-0.5">
                           {{ d.createdAt | date: 'yyyy-MM-dd HH:mm' }}
                         </div>
+                      </div>
+
+                      <div class="flex flex-col gap-1 shrink-0">
+                        <button
+                          type="button"
+                          class="px-2 py-1 rounded bg-gray-200 text-black text-[10px] font-semibold"
+                          (click)="openDocument(d)"
+                          [disabled]="!d.link"
+                        >
+                          Open
+                        </button>
+
+                        <button
+                          type="button"
+                          class="px-2 py-1 rounded bg-orange-500 text-black text-[10px] font-semibold"
+                          (click)="shareDocument(d)"
+                          [disabled]="!d.link"
+                        >
+                          Share
+                        </button>
                       </div>
                     </div>
                   </div>
