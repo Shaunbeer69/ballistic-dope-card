@@ -274,10 +274,11 @@
                   <tr class="bg-slate-900 border-b border-slate-700">
                     <th class="px-2 py-1 text-left font-semibold">Powder</th>
                     <th class="px-2 py-1 text-left font-semibold">Charge</th>
-                    <th class="px-2 py-1 text-left font-semibold">COAL</th>
-                    <th class="px-2 py-1 text-left font-semibold">Ogive</th>
-                    <th class="px-2 py-1 text-left font-semibold">Primer</th>
                     <th class="px-2 py-1 text-left font-semibold">Bullet</th>
+                    <th class="px-2 py-1 text-left font-semibold">Lands (Ogive)</th>
+                    <th class="px-2 py-1 text-left font-semibold">COAL</th>
+                    <th class="px-2 py-1 text-left font-semibold">COAL (Ogive)</th>
+                    <th class="px-2 py-1 text-left font-semibold">Primer</th>
                   </tr>
                 </thead>
 
@@ -293,9 +294,24 @@
                         <span class="ml-1 text-[9px] text-slate-400">{{ l.coalUnit || 'mm' }}</span>
                       </td>
 
+                      <
                       <td class="px-2 py-1">
-                        {{ l.coalOgive }}
-                        <span class="ml-1 text-[9px] text-slate-400">{{ l.coalUnit || 'mm' }}</span>
+                        <div>
+                          {{ l.coalOgive }}
+                          <span class="ml-1 text-[9px] text-slate-400">{{
+                            l.coalUnit || 'mm'
+                          }}</span>
+                        </div>
+
+                        <div
+                          *ngIf="l.lands != null && l.lands !== ''"
+                          class="text-[9px] text-slate-400 mt-0.5"
+                        >
+                          Lands: {{ l.lands }} {{ l.coalUnit || 'mm' }}
+                          <span *ngIf="loadLandsMinusOgiveTextForLoad(l) as d" class="ml-2">
+                            Δ: {{ d }} {{ l.coalUnit || 'mm' }}
+                          </span>
+                        </div>
                       </td>
 
                       <td class="px-2 py-1">{{ l.primer }}</td>
@@ -319,7 +335,7 @@
 
                     <!-- Actions row under the load, right-justified -->
                     <tr class="border-b border-slate-900">
-                      <td colspan="5" class="px-2 pb-2 pt-0">
+                      <td colspan="7" class="px-2 pb-2 pt-0">
                         <div class="flex justify-end gap-2">
                           <button
                             type="button"
@@ -341,7 +357,7 @@
 
                     <!-- Load notes row (separate from Rifle Notes) -->
                     <tr *ngIf="l.notes" class="border-b border-slate-900">
-                      <td colspan="5" class="px-2 pb-2 pt-0">
+                      <td colspan="7" class="px-2 pb-2 pt-0">
                         <div class="text-[10px] text-slate-300 whitespace-pre-wrap">
                           <span class="text-slate-400 font-semibold">Load notes:</span>
                           {{ l.notes }}
@@ -379,6 +395,38 @@
                     [(ngModel)]="loadForm.chargeGn"
                     name="loadCharge"
                     class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                  />
+                </label>
+                <label class="flex flex-col">
+                  <div class="flex items-center justify-between gap-2">
+                    <span>Lands (Ogive)</span>
+                    <span class="text-[10px] text-slate-400"
+                      >({{ loadForm.coalUnit || defaultLoadCoalUnit }})</span
+                    >
+                  </div>
+
+                  <input
+                    type="number"
+                    [(ngModel)]="loadForm.landsOgive"
+                    name="loadLandsOgive"
+                    placeholder="Reminder: Lands is based on specific bullet"
+                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                  />
+                </label>
+
+                <label class="flex flex-col">
+                  <div class="flex items-center justify-end gap-2">
+                    <span class="text-[10px] text-slate-400">
+                      Lands - COAL (Ogive) ({{ loadForm.coalUnit || defaultLoadCoalUnit }})
+                    </span>
+                  </div>
+
+                  <input
+                    type="text"
+                    [value]="loadLandsMinusOgiveText()"
+                    placeholder="—"
+                    readonly
+                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-800 text-slate-200"
                   />
                 </label>
 

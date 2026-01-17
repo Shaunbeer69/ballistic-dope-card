@@ -15,6 +15,8 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
   styleUrls: ['./rifles-tab.component.css'],
 })
 export class RiflesTabComponent implements OnInit {
+    defaultLoadCoalUnit: 'mm' | 'in' = 'mm';
+
   @Output() backToMenu = new EventEmitter<void>();
 
   // All rifles
@@ -228,7 +230,17 @@ return null;
 
   loadForm: any = {};
 
-  constructor(private data: DataService) {}
+  constructor(private data: DataService) {
+  try {
+    const u = (this.data as any)?.preferences?.loadDev?.oalUnit;
+    if (u === 'in' || u === 'mm') {
+      this.defaultLoadCoalUnit = u;
+    }
+  } catch {
+    this.defaultLoadCoalUnit = 'mm';
+  }
+}
+
 
   ngOnInit(): void {
     this.refresh();
@@ -708,11 +720,42 @@ this.selectedRifleId =
 
 
   // Load form logic
-    resetLoadForm(): void {
-    this.loadForm = { notes: '', coalUnit: 'mm' };
+    // Load form logic
+resetLoadForm(): void {
+  const defUnit =
+    typeof (this.data as any).getDefaultLoadDevOalUnit === 'function'
+      ? (this.data as any).getDefaultLoadDevOalUnit()
+      : 'mm';
 
-    this.editingLoadId = null;
-  }
+  this.loadForm = { notes: '', coalUnit: defUnit, landsOgive: '', coal: '', coalOgive: '' };
+
+  this.editingLoadId = null;
+}
+
+  // Lands - Ogive (Load Data form + display helpers)
+ private toNumOrNull(v: any): number | null {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Returns Lands - COAL(Ogive). Positive = jump (if Lands > Ogive). */
+loadLandsMinusOgiveText(): string {
+  const lands = this.toNumOrNull(this.loadForm?.landsOgive);
+  const ogive = this.toNumOrNull(this.loadForm?.coalOgive);
+  if (lands == null || ogive == null) return '';
+  const d = lands - ogive;
+  return d.toFixed(3);
+}
+
+loadLandsMinusOgiveTextForLoad(l: any): string | null {
+  const lands = this.toNumOrNull(l?.landsOgive ?? l?.lands);
+  const ogive = this.toNumOrNull(l?.coalOgive);
+  if (lands == null || ogive == null) return null;
+  const d = lands - ogive;
+  return d.toFixed(3);
+}
+
 
 
   saveLoad(r: any): void {
@@ -736,6 +779,11 @@ this.selectedRifleId =
             this.loadForm.bulletWeightGr != null
               ? Number(this.loadForm.bulletWeightGr)
               : loads[idx].bulletWeightGr,
+                        lands:
+            this.loadForm.lands != null && this.loadForm.lands !== ''
+              ? Number(this.loadForm.lands)
+              : (loads[idx] as any).lands ?? null,
+
         };
       }
     } else {
@@ -747,6 +795,7 @@ this.selectedRifleId =
   coalUnit: this.loadForm.coalUnit || 'mm',
   coal: this.loadForm.coal || '',
   coalOgive: this.loadForm.coalOgive || '',
+  lands: this.loadForm.lands != null && this.loadForm.lands !== '' ? Number(this.loadForm.lands) : null,
 
   primer: this.loadForm.primer || '',
   bullet: this.loadForm.bullet || '',
@@ -799,7 +848,11 @@ this.selectedRifleId =
       powder: load.powder,
       chargeGn: load.chargeGn,
       coalUnit: load.coalUnit || 'mm',
-coalOgive: load.coalOgive || '',
+      landsOgive: load.landsOgive ?? load.lands ?? '',
+
+      coalOgive: load.coalOgive || '',
+      lands: load.lands ?? null,
+
       coal: load.coal,
       primer: load.primer,
       bullet: load.bullet,
