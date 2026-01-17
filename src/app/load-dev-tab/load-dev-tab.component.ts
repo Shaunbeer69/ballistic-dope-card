@@ -49,6 +49,8 @@ interface ProjectForm {
   bullet: string;
   bulletWeightGr: number | null;
   brass: string;
+	  // Lands (reference length for seating depth)
+	  lands: number | null;
 
   oal: number | null;
   oalOgive: number | null;
@@ -2274,7 +2276,7 @@ y += boxH + boxPadAfter;
   bullet: '',
   bulletWeightGr: null,
   brass: '',
-
+	  lands: null,
   oal: null,
   oalOgive: null,
     oalUnit: (this as any).data?.getDefaultLoadDevOalUnit?.() ?? 'mm',
@@ -3150,7 +3152,7 @@ if (type === 'ladder' || type === 'ocw') {
         bullet: this.projectForm.bullet?.trim?.() || undefined,
         bulletWeightGr: this.projectForm.bulletWeightGr ?? null,
 
-
+        lands: (this.projectForm as any).lands ?? null,
         oal: this.projectForm.oal ?? null,
         oalOgive: (this.projectForm as any).oalOgive ?? null,
                 oalUnit: this.projectForm.oalUnit ?? this.data.getDefaultLoadDevOalUnit(),
@@ -3176,6 +3178,8 @@ if (type === 'ladder' || type === 'ocw') {
 
         dateStarted: new Date().toISOString(),
         entries: [],
+                lands: (this.projectForm as any).lands ?? null,
+
         oal: this.projectForm.oal ?? null,
         oalOgive: (this.projectForm as any).oalOgive ?? null,
                 oalUnit: this.projectForm.oalUnit ?? this.data.getDefaultLoadDevOalUnit(),
@@ -3359,16 +3363,39 @@ if (type === 'ladder' || type === 'ocw') {
     const fmt = (n: number) => (Number.isInteger(n) ? n.toFixed(0) : n.toFixed(1));
     return `${fmt(min)} – ${fmt(max)} gr`;
   }
+    
+    // ---------- Lands / Ogive helper (project form) ----------
+  landsMinusOgive(): number | null {
+    const lands = (this.projectForm as any)?.lands as number | null | undefined;
+    const ogive = (this.projectForm as any)?.oalOgive as number | null | undefined;
+
+    if (lands == null || ogive == null) return null;
+
+    const diff = lands - ogive;
+    return Number.isFinite(diff) ? diff : null;
+  }
+
+  landsMinusOgiveText(): string {
+    const d = this.landsMinusOgive();
+    if (d == null) return '';
+
+    // Readable precision (inches typically needs more)
+    const decimals = this.projectForm?.oalUnit === 'in' ? 3 : 2;
+    return d.toFixed(decimals);
+  }
+
+  // 1) decimal space => dot (only when the fractional part is 1 digit)
 
   // ---------- velocity stats & parsing ----------
     private parseVelocityInput(raw: string | undefined | null): number[] {
     if (!raw) return [];
-
+   
         // Accept decimal comma (e.g. "2769,5") by converting it to decimal dot first.
     // Accept decimal space (e.g. "2769 5" or "64 6") some Android keypads emit.
     // After that, remaining commas act as normal separators.
+   
     const normalized = raw
-      // 1) decimal space => dot (only when the fractional part is 1 digit)
+    // 1) decimal space => dot (only when the fractional part is 1 digit)
       .replace(/(\d)[\u00A0\s]+(\d)(?=\D|$)/g, '$1.$2')
       // 2) decimal comma => dot
       .replace(/(\d),(\d)/g, '$1.$2');

@@ -94,8 +94,8 @@
                 projectForm.type === 'ladder'
                   ? 'Ladder test'
                   : projectForm.type === 'ocw'
-                  ? 'OCW test'
-                  : 'Development type'
+                    ? 'OCW test'
+                    : 'Development type'
               }}
             </div>
             <div>
@@ -139,6 +139,40 @@
                 type="number"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                 [(ngModel)]="projectForm.bulletWeightGr"
+              />
+            </div>
+          </div>
+          <!-- Lands + (Lands - Ogive) -->
+          <div class="grid grid-cols-2 gap-2">
+            <!-- LEFT: Lands input -->
+            <div>
+              <div class="text-gray-400 mb-0.5 flex items-center justify-between gap-2">
+                <span>Lands</span>
+                <span class="text-[10px] text-gray-500">({{ projectForm.oalUnit || 'mm' }})</span>
+              </div>
+
+              <input
+                type="number"
+                class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
+                [(ngModel)]="projectForm.lands"
+                placeholder="Reminder: Lands is based on specific bullet"
+              />
+            </div>
+
+            <!-- RIGHT: Calculated difference (Lands - Ogive) -->
+            <div>
+              <div class="text-gray-400 mb-0.5 flex items-center justify-end gap-2">
+                <span class="text-[10px] text-gray-500"
+                  >Lands - Ogive ({{ projectForm.oalUnit || 'mm' }})</span
+                >
+              </div>
+
+              <input
+                type="text"
+                class="w-full bg-black/30 border border-gray-800 rounded-2xl px-2 py-1 text-gray-200"
+                [value]="landsMinusOgiveText()"
+                placeholder="—"
+                readonly
               />
             </div>
           </div>
@@ -417,7 +451,7 @@
             <div class="text-[11px] text-sky-200">
               Edit velocity for
               <span class="font-semibold"
-                >{{ velocityEditEntry.chargeGr | number : '1.0-2' }} gr
+                >{{ velocityEditEntry.chargeGr | number: '1.0-2' }} gr
               </span>
             </div>
 
@@ -567,7 +601,7 @@
                       font-size="2.6"
                       fill="#e5e7eb"
                     >
-                      {{ p.avg | number : '1.0-0' }}
+                      {{ p.avg | number: '1.0-0' }}
                     </text>
                   </ng-container>
                 </ng-container>
@@ -618,7 +652,7 @@
                       font-size="2.6"
                       fill="#e5e7eb"
                     >
-                      {{ s.v | number : '1.0-0' }}
+                      {{ s.v | number: '1.0-0' }}
                     </text>
                   </ng-container>
                 </ng-template>
@@ -639,7 +673,7 @@
                       p.labelAnchor ?? (p.x < 6 ? 'start' : p.x > 94 ? 'end' : 'middle')
                     "
                   >
-                    {{ p.charge | number : '1.0-2' }}
+                    {{ p.charge | number: '1.0-2' }}
                   </text>
                 </ng-container>
               </svg>
@@ -658,7 +692,7 @@
                     fill="#e5e7eb"
                     [attr.text-anchor]="g.cx < 6 ? 'start' : g.cx > 94 ? 'end' : 'middle'"
                   >
-                    {{ g.charge | number : '1.0-2' }}
+                    {{ g.charge | number: '1.0-2' }}
                   </text>
                 </ng-container>
               </svg>
@@ -696,7 +730,7 @@
                           <td class="px-2 py-1 text-gray-100">
                             <div class="leading-tight">
                               <div>
-                                {{ entry.chargeGr | number : '1.0-2' }}
+                                {{ entry.chargeGr | number: '1.0-2' }}
                                 <span *ngIf="hasEntryPhoto(entry)" class="ml-1 opacity-80">📷</span>
                               </div>
                             </div>
@@ -704,15 +738,15 @@
 
                           <ng-container *ngIf="statsForEntry(entry) as s; else dashTplStatsRow">
                             <td class="px-2 py-1 text-gray-100">
-                              {{ s.avg | number : '1.0-0' }}
+                              {{ s.avg | number: '1.0-0' }}
                             </td>
 
                             <td class="px-2 py-1 text-gray-100">
-                              {{ s.sd | number : '1.1-1' }}
+                              {{ s.sd | number: '1.1-1' }}
                             </td>
 
                             <td class="px-2 py-1 text-gray-100">
-                              {{ s.es | number : '1.0-0' }}
+                              {{ s.es | number: '1.0-0' }}
                             </td>
                           </ng-container>
 
@@ -767,7 +801,7 @@
                         <td class="px-2 py-1 text-gray-100">
                           <div class="leading-tight">
                             <div class="flex items-center gap-1">
-                              <span>{{ entry.chargeGr | number : '1.0-2' }}</span>
+                              <span>{{ entry.chargeGr | number: '1.0-2' }}</span>
 
                               <!-- ✅ Node indicator (shows in UI + PDF export) -->
                               <span
@@ -782,7 +816,7 @@
 
                         <td class="px-2 py-1 text-gray-100">
                           <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl2">
-                            {{ s.avg | number : '1.0-0' }}
+                            {{ s.avg | number: '1.0-0' }}
                           </ng-container>
                           <ng-template #dashTpl2>—</ng-template>
                         </td>
@@ -1006,7 +1040,7 @@
                               <div class="flex-1 text-[10px] text-gray-300 truncate">
                                 {{
                                   voiceNoteDurationMs
-                                    ? (voiceNoteDurationMs / 1000 | number : '1.0-0') + 's'
+                                    ? (voiceNoteDurationMs / 1000 | number: '1.0-0') + 's'
                                     : 'Voice note'
                                 }}
                               </div>
@@ -1052,7 +1086,7 @@
 
                               <div class="flex-1 text-left">
                                 <div class="text-xs font-semibold text-white">
-                                  {{ it.charge | number : '1.1-1' }} gr
+                                  {{ it.charge | number: '1.1-1' }} gr
                                 </div>
                               </div>
 

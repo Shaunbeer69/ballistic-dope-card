@@ -227,9 +227,6 @@ return store;
           addedVenues++;
         }
 
-
-
-
         if (Number.isFinite(oldId)) venueIdMap.set(oldId, newId);
       }
 
