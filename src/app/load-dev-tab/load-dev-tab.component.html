@@ -155,7 +155,7 @@
                 type="number"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                 [(ngModel)]="projectForm.lands"
-                placeholder="Reminder: Lands is based on specific bullet"
+                placeholder="Overall length to lands. PS... Per specific bullet"
               />
             </div>
 
@@ -163,7 +163,7 @@
             <div>
               <div class="text-gray-400 mb-0.5 flex items-center justify-end gap-2">
                 <span class="text-[10px] text-gray-500"
-                  >Lands - Ogive ({{ projectForm.oalUnit || 'mm' }})</span
+                  >Jump ({{ projectForm.oalUnit || 'mm' }})</span
                 >
               </div>
 
@@ -182,7 +182,7 @@
             <!-- LEFT: Overall length + unit -->
             <div>
               <div class="text-gray-400 mb-0.5 flex items-center justify-between gap-2">
-                <span>Coal</span>
+                <span>COAL</span>
                 <select
                   class="bg-black/40 border border-gray-700 rounded-xl px-2 py-0.5 text-gray-100 text-[10px]"
                   [(ngModel)]="projectForm.oalUnit"
@@ -196,7 +196,7 @@
                 type="number"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                 [(ngModel)]="projectForm.oal"
-                placeholder="Overall length"
+                placeholder="Overall length of bullet"
               />
             </div>
 
@@ -210,7 +210,7 @@
                 type="number"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                 [(ngModel)]="projectForm.oalOgive"
-                placeholder="Ogive length"
+                placeholder="Overall length of bullet to ogive"
               />
             </div>
           </div>
@@ -228,6 +228,7 @@
                   type="number"
                   class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                   [(ngModel)]="planner.startChargeGr"
+                  placeholder="First charge for this development"
                 />
               </div>
 
@@ -237,6 +238,7 @@
                   type="number"
                   class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                   [(ngModel)]="planner.endChargeGr"
+                  placeholder="Last charge for this development"
                 />
               </div>
 
