@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { FileOpener } from '@capacitor-community/file-opener';
 
 import { APP_VERSION } from './environments/version';
 import { RiflesTabComponent } from './rifles-tab/rifles-tab.component';
@@ -246,13 +247,14 @@ importBusy = false;
     return url && url.includes('://') ? url : new URL(url || '', window.location.origin).toString();
   }
 
-  private sanitizeFileName(name: string): string {
+    private sanitizeFileName(name: string): string {
     return (name || 'document')
       .trim()
       .replace(/[/\\?%*:|"<>]/g, '_')
       .replace(/\s+/g, ' ')
       .slice(0, 80);
   }
+
 
   private arrayBufferToBase64(buffer: ArrayBuffer): string {
     const bytes = new Uint8Array(buffer);
@@ -299,38 +301,127 @@ importBusy = false;
     const uri = await Filesystem.getUri({ path, directory: Directory.Cache });
     return uri.uri;
   }
-
-  async openDocument(doc: { title: string; link?: string | null }): Promise<void> {
-    try {
-      if (!doc?.link) return;
-
-      // Always open using an absolute URL (prevents "Unsupported url" on device)
-      const absoluteUrl = this.toAbsoluteUrl(doc.link);
-
-      // This will open in the system handler (browser/pdf viewer) in most Capacitor WebViews
-      window.open(absoluteUrl, '_blank');
-    } catch (err) {
-      console.error('openDocument failed', err);
-      alert('Could not open document.');
+  async shareDocument(doc: {
+    id: string;
+    title: string;
+    tags: string[];
+    link?: string | null;
+    createdAt: number;
+  }): Promise<void> {
+    if (!doc.link) {
+      alert('No file link for this document.');
+      return;
     }
-  }
 
-  async shareDocument(doc: { title: string; link?: string | null }): Promise<void> {
+    const rawLink = doc.link;
+    const absoluteUrl = rawLink.includes('://')
+      ? rawLink
+      : new URL(rawLink, window.location.origin).toString();
+
     try {
-      if (!doc?.link) return;
+      // Native: if it's an app asset, save to Cache and share the file:// uri
+      const isAsset = rawLink.startsWith('assets/') || absoluteUrl.includes('/assets/');
+      if (Capacitor.isNativePlatform() && isAsset) {
+        const response = await fetch(absoluteUrl, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Document not found (${response.status})`);
 
-      const shareUrl = await this.getShareableDocUrl(doc);
+        const blob = await response.blob();
+        const base64 = await this.blobToBase64(blob);
 
+        const filename = rawLink.split('/').pop() || 'document.pdf';
+
+        await Filesystem.requestPermissions();
+
+        const saved = await Filesystem.writeFile({
+          path: filename,
+          data: base64,
+          directory: Directory.Cache
+        });
+
+        await Share.share({
+          title: doc.title,
+          text: doc.title,
+          url: saved.uri
+        });
+
+        return;
+      }
+
+      // Browser OR non-asset link: share the absolute URL
       await Share.share({
         title: doc.title,
         text: doc.title,
-        url: shareUrl,
+        url: absoluteUrl
       });
     } catch (err) {
       console.error('shareDocument failed', err);
       alert('Could not share document.');
     }
   }
+
+       async openDocument(doc: {
+    id: string;
+    title: string;
+    tags: string[];
+    link?: string | null;
+    createdAt: number;
+  }): Promise<void> {
+    if (!doc.link) {
+      alert('No file link for this document.');
+      return;
+    }
+
+    const rawLink = doc.link;
+    const absoluteUrl = rawLink.includes('://')
+      ? rawLink
+      : new URL(rawLink, window.location.origin).toString();
+
+    try {
+      // Browser
+      if (!Capacitor.isNativePlatform()) {
+        window.open(absoluteUrl, '_blank');
+        return;
+      }
+
+      // Native asset → write to cache
+      const isAsset = rawLink.startsWith('assets/') || absoluteUrl.includes('/assets/');
+      if (isAsset) {
+        const response = await fetch(absoluteUrl, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Document not found (${response.status})`);
+
+        const blob = await response.blob();
+        const base64 = await this.blobToBase64(blob);
+
+        const filename = rawLink.split('/').pop() || 'document.pdf';
+        const path = `gsdocs/${filename}`;
+
+        await Filesystem.writeFile({
+          path,
+          data: base64,
+          directory: Directory.Cache,
+          recursive: true,
+        });
+
+        const uri = await Filesystem.getUri({ path, directory: Directory.Cache });
+
+               // ✅ Open with Android system PDF viewer (FileOpener expects a filesystem path on many builds)
+        const filePath = uri.uri.startsWith('file://') ? uri.uri.slice('file://'.length) : uri.uri;
+        await FileOpener.open({ filePath, contentType: 'application/pdf' });
+
+        return;
+      }
+
+      // Native non-asset
+                window.open(absoluteUrl, '_blank');
+
+
+    } catch (err) {
+      console.error('openDocument failed', err);
+      alert('Could not open document.');
+    }
+  }
+
+
 
   private async loadDocumentsFromAssets(): Promise<
     Array<{ id: string; title: string; tags: string[]; link?: string | null; createdAt: number }>
