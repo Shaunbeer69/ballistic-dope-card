@@ -2,11 +2,46 @@
   {
     "title": "Load Dev Prep Guide",
     "file": "load_dev_prep_guide.pdf",
-    "tags": ["load dev", "prep", "checklist"]
+    "tags": [
+      "docs",
+      "load dev",
+      "prep"
+    ]
+  },
+  {
+    "title": "Mirage Effects5",
+    "file": "Mirage_Effects5.pdf",
+    "tags": [
+      "docs",
+      "mirage",
+      "effects"
+    ]
   },
   {
     "title": "Reloading Acronyms",
     "file": "reloading_acronyms.pdf",
-    "tags": ["reloading", "acronyms", "glossary"]
+    "tags": [
+      "docs",
+      "load dev",
+      "reloading",
+      "acronyms"
+    ]
+  },
+  {
+    "title": "Test User Manual",
+    "file": "Test_User_Manual.pdf",
+    "tags": [
+      "docs",
+      "manual"
+    ]
+  },
+  {
+    "title": "Wind Effects on Bullets",
+    "file": "Wind_Effects_on_Bullets.pdf",
+    "tags": [
+      "docs",
+      "wind",
+      "effects"
+    ]
   }
 ]

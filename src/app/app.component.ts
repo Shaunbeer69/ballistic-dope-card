@@ -479,21 +479,17 @@ kestrel: KestrelService = inject(KestrelService);
         // First-run: if no saved preferences exist yet, force user into Preferences
     try {
       const raw = localStorage.getItem(this.prefsKey);
-      if (!raw) {
-        this.currentTab = 'menu';
-        this.showTools = true;
-        this.selectedTool = 'preferences';
-            this.loadDocuments();
-
+            if (!raw) {
+        // First-run (or after reinstall): do NOT force Preferences.
+        // Stay on main menu.
         this.showReportsForm = false;
       }
-    } catch {
-      // if storage is blocked, still open Preferences so user can proceed
-      this.currentTab = 'menu';
-      this.showTools = true;
-      this.selectedTool = 'preferences';
-      this.showReportsForm = false;
+
+        } catch {
+      // If storage is blocked, do not force Preferences open.
+      // Stay on main menu.
     }
+
 
   }
 
@@ -1305,20 +1301,40 @@ async downloadTarget(type: 'ocw' | 'group' | 'dots'): Promise<void> {
 
     const filename = url.split('/').pop() ?? `target-${type}.pdf`;
 
-    // 2) save to app-accessible storage (reliable on Android)
+       // 2) Save to Cache (same method as working Documents) — avoids Android scoped-storage permission errors
     await Filesystem.requestPermissions();
 
-    const saved = await Filesystem.writeFile({
-      path: filename,
+    const safeName = this.sanitizeFileName(filename.replace(/\.pdf$/i, ''));
+    const cachePath = `gstargets/${safeName}.pdf`;
+
+    await Filesystem.writeFile({
+      path: cachePath,
       data: base64,
-      directory: Directory.Documents
+      directory: Directory.Cache,
+      recursive: true,
     });
 
-    // 3) open share sheet so user can "Save to Downloads"
+    const uri = await Filesystem.getUri({ path: cachePath, directory: Directory.Cache });
+    const shareUrl = uri.uri;
+
+    // 3) Try Share (lets user save to Files/Downloads). If Share fails, open directly.
+    try {
+      await Share.share({
+        title: filename,
+        text: 'Save this target to Downloads / Files',
+        url: shareUrl,
+      });
+    } catch (shareErr) {
+      // Fallback: open the PDF directly
+      const filePath = shareUrl.startsWith('file://') ? shareUrl.slice('file://'.length) : shareUrl;
+      await FileOpener.open({ filePath, contentType: 'application/pdf' });
+    }
+
+    // 3) open share sheet so user can "Save to Downloads" or print
     await Share.share({
       title: filename,
       text: 'Save this target to Downloads / Files',
-      url: saved.uri
+      url: uri.uri,
     });
 
   } catch (err) {
