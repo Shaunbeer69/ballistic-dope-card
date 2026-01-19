@@ -824,8 +824,27 @@
                       </select>
                     </div>
                   </div>
+                  <div class="flex items-center justify-between">
+                    <button
+                      type="button"
+                      class="px-3 py-1 rounded-lg bg-slate-700 text-gray-100 text-[10px]"
+                      (click)="documentsListExpanded = !documentsListExpanded"
+                    >
+                      {{ documentsListExpanded ? 'Hide all files' : 'Show all files' }}
+                    </button>
 
-                  <div class="rounded-xl bg-black/30 border border-gray-700 p-3 space-y-2">
+                    <div
+                      *ngIf="!documentsHasSearch && !documentsListExpanded"
+                      class="text-[10px] text-gray-400"
+                    >
+                      Type in Search to show matching files…
+                    </div>
+                  </div>
+
+                  <div
+                    *ngIf="documentsListExpanded || documentsHasSearch"
+                    class="rounded-xl bg-black/30 border border-gray-700 p-3 space-y-2"
+                  >
                     <div *ngIf="!filteredDocuments.length" class="text-[10px] text-gray-400">
                       No documents yet. (We’ll add upload/import next.)
                     </div>

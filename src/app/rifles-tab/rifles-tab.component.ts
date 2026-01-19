@@ -767,42 +767,57 @@ loadLandsMinusOgiveTextForLoad(l: any): string | null {
     if (this.editingLoadId != null) {
       const idx = loads.findIndex((l) => l.id === this.editingLoadId);
       if (idx !== -1) {
+              const charge = this.toNumOrNull(this.loadForm.chargeGn);
+        const bw = this.toNumOrNull(this.loadForm.bulletWeightGr);
+        const landsOgiveNum = this.toNumOrNull(this.loadForm.landsOgive);
+
         loads[idx] = {
           ...loads[idx],
           ...this.loadForm,
           id: this.editingLoadId,
-          chargeGn:
-            this.loadForm.chargeGn != null
-              ? Number(this.loadForm.chargeGn)
-              : loads[idx].chargeGn,
-          bulletWeightGr:
-            this.loadForm.bulletWeightGr != null
-              ? Number(this.loadForm.bulletWeightGr)
-              : loads[idx].bulletWeightGr,
-                        lands:
-            this.loadForm.lands != null && this.loadForm.lands !== ''
-              ? Number(this.loadForm.lands)
-              : (loads[idx] as any).lands ?? null,
 
+          chargeGn: charge != null ? charge : loads[idx].chargeGn,
+          bulletWeightGr: bw != null ? bw : loads[idx].bulletWeightGr,
+
+          // ✅ keep both fields aligned; UI reads landsOgive first
+          landsOgive:
+            landsOgiveNum != null
+              ? landsOgiveNum
+              : (loads[idx] as any).landsOgive ?? (loads[idx] as any).lands ?? null,
+
+          lands:
+            landsOgiveNum != null
+              ? landsOgiveNum
+              : (loads[idx] as any).lands ?? null,
         };
+
       }
     } else {
-            const newLoad = {
-  id: Date.now(),
-  powder: this.loadForm.powder || '',
-  chargeGn: this.loadForm.chargeGn || null,
+        const newLoad = {
+        id: Date.now(),
 
-  coalUnit: this.loadForm.coalUnit || 'mm',
-  coal: this.loadForm.coal || '',
-  coalOgive: this.loadForm.coalOgive || '',
-  lands: this.loadForm.lands != null && this.loadForm.lands !== '' ? Number(this.loadForm.lands) : null,
+        powder: (this.loadForm.powder || '').toString(),
+        chargeGn: this.toNumOrNull(this.loadForm.chargeGn),
 
-  primer: this.loadForm.primer || '',
-  bullet: this.loadForm.bullet || '',
-  bulletWeightGr: this.loadForm.bulletWeightGr || null,
-  bulletBc: this.loadForm.bulletBc || '',
-  notes: (this.loadForm.notes || '').toString(), // <-- ADD THIS LINE
-};
+        coalUnit: this.loadForm.coalUnit || 'mm',
+
+        // ✅ store the field the UI actually edits/displays
+        landsOgive: this.toNumOrNull(this.loadForm.landsOgive),
+
+        // keep legacy field in sync for older data/display fallbacks
+        lands: this.toNumOrNull(this.loadForm.landsOgive),
+
+        coal: this.toNumOrNull(this.loadForm.coal),
+        coalOgive: this.toNumOrNull(this.loadForm.coalOgive),
+
+        primer: (this.loadForm.primer || '').toString(),
+        bullet: (this.loadForm.bullet || '').toString(),
+        bulletWeightGr: this.toNumOrNull(this.loadForm.bulletWeightGr),
+        bulletBc: (this.loadForm.bulletBc || '').toString(),
+
+        notes: (this.loadForm.notes || '').toString(),
+      };
+
 
 
       
@@ -818,14 +833,16 @@ loadLandsMinusOgiveTextForLoad(l: any): string | null {
     if (typeof anyData.updateRifle === 'function') {
       anyData.updateRifle(updatedRifle);
     } else if (typeof anyData.setRifles === 'function') {
-      const list = this.rifles.map((x: any) =>
-        x.id === updatedRifle.id ? updatedRifle : x
+         const list = this.rifles.map((x: any) =>
+        (x.id ?? x.rifleId) === (updatedRifle.id ?? (updatedRifle as any).rifleId) ? updatedRifle : x
       );
+
       anyData.setRifles(list);
     } else {
-      this.rifles = this.rifles.map((x: any) =>
-        x.id === updatedRifle.id ? updatedRifle : x
+           this.rifles = this.rifles.map((x: any) =>
+        (x.id ?? x.rifleId) === (updatedRifle.id ?? (updatedRifle as any).rifleId) ? updatedRifle : x
       );
+
       anyData.rifles = this.rifles;
     }
 

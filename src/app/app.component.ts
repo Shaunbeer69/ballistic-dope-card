@@ -163,6 +163,8 @@ importBusy = false;
   documentsSearch: string = '';
   documentsSort: 'az' | 'za' | 'new' | 'old' = 'az';
   showAddDocumentForm = false;
+  documentsListExpanded = false;
+
   newDocTitle = '';
   newDocTags = '';
   newDocLink = '';
@@ -181,6 +183,7 @@ importBusy = false;
     }
 
 
+
     items.sort((a, b) => {
       if (this.documentsSort === 'new') return (b.createdAt || 0) - (a.createdAt || 0);
       if (this.documentsSort === 'old') return (a.createdAt || 0) - (b.createdAt || 0);
@@ -190,6 +193,10 @@ importBusy = false;
 
     return items;
   }
+    get documentsHasSearch(): boolean {
+    return (this.documentsSearch || '').trim().length > 0;
+  }
+
 
   private loadDocuments(): void {
     try {
@@ -237,6 +244,9 @@ importBusy = false;
     this.newDocTags = '';
     this.newDocLink = '';
     this.showAddDocumentForm = false;
+       this.documentsListExpanded = false;
+
+
   }
 
   deleteDocument(id: string): void {
@@ -1142,8 +1152,20 @@ onWindEffectToolClick(): void {
 }
 onDocumentsToolClick(): void {
   this.showTools = true;
-  this.selectedTool = this.selectedTool === 'documents' ? null : 'documents';
+
+  const opening = this.selectedTool !== 'documents';
+  this.selectedTool = opening ? 'documents' : null;
+
   this.showReportsForm = false;
+
+  // When opening Documents: start collapsed + empty search
+  if (opening) {
+    this.documentsSearch = '';
+    this.documentsListExpanded = false;
+    this.showAddDocumentForm = false;
+  } else {
+    return;
+  }
 
   // Prefer bundled documents (assets/documents/index.json)
   this.loadDocumentsFromAssets()
@@ -1157,6 +1179,7 @@ onDocumentsToolClick(): void {
     })
     .catch(() => this.loadDocuments());
 }
+
 
 
 // ---------------- Preferences ----------------

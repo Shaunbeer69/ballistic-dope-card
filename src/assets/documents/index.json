@@ -1,5 +1,14 @@
 [
   {
+    "title": "Gunstuff Ballistics User Manual",
+    "file": "gunstuff_ballistics_user_manual.pdf",
+    "tags": [
+      "docs",
+      "manual",
+      "ballistics"
+    ]
+  },
+  {
     "title": "Load Dev Prep Guide",
     "file": "load_dev_prep_guide.pdf",
     "tags": [
