@@ -738,6 +738,32 @@ resetLoadForm(): void {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
+  onInchDecimalInput(field: 'landsOgive' | 'coal' | 'coalOgive', ev: Event): void {
+    // Only enforce formatting when user is working in inches
+    const unit = (this.loadForm?.coalUnit ?? this.defaultLoadCoalUnit);
+    if (unit !== 'in') return;
+
+    const input = ev.target as HTMLInputElement | null;
+    if (!input) return;
+
+    let v = (input.value ?? '').toString();
+
+    // 1) Comma -> dot
+    v = v.replace(/,/g, '.');
+
+    // 2) Only allow digits and a single dot
+    v = v.replace(/[^0-9.]/g, '');
+    const firstDot = v.indexOf('.');
+    if (firstDot !== -1) {
+      v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+    }
+
+    // 3) Auto dot after first digit (e.g. "2" -> "2.")
+    if (/^\d$/.test(v)) v = v + '.';
+
+    input.value = v;
+    (this.loadForm as any)[field] = v;
+  }
 
 /** Returns Lands - COAL(Ogive). Positive = jump (if Lands > Ogive). */
 loadLandsMinusOgiveText(): string {
