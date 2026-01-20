@@ -335,6 +335,36 @@ return null;
       doc.text(`Loads (${loads.length})`, 10, y + 5);
       y += 9;
       // Loads table (keep it horizontal; notes/comments go underneath)
+            const loadTableBody = (loads as any[]).reduce((acc: any[], l: any) => {
+        const row = [
+          `${l?.powder ?? ''}`,
+          `${l?.chargeGn ?? ''}`,
+          `${l?.aveVelocityFps ?? ''}`,
+          `${l?.coal ?? ''}`,
+          `${l?.coalOgive ?? ''}`,
+          `${l?.landsOgive ?? ''}`,
+          `${l?.jump ?? ''}`,
+          `${l?.primer ?? ''}`,
+          `${l?.bullet ?? ''}`,
+          `${l?.bulletWeightGr ?? ''}`,
+          `${l?.bulletBc ?? ''}`,
+        ];
+
+        const noteText = (l?.notes ?? '').toString().trim();
+
+        const noteRow = [
+          {
+            content: `Notes: ${noteText}`,
+            colSpan: 11,
+            styles: { fontSize: 7, fontStyle: 'italic' as any },
+          },
+        ];
+
+        acc.push(row);
+        acc.push(noteRow);
+        return acc;
+      }, []);
+
 
       autoTableMod.default(doc, {
         startY: y,
@@ -356,19 +386,8 @@ return null;
 ]],
 
 
-       body: loads.map((l: any) => ([
-  `${l?.powder ?? ''}`,
-  `${l?.chargeGn ?? ''}`,
-  `${l?.aveVelocityFps ?? ''}`,
-  `${l?.coal ?? ''}`,
-  `${l?.coalOgive ?? ''}`,
-  `${l?.landsOgive ?? ''}`,
-  `${l?.jump ?? ''}`,
-  `${l?.primer ?? ''}`,
-  `${l?.bullet ?? ''}`,
-  `${l?.bulletWeightGr ?? ''}`,
-  `${l?.bulletBc ?? ''}`,
-])),
+      body: loadTableBody,
+
 
 
 
