@@ -327,70 +327,95 @@ return null;
 
       y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 40;
 
-        // Loads table
+             // Loads table
       const loads = Array.isArray(r.loads) ? r.loads : [];
       doc.setFontSize(12);
-      doc.text(`Loads (${loads.length})`, 10, y);
-      y += 3;
-      // Loads table (keep it horizontal; notes go underneath per-load)
+      doc.text('Load Data', 10, y);
+      doc.setFontSize(10);
+      doc.text(`Loads (${loads.length})`, 10, y + 5);
+      y += 9;
+      // Loads table (keep it horizontal; notes/comments go underneath)
+
       autoTableMod.default(doc, {
         startY: y,
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: { fontSize: 8 },
-                   body: loads.map((l: any) => ([
-          `${l?.powder ?? ''}`,
-          `${l?.chargeGn ?? ''}`,
-          `${l?.aveVelocityFps ?? ''}`,
-          `${l?.coal ?? ''}`,
-          `${l?.primer ?? ''}`,
-          `${l?.bullet ?? ''}`,
-          `${l?.bulletWeightGr ?? ''}`,
-          `${l?.bulletBc ?? ''}`,
-        ])),
+        head: [[
+  'Powder',
+  'Charge (gr)',
+  'Vel (fps)',
+  'COAL',
+  'COAL Ogive',
+  'Lands / Ogive',
+  'Jump',
+  'Primer',
+  'Bullet',
+  'Weight (gr)',
+  'BC'
+]],
+
+
+       body: loads.map((l: any) => ([
+  `${l?.powder ?? ''}`,
+  `${l?.chargeGn ?? ''}`,
+  `${l?.aveVelocityFps ?? ''}`,
+  `${l?.coal ?? ''}`,
+  `${l?.coalOgive ?? ''}`,
+  `${l?.landsOgive ?? ''}`,
+  `${l?.jump ?? ''}`,
+  `${l?.primer ?? ''}`,
+  `${l?.bullet ?? ''}`,
+  `${l?.bulletWeightGr ?? ''}`,
+  `${l?.bulletBc ?? ''}`,
+])),
+
+
 
 
       });
 
       // Move cursor below the table
       y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 12;
-
-      // Load notes (under each load, in its own section like rifle notes)
+      // Load notes (single column under table)
       const loadsWithNotes = loads.filter((l: any) => (l?.notes ?? '').toString().trim().length > 0);
 
       if (loadsWithNotes.length) {
-        // Page break if needed
-        if (y > 270) {
-          doc.addPage();
-          y = 12;
-        }
-
         doc.setFontSize(12);
         doc.text('Load Notes', 10, y);
         y += 5;
 
         doc.setFontSize(9);
-
         for (let i = 0; i < loadsWithNotes.length; i++) {
           const l: any = loadsWithNotes[i];
           const note = (l?.notes ?? '').toString().trim();
 
-          const header = `${i + 1}) ${l?.powder ?? ''} ${l?.chargeGn ?? ''}gn | ${l?.bullet ?? ''} ${l?.bulletWeightGr ?? ''}gr | Coal ${l?.coal ?? ''}`;
+          const idParts = [
+            (l?.powder ?? '').toString().trim(),
+            (l?.chargeGn != null && l?.chargeGn !== '' ? `${l.chargeGn}gn` : ''),
+            (l?.bullet ?? '').toString().trim(),
+            (l?.bulletWeightGr != null && l?.bulletWeightGr !== '' ? `${l.bulletWeightGr}gr` : ''),
+            (l?.coal != null && l?.coal !== '' ? `COAL ${l.coal}` : ''),
+          ].filter((p: string) => p.length > 0).join(' | ');
 
-          // Page break if needed
-          if (y > 270) {
-            doc.addPage();
-            y = 12;
-          }
-
-          doc.setFontSize(9);
-          doc.text(header, 10, y);
-          y += 4;
-
-          const wrapped = doc.splitTextToSize(note, pageWidth - 20);
-          doc.text(wrapped, 12, y);
-          y += (wrapped.length * 4) + 3;
+          const line = `${i + 1}) ${idParts}${idParts ? ' — ' : ''}${note}`;
+          const wrapped = doc.splitTextToSize(line, pageWidth - 20);
+          doc.text(wrapped, 10, y);
+          y += wrapped.length * 4 + 2;
         }
+
+        y += 2;
+      }
+
+      // Comments (blank lines for handwriting) - full width
+      doc.setFontSize(12);
+      doc.text('Comments', 10, y);
+      y += 6;
+
+      (doc as any).setDrawColor?.(0);
+      for (let i = 1; i <= 5; i++) {
+        (doc as any).line(10, y, pageWidth - 10, y);
+        y += 7;
       }
 
             // --------------------------
@@ -403,13 +428,8 @@ return null;
       if (riflePhotoDataUrl) {
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 10;
+        // Keep everything on one page: do NOT add a page; just scale to remaining space
 
-        // If we don't have enough space left on this page, move photo to next page
-        const minPhotoBlockH = 45; // label + usable photo
-        if (y + minPhotoBlockH > pageHeight - margin) {
-          doc.addPage();
-          y = 12;
-        }
 
         doc.setFontSize(12);
         doc.text('Rifle photo', 10, y);
@@ -448,11 +468,12 @@ return null;
           }
         }
 
-        const x = (pageWidth - imgW) / 2;
-        (doc as any).addImage(riflePhotoDataUrl, fmt, x, y, imgW, imgH, undefined, 'FAST');
-        y += imgH + 4;
+              const x = (pageWidth - imgW) / 2;
+        if (imgW > 0 && imgH > 0) {
+          (doc as any).addImage(riflePhotoDataUrl, fmt, x, y, imgW, imgH, undefined, 'FAST');
+          y += imgH + 4;
+        }
       }
-
 
       const filenameSafe = `${(r.name ?? 'rifle').toString().replace(/[^\w\-]+/g, '_')}_rifle_export.pdf`;
       const pdfBlob = doc.output('blob');
@@ -852,6 +873,8 @@ loadLandsMinusOgiveTextForLoad(l: any): string | null {
               const charge = this.toNumOrNull(this.loadForm.chargeGn);
         const bw = this.toNumOrNull(this.loadForm.bulletWeightGr);
         const landsOgiveNum = this.toNumOrNull(this.loadForm.landsOgive);
+        const coalOgiveNum = this.toNumOrNull(this.loadForm.coalOgive);
+
 
         loads[idx] = {
           ...loads[idx],
@@ -872,6 +895,18 @@ loadLandsMinusOgiveTextForLoad(l: any): string | null {
             landsOgiveNum != null
               ? landsOgiveNum
               : (loads[idx] as any).lands ?? null,
+              jump: (() => {
+  const lands = (landsOgiveNum != null)
+    ? landsOgiveNum
+    : (loads[idx] as any).landsOgive ?? (loads[idx] as any).lands ?? null;
+
+  const ogive = (coalOgiveNum != null)
+    ? coalOgiveNum
+    : (loads[idx] as any).coalOgive ?? null;
+
+  return (lands != null && ogive != null) ? (lands - ogive) : (loads[idx] as any).jump ?? null;
+})(),
+
         };
 
       }
@@ -894,6 +929,11 @@ aveVelocityFps: this.toNumOrNull(this.loadForm.aveVelocityFps),
 
         coal: this.toNumOrNull(this.loadForm.coal),
         coalOgive: this.toNumOrNull(this.loadForm.coalOgive),
+jump: (() => {
+  const lands = this.toNumOrNull(this.loadForm.landsOgive);
+  const ogive = this.toNumOrNull(this.loadForm.coalOgive);
+  return (lands != null && ogive != null) ? (lands - ogive) : null;
+})(),
 
         primer: (this.loadForm.primer || '').toString(),
         bullet: (this.loadForm.bullet || '').toString(),
