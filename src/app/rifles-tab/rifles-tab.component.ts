@@ -31,6 +31,19 @@ export class RiflesTabComponent implements OnInit {
   activeLoadsRifleId: number | string | null = null;
   activeLoadFormRifleId: number | string | null = null;
   editingLoadId: number | string | null = null;
+    // Load details modal (Show Loads -> tap a row -> modal)
+  loadDetailsOpen = false;
+  loadDetailsRifleId: number | string | null = null;
+  loadDetailsLoad: any | null = null;
+
+  // Selected load details (for the “View” panel under the table)
+  selectedLoadDetails: { rifle: any; load: any } | null = null;
+
+  // selectLoadForDetails(r: any, l: any): void {
+  //   if (!r || !l) return;
+  //   this.selectedLoadDetails = { rifle: r, load: l };
+  // }
+
 
   // Forms
       rifleForm: any = {
@@ -251,6 +264,7 @@ return null;
     this.addFormVisible = false;
     this.editingRifle = null;
     this.activeLoadsRifleId = null;
+          this.closeLoadDetails();
     this.activeLoadFormRifleId = null;
     this.editingLoadId = null;
     this.resetLoadForm();
@@ -324,24 +338,18 @@ return null;
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: { fontSize: 8 },
-        head: [[
-          'Powder',
-          'Charge',
-          'COAL',
-          'Primer',
-          'Bullet',
-          'BW (gr)',
-          'BC'
-        ]],
-        body: loads.map((l: any) => ([
+                   body: loads.map((l: any) => ([
           `${l?.powder ?? ''}`,
           `${l?.chargeGn ?? ''}`,
+          `${l?.aveVelocityFps ?? ''}`,
           `${l?.coal ?? ''}`,
           `${l?.primer ?? ''}`,
           `${l?.bullet ?? ''}`,
           `${l?.bulletWeightGr ?? ''}`,
           `${l?.bulletBc ?? ''}`,
         ])),
+
+
       });
 
       // Move cursor below the table
@@ -678,6 +686,8 @@ this.selectedRifleId =
 
     if (this.activeLoadsRifleId === r.id) {
       this.activeLoadsRifleId = null;
+            this.selectedLoadDetails = null;
+
       this.activeLoadFormRifleId = null;
       this.editingLoadId = null;
       this.resetLoadForm();
@@ -727,10 +737,53 @@ resetLoadForm(): void {
       ? (this.data as any).getDefaultLoadDevOalUnit()
       : 'mm';
 
-  this.loadForm = { notes: '', coalUnit: defUnit, landsOgive: '', coal: '', coalOgive: '' };
+       this.loadForm = { powder: '', chargeGn: null, lands: null, coalUnit: defUnit, coal: null, coalOgive: null, primer: '', bullet: '', bulletWeightGr: null, bulletBc: '', aveVelocityFps: null, notes: '' };
+
 
   this.editingLoadId = null;
+   
+
 }
+  selectLoadForDetails(l: any): void {
+    this.selectedLoadDetails = l ?? null;
+  }
+
+  clearSelectedLoadDetails(): void {
+    this.selectedLoadDetails = null;
+  }
+  openLoadDetails(r: any, l: any, ev?: Event): void {
+    try {
+      ev?.preventDefault();
+      ev?.stopPropagation();
+    } catch {}
+
+    if (!r || !l) return;
+    this.loadDetailsOpen = true;
+    this.loadDetailsRifleId = r.id ?? r.rifleId ?? null;
+    this.loadDetailsLoad = l;
+  }
+
+  closeLoadDetails(): void {
+    this.loadDetailsOpen = false;
+    this.loadDetailsRifleId = null;
+    this.loadDetailsLoad = null;
+  }
+
+  loadsVelocitySummaryText(r: any): string {
+    const loads = Array.isArray(r?.loads) ? r.loads : [];
+    const vels = loads
+      .map((x: any) => (x?.aveVelocityFps != null ? Number(x.aveVelocityFps) : NaN))
+      .filter((n: number) => Number.isFinite(n));
+
+    if (!vels.length) return 'Vel: —';
+
+    const sum = vels.reduce((a: number, b: number) => a + b, 0);
+    const avg = sum / vels.length;
+    const min = Math.min(...vels);
+    const max = Math.max(...vels);
+
+    return `Vel (fps): avg ${Math.round(avg)} • min ${Math.round(min)} • max ${Math.round(max)}`;
+  }
 
   // Lands - Ogive (Load Data form + display helpers)
  private toNumOrNull(v: any): number | null {
@@ -785,10 +838,13 @@ loadLandsMinusOgiveTextForLoad(l: any): string | null {
 
 
   saveLoad(r: any): void {
+            const aveV = this.toNumOrNull(this.loadForm.aveVelocityFps);
+
     if (!r) return;
 
     const anyData: any = this.data;
     const loads: any[] = [...(r.loads || [])];
+    
 
     if (this.editingLoadId != null) {
       const idx = loads.findIndex((l) => l.id === this.editingLoadId);
@@ -800,10 +856,11 @@ loadLandsMinusOgiveTextForLoad(l: any): string | null {
         loads[idx] = {
           ...loads[idx],
           ...this.loadForm,
-          id: this.editingLoadId,
+                 id: this.editingLoadId,
 
           chargeGn: charge != null ? charge : loads[idx].chargeGn,
           bulletWeightGr: bw != null ? bw : loads[idx].bulletWeightGr,
+          aveVelocityFps: aveV != null ? aveV : (loads[idx] as any).aveVelocityFps ?? null,
 
           // ✅ keep both fields aligned; UI reads landsOgive first
           landsOgive:
@@ -824,11 +881,13 @@ loadLandsMinusOgiveTextForLoad(l: any): string | null {
 
         powder: (this.loadForm.powder || '').toString(),
         chargeGn: this.toNumOrNull(this.loadForm.chargeGn),
+aveVelocityFps: this.toNumOrNull(this.loadForm.aveVelocityFps),
 
         coalUnit: this.loadForm.coalUnit || 'mm',
 
         // ✅ store the field the UI actually edits/displays
         landsOgive: this.toNumOrNull(this.loadForm.landsOgive),
+      
 
         // keep legacy field in sync for older data/display fallbacks
         lands: this.toNumOrNull(this.loadForm.landsOgive),
@@ -838,7 +897,11 @@ loadLandsMinusOgiveTextForLoad(l: any): string | null {
 
         primer: (this.loadForm.primer || '').toString(),
         bullet: (this.loadForm.bullet || '').toString(),
+        
         bulletWeightGr: this.toNumOrNull(this.loadForm.bulletWeightGr),
+                         
+
+
         bulletBc: (this.loadForm.bulletBc || '').toString(),
 
         notes: (this.loadForm.notes || '').toString(),
@@ -881,27 +944,28 @@ loadLandsMinusOgiveTextForLoad(l: any): string | null {
 
   editLoad(r: any, load: any): void {
     if (!r || !load) return;
+      aveVelocityFps: load.aveVelocityFps ?? null,
 
     this.activeLoadsRifleId = r.id;
     this.activeLoadFormRifleId = r.id;
+    aveVelocityFps: this.toNumOrNull(this.loadForm.aveVelocityFps),
+
     this.editingLoadId = load.id;
 
-       this.loadForm = {
+           this.loadForm = {
       id: load.id,
       powder: load.powder,
       chargeGn: load.chargeGn,
+      aveVelocityFps: load.aveVelocityFps ?? '',
       coalUnit: load.coalUnit || 'mm',
       landsOgive: load.landsOgive ?? load.lands ?? '',
-
-      coalOgive: load.coalOgive || '',
-      lands: load.lands ?? null,
-
-      coal: load.coal,
+      coal: load.coal ?? '',
+      coalOgive: load.coalOgive ?? '',
       primer: load.primer,
       bullet: load.bullet,
       bulletWeightGr: load.bulletWeightGr,
       bulletBc: load.bulletBc,
-      notes: (load.notes || '').toString(), // <-- ADD THIS LINE
+      notes: (load.notes || '').toString(),
     };
 
   }
@@ -934,10 +998,13 @@ loadLandsMinusOgiveTextForLoad(l: any): string | null {
     this.activeLoadFormRifleId = null;
     this.editingLoadId = null;
     this.resetLoadForm();
+    
   }
+  
   // ==========================================================
   // PHOTO STORAGE (Option A): Filesystem (Directory.Data)
   // ==========================================================
+  
   private readonly RIFLE_PHOTO_ROOT = 'gs_photos/rifles';
   private riflePhotoCache = new Map<string, string>(); // path -> dataUrl
   private riflePhotoLoadInFlight = new Set<string>(); // prevent repeated FS reads

@@ -261,11 +261,19 @@
             </button>
           </div>
 
+          <!-- Expanded loads area -->
           <div *ngIf="activeLoadsRifleId === r.id" class="mt-2 space-y-2">
-            <div class="text-[11px] text-slate-300">
-              Defined loads: {{ (r.loads || []).length }}
+            <!-- Summary banner (IMPORTANT SUMMARY FIELD = velocity summary) -->
+            <div
+              class="rounded-xl border border-slate-700 bg-slate-950 p-2 text-[10px] text-slate-200"
+            >
+              <div class="font-semibold text-slate-100">Load summary</div>
+              <div class="mt-1">
+                Loads: {{ (r.loads || []).length }} • {{ loadsVelocitySummaryText(r) }}
+              </div>
             </div>
 
+            <!-- Compact table -->
             <div class="overflow-x-auto">
               <table class="min-w-full text-[10px] border-collapse">
                 <thead>
@@ -273,24 +281,21 @@
                     <th class="px-2 py-1 text-left font-semibold">Powder</th>
                     <th class="px-2 py-1 text-left font-semibold">Charge</th>
                     <th class="px-2 py-1 text-left font-semibold">Bullet</th>
-                    <th class="px-2 py-1 text-left font-semibold">Primer</th>
-                    <th class="px-2 py-1 text-left font-semibold">Lands (Ogive)</th>
-                    <th class="px-2 py-1 text-left font-semibold">COAL</th>
-                    <th class="px-2 py-1 text-left font-semibold">COAL (Ogive)</th>
-                    <th class="px-2 py-1 text-left font-semibold">Jump</th>
+                    <th class="px-2 py-1 text-right font-semibold">Info</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  <ng-container *ngFor="let l of r.loads">
-                    <!-- Data row -->
-                    <tr class="border-b border-slate-800">
-                      <td class="px-2 py-1">{{ l.powder }}</td>
-                      <td class="px-2 py-1">{{ l.chargeGn }}</td>
+                  <ng-container *ngFor="let l of r.loads || []">
+                    <tr
+                      class="border-b border-slate-800 cursor-pointer"
+                      (click)="openLoadDetails(r, l, $event)"
+                    >
+                      <td class="px-2 py-1">{{ l.powder || '-' }}</td>
+                      <td class="px-2 py-1">{{ l.chargeGn ?? '-' }}</td>
 
-                      <!-- Bullet -->
                       <td class="px-2 py-1 align-top text-left">
-                        <div class="text-[10px] leading-tight max-w-[90px]">
+                        <div class="text-[10px] leading-tight max-w-[120px]">
                           <ng-container *ngIf="l.bulletWeightGr || l.bullet; else noBullet">
                             <span *ngIf="l.bulletWeightGr">{{ l.bulletWeightGr }} gr </span
                             >{{ l.bullet }}
@@ -303,84 +308,239 @@
                           </ng-template>
                         </div>
                       </td>
-                      <!-- Primer -->
-                      <td class="px-2 py-1">{{ l.primer }}</td>
 
-                      <!-- Lands (Ogive) -->
-                      <td class="px-2 py-1">
-                        <div>
-                          {{ l.landsOgive ?? l.lands }}
-                          <span class="ml-1 text-[9px] text-slate-400">{{
-                            l.coalUnit || defaultLoadCoalUnit
-                          }}</span>
-                        </div>
-                      </td>
-
-                      <!-- COAL -->
-                      <td class="px-2 py-1">
-                        {{ l.coal }}
-                        <span class="ml-1 text-[9px] text-slate-400">{{
-                          l.coalUnit || defaultLoadCoalUnit
-                        }}</span>
-                      </td>
-
-                      <!-- COAL (Ogive) -->
-                      <td class="px-2 py-1">
-                        {{ l.coalOgive }}
-                        <span class="ml-1 text-[9px] text-slate-400">{{
-                          l.coalUnit || defaultLoadCoalUnit
-                        }}</span>
-                      </td>
-
-                      <!-- Jump (calculated) -->
-                      <td class="px-2 py-1">
-                        <ng-container *ngIf="loadLandsMinusOgiveTextForLoad(l) as j; else noJump">
-                          {{ j }}
-                          <span class="ml-1 text-[9px] text-slate-400">{{
-                            l.coalUnit || defaultLoadCoalUnit
-                          }}</span>
-                        </ng-container>
-                        <ng-template #noJump>
-                          <span class="text-[9px] text-slate-500">–</span>
-                        </ng-template>
-                      </td>
-
-                      <!-- Actions row under the load, right-justified -->
-                    </tr>
-
-                    <tr class="border-b border-slate-900">
-                      <td colspan="8" class="px-2 pb-2 pt-0">
-                        <div class="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            class="px-3 py-1 rounded-xl bg-blue-600 text-white text-[10px] font-semibold"
-                            (click)="editLoad(r, l)"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            class="px-3 py-1 rounded-xl bg-red-600 text-white text-[10px] font-semibold"
-                            (click)="deleteLoad(r, l)"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-
-                    <!-- Load notes row (separate from Rifle Notes) -->
-                    <tr *ngIf="l.notes" class="border-b border-slate-900">
-                      <td colspan="8" class="px-2 pb-2 pt-0">
-                        <div class="text-[10px] text-slate-300 whitespace-pre-wrap">
-                          <span class="text-slate-400 font-semibold">Load notes:</span>
-                          {{ l.notes }}
-                        </div>
+                      <td class="px-2 py-1 text-right">
+                        <button
+                          type="button"
+                          class="px-2 py-1 rounded-lg bg-slate-700 text-slate-100 text-[10px] font-semibold"
+                          (click)="openLoadDetails(r, l, $event)"
+                        >
+                          View
+                        </button>
                       </td>
                     </tr>
                   </ng-container>
                 </tbody>
               </table>
+            </div>
+
+            <!-- Modal: Full load details -->
+            <div
+              *ngIf="loadDetailsOpen && loadDetailsRifleId === r.id && loadDetailsLoad"
+              class="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-3"
+              (click)="closeLoadDetails()"
+            >
+              <div
+                class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-3"
+                (click)="$event.stopPropagation()"
+              >
+                <div class="flex items-start justify-between gap-2">
+                  <div class="text-[12px] font-semibold text-slate-100">Load details</div>
+
+                  <button
+                    type="button"
+                    class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                    (click)="closeLoadDetails()"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-200">
+                  <div>
+                    <span class="text-slate-400">Powder:</span> {{ loadDetailsLoad.powder || '-' }}
+                  </div>
+                  <div>
+                    <span class="text-slate-400">Charge:</span>
+                    {{ loadDetailsLoad.chargeGn ?? '-' }}
+                  </div>
+
+                  <div>
+                    <span class="text-slate-400">Ave Vel:</span>
+                    {{ loadDetailsLoad.aveVelocityFps ?? '-' }} fps
+                  </div>
+                  <div>
+                    <span class="text-slate-400">Primer:</span> {{ loadDetailsLoad.primer || '-' }}
+                  </div>
+
+                  <div>
+                    <span class="text-slate-400">Lands (Ogive):</span>
+                    {{ loadDetailsLoad.landsOgive ?? loadDetailsLoad.lands ?? '-' }}
+                    <span class="text-[9px] text-slate-400">{{
+                      loadDetailsLoad.coalUnit || defaultLoadCoalUnit
+                    }}</span>
+                  </div>
+
+                  <div>
+                    <span class="text-slate-400">COAL:</span>
+                    {{ loadDetailsLoad.coal ?? '-' }}
+                    <span class="text-[9px] text-slate-400">{{
+                      loadDetailsLoad.coalUnit || defaultLoadCoalUnit
+                    }}</span>
+                  </div>
+
+                  <div>
+                    <span class="text-slate-400">COAL Ogive:</span>
+                    {{ loadDetailsLoad.coalOgive ?? '-' }}
+                    <span class="text-[9px] text-slate-400">{{
+                      loadDetailsLoad.coalUnit || defaultLoadCoalUnit
+                    }}</span>
+                  </div>
+
+                  <div>
+                    <span class="text-slate-400">Jump:</span>
+                    <ng-container
+                      *ngIf="loadLandsMinusOgiveTextForLoad(loadDetailsLoad) as jj; else noJump2"
+                    >
+                      {{ jj }}
+                      <span class="text-[9px] text-slate-400">{{
+                        loadDetailsLoad.coalUnit || defaultLoadCoalUnit
+                      }}</span>
+                    </ng-container>
+                    <ng-template #noJump2><span class="text-slate-500">–</span></ng-template>
+                  </div>
+
+                  <div class="col-span-2">
+                    <span class="text-slate-400">Bullet:</span>
+                    {{
+                      loadDetailsLoad.bulletWeightGr ? loadDetailsLoad.bulletWeightGr + ' gr ' : ''
+                    }}
+                    {{ loadDetailsLoad.bullet || '-' }}
+                    <span *ngIf="loadDetailsLoad.bulletBc" class="text-slate-400">
+                      • BC: {{ loadDetailsLoad.bulletBc }}</span
+                    >
+                  </div>
+
+                  <div class="col-span-2" *ngIf="loadDetailsLoad.notes">
+                    <span class="text-slate-400 font-semibold">Notes:</span>
+                    <span class="whitespace-pre-wrap">{{ loadDetailsLoad.notes }}</span>
+                  </div>
+                </div>
+
+                <div class="mt-3 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    class="px-3 py-1 rounded-xl bg-blue-600 text-white text-[10px] font-semibold"
+                    (click)="editLoad(r, loadDetailsLoad); closeLoadDetails()"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    class="px-3 py-1 rounded-xl bg-red-600 text-white text-[10px] font-semibold"
+                    (click)="deleteLoad(r, loadDetailsLoad); closeLoadDetails()"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Selected Load Details (replaces scrolling sideways) -->
+            <div
+              *ngIf="selectedLoadDetails && selectedLoadDetails.rifle === r"
+              class="mt-2 rounded-xl border border-slate-700 bg-slate-950 p-2"
+            >
+              <div class="flex items-start justify-between gap-2">
+                <div class="text-[11px] font-semibold text-slate-100">Selected load</div>
+
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    class="px-3 py-1 rounded-xl bg-blue-600 text-white text-[10px] font-semibold"
+                    (click)="editLoad(r, selectedLoadDetails.load); clearSelectedLoadDetails()"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    class="px-3 py-1 rounded-xl bg-red-600 text-white text-[10px] font-semibold"
+                    (click)="deleteLoad(r, selectedLoadDetails.load); clearSelectedLoadDetails()"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    class="px-3 py-1 rounded-xl bg-slate-700 text-slate-100 text-[10px] font-semibold"
+                    (click)="clearSelectedLoadDetails()"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-200">
+                <div>
+                  <span class="text-slate-400">Powder:</span>
+                  {{ selectedLoadDetails.load?.powder || '-' }}
+                </div>
+                <div>
+                  <span class="text-slate-400">Charge:</span>
+                  {{ selectedLoadDetails.load?.chargeGn ?? '-' }}
+                </div>
+
+                <div>
+                  <span class="text-slate-400">Ave Vel:</span>
+                  {{ selectedLoadDetails.load?.aveVelocityFps ?? '-' }} fps
+                </div>
+                <div>
+                  <span class="text-slate-400">Primer:</span>
+                  {{ selectedLoadDetails.load?.primer || '-' }}
+                </div>
+
+                <div>
+                  <span class="text-slate-400">Lands:</span>
+                  {{ selectedLoadDetails.load?.lands ?? '-' }}
+                </div>
+                <div>
+                  <span class="text-slate-400">COAL:</span>
+                  {{ selectedLoadDetails.load?.coal ?? '-' }}
+                  <span class="text-[9px] text-slate-400">{{
+                    selectedLoadDetails.load?.coalUnit || defaultLoadCoalUnit
+                  }}</span>
+                </div>
+
+                <div>
+                  <span class="text-slate-400">COAL Ogive:</span>
+                  {{ selectedLoadDetails.load?.coalOgive ?? '-' }}
+                  <span class="text-[9px] text-slate-400">{{
+                    selectedLoadDetails.load?.coalUnit || defaultLoadCoalUnit
+                  }}</span>
+                </div>
+                <div>
+                  <span class="text-slate-400">Jump:</span>
+                  <ng-container
+                    *ngIf="
+                      loadLandsMinusOgiveTextForLoad(selectedLoadDetails.load) as jj;
+                      else noJump2
+                    "
+                  >
+                    {{ jj }}
+                    <span class="text-[9px] text-slate-400">{{
+                      selectedLoadDetails.load?.coalUnit || defaultLoadCoalUnit
+                    }}</span>
+                  </ng-container>
+                  <ng-template #noJump2><span class="text-slate-500">–</span></ng-template>
+                </div>
+
+                <div class="col-span-2">
+                  <span class="text-slate-400">Bullet:</span>
+                  {{
+                    selectedLoadDetails.load?.bulletWeightGr
+                      ? selectedLoadDetails.load?.bulletWeightGr + ' gr '
+                      : ''
+                  }}
+                  {{ selectedLoadDetails.load?.bullet || '-' }}
+                  <span *ngIf="selectedLoadDetails.load?.bulletBc" class="text-slate-400">
+                    • BC: {{ selectedLoadDetails.load?.bulletBc }}</span
+                  >
+                </div>
+
+                <div class="col-span-2" *ngIf="selectedLoadDetails.load?.notes">
+                  <span class="text-slate-400 font-semibold">Notes:</span>
+                  <span class="whitespace-pre-wrap">{{ selectedLoadDetails.load?.notes }}</span>
+                </div>
+              </div>
             </div>
 
             <!-- Load edit/add form -->
@@ -519,6 +679,16 @@
                     [(ngModel)]="loadForm.bulletBc"
                     name="loadBulletBc"
                     placeholder="e.g. 0.345 G7"
+                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                  />
+                </label>
+                <label class="flex flex-col">
+                  Ave velocity (fps)
+                  <input
+                    type="number"
+                    [(ngModel)]="loadForm.aveVelocityFps"
+                    name="loadAveVelocity"
+                    placeholder="e.g. 2850"
                     class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>
