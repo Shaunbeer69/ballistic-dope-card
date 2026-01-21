@@ -497,11 +497,11 @@ return null;
       const filenameSafe = `${(r.name ?? 'rifle').toString().replace(/[^\w\-]+/g, '_')}_rifle_export.pdf`;
       const pdfBlob = doc.output('blob');
 
-      // Prefer native share on device; fallback to download on web
+    // Prefer native share on device; fallback to download on web
       await this.sharePdfBlob(pdfBlob, filenameSafe);
     } catch (err) {
       console.error('exportSelectedRiflePdf failed:', err);
-      alert('Export failed. Check console for details.');
+      alert('File Export cancelled');
     }
   }
 
