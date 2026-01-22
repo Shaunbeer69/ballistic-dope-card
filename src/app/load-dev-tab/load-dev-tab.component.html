@@ -228,6 +228,7 @@
                   type="number"
                   class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                   [(ngModel)]="planner.startChargeGr"
+                  (ngModelChange)="onPlannerRangeChange()"
                   placeholder="First"
                 />
               </div>
@@ -238,6 +239,7 @@
                   type="number"
                   class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                   [(ngModel)]="planner.endChargeGr"
+                  (ngModelChange)="onPlannerRangeChange()"
                   placeholder="Last"
                 />
               </div>
@@ -261,6 +263,7 @@
           <div *ngIf="projectForm.type === 'ocw'" class="mt-2">
             <div class="text-gray-400 mb-0.5">Shots per group</div>
             <input
+              #shotsPerGroupEl
               type="number"
               class="w-full !bg-black/40 !text-gray-100 border border-gray-700 rounded-2xl px-2 py-1 appearance-none focus:!bg-black/60"
               [(ngModel)]="planner.shotsPerGroup"
@@ -456,6 +459,15 @@
                 >{{ velocityEditEntry.chargeGr | number: '1.0-2' }} gr
               </span>
             </div>
+            <div
+              *ngIf="
+                selectedProject?.type === 'ocw' &&
+                (velocityEditEntry?.shotsFired ?? planner.shotsPerGroup) as n
+              "
+              class="text-[13px] text-white font-semibold"
+            >
+              ({{ n }} shots)
+            </div>
 
             <input
               #velocityInputEl
@@ -472,19 +484,19 @@
 
             <div class="flex justify-end gap-2">
               <button
-                class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black font-semibold"
+                class="px-2.5 py-1 rounded-2xl bg-emerald-500 text-black font-semibold text-[11px] leading-tight"
                 (click)="saveVelocityAndNext()"
               >
                 Save &amp; next
               </button>
               <button
-                class="px-3 py-1.5 rounded-2xl bg-gray-700 text-gray-100"
+                class="px-2.5 py-1 rounded-2xl bg-gray-700 text-gray-100 text-[11px] leading-tight"
                 (click)="skipVelocityAndNext()"
               >
                 Skip
               </button>
               <button
-                class="px-3 py-1.5 rounded-2xl bg-red-700 text-red-50"
+                class="px-2.5 py-1 rounded-2xl bg-red-700 text-red-50 text-[11px] leading-tight"
                 (click)="cancelLadderWizard()"
               >
                 Cancel
@@ -706,6 +718,10 @@
                   <thead class="bg-gray-900/70 text-gray-300">
                     <tr *ngIf="selectedProject?.type === 'ocw'; else ladderHead">
                       <th class="px-2 py-1 text-left">Charge (gr)</th>
+                      <th class="px-2 py-1 text-left leading-tight">
+                        <div>Shots</div>
+                        <div class="text-[9px] text-gray-400">planned</div>
+                      </th>
                       <th class="px-2 py-1 text-left">Vel</th>
                       <th class="px-2 py-1 text-left">SD</th>
                       <th class="px-2 py-1 text-left">ES</th>
@@ -737,6 +753,9 @@
                               </div>
                             </div>
                           </td>
+                          <td class="px-2 py-1 text-gray-100">
+                            {{ entry.shotsFired ?? planner.shotsPerGroup ?? '—' }}
+                          </td>
 
                           <ng-container *ngIf="statsForEntry(entry) as s; else dashTplStatsRow">
                             <td class="px-2 py-1 text-gray-100">
@@ -765,7 +784,7 @@
 
                         <!-- Line 2: actions -->
                         <tr class="border-t border-gray-800 bg-black/40">
-                          <td colspan="5" class="px-2 py-1.5 text-right whitespace-nowrap">
+                          <td colspan="6" class="px-2 py-1.5 text-right whitespace-nowrap">
                             <button
                               class="text-[10px] px-2 py-0.5 rounded-full bg-gray-600/90 text-white mr-2"
                               title="Target photo"

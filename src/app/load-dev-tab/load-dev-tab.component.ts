@@ -135,7 +135,7 @@ export class LoadDevTabComponent implements OnInit {
 @ViewChild('targetFileInput') targetFileInput?: ElementRef<HTMLInputElement>;
 @ViewChild('entryFileInput') entryFileInput?: ElementRef<HTMLInputElement>;
   @ViewChild('projectSelectEl') projectSelectEl?: ElementRef<HTMLSelectElement>;
-
+  @ViewChild('shotsPerGroupEl') shotsPerGroupEl?: ElementRef<HTMLInputElement>;
 
 photoViewerEntry: LoadDevEntry | null = null;
 photoViewerImgUrl: string | null = null;
@@ -2487,6 +2487,27 @@ onStepChange(raw: any): void {
 
   this.plannerStepText = s;
   this.planner.stepGr = n;
+
+}
+onPlannerRangeChange(): void {
+  if (this.projectForm.type !== 'ocw') return;
+
+  const s = this.planner.startChargeGr;
+  const e = this.planner.endChargeGr;
+
+  if (s == null || e == null) return;
+
+  // Single-charge OCW (start === end) => force step = 0 and jump to shots input
+  if (Number(s) === Number(e)) {
+    this.planner.stepGr = 0;
+    this.plannerStepText = '0.0';
+
+    setTimeout(() => {
+      try {
+        this.shotsPerGroupEl?.nativeElement.focus();
+      } catch {}
+    }, 0);
+  }
 }
 
 entryHasPhoto(entry: LoadDevEntry): boolean {
