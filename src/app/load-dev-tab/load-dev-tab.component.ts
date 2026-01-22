@@ -2711,6 +2711,8 @@ private async drawAssetImageInBox(
       return;
     }
 
+    // Cleanup legacy “ghost” load developments (empty projects with names left behind)
+    this.data.pruneEmptyLoadDevProjects();
     this.projects = this.data.getLoadDevProjectsForRifle(this.selectedRifleId);
 
     if (this.selectedProjectId != null) {
@@ -3217,6 +3219,9 @@ if (type === 'ladder' || type === 'ocw') {
     if (!confirm(`Delete project "${project.name}"?`)) return;
 
     this.data.deleteLoadDevProject(project.id);
+        // Safety: remove any legacy/ghost projects that are now empty
+    this.data.pruneEmptyLoadDevProjects();
+
 
     if (this.selectedProjectId === project.id) {
       this.selectedProject = null;

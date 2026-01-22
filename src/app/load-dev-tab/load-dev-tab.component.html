@@ -147,7 +147,7 @@
             <!-- LEFT: Lands input -->
             <div>
               <div class="text-gray-400 mb-0.5 flex items-center justify-between gap-2">
-                <span>Lands</span>
+                <span>Lands (BTO)</span>
                 <span class="text-[10px] text-gray-500">({{ projectForm.oalUnit || 'mm' }})</span>
               </div>
 
@@ -155,7 +155,7 @@
                 type="number"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                 [(ngModel)]="projectForm.lands"
-                placeholder="Overall length to lands. PS... Per specific bullet"
+                placeholder="Bullet Specific"
               />
             </div>
 
@@ -182,7 +182,7 @@
             <!-- LEFT: Overall length + unit -->
             <div>
               <div class="text-gray-400 mb-0.5 flex items-center justify-between gap-2">
-                <span>COAL</span>
+                <span>Dev Coal</span>
                 <select
                   class="bg-black/40 border border-gray-700 rounded-xl px-2 py-0.5 text-gray-100 text-[10px]"
                   [(ngModel)]="projectForm.oalUnit"
@@ -196,7 +196,7 @@
                 type="number"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                 [(ngModel)]="projectForm.oal"
-                placeholder="Overall length of bullet"
+                placeholder="Length BTT"
               />
             </div>
 
@@ -210,7 +210,7 @@
                 type="number"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                 [(ngModel)]="projectForm.oalOgive"
-                placeholder="Overall length of bullet to ogive"
+                placeholder="Length BTO"
               />
             </div>
           </div>
@@ -228,7 +228,7 @@
                   type="number"
                   class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                   [(ngModel)]="planner.startChargeGr"
-                  placeholder="First charge for this development"
+                  placeholder="First"
                 />
               </div>
 
@@ -238,7 +238,7 @@
                   type="number"
                   class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                   [(ngModel)]="planner.endChargeGr"
-                  placeholder="Last charge for this development"
+                  placeholder="Last"
                 />
               </div>
 

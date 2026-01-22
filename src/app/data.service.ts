@@ -95,7 +95,7 @@ this.normalizeStore(store);
 return store;
   }
 
-  private normalizeStore(store: AppStore): void {
+   private normalizeStore(store: AppStore): void {
     // Fix known bad “inch” inputs that were entered as thousandths.
     // Example from your backup: coalUnit="in" but coal=3820, ogive=3456.
     // Those should be 3.820 and 3.456.
@@ -113,9 +113,47 @@ return store;
         }
       }
     }
+
+    // Remove legacy/ghost load development projects (empty shells left behind by older versions)
+    this.pruneEmptyLoadDevProjectsInStore(store);
   }
 
-     private saveStore(): void {
+  private pruneEmptyLoadDevProjectsInStore(store: AppStore): number {
+    const isMeaningfulValue = (v: any): boolean => {
+      if (v == null) return false;
+      if (typeof v === 'string') return v.trim().length > 0;
+      if (typeof v === 'number') return Number.isFinite(v);
+      if (typeof v === 'boolean') return true;
+      if (Array.isArray(v)) return v.length > 0;
+      if (typeof v === 'object') return Object.keys(v).length > 0;
+      return false;
+    };
+
+    const isEntryMeaningful = (e: any): boolean => {
+      if (!e || typeof e !== 'object') return false;
+      // ignore id + timestamps when deciding if the entry has real data
+      const ignore = new Set(['id', 'createdAt', 'updatedAt']);
+      for (const k of Object.keys(e)) {
+        if (ignore.has(k)) continue;
+        if (isMeaningfulValue((e as any)[k])) return true;
+      }
+      return false;
+    };
+
+    const before = store.loadDevProjects.length;
+
+    store.loadDevProjects = (store.loadDevProjects ?? []).filter(p => {
+      const entries = (p as any)?.entries;
+      if (!Array.isArray(entries) || entries.length === 0) return false; // empty project -> prune
+      // entries exist, but if ALL are blank shells -> prune
+      const anyMeaningful = entries.some((e: any) => isEntryMeaningful(e));
+      return anyMeaningful;
+    });
+
+    return before - store.loadDevProjects.length;
+  }
+
+  private saveStore(): void {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.store));
     } catch (err) {
@@ -123,6 +161,7 @@ return store;
       console.error('saveStore failed:', err);
     }
   }
+
 
    // ---------- Import / Export helpers ----------
 
@@ -534,6 +573,7 @@ return store;
 
   /**
    * Upsert behaviour – updates an existing project or inserts it if missing.
+    /**
    * This keeps compatibility with places where a new project is created
    * and then passed straight into updateLoadDevProject.
    */
@@ -552,6 +592,16 @@ return store;
       p => p.id !== id
     );
     this.saveStore();
+  }
+
+  /**
+   * Removes legacy/ghost LoadDev projects that are effectively empty.
+   * Returns number of projects removed.
+   */
+  pruneEmptyLoadDevProjects(): number {
+    const removed = this.pruneEmptyLoadDevProjectsInStore(this.store);
+    if (removed > 0) this.saveStore();
+    return removed;
   }
 
   // ---------- Load Development Entries (inside projects) ----------
