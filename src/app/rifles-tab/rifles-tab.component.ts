@@ -589,10 +589,15 @@ return null;
       this.rifles = [];
     }
 
-    if (this.rifles.length && this.selectedRifleId == null) {
-      const first = this.rifles[0];
-      this.selectedRifleId = first?.id ?? first?.rifleId ?? null;
+       // Do not auto-select a rifle. Only clear selection if it no longer exists.
+    if (this.selectedRifleId != null) {
+      const sel = this.selectedRifleId;
+      const stillExists = this.rifles.some(
+        (r: any) => r && (r.id === sel || r.rifleId === sel)
+      );
+      if (!stillExists) this.selectedRifleId = null;
     }
+
   }
 
   get selectedRifle(): any | null {
@@ -633,16 +638,39 @@ return null;
     this.editingRifle = null;
   }
 
-  onSelectedRifleChange(rawId: any): void {
+    onSelectedRifleChange(rawId: any): void {
+    const prev = this.selectedRifleId;
+
     if (rawId === null || rawId === undefined || rawId === '') {
       this.selectedRifleId = null;
+
+      // Auto-collapse / clear load UI when selection is cleared
+      this.activeLoadsRifleId = null;
+      this.activeLoadFormRifleId = null;
+      this.editingLoadId = null;
+      this.selectedLoadDetails = null;
+      this.closeLoadDetails();
+      this.resetLoadForm();
       return;
     }
-   const n = Number(rawId);
-this.selectedRifleId =
-  typeof rawId === 'number' ? rawId : (!Number.isNaN(n) ? n : rawId);
 
+    const n = Number(rawId);
+    const nextId =
+      typeof rawId === 'number' ? rawId : (!Number.isNaN(n) ? n : rawId);
+
+    // If changing rifle, collapse the previous rifle's open sections/modals
+    if (prev !== nextId) {
+      this.activeLoadsRifleId = null;
+      this.activeLoadFormRifleId = null;
+      this.editingLoadId = null;
+      this.selectedLoadDetails = null;
+      this.closeLoadDetails();
+      this.resetLoadForm();
+    }
+
+    this.selectedRifleId = nextId;
   }
+
 
   editRifle(r: any): void {
     if (!r) return;
@@ -727,13 +755,20 @@ this.selectedRifleId =
     }
 
 
-    this.refresh();
-    if (this.rifles.length) {
-      const first = this.rifles[0];
-      this.selectedRifleId = first?.id ?? first?.rifleId ?? null;
+        this.refresh();
+
+    // Do not auto-select a rifle after delete.
+    // If current selection no longer exists, clear it.
+    if (this.selectedRifleId != null) {
+      const sel = this.selectedRifleId;
+      const stillExists = this.rifles.some(
+        (x: any) => x && (x.id === sel || x.rifleId === sel)
+      );
+      if (!stillExists) this.selectedRifleId = null;
     } else {
       this.selectedRifleId = null;
     }
+
 
     this.activeLoadsRifleId = null;
     this.activeLoadFormRifleId = null;
