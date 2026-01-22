@@ -28,7 +28,11 @@ export interface AppPreferencesV1 {
   wind?: {
     speedUnit?: WindSpeedUnit; // default unit for Wind Tool wind speed input
   };
+  onboarding?: {
+    completed?: boolean; // used to prevent first-run forcing Preferences
+  };
 }
+
 
 const DEFAULT_PREFS_V1: AppPreferencesV1 = {
   loadDev: { oalUnit: 'mm' },

@@ -1,4 +1,4 @@
-<div class="min-h-screen w-full bg-[#111827] text-white flex justify-center">
+<div class="min-h-screen w-full bg-[#111827] text-white selecteflex justify-center">
   <!-- App frame -->
   <div
     class="w-full mx-auto flex flex-col"
@@ -18,11 +18,11 @@
       <p class="text-[11px] text-gray-300">
         {{ appSubtitle }}
       </p>
-      <div class="text-[10px] text-gray-400/70 mt-0.5">V {{ appVersion }}</div>
+      <p class="text-[11px] text-gray-300">v{{ appVersion }}</p>
     </header>
 
     <!-- MAIN CONTENT AREA -->
-    <div class="flex-1 flex flex-col mt-4 overflow-y-auto pb-[140px]">
+    <div class="flex-1 flex flex-col mt-4 overflow-y-auto pb-[120px]">
       <!-- MENU TAB CONTENT -->
       <ng-container *ngIf="currentTab === 'menu'; else otherTabs">
         <!-- WIND EFFECT TOOL FULLSCREEN INSIDE MENU -->
@@ -47,13 +47,14 @@
 
         <!-- NORMAL MENU CONTENT -->
         <ng-template #normalMenu>
-          <div class="space-y-3">
+          <div class="space-y-2">
             <!-- MAIN ACTION BUTTONS (square tiles) -->
-            <div class="rounded-3xl p-3 shadow space-y-3">
-              <div class="grid grid-cols-2 gap-3 mt-1">
+            <div class="rounded-3xl p-2 shadow space-y-2">
+              <!-- Top row: 2 square blocks -->
+              <div class="grid grid-cols-2 gap-2 mt-1">
                 <!-- Start Session -->
                 <button
-                  class="w-full h-24 rounded-2xl bg-gray-700 text-gray-100 shadow hover:bg-orange-400 active:bg-orange-600 transition flex flex-col items-center justify-center gap-1"
+                  class="w-full aspect-square rounded-2xl bg-gray-700 text-gray-100 shadow hover:bg-orange-400 active:bg-orange-600 transition flex flex-col items-center justify-center gap-1"
                   (click)="goToSessionsTab()"
                 >
                   <div class="text-2xl leading-none">🎯</div>
@@ -62,25 +63,28 @@
 
                 <!-- Session Summaries -->
                 <button
-                  class="w-full h-24 rounded-2xl bg-gray-700 text-gray-100 shadow hover:bg-orange-400 active:bg-orange-600 transition flex flex-col items-center justify-center gap-1"
+                  class="w-full aspect-square rounded-2xl bg-gray-700 text-gray-100 shadow hover:bg-orange-400 active:bg-orange-600 transition flex flex-col items-center justify-center gap-1"
                   (click)="toggleReportsForm()"
                 >
-                  <div class="text-1.5xl leading-none">📊</div>
+                  <div class="text-2xl leading-none">📊</div>
                   <div class="text-[12px] font-semibold text-center px-2">Session Summaries</div>
                 </button>
+              </div>
 
+              <!-- Second row: 3 buttons -->
+              <div class="grid grid-cols-3 gap-2 mt-2">
                 <!-- Load Development -->
                 <button
-                  class="w-full h-24 rounded-2xl bg-gray-700 text-gray-100 shadow hover:bg-orange-400 active:bg-orange-600 transition flex flex-col items-center justify-center gap-1"
+                  class="w-full h-20 rounded-2xl bg-gray-700 text-gray-100 shadow hover:bg-orange-400 active:bg-orange-600 transition flex flex-col items-center justify-center gap-1"
                   (click)="setTab('loadDev')"
                 >
-                  <div class="text-2xl leading-none">🧪</div>
-                  <div class="text-[12px] font-semibold text-center px-2">Load Development</div>
+                  <div class="text-1xl leading-none">🧪</div>
+                  <div class="text-[10px] font-semibold text-center px-1">Load Dev</div>
                 </button>
 
-                <!-- Tools & utilities -->
+                <!-- Tools & Utilities -->
                 <button
-                  class="w-full h-24 rounded-2xl shadow transition flex flex-col items-center justify-center gap-1"
+                  class="w-full h-20 rounded-2xl shadow transition flex flex-col items-center justify-center gap-1"
                   [ngClass]="
                     showTools
                       ? 'bg-orange-500 text-black'
@@ -88,8 +92,22 @@
                   "
                   (click)="openTools()"
                 >
-                  <div class="text-2xl leading-none">🧰</div>
-                  <div class="text-[13px] font-semibold">Tools & utilities</div>
+                  <div class="text-1xl leading-none">🧰</div>
+                  <div class="text-[10px] font-semibold text-center px-1">Utilities</div>
+                </button>
+
+                <!-- Setup / Maintenance -->
+                <button
+                  class="w-full h-20 rounded-2xl shadow transition flex flex-col items-center justify-center gap-1"
+                  [ngClass]="
+                    showSetup
+                      ? 'bg-orange-500 text-black'
+                      : 'bg-gray-700 text-gray-100 hover:bg-orange-400 active:bg-orange-600'
+                  "
+                  (click)="openSetup()"
+                >
+                  <div class="text-1xl leading-none">🛠️</div>
+                  <div class="text-[10px] font-semibold text-center px-1">Setup/Backup</div>
                 </button>
               </div>
 
@@ -341,852 +359,886 @@
               </div>
 
               <!-- TOOLS -->
-              <div *ngIf="showTools" class="rounded-2xl p-3 shadow space-y-3 mt-3">
-                <!-- Tool icons -->
-                <div
-                  *ngIf="
-                    $any(selectedTool) !== 'converter' &&
-                    $any(selectedTool) !== 'targets' &&
-                    $any(selectedTool) !== 'kestrel' &&
-                    $any(selectedTool) !== 'preferences' &&
-                    $any(selectedTool) !== 'documents'
-                  "
-                  class="grid grid-cols-4 gap-4 justify-items-center"
-                >
-                  <!-- Kestrel -->
-                  <div class="flex flex-col items-center">
-                    <button
-                      class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-800 hover:scale-105 active:scale-95 transition"
-                      [ngClass]="{
-                        'bg-black':
-                          !(kestrel.kestrelIsConnecting$ | async) &&
-                          !kestrel.kestrelError &&
-                          !kestrelData,
-                        'bg-blue-500 animate-pulse': kestrel.kestrelIsConnecting$ | async,
-                        'bg-green-600':
-                          !(kestrel.kestrelIsConnecting$ | async) &&
-                          kestrelData &&
-                          !kestrel.kestrelError,
-                        'bg-red-600': kestrel.kestrelError,
-                      }"
-                      (click)="onKestrelButtonClick()"
-                      [disabled]="kestrel.kestrelIsConnecting$ | async"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
-                        <circle cx="12" cy="12" r="9" class="fill-black/40" />
-                        <path
-                          class="fill-white"
-                          d="M12 4.5c.6 0 1 .4 1 1v4.1l3.1-1.8a1 1 0 0 1 1 1.7L13 12l3.1 1.8a1 1 0 0 1-1 1.7L13 13.6v4.1a1 1 0 0 1-2 0v-4.1l-3.1 1.8a1 1 0 0 1-1-1.7L11 12 7.9 10.3a1 1 0 0 1 1-1.7l3.1 1.8V5.5c0-.6.4-1 1-1Z"
-                        />
-                      </svg>
-                    </button>
-
-                    <span class="mt-1 text-[10px] text-gray-300">Kestrel env</span>
-                    <span class="text-[9px] text-gray-500 italic mt-0.5">
-                      {{ $any(selectedTool) === 'kestrel' ? 'Tap to close' : 'Tap to read' }}
-                    </span>
-                  </div>
-
-                  <!-- Target downloads -->
-                  <div class="flex flex-col items-center">
-                    <button
-                      class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-red-500 via-orange-600 to-rose-800 hover:scale-105 active:scale-95 transition"
-                      (click)="openTargetDownloads()"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="9"
-                          class="fill-transparent stroke-white"
-                          stroke-width="1"
-                        />
-                        <circle cx="12" cy="12" r="1.6" class="fill-white" />
-                        <path
-                          class="stroke-white"
-                          stroke-width="1.5"
-                          stroke-linecap="round"
-                          d="M12 3v4M12 17v4M3 12h4M17 12h4"
-                        />
-                        <path class="fill-white" d="M11 10h2v5h2.5L12 19.5 8.5 15H11z" />
-                      </svg>
-                    </button>
-
-                    <span class="mt-1 text-[10px] text-gray-300">Target downloads</span>
-                    <span class="text-[9px] text-gray-500 italic mt-0.5">Printable targets</span>
-                  </div>
-
-                  <!-- Backup / Export -->
-                  <div class="flex flex-col items-center">
-                    <button
-                      class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-sky-500 via-indigo-600 to-slate-900 hover:scale-105 active:scale-95 transition"
-                      (click)="openExportImportModal()"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
-                        <path
-                          class="fill-white/60"
-                          d="M12 3a5 5 0 00-4.9 4H7a4 4 0 100 8h1v-2H7a2 2 0 110-4h.5a1 1 0 00.98-.8A3 3 0 0112 5a3 3 0 012.85 2.1 1 1 0 00.87.7H16a3 3 0 010 6h-1v2h1a5 5 0 000-10h-.03A5 5 0 0012 3z"
-                        />
-                        <path
-                          class="fill-white"
-                          d="M11 11V7h2v4h2.5L12 16.5 8.5 11H11zM8 18h8v2H8z"
-                        />
-                      </svg>
-                    </button>
-
-                    <span class="mt-1 text-[10px] text-gray-300">Export / Import</span>
-                    <span class="text-[9px] text-gray-500 italic mt-0.5">JSON backup file</span>
-                  </div>
-
-                  <!-- Hidden file input for Import (more reliable on Android WebView) -->
-                  <input
-                    #importFileInput
-                    type="file"
-                    accept="application/json,.json"
-                    class="hidden"
-                    (change)="onImportFileSelected($event)"
-                  />
-
-                  <!-- Export / Import modal -->
+              <div *ngIf="showTools || showSetup" class="rounded-2xl p-2 shadow space-y-2 mt-2">
+                <ng-container *ngIf="showTools">
+                  <!-- Tool icons -->
                   <div
-                    *ngIf="showExportImportModal"
-                    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+                    *ngIf="
+                      $any(selectedTool) !== 'converter' &&
+                      $any(selectedTool) !== 'targets' &&
+                      $any(selectedTool) !== 'kestrel' &&
+                      $any(selectedTool) !== 'preferences' &&
+                      $any(selectedTool) !== 'documents'
+                    "
+                    class="grid grid-cols-4 gap-3 justify-items-center"
                   >
-                    <div
-                      class="w-full max-w-xs rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
-                    >
-                      <div class="text-sm font-semibold">Export / Import</div>
-                      <div class="text-[11px] text-slate-300 mt-1 leading-snug">
-                        Export a JSON backup to move your data to another device, or import a JSON
-                        backup to restore it here.
-                      </div>
-                      <!-- Import busy indicator -->
-                      <div
-                        *ngIf="importBusy"
-                        class="mt-3 flex items-center gap-2 rounded-xl border border-slate-700 bg-black/30 px-3 py-2 text-slate-200"
+                    <!-- Kestrel -->
+                    <div class="flex flex-col items-center">
+                      <button
+                        class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-800 hover:scale-105 active:scale-95 transition"
+                        [ngClass]="{
+                          'bg-black':
+                            !(kestrel.kestrelIsConnecting$ | async) &&
+                            !kestrel.kestrelError &&
+                            !kestrelData,
+                          'bg-blue-500 animate-pulse': kestrel.kestrelIsConnecting$ | async,
+                          'bg-green-600':
+                            !(kestrel.kestrelIsConnecting$ | async) &&
+                            kestrelData &&
+                            !kestrel.kestrelError,
+                          'bg-red-600': kestrel.kestrelError,
+                        }"
+                        (click)="onKestrelButtonClick()"
+                        [disabled]="kestrel.kestrelIsConnecting$ | async"
                       >
-                        <svg
-                          class="h-4 w-4 animate-spin"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+                          <circle cx="12" cy="12" r="9" class="fill-black/40" />
+                          <path
+                            class="fill-white"
+                            d="M12 4.5c.6 0 1 .4 1 1v4.1l3.1-1.8a1 1 0 0 1 1 1.7L13 12l3.1 1.8a1 1 0 0 1-1 1.7L13 13.6v4.1a1 1 0 0 1-2 0v-4.1l-3.1 1.8a1 1 0 0 1-1-1.7L11 12 7.9 10.3a1 1 0 0 1 1-1.7l3.1 1.8V5.5c0-.6.4-1 1-1Z"
+                          />
+                        </svg>
+                      </button>
+
+                      <span class="mt-1 text-[10px] text-gray-300">Kestrel env</span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5">
+                        {{ $any(selectedTool) === 'kestrel' ? 'Tap to close' : 'Tap to read' }}
+                      </span>
+                    </div>
+
+                    <!-- Target downloads -->
+                    <div class="flex flex-col items-center">
+                      <button
+                        class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-red-500 via-orange-600 to-rose-800 hover:scale-105 active:scale-95 transition"
+                        (click)="openTargetDownloads()"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
                           <circle
-                            class="opacity-25"
                             cx="12"
                             cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            stroke-width="4"
-                          ></circle>
+                            r="9"
+                            class="fill-transparent stroke-white"
+                            stroke-width="1"
+                          />
+                          <circle cx="12" cy="12" r="1.6" class="fill-white" />
                           <path
-                            class="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
-                          ></path>
+                            class="stroke-white"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            d="M12 3v4M12 17v4M3 12h4M17 12h4"
+                          />
+                          <path class="fill-white" d="M11 10h2v5h2.5L12 19.5 8.5 15H11z" />
                         </svg>
-                        <div class="text-[11px] leading-snug">Importing… please wait</div>
-                      </div>
-
-                      <div class="mt-4 grid grid-cols-1 gap-2">
-                        <!-- ROOT MENU -->
-                        <ng-container *ngIf="exportMode === 'root'; else exportSubmenu">
-                          <button
-                            type="button"
-                            class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
-                            (click)="openExportSubmenu()"
-                            [disabled]="importBusy"
-                          >
-                            Export
-                          </button>
-
-                          <button
-                            type="button"
-                            class="w-full py-2 rounded-xl bg-indigo-600/90 hover:bg-indigo-600 text-white text-sm"
-                            (click)="onChooseImport()"
-                            [disabled]="importBusy"
-                          >
-                            Import (JSON)
-                          </button>
-
-                          <button
-                            type="button"
-                            class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
-                            (click)="closeExportImportModal()"
-                            [disabled]="importBusy"
-                          >
-                            Cancel
-                          </button>
-                        </ng-container>
-
-                        <!-- EXPORT SUBMENU -->
-                        <ng-template #exportSubmenu>
-                          <button
-                            type="button"
-                            class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
-                            (click)="onExportSaveLocal()"
-                          >
-                            Save to file (device)
-                          </button>
-
-                          <button
-                            type="button"
-                            class="w-full py-2 rounded-xl bg-sky-600/90 hover:bg-sky-600 text-white text-sm"
-                            (click)="onExportShare()"
-                          >
-                            Share to app
-                          </button>
-
-                          <button
-                            type="button"
-                            class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
-                            (click)="closeExportImportModal()"
-                          >
-                            Cancel
-                          </button>
-                        </ng-template>
-                      </div>
-                    </div>
-                  </div>
-                  <!-- Preferences -->
-                  <div class="flex flex-col items-center">
-                    <button
-                      class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-zinc-500 via-slate-600 to-slate-900 hover:scale-105 active:scale-95 transition"
-                      (click)="openPreferences()"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
-                        <path
-                          class="fill-white"
-                          d="M12 8a4 4 0 100 8 4 4 0 000-8Zm9 4a7.7 7.7 0 00-.12-1.35l2.02-1.57-2-3.46-2.42.98a8.2 8.2 0 00-2.34-1.35L13.8 2h-3.6L9.86 5.25A8.2 8.2 0 007.52 6.6L5.1 5.62l-2 3.46 2.02 1.57A7.7 7.7 0 005 12c0 .46.04.91.12 1.35L3.1 14.92l2 3.46 2.42-.98c.72.58 1.5 1.03 2.34 1.35L10.2 22h3.6l.34-3.25c.84-.32 1.62-.77 2.34-1.35l2.42.98 2-3.46-2.02-1.57c.08-.44.12-.89.12-1.35Z"
-                        />
-                      </svg>
-                    </button>
-
-                    <span class="mt-1 text-[10px] text-gray-300">Preferences</span>
-                    <span class="text-[9px] text-gray-500 italic mt-0.5">Profile & units</span>
-                  </div>
-
-                  <!-- Mil / MOA converter -->
-                  <div class="flex flex-col items-center">
-                    <button
-                      class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-fuchsia-500 via-purple-600 to-indigo-800 hover:scale-105 active:scale-95 transition"
-                      (click)="onConverterToolClick()"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="7"
-                          class="fill-transparent stroke-white"
-                          stroke-width="1"
-                        />
-                        <line x1="12" y1="3" x2="12" y2="7" class="stroke-white" stroke-width="1" />
-                        <line
-                          x1="12"
-                          y1="17"
-                          x2="12"
-                          y2="21"
-                          class="stroke-white"
-                          stroke-width="1"
-                        />
-                        <line x1="3" y1="12" x2="7" y2="12" class="stroke-white" stroke-width="1" />
-                        <line
-                          x1="17"
-                          y1="12"
-                          x2="21"
-                          y2="12"
-                          class="stroke-white"
-                          stroke-width="1"
-                        />
-                        <circle cx="12" cy="12" r="1.4" class="fill-white" />
-                      </svg>
-                    </button>
-
-                    <span class="mt-1 text-[10px] text-gray-300">Mil ↔ MOA</span>
-                    <span class="text-[9px] text-gray-500 italic mt-0.5">
-                      {{ $any(selectedTool) === 'converter' ? 'Tap to close' : 'Tap to open' }}
-                    </span>
-                  </div>
-
-                  <!-- Wind effect (row 2, col 1) -->
-                  <div class="flex flex-col items-center">
-                    <button
-                      class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-amber-400 via-orange-500 to-rose-700 hover:scale-105 active:scale-95 transition"
-                      (click)="onWindEffectToolClick()"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="9"
-                          class="fill-transparent stroke-white"
-                          stroke-width="1"
-                        />
-                        <path
-                          class="stroke-white"
-                          stroke-width="1.5"
-                          stroke-linecap="round"
-                          d="M6 12h9M12 8l3 4-3 4"
-                        />
-                      </svg>
-                    </button>
-
-                    <span class="mt-1 text-[10px] text-gray-300">Wind effect</span>
-                    <span class="text-[9px] text-gray-500 italic mt-0.5">
-                      {{ selectedTool === 'windEffect' ? 'Tap to close' : 'Tap to open' }}
-                    </span>
-                  </div>
-                  <!-- Documents -->
-                  <div class="flex flex-col items-center">
-                    <button
-                      class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-emerald-500 via-slate-600 to-slate-900 hover:scale-105 active:scale-95 transition"
-                      (click)="onDocumentsToolClick()"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
-                        <path
-                          class="fill-white"
-                          d="M7 3h7l3 3v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm7 1.5V7h2.5L14 4.5ZM7 10h10v1.5H7V10Zm0 3.5h10V15H7v-1.5Zm0 3.5h7v1.5H7V17Z"
-                        />
-                      </svg>
-                    </button>
-
-                    <span class="mt-1 text-[10px] text-gray-300">Documents</span>
-                    <span class="text-[9px] text-gray-500 italic mt-0.5">Manuals & notes</span>
-                  </div>
-                </div>
-
-                <!-- Target downloads panel -->
-                <div *ngIf="selectedTool === 'targets'" class="mt-3 space-y-2 text-[11px]">
-                  <div class="text-[12px] font-semibold text-gray-100">Target downloads</div>
-
-                  <p class="text-gray-400 text-[10px]">
-                    Download and print standard target for load development and zeroing.
-                  </p>
-
-                  <div class="space-y-2">
-                    <button
-                      class="w-full px-3 py-2 rounded-lg bg-black/50 border border-gray-700 hover:bg-orange-500 hover:text-black transition text-left"
-                      (click)="downloadTarget('ocw')"
-                    >
-                      🎯 OCW / Ladder target (A4)
-                    </button>
-                  </div>
-
-                  <div class="mt-2 flex justify-end">
-                    <button
-                      class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
-                      (click)="selectedTool = null"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-                <!-- Kestrel header (grid hidden when open) -->
-                <div
-                  *ngIf="$any(selectedTool) === 'kestrel'"
-                  class="mt-2 flex items-center justify-between"
-                >
-                  <div class="text-[12px] font-semibold text-gray-100">Kestrel env</div>
-                  <button
-                    type="button"
-                    class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
-                    (click)="selectedTool = null"
-                  >
-                    Close
-                  </button>
-                </div>
-
-                <!-- Kestrel details -->
-                <div *ngIf="$any(selectedTool) === 'kestrel'" class="mt-2 space-y-1 text-[10px]">
-                  <p [ngClass]="kestrel.kestrelError ? 'text-red-400' : 'text-gray-300'">
-                    {{ kestrel.kestrelStatus$ | async }}
-                  </p>
-
-                  <span class="text-[8px] text-gray-500" *ngIf="kestrel.kestrelLastUpdated">
-                    Last updated: {{ kestrel.kestrelLastUpdated | date: 'yyyy-MM-dd HH:mm:ss' }}
-                  </span>
-
-                  <div *ngIf="kestrelData" class="mt-1 grid grid-cols-2 gap-1">
-                    <div>
-                      Temp:
-                      <span class="font-semibold text-gray-100">
-                        {{ kestrelData.temperatureC }} °C
-                      </span>
-                    </div>
-                    <div>
-                      Humidity:
-                      <span class="font-semibold text-gray-100">
-                        {{ kestrelData.humidityPercent }} %
-                      </span>
-                    </div>
-                    <div>
-                      Pressure:
-                      <span class="font-semibold text-gray-100">
-                        {{ kestrelData.pressureInHg | number: '1.2-2' }} inHg
-                      </span>
-                    </div>
-                    <div>
-                      Wind:
-                      <span class="font-semibold text-gray-100">
-                        {{ kestrelData.windSpeedMps | number: '1.1-1' }} m/s
-                      </span>
-                    </div>
-                    <div>
-                      Wind dir (clock):
-                      <span class="font-semibold text-gray-100">
-                        {{ kestrelData.windDirectionClock }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <!-- Converter header (grid hidden when open) -->
-                <div
-                  *ngIf="$any(selectedTool) === 'converter'"
-                  class="mt-2 flex items-center justify-between"
-                >
-                  <div class="text-[12px] font-semibold text-gray-100">Mil ↔ MOA converter</div>
-                  <button
-                    type="button"
-                    class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
-                    (click)="selectedTool = null"
-                  >
-                    Close
-                  </button>
-                </div>
-
-                <!-- Converter panel -->
-                <div *ngIf="$any(selectedTool) === 'converter'" class="mt-2 text-[10px] space-y-2">
-                  <div class="grid grid-cols-2 gap-2">
-                    <div>
-                      <label class="block text-gray-300 mb-0.5">Input value</label>
-                      <input
-                        type="number"
-                        class="w-full bg-black border border-gray-700 rounded px-2 py-1"
-                        [(ngModel)]="converterInput"
-                        placeholder="Clicks or mil"
-                      />
-                    </div>
-                    <div>
-                      <label class="block text-gray-300 mb-0.5">Mode</label>
-                      <select
-                        class="w-full bg-black border border-gray-700 rounded px-2 py-1"
-                        [(ngModel)]="converterMode"
-                      >
-                        <option value="milToMoa">Mil → MOA</option>
-                        <option value="moaToMil">MOA → Mil</option>
-                        <option value="clicksToMil">Clicks → Mil</option>
-                        <option value="clicksToMoa">Clicks → MOA</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div *ngIf="converterOutput !== null" class="mt-1 text-gray-200">
-                    Result:
-                    <span class="font-semibold">
-                      {{ converterOutput | number: '1.3-3' }}
-                    </span>
-                  </div>
-                </div>
-                <!-- Documents panel -->
-                <div *ngIf="selectedTool === 'documents'" class="mt-3 space-y-3 text-[11px]">
-                  <div class="flex items-center justify-between">
-                    <div class="text-[12px] font-semibold text-gray-100">Documents</div>
-                    <button
-                      type="button"
-                      class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
-                      (click)="selectedTool = null"
-                    >
-                      Close
-                    </button>
-                  </div>
-
-                  <div class="grid grid-cols-3 gap-2">
-                    <div class="col-span-2">
-                      <label class="block text-gray-300 mb-0.5">Search</label>
-                      <input
-                        type="text"
-                        class="w-full bg-black border border-gray-700 rounded px-2 py-1"
-                        [(ngModel)]="documentsSearch"
-                        placeholder="Search title / tags…"
-                      />
-                    </div>
-
-                    <div>
-                      <label class="block text-gray-300 mb-0.5">Sort</label>
-                      <select
-                        class="w-full bg-black border border-gray-700 rounded px-2 py-1"
-                        [(ngModel)]="documentsSort"
-                      >
-                        <option value="az">A → Z</option>
-                        <option value="za">Z → A</option>
-                        <option value="new">Newest</option>
-                        <option value="old">Oldest</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <button
-                      type="button"
-                      class="px-3 py-1 rounded-lg bg-slate-700 text-gray-100 text-[10px]"
-                      (click)="documentsListExpanded = !documentsListExpanded"
-                    >
-                      {{ documentsListExpanded ? 'Hide all files' : 'Show all files' }}
-                    </button>
-
-                    <div
-                      *ngIf="!documentsHasSearch && !documentsListExpanded"
-                      class="text-[10px] text-gray-400"
-                    >
-                      Type in Search to show matching files…
-                    </div>
-                  </div>
-
-                  <div
-                    *ngIf="documentsListExpanded || documentsHasSearch"
-                    class="rounded-xl bg-black/30 border border-gray-700 p-3 space-y-2"
-                  >
-                    <div *ngIf="!filteredDocuments.length" class="text-[10px] text-gray-400">
-                      No documents yet. (We’ll add upload/import next.)
-                    </div>
-
-                    <div
-                      *ngFor="let d of filteredDocuments"
-                      class="flex items-start justify-between gap-3 rounded-lg border border-gray-800 bg-black/20 px-3 py-2"
-                    >
-                      <div class="min-w-0">
-                        <div class="text-[11px] text-gray-100 font-semibold truncate">
-                          {{ d.title }}
-                        </div>
-
-                        <div *ngIf="d.tags.length" class="text-[9px] text-gray-500 truncate">
-                          {{ d.tags.join(', ') }}
-                        </div>
-
-                        <div class="text-[9px] text-gray-600 mt-0.5">
-                          {{ d.createdAt | date: 'yyyy-MM-dd HH:mm' }}
-                        </div>
-                      </div>
-
-                      <div class="flex flex-col gap-1 shrink-0">
-                        <button
-                          type="button"
-                          class="px-2 py-1 rounded bg-gray-200 text-black text-[10px] font-semibold"
-                          (click)="openDocument(d)"
-                          [disabled]="!d.link"
-                        >
-                          Open
-                        </button>
-
-                        <button
-                          type="button"
-                          class="px-2 py-1 rounded bg-orange-500 text-black text-[10px] font-semibold"
-                          (click)="shareDocument(d)"
-                          [disabled]="!d.link"
-                        >
-                          Share
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Preferences panel -->
-                <div *ngIf="selectedTool === 'preferences'" class="mt-3 space-y-3 text-[11px]">
-                  <div class="text-[12px] font-semibold text-gray-100">Preferences</div>
-                  <div *ngIf="preferencesSavedMsg" class="text-[10px] text-emerald-300">
-                    {{ preferencesSavedMsg }}
-                  </div>
-
-                  <div class="rounded-xl bg-black/30 border border-gray-700 p-3 space-y-3">
-                    <div class="text-[11px] text-gray-300">
-                      Units & Display (v1) — these defaults will be used across the app.
-                    </div>
-
-                    <!-- Distance -->
-                    <div>
-                      <div class="text-[11px] font-semibold text-gray-200 mb-1">Distance</div>
-                      <div class="grid grid-cols-2 gap-2 text-[11px]">
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefDistance"
-                            [value]="'m'"
-                            [(ngModel)]="prefs.distanceUnit"
-                          />
-                          <span>Meters (m)</span>
-                        </label>
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefDistance"
-                            [value]="'yd'"
-                            [(ngModel)]="prefs.distanceUnit"
-                          />
-                          <span>Yards (yd)</span>
-                        </label>
-                      </div>
-                    </div>
-                    <!-- Load Dev COAL / Ogive -->
-                    <div class="mt-2">
-                      <div class="text-[11px] font-semibold text-gray-200 mb-1">
-                        Load Dev (COAL/Ogive)
-                      </div>
-                      <div class="grid grid-cols-2 gap-2 text-[11px]">
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefLoadDevOal"
-                            [value]="'mm'"
-                            [(ngModel)]="prefs.loadDevOalUnit"
-                          />
-                          <span>mm</span>
-                        </label>
-
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefLoadDevOal"
-                            [value]="'in'"
-                            [(ngModel)]="prefs.loadDevOalUnit"
-                          />
-                          <span>Inches (in)</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <!-- Velocity -->
-                    <div>
-                      <div class="text-[11px] font-semibold text-gray-200 mb-1">Velocity</div>
-                      <div class="grid grid-cols-2 gap-2 text-[11px]">
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefVelocity"
-                            [value]="'mps'"
-                            [(ngModel)]="prefs.velocityUnit"
-                          />
-                          <span>m/s</span>
-                        </label>
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefVelocity"
-                            [value]="'fps'"
-                            [(ngModel)]="prefs.velocityUnit"
-                          />
-                          <span>fps</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <!-- Temperature -->
-                    <div>
-                      <div class="text-[11px] font-semibold text-gray-200 mb-1">Temperature</div>
-                      <div class="grid grid-cols-2 gap-2 text-[11px]">
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefTemp"
-                            [value]="'c'"
-                            [(ngModel)]="prefs.temperatureUnit"
-                          />
-                          <span>°C</span>
-                        </label>
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefTemp"
-                            [value]="'f'"
-                            [(ngModel)]="prefs.temperatureUnit"
-                          />
-                          <span>°F</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <!-- Pressure -->
-                    <div>
-                      <div class="text-[11px] font-semibold text-gray-200 mb-1">Pressure</div>
-                      <div class="grid grid-cols-2 gap-2 text-[11px]">
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefPress"
-                            [value]="'hpa'"
-                            [(ngModel)]="prefs.pressureUnit"
-                          />
-                          <span>hPa</span>
-                        </label>
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefPress"
-                            [value]="'inhg'"
-                            [(ngModel)]="prefs.pressureUnit"
-                          />
-                          <span>inHg</span>
-                        </label>
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefPress"
-                            [value]="'mmhg'"
-                            [(ngModel)]="prefs.pressureUnit"
-                          />
-                          <span>mmHg</span>
-                        </label>
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefPress"
-                            [value]="'kpa'"
-                            [(ngModel)]="prefs.pressureUnit"
-                          />
-                          <span>kPa</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <!-- Wind speed -->
-                    <div>
-                      <div class="text-[11px] font-semibold text-gray-200 mb-1">Wind speed</div>
-                      <div class="grid grid-cols-2 gap-2 text-[11px]">
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefWind"
-                            [value]="'kmh'"
-                            [(ngModel)]="prefs.windSpeedUnit"
-                          />
-                          <span>km/h</span>
-                        </label>
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefWind"
-                            [value]="'mph'"
-                            [(ngModel)]="prefs.windSpeedUnit"
-                          />
-                          <span>mph</span>
-                        </label>
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefWind"
-                            [value]="'ms'"
-                            [(ngModel)]="prefs.windSpeedUnit"
-                          />
-                          <span>m/s</span>
-                        </label>
-                        <label> </label>
-                      </div>
-                    </div>
-
-                    <!-- Angle display -->
-                    <div>
-                      <div class="text-[11px] font-semibold text-gray-200 mb-1">Angle display</div>
-                      <div class="grid grid-cols-2 gap-2 text-[11px]">
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefAngle"
-                            [value]="'degrees'"
-                            [(ngModel)]="prefs.angleDisplay"
-                          />
-                          <span>Degrees</span>
-                        </label>
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefAngle"
-                            [value]="'clock'"
-                            [(ngModel)]="prefs.angleDisplay"
-                          />
-                          <span>Clock system</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <!-- Scope adjustment -->
-                    <div>
-                      <div class="text-[11px] font-semibold text-gray-200 mb-1">
-                        Scope adjustment
-                      </div>
-                      <div class="grid grid-cols-2 gap-2 text-[11px]">
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefScope"
-                            [value]="'mil'"
-                            [(ngModel)]="prefs.scopeAdjust"
-                          />
-                          <span>MIL</span>
-                        </label>
-                        <label
-                          class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                        >
-                          <input
-                            type="radio"
-                            name="prefScope"
-                            [value]="'moa'"
-                            [(ngModel)]="prefs.scopeAdjust"
-                          />
-                          <span>MOA</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div class="mt-2 grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        class="px-3 py-2 rounded-lg bg-emerald-700 text-[11px] text-gray-100 font-semibold"
-                        (click)="savePreferences()"
-                      >
-                        Save
                       </button>
+
+                      <span class="mt-1 text-[10px] text-gray-300">Target downloads</span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5">Printable targets</span>
+                    </div>
+
+                    <!-- Mil / MOA converter -->
+                    <div class="flex flex-col items-center">
                       <button
-                        type="button"
-                        class="px-3 py-2 rounded-lg bg-gray-700 text-[11px] text-gray-100 font-semibold"
-                        (click)="closePreferences()"
+                        class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-fuchsia-500 via-purple-600 to-indigo-800 hover:scale-105 active:scale-95 transition"
+                        (click)="onConverterToolClick()"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+                          <circle
+                            cx="12"
+                            cy="12"
+                            r="7"
+                            class="fill-transparent stroke-white"
+                            stroke-width="1"
+                          />
+                          <line
+                            x1="12"
+                            y1="3"
+                            x2="12"
+                            y2="7"
+                            class="stroke-white"
+                            stroke-width="1"
+                          />
+                          <line
+                            x1="12"
+                            y1="17"
+                            x2="12"
+                            y2="21"
+                            class="stroke-white"
+                            stroke-width="1"
+                          />
+                          <line
+                            x1="3"
+                            y1="12"
+                            x2="7"
+                            y2="12"
+                            class="stroke-white"
+                            stroke-width="1"
+                          />
+                          <line
+                            x1="17"
+                            y1="12"
+                            x2="21"
+                            y2="12"
+                            class="stroke-white"
+                            stroke-width="1"
+                          />
+                          <circle cx="12" cy="12" r="1.4" class="fill-white" />
+                        </svg>
+                      </button>
+
+                      <span class="mt-1 text-[10px] text-gray-300">Mil ↔ MOA</span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5">
+                        {{ $any(selectedTool) === 'converter' ? 'Tap to close' : 'Tap to open' }}
+                      </span>
+                    </div>
+
+                    <!-- Wind effect (row 2, col 1) -->
+                    <div class="flex flex-col items-center">
+                      <button
+                        class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-amber-400 via-orange-500 to-rose-700 hover:scale-105 active:scale-95 transition"
+                        (click)="onWindEffectToolClick()"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+                          <circle
+                            cx="12"
+                            cy="12"
+                            r="9"
+                            class="fill-transparent stroke-white"
+                            stroke-width="1"
+                          />
+                          <path
+                            class="stroke-white"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            d="M6 12h9M12 8l3 4-3 4"
+                          />
+                        </svg>
+                      </button>
+
+                      <span class="mt-1 text-[10px] text-gray-300">Wind effect</span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5">
+                        {{ selectedTool === 'windEffect' ? 'Tap to close' : 'Tap to open' }}
+                      </span>
+                    </div>
+                    <!-- Documents -->
+                    <div class="flex flex-col items-center">
+                      <button
+                        class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-emerald-500 via-slate-600 to-slate-900 hover:scale-105 active:scale-95 transition"
+                        (click)="onDocumentsToolClick()"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+                          <path
+                            class="fill-white"
+                            d="M7 3h7l3 3v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm7 1.5V7h2.5L14 4.5ZM7 10h10v1.5H7V10Zm0 3.5h10V15H7v-1.5Zm0 3.5h7v1.5H7V17Z"
+                          />
+                        </svg>
+                      </button>
+
+                      <span class="mt-1 text-[10px] text-gray-300">Documents</span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5">Manuals & notes</span>
+                    </div>
+                  </div>
+
+                  <!-- Target downloads panel -->
+                  <div *ngIf="selectedTool === 'targets'" class="mt-3 space-y-2 text-[11px]">
+                    <div class="text-[12px] font-semibold text-gray-100">Target downloads</div>
+
+                    <p class="text-gray-400 text-[10px]">
+                      Download and print standard target for load development and zeroing.
+                    </p>
+
+                    <div class="space-y-2">
+                      <button
+                        class="w-full px-3 py-2 rounded-lg bg-black/50 border border-gray-700 hover:bg-orange-500 hover:text-black transition text-left"
+                        (click)="downloadTarget('ocw')"
+                      >
+                        🎯 OCW / Ladder target (A4)
+                      </button>
+                    </div>
+
+                    <div class="mt-2 flex justify-end">
+                      <button
+                        class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
+                        (click)="selectedTool = null"
                       >
                         Close
                       </button>
+                    </div>
+                  </div>
+                  <!-- Kestrel header (grid hidden when open) -->
+                  <div
+                    *ngIf="$any(selectedTool) === 'kestrel'"
+                    class="mt-2 flex items-center justify-between"
+                  >
+                    <div class="text-[12px] font-semibold text-gray-100">Kestrel env</div>
+                    <button
+                      type="button"
+                      class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
+                      (click)="selectedTool = null"
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <!-- Kestrel details -->
+                  <div *ngIf="$any(selectedTool) === 'kestrel'" class="mt-2 space-y-1 text-[10px]">
+                    <p [ngClass]="kestrel.kestrelError ? 'text-red-400' : 'text-gray-300'">
+                      {{ kestrel.kestrelStatus$ | async }}
+                    </p>
+
+                    <span class="text-[8px] text-gray-500" *ngIf="kestrel.kestrelLastUpdated">
+                      Last updated: {{ kestrel.kestrelLastUpdated | date: 'yyyy-MM-dd HH:mm:ss' }}
+                    </span>
+
+                    <div *ngIf="kestrelData" class="mt-1 grid grid-cols-2 gap-1">
+                      <div>
+                        Temp:
+                        <span class="font-semibold text-gray-100">
+                          {{ kestrelData.temperatureC }} °C
+                        </span>
+                      </div>
+                      <div>
+                        Humidity:
+                        <span class="font-semibold text-gray-100">
+                          {{ kestrelData.humidityPercent }} %
+                        </span>
+                      </div>
+                      <div>
+                        Pressure:
+                        <span class="font-semibold text-gray-100">
+                          {{ kestrelData.pressureInHg | number: '1.2-2' }} inHg
+                        </span>
+                      </div>
+                      <div>
+                        Wind:
+                        <span class="font-semibold text-gray-100">
+                          {{ kestrelData.windSpeedMps | number: '1.1-1' }} m/s
+                        </span>
+                      </div>
+                      <div>
+                        Wind dir (clock):
+                        <span class="font-semibold text-gray-100">
+                          {{ kestrelData.windDirectionClock }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Converter header (grid hidden when open) -->
+                  <div
+                    *ngIf="$any(selectedTool) === 'converter'"
+                    class="mt-2 flex items-center justify-between"
+                  >
+                    <div class="text-[12px] font-semibold text-gray-100">Mil ↔ MOA converter</div>
+                    <button
+                      type="button"
+                      class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
+                      (click)="selectedTool = null"
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <!-- Converter panel -->
+                  <div
+                    *ngIf="$any(selectedTool) === 'converter'"
+                    class="mt-2 text-[10px] space-y-2"
+                  >
+                    <div class="grid grid-cols-2 gap-2">
+                      <div>
+                        <label class="block text-gray-300 mb-0.5">Input value</label>
+                        <input
+                          type="number"
+                          class="w-full bg-black border border-gray-700 rounded px-2 py-1"
+                          [(ngModel)]="converterInput"
+                          placeholder="Clicks or mil"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-gray-300 mb-0.5">Mode</label>
+                        <select
+                          class="w-full bg-black border border-gray-700 rounded px-2 py-1"
+                          [(ngModel)]="converterMode"
+                        >
+                          <option value="milToMoa">Mil → MOA</option>
+                          <option value="moaToMil">MOA → Mil</option>
+                          <option value="clicksToMil">Clicks → Mil</option>
+                          <option value="clicksToMoa">Clicks → MOA</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div *ngIf="converterOutput !== null" class="mt-1 text-gray-200">
+                      Result:
+                      <span class="font-semibold">
+                        {{ converterOutput | number: '1.3-3' }}
+                      </span>
+                    </div>
+                  </div>
+                  <!-- Documents panel -->
+                  <div *ngIf="selectedTool === 'documents'" class="mt-3 space-y-3 text-[11px]">
+                    <div class="flex items-center justify-between">
+                      <div class="text-[12px] font-semibold text-gray-100">Documents</div>
+                      <button
+                        type="button"
+                        class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
+                        (click)="selectedTool = null"
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2">
+                      <div class="col-span-2">
+                        <label class="block text-gray-300 mb-0.5">Search</label>
+                        <input
+                          type="text"
+                          class="w-full bg-black border border-gray-700 rounded px-2 py-1"
+                          [(ngModel)]="documentsSearch"
+                          placeholder="Search title / tags…"
+                        />
+                      </div>
+
+                      <div>
+                        <label class="block text-gray-300 mb-0.5">Sort</label>
+                        <select
+                          class="w-full bg-black border border-gray-700 rounded px-2 py-1"
+                          [(ngModel)]="documentsSort"
+                        >
+                          <option value="az">A → Z</option>
+                          <option value="za">Z → A</option>
+                          <option value="new">Newest</option>
+                          <option value="old">Oldest</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <button
+                        type="button"
+                        class="px-3 py-1 rounded-lg bg-slate-700 text-gray-100 text-[10px]"
+                        (click)="documentsListExpanded = !documentsListExpanded"
+                      >
+                        {{ documentsListExpanded ? 'Hide all files' : 'Show all files' }}
+                      </button>
+
+                      <div
+                        *ngIf="!documentsHasSearch && !documentsListExpanded"
+                        class="text-[10px] text-gray-400"
+                      >
+                        Type in Search to show matching files…
+                      </div>
+                    </div>
+
+                    <div
+                      *ngIf="documentsListExpanded || documentsHasSearch"
+                      class="rounded-xl bg-black/30 border border-gray-700 p-3 space-y-2"
+                    >
+                      <div *ngIf="!filteredDocuments.length" class="text-[10px] text-gray-400">
+                        No documents yet. (We’ll add upload/import next.)
+                      </div>
+
+                      <div
+                        *ngFor="let d of filteredDocuments"
+                        class="flex items-start justify-between gap-3 rounded-lg border border-gray-800 bg-black/20 px-3 py-2"
+                      >
+                        <div class="min-w-0">
+                          <div class="text-[11px] text-gray-100 font-semibold truncate">
+                            {{ d.title }}
+                          </div>
+
+                          <div *ngIf="d.tags.length" class="text-[9px] text-gray-500 truncate">
+                            {{ d.tags.join(', ') }}
+                          </div>
+
+                          <div class="text-[9px] text-gray-600 mt-0.5">
+                            {{ d.createdAt | date: 'yyyy-MM-dd HH:mm' }}
+                          </div>
+                        </div>
+
+                        <div class="flex flex-col gap-1 shrink-0">
+                          <button
+                            type="button"
+                            class="px-2 py-1 rounded bg-gray-200 text-black text-[10px] font-semibold"
+                            (click)="openDocument(d)"
+                            [disabled]="!d.link"
+                          >
+                            Open
+                          </button>
+
+                          <button
+                            type="button"
+                            class="px-2 py-1 rounded bg-orange-500 text-black text-[10px] font-semibold"
+                            (click)="shareDocument(d)"
+                            [disabled]="!d.link"
+                          >
+                            Share
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </ng-container>
+
+                <!-- SETUP / MAINTENANCE -->
+                <div *ngIf="showSetup" id="setupPanel" class="space-y-3">
+                  <!-- Setup icons (hide when Preferences open) -->
+                  <div
+                    *ngIf="$any(selectedTool) !== 'preferences'"
+                    class="grid grid-cols-4 gap-3 justify-items-center"
+                  >
+                    <!-- Export / Import -->
+                    <div class="flex flex-col items-center">
+                      <button
+                        class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-sky-500 via-indigo-600 to-slate-900 hover:scale-105 active:scale-95 transition"
+                        (click)="openExportImportModal()"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+                          <path
+                            class="fill-white/60"
+                            d="M12 3a5 5 0 00-4.9 4H7a4 4 0 100 8h1v-2H7a2 2 0 110-4h.5a1 1 0 00.98-.8A3 3 0 0112 5a3 3 0 012.85 2.1 1 1 0 00.87.7H16a3 3 0 010 6h-1v2h1a5 5 0 000-10h-.03A5 5 0 0012 3z"
+                          />
+                          <path
+                            class="fill-white"
+                            d="M11 11V7h2v4h2.5L12 16.5 8.5 11H11zM8 18h8v2H8z"
+                          />
+                        </svg>
+                      </button>
+
+                      <span class="mt-1 text-[10px] text-gray-300">Export / Import</span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5">JSON backup file</span>
+                    </div>
+
+                    <!-- Hidden file input for Import (more reliable on Android WebView) -->
+                    <input
+                      #importFileInput
+                      type="file"
+                      accept="application/json,.json"
+                      class="hidden"
+                      (change)="onImportFileSelected($event)"
+                    />
+
+                    <!-- Export / Import modal -->
+                    <div
+                      *ngIf="showExportImportModal"
+                      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+                    >
+                      <div
+                        class="w-full max-w-xs rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
+                      >
+                        <div class="text-sm font-semibold">Export / Import</div>
+                        <div class="text-[11px] text-slate-300 mt-1 leading-snug">
+                          Export a JSON backup to move your data to another device, or import a JSON
+                          backup to restore it here.
+                        </div>
+
+                        <!-- Import busy indicator -->
+                        <div
+                          *ngIf="importBusy"
+                          class="mt-3 flex items-center gap-2 rounded-xl border border-slate-700 bg-black/30 px-3 py-2 text-slate-200"
+                        >
+                          <svg
+                            class="h-4 w-4 animate-spin"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              class="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              stroke-width="4"
+                            ></circle>
+                            <path
+                              class="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
+                            ></path>
+                          </svg>
+                          <div class="text-[11px] leading-snug">Importing… please wait</div>
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-1 gap-2">
+                          <!-- ROOT MENU -->
+                          <ng-container *ngIf="exportMode === 'root'; else exportSubmenu">
+                            <button
+                              type="button"
+                              class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
+                              (click)="openExportSubmenu()"
+                              [disabled]="importBusy"
+                            >
+                              Export
+                            </button>
+
+                            <button
+                              type="button"
+                              class="w-full py-2 rounded-xl bg-indigo-600/90 hover:bg-indigo-600 text-white text-sm"
+                              (click)="onChooseImport()"
+                              [disabled]="importBusy"
+                            >
+                              Import (JSON)
+                            </button>
+
+                            <button
+                              type="button"
+                              class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
+                              (click)="closeExportImportModal()"
+                              [disabled]="importBusy"
+                            >
+                              Cancel
+                            </button>
+                          </ng-container>
+
+                          <!-- EXPORT SUBMENU -->
+                          <ng-template #exportSubmenu>
+                            <button
+                              type="button"
+                              class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
+                              (click)="onExportSaveLocal()"
+                            >
+                              Save to file (device)
+                            </button>
+
+                            <button
+                              type="button"
+                              class="w-full py-2 rounded-xl bg-sky-600/90 hover:bg-sky-600 text-white text-sm"
+                              (click)="onExportShare()"
+                            >
+                              Share to app
+                            </button>
+
+                            <button
+                              type="button"
+                              class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
+                              (click)="closeExportImportModal()"
+                            >
+                              Cancel
+                            </button>
+                          </ng-template>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Preferences -->
+                    <div class="flex flex-col items-center">
+                      <button
+                        class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-zinc-500 via-slate-600 to-slate-900 hover:scale-105 active:scale-95 transition"
+                        (click)="openPreferences()"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+                          <path
+                            class="fill-white"
+                            d="M12 8a4 4 0 100 8 4 4 0 000-8Zm9 4a7.7 7.7 0 00-.12-1.35l2.02-1.57-2-3.46-2.42.98a8.2 8.2 0 00-2.34-1.35L13.8 2h-3.6L9.86 5.25A8.2 8.2 0 007.52 6.6L5.1 5.62l-2 3.46 2.02 1.57A7.7 7.7 0 005 12c0 .46.04.91.12 1.35L3.1 14.92l2 3.46 2.42-.98c.72.58 1.5 1.03 2.34 1.35L10.2 22h3.6l.34-3.25c.84-.32 1.62-.77 2.34-1.35l2.42.98 2-3.46-2.02-1.57c.08-.44.12-.89.12-1.35Z"
+                          />
+                        </svg>
+                      </button>
+
+                      <span class="mt-1 text-[10px] text-gray-300">Preferences</span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5">Profile & units</span>
+                    </div>
+                  </div>
+
+                  <!-- Preferences panel (moved here from Tools) -->
+
+                  <!-- Preferences panel -->
+                  <div *ngIf="selectedTool === 'preferences'" class="mt-3 space-y-3 text-[11px]">
+                    <div class="text-[12px] font-semibold text-gray-100">Preferences</div>
+                    <div *ngIf="preferencesSavedMsg" class="text-[10px] text-emerald-300">
+                      {{ preferencesSavedMsg }}
+                    </div>
+
+                    <div class="rounded-xl bg-black/30 border border-gray-700 p-3 space-y-3">
+                      <div class="text-[11px] text-gray-300">
+                        Units & Display (v1) — these defaults will be used across the app.
+                      </div>
+
+                      <!-- Distance -->
+                      <div>
+                        <div class="text-[11px] font-semibold text-gray-200 mb-1">Distance</div>
+                        <div class="grid grid-cols-2 gap-2 text-[11px]">
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefDistance"
+                              [value]="'m'"
+                              [(ngModel)]="prefs.distanceUnit"
+                            />
+                            <span>Meters (m)</span>
+                          </label>
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefDistance"
+                              [value]="'yd'"
+                              [(ngModel)]="prefs.distanceUnit"
+                            />
+                            <span>Yards (yd)</span>
+                          </label>
+                        </div>
+                      </div>
+                      <!-- Load Dev COAL / Ogive -->
+                      <div class="mt-2">
+                        <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                          Load Dev (COAL/Ogive)
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-[11px]">
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefLoadDevOal"
+                              [value]="'mm'"
+                              [(ngModel)]="prefs.loadDevOalUnit"
+                            />
+                            <span>mm</span>
+                          </label>
+
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefLoadDevOal"
+                              [value]="'in'"
+                              [(ngModel)]="prefs.loadDevOalUnit"
+                            />
+                            <span>Inches (in)</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <!-- Velocity -->
+                      <div>
+                        <div class="text-[11px] font-semibold text-gray-200 mb-1">Velocity</div>
+                        <div class="grid grid-cols-2 gap-2 text-[11px]">
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefVelocity"
+                              [value]="'mps'"
+                              [(ngModel)]="prefs.velocityUnit"
+                            />
+                            <span>m/s</span>
+                          </label>
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefVelocity"
+                              [value]="'fps'"
+                              [(ngModel)]="prefs.velocityUnit"
+                            />
+                            <span>fps</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <!-- Temperature -->
+                      <div>
+                        <div class="text-[11px] font-semibold text-gray-200 mb-1">Temperature</div>
+                        <div class="grid grid-cols-2 gap-2 text-[11px]">
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefTemp"
+                              [value]="'c'"
+                              [(ngModel)]="prefs.temperatureUnit"
+                            />
+                            <span>°C</span>
+                          </label>
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefTemp"
+                              [value]="'f'"
+                              [(ngModel)]="prefs.temperatureUnit"
+                            />
+                            <span>°F</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <!-- Pressure -->
+                      <div>
+                        <div class="text-[11px] font-semibold text-gray-200 mb-1">Pressure</div>
+                        <div class="grid grid-cols-2 gap-2 text-[11px]">
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefPress"
+                              [value]="'hpa'"
+                              [(ngModel)]="prefs.pressureUnit"
+                            />
+                            <span>hPa</span>
+                          </label>
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefPress"
+                              [value]="'inhg'"
+                              [(ngModel)]="prefs.pressureUnit"
+                            />
+                            <span>inHg</span>
+                          </label>
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefPress"
+                              [value]="'mmhg'"
+                              [(ngModel)]="prefs.pressureUnit"
+                            />
+                            <span>mmHg</span>
+                          </label>
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefPress"
+                              [value]="'kpa'"
+                              [(ngModel)]="prefs.pressureUnit"
+                            />
+                            <span>kPa</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <!-- Wind speed -->
+                      <div>
+                        <div class="text-[11px] font-semibold text-gray-200 mb-1">Wind speed</div>
+                        <div class="grid grid-cols-2 gap-2 text-[11px]">
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefWind"
+                              [value]="'kmh'"
+                              [(ngModel)]="prefs.windSpeedUnit"
+                            />
+                            <span>km/h</span>
+                          </label>
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefWind"
+                              [value]="'mph'"
+                              [(ngModel)]="prefs.windSpeedUnit"
+                            />
+                            <span>mph</span>
+                          </label>
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefWind"
+                              [value]="'ms'"
+                              [(ngModel)]="prefs.windSpeedUnit"
+                            />
+                            <span>m/s</span>
+                          </label>
+                          <label> </label>
+                        </div>
+                      </div>
+
+                      <!-- Angle display -->
+                      <div>
+                        <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                          Angle display
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-[11px]">
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefAngle"
+                              [value]="'degrees'"
+                              [(ngModel)]="prefs.angleDisplay"
+                            />
+                            <span>Degrees</span>
+                          </label>
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefAngle"
+                              [value]="'clock'"
+                              [(ngModel)]="prefs.angleDisplay"
+                            />
+                            <span>Clock system</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <!-- Scope adjustment -->
+                      <div>
+                        <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                          Scope adjustment
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-[11px]">
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefScope"
+                              [value]="'mil'"
+                              [(ngModel)]="prefs.scopeAdjust"
+                            />
+                            <span>MIL</span>
+                          </label>
+                          <label
+                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="prefScope"
+                              [value]="'moa'"
+                              [(ngModel)]="prefs.scopeAdjust"
+                            />
+                            <span>MOA</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div class="mt-2 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          class="px-3 py-2 rounded-lg bg-emerald-700 text-[11px] text-gray-100 font-semibold"
+                          (click)="savePreferences()"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          class="px-3 py-2 rounded-lg bg-gray-700 text-[11px] text-gray-100 font-semibold"
+                          (click)="closePreferences()"
+                        >
+                          Close
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1215,7 +1267,6 @@
           </div>
 
           <div *ngIf="currentTab === 'history'">
-            <!-- 🔻 wired Back from History to Menu -->
             <app-history-tab (backToMenu)="setTab('menu')"></app-history-tab>
           </div>
 
@@ -1225,64 +1276,120 @@
         </div>
       </ng-template>
     </div>
-    <div style="height: 1vh"></div>
+  </div>
 
-    <div class="fixed bottom-0 left-0 right-0 z-50 flex justify-center">
-      <div
-        class="w-full max-w-sm md:max-w-3xl lg:max-w-5xl xl:max-w-6xl bg-[#05070b] border-t border-[#222] flex items-center justify-around py-1 mx-auto"
-        style="padding-bottom: env(safe-area-inset-bottom, 0px)"
-      >
-        <!-- nav buttons -->
-
-        <!-- Home -->
-        <button class="flex flex-col items-center justify-center text-xs" (click)="setTab('menu')">
-          <span
-            class="text-lg leading-none px-2 py-1 rounded-xl"
-            [ngClass]="currentTab === 'menu' ? 'bg-orange-500 text-black' : ''"
-            >🏠</span
+  <!-- BOTTOM NAV -->
+  <div class="fixed bottom-12 left-0 right-0 flex justify-center pointer-events-none">
+    <div class="w-full max-w-sm md:max-w-3xl lg:max-w-5xl xl:max-w-6xl px-2 pointer-events-auto">
+      <nav class="rounded-2xl bg-black/60 backdrop-blur border border-white/10 shadow-lg px-2 py-2">
+        <div class="grid grid-cols-4 gap-1">
+          <!-- Home -->
+          <button
+            type="button"
+            class="rounded-xl py-2 flex flex-col items-center justify-center transition"
+            (click)="navTo('menu')"
+            [ngClass]="
+              currentTab === 'menu'
+                ? 'bg-white/10 ring-1 ring-orange-400/40 shadow-[0_0_18px_rgba(249,115,22,0.35)]'
+                : 'hover:bg-white/5'
+            "
           >
-          <span>Home</span>
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              class="w-6 h-6 text-orange-400"
+              fill="currentColor"
+            >
+              <path
+                d="M12 3.2 2.5 11.1a1 1 0 0 0 1.3 1.5L5 11.6V20a2 2 0 0 0 2 2h3v-6h4v6h3a2 2 0 0 0 2-2v-8.4l1.2 1a1 1 0 1 0 1.3-1.5L12 3.2Z"
+              />
+            </svg>
+            <div class="text-[11px] mt-1 text-gray-200">Home</div>
+          </button>
 
-        <!-- Venues -->
-        <button
-          class="flex flex-col items-center justify-center text-xs"
-          (click)="setTab('venues')"
-        >
-          <span
-            class="text-lg leading-none px-2 py-1 rounded-xl"
-            [ngClass]="currentTab === 'venues' ? 'bg-orange-500 text-black' : ''"
-            >📍</span
+          <!-- Rifles -->
+          <button
+            type="button"
+            class="rounded-xl py-2 flex flex-col items-center justify-center transition"
+            (click)="navTo('rifles')"
+            [ngClass]="
+              currentTab === 'rifles'
+                ? 'bg-white/10 ring-1 ring-sky-400/40 shadow-[0_0_18px_rgba(56,189,248,0.30)]'
+                : 'hover:bg-white/5'
+            "
           >
-          <span>Venues</span>
-        </button>
+            <!-- simple rifle silhouette -->
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 64 24"
+              class="w-7 h-7 text-sky-400"
+              fill="currentColor"
+            >
+              <!-- barrel -->
+              <rect x="2" y="10" width="38" height="3" rx="1.5" />
+              <!-- front sight -->
+              <rect x="40" y="9" width="2" height="5" rx="1" />
+              <!-- receiver -->
+              <rect x="20" y="7" width="10" height="3" rx="1" />
+              <!-- stock -->
+              <path d="M30 13h10c4 0 6 2 8 5H34c-2 0-3-1-4-3Z" />
+              <!-- grip -->
+              <path d="M24 13h6l-2 6h-4Z" />
+              <!-- trigger guard -->
+              <path d="M26 13h4c1 0 2 1 2 2v1h-2v-1h-4Z" />
+            </svg>
+            <div class="text-[11px] mt-1 text-gray-200">Rifles</div>
+          </button>
 
-        <!-- Rifles -->
-        <button
-          class="flex flex-col items-center justify-center text-xs"
-          (click)="setTab('rifles')"
-        >
-          <span
-            class="text-lg leading-none px-2 py-1 rounded-xl"
-            [ngClass]="currentTab === 'rifles' ? 'bg-orange-500 text-black' : ''"
-            >🔫</span
+          <!-- Venues -->
+          <button
+            type="button"
+            class="rounded-xl py-2 flex flex-col items-center justify-center transition"
+            (click)="navTo('venues')"
+            [ngClass]="
+              currentTab === 'venues'
+                ? 'bg-white/10 ring-1 ring-red-400/40 shadow-[0_0_18px_rgba(248,113,113,0.30)]'
+                : 'hover:bg-white/5'
+            "
           >
-          <span>Rifles</span>
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              class="w-6 h-6 text-red-400"
+              fill="currentColor"
+            >
+              <path
+                d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 10a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"
+              />
+            </svg>
+            <div class="text-[11px] mt-1 text-gray-200">Venues</div>
+          </button>
 
-        <!-- History -->
-        <button
-          class="flex flex-col items-center justify-center text-xs"
-          (click)="setTab('history')"
-        >
-          <span
-            class="text-lg leading-none px-2 py-1 rounded-xl"
-            [ngClass]="currentTab === 'history' ? 'bg-orange-500 text-black' : ''"
-            >🧾</span
+          <!-- History -->
+          <button
+            type="button"
+            class="rounded-xl py-2 flex flex-col items-center justify-center transition"
+            (click)="navTo('history')"
+            [ngClass]="
+              currentTab === 'history'
+                ? 'bg-white/10 ring-1 ring-emerald-400/40 shadow-[0_0_18px_rgba(52,211,153,0.30)]'
+                : 'hover:bg-white/5'
+            "
           >
-          <span>History</span>
-        </button>
-      </div>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              class="w-6 h-6 text-emerald-400"
+              fill="currentColor"
+            >
+              <path
+                d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm1 10.4 3 1.7-.9 1.6-4.1-2.3V6h2Z"
+              />
+            </svg>
+            <div class="text-[11px] mt-1 text-gray-200">History</div>
+          </button>
+        </div>
+      </nav>
     </div>
   </div>
 </div>

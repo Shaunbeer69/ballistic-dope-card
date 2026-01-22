@@ -110,6 +110,10 @@ importBusy = false;
 
   // bottom icon bar state (no logic tied yet, just to keep template happy)
   activeTab: 'start' | 'rifles' | 'venues' | 'tools' = 'start';
+  // Bottom nav auto-hide on scroll (Step 4)
+  showBottomNav = true;
+  private lastScrollTop = 0;
+  private navHidden = false;
 
   activeRifleName: string | null = null;
   activeVenueName: string | null = null;
@@ -148,7 +152,10 @@ importBusy = false;
   expandedDistanceM: number | null = null;
 
   // TOOLS / KESTREL / CONVERTER
+  
+  showSetup = false;
   showTools = false;
+
   
  selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | 'preferences' | 'documents' | null = null;
 
@@ -486,6 +493,7 @@ kestrel: KestrelService = inject(KestrelService);
 
     // Load saved prefs on app start (permanent across restarts)
     this.loadPreferences();
+    
         // First-run: if no saved preferences exist yet, force user into Preferences
     try {
       const raw = localStorage.getItem(this.prefsKey);
@@ -541,6 +549,9 @@ kestrel: KestrelService = inject(KestrelService);
     this.currentTab = tab;
     this.selectedTool = null;
     this.showTools = false;
+    this.selectedTool = null;
+  this.showReportsForm = false;
+
     this.showReportsForm = false;
   }
 
@@ -571,8 +582,55 @@ kestrel: KestrelService = inject(KestrelService);
     // by the text buttons and tools button in the menu.
     // (You can wire this harder later if you want icons to also switch tabs.)
   }
+  // ---------- haptics (safe: no extra plugin install) ----------
+  private hapticTap(): void {
+    try {
+      const navAny: any = navigator as any;
+      if (typeof navAny?.vibrate === 'function') {
+        navAny.vibrate(10);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Bottom-nav helper (Home/Rifles/Venues/History)
+  navTo(tab: 'menu' | 'rifles' | 'venues' | 'history'): void {
+    this.hapticTap();
+    this.setTab(tab);
+  }
 
   // ---------- reports UI handlers ----------
+  onMainScroll(evt: Event): void {
+    const el = evt.target as HTMLElement | null;
+    if (!el) return;
+
+    const top = el.scrollTop ?? 0;
+
+    // Always show if near the top
+    if (top <= 8) {
+      this.showBottomNav = true;
+      this.navHidden = false;
+      this.lastScrollTop = top;
+      return;
+    }
+
+    const delta = top - this.lastScrollTop;
+
+    // Scroll down -> hide (with small threshold to prevent flicker)
+    if (delta > 10 && !this.navHidden) {
+      this.showBottomNav = false;
+      this.navHidden = true;
+    }
+
+    // Scroll up -> show (with small threshold to prevent flicker)
+    if (delta < -6 && this.navHidden) {
+      this.showBottomNav = true;
+      this.navHidden = false;
+    }
+
+    this.lastScrollTop = top;
+  }
 
   toggleReportsForm(): void {
     this.showReportsForm = !this.showReportsForm;
@@ -1117,9 +1175,13 @@ this.expandedDistanceM = distanceM;
   }
 
 // ---------- tools / Kestrel / converter ----------
-
 openTools(): void {
   this.showTools = !this.showTools;
+
+  // Tools and Setup are mutually exclusive panels
+  if (this.showTools) {
+    this.showSetup = false;
+  }
 
   if (!this.showTools) {
     this.selectedTool = null;
@@ -1128,9 +1190,28 @@ openTools(): void {
   this.showReportsForm = false;
 }
 
+  openSetup(): void {
+  this.showSetup = !this.showSetup;
+
+  // Tools and Setup are mutually exclusive panels
+  if (this.showSetup) {
+    this.showTools = false;
+    this.selectedTool = null;
+  }
+
+  if (!this.showSetup) {
+    this.selectedTool = null;
+  }
+
+  this.showReportsForm = false;
+}
+
+
+
 openTargetDownloads(): void {
   // Ensure the tools panel is open
   this.showTools = true;
+  
 
   // Toggle the targets panel
   this.selectedTool = this.selectedTool === 'targets' ? null : 'targets';
@@ -1140,6 +1221,7 @@ openTargetDownloads(): void {
 /** Mil/MOA converter tool toggle (button calls this) */
 onConverterToolClick(): void {
   this.showTools = true;
+  this.showSetup = false;
   this.selectedTool = this.selectedTool === 'converter' ? null : 'converter';
   this.showReportsForm = false;
 }
@@ -1147,11 +1229,13 @@ onConverterToolClick(): void {
 /** Wind effect tool toggle (button calls this) */
 onWindEffectToolClick(): void {
   this.showTools = true;
+  this.showSetup = false;
   this.selectedTool = this.selectedTool === 'windEffect' ? null : 'windEffect';
   this.showReportsForm = false;
 }
 onDocumentsToolClick(): void {
   this.showTools = true;
+  this.showSetup = false;
 
   const opening = this.selectedTool !== 'documents';
   this.selectedTool = opening ? 'documents' : null;
@@ -1210,16 +1294,32 @@ prefs: {
 // ✅ this is what your template is complaining about
 preferencesSavedMsg: string = '';
 
-openPreferences(): void {
-  this.showTools = true;
+  openPreferences(): void {
+  // Preferences live under Setup now
+  this.showSetup = true;
+  this.showTools = false;
+
   this.selectedTool = this.selectedTool === 'preferences' ? null : 'preferences';
   this.showReportsForm = false;
   this.loadPreferences();
 }
 
+
 closePreferences(): void {
+  // Persist structured prefs (v1)
+  this.dataService.updatePreferences({
+    loadDev: { oalUnit: this.prefs.loadDevOalUnit },
+    onboarding: { completed: true },
+  });
+
+  // Collapse/close the preferences panel
   this.selectedTool = null;
+
+  // Preferences live under Setup now
+  this.showTools = false;
+  this.showSetup = true;
 }
+
 
 
 // ✅ Save button = "autosave + message + collapse"
@@ -1518,9 +1618,16 @@ private blobToBase64(blob: Blob): Promise<string> {
   }
 
   openExportImportModal(): void {
-  this.exportMode = 'root';
-  this.showExportImportModal = true;
-}
+    this.showExportImportModal = true;
+    this.exportMode = 'root';
+
+
+    // Ensure the Setup panel is visible
+    this.showSetup = true;
+    this.showTools = false;
+    this.selectedTool = null;
+  }
+
 
 
 

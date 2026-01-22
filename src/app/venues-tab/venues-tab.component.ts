@@ -164,7 +164,7 @@ export class VenuesTabComponent implements OnInit {
       await this.sharePdfBlob(pdfBlob, filenameSafe);
     } catch (err) {
       console.error('exportSelectedVenuePdf failed:', err);
-      alert('Export failed. Check console for details.');
+      alert('Export cancelled.');
     }
   }
 
