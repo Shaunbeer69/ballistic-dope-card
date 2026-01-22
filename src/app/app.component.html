@@ -1,4 +1,4 @@
-<div class="min-h-screen w-full bg-[#111827] text-white selecteflex justify-center">
+<div class="min-h-screen w-full bg-[#111827] text-white select-none flex justify-center">
   <!-- App frame -->
   <div
     class="w-full mx-auto flex flex-col"
@@ -22,7 +22,10 @@
     </header>
 
     <!-- MAIN CONTENT AREA -->
-    <div class="flex-1 flex flex-col mt-4 overflow-y-auto pb-[120px]">
+    <div
+      class="flex-1 flex flex-col mt-4 overflow-y-auto pb-[120px]"
+      (scroll)="onMainScroll($event)"
+    >
       <!-- MENU TAB CONTENT -->
       <ng-container *ngIf="currentTab === 'menu'; else otherTabs">
         <!-- WIND EFFECT TOOL FULLSCREEN INSIDE MENU -->
@@ -1280,7 +1283,14 @@
 
   <!-- BOTTOM NAV -->
   <div class="fixed bottom-12 left-0 right-0 flex justify-center pointer-events-none">
-    <div class="w-full max-w-sm md:max-w-3xl lg:max-w-5xl xl:max-w-6xl px-2 pointer-events-auto">
+    <div
+      class="w-full max-w-sm md:max-w-3xl lg:max-w-5xl xl:max-w-6xl px-2 transform transition-all duration-200"
+      [ngClass]="
+        showBottomNav
+          ? 'pointer-events-auto translate-y-0 opacity-100'
+          : 'pointer-events-none translate-y-24 opacity-0'
+      "
+    >
       <nav class="rounded-2xl bg-black/60 backdrop-blur border border-white/10 shadow-lg px-2 py-2">
         <div class="grid grid-cols-4 gap-1">
           <!-- Home -->

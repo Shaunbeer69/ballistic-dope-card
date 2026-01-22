@@ -549,6 +549,10 @@ kestrel: KestrelService = inject(KestrelService);
     this.currentTab = tab;
     this.selectedTool = null;
     this.showTools = false;
+        this.showBottomNav = true;
+    this.navHidden = false;
+    this.lastScrollTop = 0;
+
     this.selectedTool = null;
   this.showReportsForm = false;
 
@@ -582,6 +586,8 @@ kestrel: KestrelService = inject(KestrelService);
     // by the text buttons and tools button in the menu.
     // (You can wire this harder later if you want icons to also switch tabs.)
   }
+
+  
   // ---------- haptics (safe: no extra plugin install) ----------
   private hapticTap(): void {
     try {

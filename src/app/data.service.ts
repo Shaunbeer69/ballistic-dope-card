@@ -759,14 +759,38 @@ if (idx >= 0) {
             : legacyWind === 'mph'
               ? 'mph'
               : '';
+      // Bridge: legacy LoadDev OAL unit (Preferences UI historically stored this separately)
+      const legacyOalRaw = String(
+        legacy?.loadDevOalUnit ??
+        legacy?.loadDev?.oalUnit ??
+        legacy?.oalUnit ??
+        legacy?.units?.oalUnit ??
+        legacy?.units?.loadDevOalUnit ??
+        ''
+      ).toLowerCase();
+
+      const bridgedOal =
+        legacyOalRaw === 'in' || legacyOalRaw === 'inch' || legacyOalRaw === 'inches'
+          ? 'in'
+          : legacyOalRaw === 'mm' || legacyOalRaw === 'millimeter' || legacyOalRaw === 'millimetre'
+            ? 'mm'
+            : '';
+
+           const parsedOal = String(parsed?.loadDev?.oalUnit ?? '').toLowerCase();
+      const hasParsedOal = parsedOal === 'mm' || parsedOal === 'in';
 
       const bridged = {
         ...(parsed ?? {}),
         wind: {
           ...((parsed ?? {})?.wind ?? {}),
           ...(bridgedWind ? { speedUnit: bridgedWind } : {})
+        },
+        loadDev: {
+          ...((parsed ?? {})?.loadDev ?? {}),
+          ...(!hasParsedOal && bridgedOal ? { oalUnit: bridgedOal } : {})
         }
       };
+
 
       return this.sanitizePrefs(bridged ?? {});
     } catch {

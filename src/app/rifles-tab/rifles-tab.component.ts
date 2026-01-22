@@ -243,17 +243,20 @@ return null;
 
   loadForm: any = {};
 
-  constructor(private data: DataService) {
-  try {
-    const u = (this.data as any)?.preferences?.loadDev?.oalUnit;
-    if (u === 'in' || u === 'mm') {
-      this.defaultLoadCoalUnit = u;
-    }
-  } catch {
-    this.defaultLoadCoalUnit = 'mm';
-  }
-}
+    constructor(private data: DataService) {
+    try {
+      const u =
+        typeof (this.data as any).getDefaultLoadDevOalUnit === 'function'
+          ? (this.data as any).getDefaultLoadDevOalUnit()
+          : 'mm';
 
+      if (u === 'in' || u === 'mm') {
+        this.defaultLoadCoalUnit = u;
+      }
+    } catch {
+      this.defaultLoadCoalUnit = 'mm';
+    }
+  }
 
   ngOnInit(): void {
     this.refresh();
