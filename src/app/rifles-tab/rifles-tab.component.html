@@ -182,6 +182,8 @@
           name="selectedRifle"
           class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
         >
+          <option [ngValue]="null" disabled>Select rifle</option>
+
           <option *ngFor="let r of rifles" [ngValue]="r.id ?? r.rifleId">
             {{ r.name }} ({{ r.caliber }})
           </option>
@@ -611,6 +613,7 @@
                     <span>COAL</span>
                     <select
                       [(ngModel)]="loadForm.coalUnit"
+                      (ngModelChange)="onLoadCoalUnitChange($event)"
                       name="loadCoalUnit"
                       class="bg-slate-950 border border-slate-700 rounded-xl px-2 py-0.5 text-slate-100 text-[10px]"
                     >

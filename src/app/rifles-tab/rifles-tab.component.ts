@@ -16,7 +16,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 })
 export class RiflesTabComponent implements OnInit {
     defaultLoadCoalUnit: 'mm' | 'in' = 'mm';
-
+  private lastLoadCoalUnit: 'mm' | 'in' = 'mm';
   @Output() backToMenu = new EventEmitter<void>();
 
   // All rifles
@@ -332,6 +332,7 @@ return null;
 
              // Loads table
       const loads = Array.isArray(r.loads) ? r.loads : [];
+            const outUnit: 'mm' | 'in' = (this.defaultLoadCoalUnit === 'in' ? 'in' : 'mm');
       doc.setFontSize(12);
       doc.text('Load Data', 10, y);
       doc.setFontSize(10);
@@ -339,19 +340,36 @@ return null;
       y += 9;
       // Loads table (keep it horizontal; notes/comments go underneath)
             const loadTableBody = (loads as any[]).reduce((acc: any[], l: any) => {
+               const fromUnit: 'mm' | 'in' = (l?.coalUnit === 'in' ? 'in' : 'mm');
+
+        const coalText = this.oalConvertValue(l?.coal, fromUnit, outUnit);
+        const coalOgiveText = this.oalConvertValue(l?.coalOgive, fromUnit, outUnit);
+        const landsText = this.oalConvertValue(l?.landsOgive ?? l?.lands, fromUnit, outUnit);
+
+        // Jump = Lands - Ogive (in OUT unit)
+        const landsN = this.oalParseNum(l?.landsOgive ?? l?.lands);
+        const ogiveN = this.oalParseNum(l?.coalOgive);
+        let jumpText: any = '';
+        if (landsN != null && ogiveN != null) {
+          const landsOut = this.oalConvert(landsN, fromUnit, outUnit);
+          const ogiveOut = this.oalConvert(ogiveN, fromUnit, outUnit);
+          jumpText = this.oalFormat(landsOut - ogiveOut, outUnit);
+        }
+
         const row = [
           `${l?.powder ?? ''}`,
           `${l?.chargeGn ?? ''}`,
           `${l?.aveVelocityFps ?? ''}`,
-          `${l?.coal ?? ''}`,
-          `${l?.coalOgive ?? ''}`,
-          `${l?.landsOgive ?? ''}`,
-          `${l?.jump ?? ''}`,
+          `${coalText ?? ''}`,
+          `${coalOgiveText ?? ''}`,
+          `${landsText ?? ''}`,
+          `${jumpText ?? ''}`,
           `${l?.primer ?? ''}`,
           `${l?.bullet ?? ''}`,
           `${l?.bulletWeightGr ?? ''}`,
           `${l?.bulletBc ?? ''}`,
         ];
+
 
         const noteText = (l?.notes ?? '').toString().trim();
 
@@ -377,11 +395,11 @@ return null;
         head: [[
   'Powder',
   'Charge (gr)',
-  'Vel (fps)',
-  'COAL',
-  'COAL Ogive',
-  'Lands / Ogive',
-  'Jump',
+    'Vel (fps)',
+  `COAL (${outUnit})`,
+  `COAL Ogive (${outUnit})`,
+  `Lands / Ogive (${outUnit})`,
+  `Jump (${outUnit})`,
   'Primer',
   'Bullet',
   'Weight (gr)',
@@ -417,7 +435,7 @@ return null;
             (l?.chargeGn != null && l?.chargeGn !== '' ? `${l.chargeGn}gn` : ''),
             (l?.bullet ?? '').toString().trim(),
             (l?.bulletWeightGr != null && l?.bulletWeightGr !== '' ? `${l.bulletWeightGr}gr` : ''),
-            (l?.coal != null && l?.coal !== '' ? `COAL ${l.coal}` : ''),
+             (l?.coal != null && l?.coal !== '' ? `COAL ${this.oalConvertValue(l?.coal, (l?.coalUnit === 'in' ? 'in' : 'mm'), outUnit)}` : ''),
           ].filter((p: string) => p.length > 0).join(' | ');
 
           const line = `${i + 1}) ${idParts}${idParts ? ' — ' : ''}${note}`;
@@ -781,7 +799,7 @@ resetLoadForm(): void {
       : 'mm';
 
        this.loadForm = { powder: '', chargeGn: null, lands: null, coalUnit: defUnit, coal: null, coalOgive: null, primer: '', bullet: '', bulletWeightGr: null, bulletBc: '', aveVelocityFps: null, notes: '' };
-
+  this.lastLoadCoalUnit = (defUnit === 'in' ? 'in' : 'mm');
 
   this.editingLoadId = null;
    
@@ -830,10 +848,56 @@ resetLoadForm(): void {
 
   // Lands - Ogive (Load Data form + display helpers)
  private toNumOrNull(v: any): number | null {
+  
   if (v == null || v === '') return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
+  private oalParseNum(v: any): number | null {
+    if (v == null || v === '') return null;
+    const s = String(v).trim().replace(/,/g, '.');
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  private oalFormat(n: number, unit: 'mm' | 'in'): string {
+    const fixed = unit === 'in' ? 3 : 2;
+    return Number(n.toFixed(fixed)).toString();
+  }
+
+  private oalConvert(n: number, from: 'mm' | 'in', to: 'mm' | 'in'): number {
+    if (from === to) return n;
+    return from === 'mm' ? (n / 25.4) : (n * 25.4);
+  }
+
+  private oalConvertValue(v: any, from: 'mm' | 'in', to: 'mm' | 'in'): any {
+    const n = this.oalParseNum(v);
+    if (n == null) return v;
+    return this.oalFormat(this.oalConvert(n, from, to), to);
+  }
+
+  onLoadCoalUnitChange(newUnit: 'mm' | 'in'): void {
+    const fromUnit = (this.lastLoadCoalUnit === 'in' ? 'in' : 'mm');
+    const toUnit = (newUnit === 'in' ? 'in' : 'mm');
+
+    if (fromUnit === toUnit) {
+      this.lastLoadCoalUnit = toUnit;
+      return;
+    }
+
+    // Convert the editable fields to the newly selected unit
+    this.loadForm.landsOgive = this.oalConvertValue(this.loadForm?.landsOgive, fromUnit, toUnit);
+    this.loadForm.coal = this.oalConvertValue(this.loadForm?.coal, fromUnit, toUnit);
+    this.loadForm.coalOgive = this.oalConvertValue(this.loadForm?.coalOgive, fromUnit, toUnit);
+
+    // keep legacy field aligned if it’s being used anywhere
+    if (this.loadForm?.lands != null) {
+      this.loadForm.lands = this.oalConvertValue(this.loadForm?.lands, fromUnit, toUnit);
+    }
+
+    this.lastLoadCoalUnit = toUnit;
+  }
+
   onInchDecimalInput(field: 'landsOgive' | 'coal' | 'coalOgive', ev: Event): void {
     // Only enforce formatting when user is working in inches
     const unit = (this.loadForm?.coalUnit ?? this.defaultLoadCoalUnit);
@@ -1026,9 +1090,11 @@ jump: (() => {
       primer: load.primer,
       bullet: load.bullet,
       bulletWeightGr: load.bulletWeightGr,
+      
       bulletBc: load.bulletBc,
       notes: (load.notes || '').toString(),
     };
+    this.lastLoadCoalUnit = (this.loadForm?.coalUnit === 'in' ? 'in' : 'mm');
 
   }
 
