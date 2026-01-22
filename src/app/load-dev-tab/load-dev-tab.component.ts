@@ -452,11 +452,11 @@ deleteVoiceNote(): void {
   delete updated.voiceNoteDurationMs;
 
   this.data.updateLoadDevProject(updated);
-  this.syncVoiceNoteFromProject();
+  //this.syncVoiceNoteFromProject();
 
   this.micInlineMessage = 'Voice note removed';
   setTimeout(() => (this.micInlineMessage = null), 1200);
-  this.data.updateLoadDevProject(updated);
+ // this.data.updateLoadDevProject(updated);
 
 // 🔥 IMPORTANT: reload selectedProject from DataService, then rebuild preview
 this.refreshSelectedProject();
@@ -655,13 +655,12 @@ async onEntryTargetPhotoClick(entry: LoadDevEntry, event?: Event): Promise<void>
 
 
   // Web fallback (file picker)
-  if (!Capacitor.isNativePlatform()) {
-   /* this.pendingEntryForPhoto = entry;
-    this.targetPhotoInlineMessage = 'Choose a photo (web)';
-    setTimeout(() => (this.targetPhotoInlineMessage = null), 1600);*/
-    this.entryFileInput?.nativeElement?.click();
-    return;
-  }
+  //if (!Capacitor.isNativePlatform()) {
+  // this.pendingEntryForPhoto = entryId;
+   // this.entryPhotoInlineMessage = 'Choose an image…';
+   // setTimeout(() => inputEl?.nativeElement?.click(), 0);
+ //return;
+  //  }
 
   try {
     const photo = await Camera.getPhoto({

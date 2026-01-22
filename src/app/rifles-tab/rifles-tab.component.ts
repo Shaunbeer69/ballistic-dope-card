@@ -952,9 +952,16 @@ resetLoadForm(): void {
     if (firstDot !== -1) {
       v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
     }
+// 3) Auto dot after first digit ONLY when typing forward (not when deleting)
+const inputType = (ev as any)?.inputType as string | undefined;
+const isDeleting =
+  inputType === 'deleteContentBackward' ||
+  inputType === 'deleteContentForward';
 
-    // 3) Auto dot after first digit (e.g. "2" -> "2.")
-    if (/^\d$/.test(v)) v = v + '.';
+if (!isDeleting && /^\d$/.test(v)) {
+  v = v + '.';
+}
+
 
     input.value = v;
     (this.loadForm as any)[field] = v;
