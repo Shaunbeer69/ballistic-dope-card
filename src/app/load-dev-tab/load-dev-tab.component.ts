@@ -2254,11 +2254,12 @@ y += boxH + boxPadAfter;
     
     this.rifles = this.data.getRifles();
         // Apply preference defaults once DI is ready (prevents blank-screen crash from early init)
-    this.projectForm.oalUnit = this.data.getDefaultLoadDevOalUnit();
-    if (this.rifles.length > 0) {
-      this.selectedRifleId = this.rifles[0].id;
-      this.loadProjects();
-    }
+       this.rifles = this.data.getRifles() ?? [];
+
+    // On open: do NOT auto-select a rifle
+    this.selectedRifleId = null;
+    this.loadProjects(); // clears projects/UI state when no rifle selected
+
  
 
   }
@@ -3045,9 +3046,7 @@ openProjectPhoto(): void {
         'Enter start, end and a positive step size for the charge ladder.';
       return;
     }
-
-    if (endChargeGr < startChargeGr) {
-          // ✅ OCW: enforce 3–5 shots per group
+       // ✅ OCW: enforce 3–5 shots per group
     if (type === 'ocw') {
       const n = Number(shotsPerGroup ?? 0);
       if (!Number.isFinite(n) || n < 3 || n > 5) {
@@ -3055,6 +3054,9 @@ openProjectPhoto(): void {
         return;
       }
     }
+
+    if (endChargeGr < startChargeGr) {
+     
 
       this.plannerError = 'End charge must be greater than start charge.';
       return;

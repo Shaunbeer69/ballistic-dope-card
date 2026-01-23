@@ -52,13 +52,13 @@ export class RiflesTabComponent implements OnInit {
     barrelLength: null,
     barrelUnit: 'inch',
     twistRate: '',
-    muzzleVelocityFps: 0,
+    muzzleVelocityFps: 'Average Vel',
     scopeUnit: 'MIL',
     scope: '',
     notes: '',
     riflePhotoBase64: null,
     riflePhotoCapturedAt: null,
-    roundCount: 0,
+    roundCount: 'Starting or Current round count',
   };
 
   // Rifle photo (same pattern as Load Development photo handling)
@@ -417,48 +417,9 @@ return null;
 
       // Move cursor below the table
       y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 12;
-      // Load notes (single column under table)
-      const loadsWithNotes = loads.filter((l: any) => (l?.notes ?? '').toString().trim().length > 0);
+     
 
-      if (loadsWithNotes.length) {
-        doc.setFontSize(12);
-        doc.text('Load Notes', 10, y);
-        y += 5;
-
-        doc.setFontSize(9);
-        for (let i = 0; i < loadsWithNotes.length; i++) {
-          const l: any = loadsWithNotes[i];
-          const note = (l?.notes ?? '').toString().trim();
-
-          const idParts = [
-            (l?.powder ?? '').toString().trim(),
-            (l?.chargeGn != null && l?.chargeGn !== '' ? `${l.chargeGn}gn` : ''),
-            (l?.bullet ?? '').toString().trim(),
-            (l?.bulletWeightGr != null && l?.bulletWeightGr !== '' ? `${l.bulletWeightGr}gr` : ''),
-             (l?.coal != null && l?.coal !== '' ? `COAL ${this.oalConvertValue(l?.coal, (l?.coalUnit === 'in' ? 'in' : 'mm'), outUnit)}` : ''),
-          ].filter((p: string) => p.length > 0).join(' | ');
-
-          const line = `${i + 1}) ${idParts}${idParts ? ' — ' : ''}${note}`;
-          const wrapped = doc.splitTextToSize(line, pageWidth - 20);
-          doc.text(wrapped, 10, y);
-          y += wrapped.length * 4 + 2;
-        }
-
-        y += 2;
-      }
-
-      // Comments (blank lines for handwriting) - full width
-      doc.setFontSize(12);
-      doc.text('Comments', 10, y);
-      y += 6;
-
-      (doc as any).setDrawColor?.(0);
-      for (let i = 1; i <= 5; i++) {
-        (doc as any).line(10, y, pageWidth - 10, y);
-        y += 7;
-      }
-
-            // --------------------------
+                 // --------------------------
       // Rifle photo (use remaining space under Loads)
       // --------------------------
             let riflePhotoDataUrl: string | null = this.riflePhotoDataUrl(r);
@@ -623,6 +584,7 @@ return null;
       this.rifleForm = {
       name: '',
       caliber: '',
+       serialNumber: '',
       barrelLength: null,
       barrelUnit: 'inch',
       twistRate: '',
