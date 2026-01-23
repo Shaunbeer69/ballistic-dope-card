@@ -213,21 +213,26 @@
         class="bg-slate-900 rounded-2xl p-3 border border-slate-700 space-y-2"
       >
         <div class="flex justify-between items-start gap-2">
-          <div class="space-y-0.5">
-            <div class="text-xs font-semibold">
-              {{ r.name }} <span class="text-[10px] text-slate-300">({{ r.caliber }})</span>
+          <!-- LEFT: rifle details (vertical) -->
+          <div class="space-y-1 text-[11px] text-slate-300">
+            <div class="text-slate-100 font-semibold">
+              {{ r.name }} <span class="text-[10px] text-slate-400">({{ r.caliber }})</span>
             </div>
-            <div class="text-[10px] text-slate-300">
-              Barrel: {{ r.barrelLength || '-' }} {{ r.barrelUnit || 'cm' }} • Twist:
-              {{ r.twistRate || '-' }}
-            </div>
-            <div class="text-[10px] text-slate-300">
-              Scope: {{ r.scope || '-' }} ({{ r.scopeUnit }}) • Muzzle:
-              {{ r.muzzleVelocityFps || '-' }} fps
-            </div>
-            <div class="text-[10px] text-slate-300">Rounds: {{ r.roundCount ?? 0 }}</div>
+
+            <div>Serial: {{ r.serialNumber || '-' }}</div>
+
+            <div>Barrel: {{ r.barrelLength || '-' }} {{ r.barrelUnit || 'inch' }}</div>
+
+            <div>Twist: {{ r.twistRate || '-' }}</div>
+
+            <div>Scope: {{ r.scope || '-' }}</div>
+
+            <div>Scope Unit: {{ r.scopeUnit || '-' }}</div>
+
+            <div>Rounds: {{ r.roundCount ?? 0 }}</div>
           </div>
 
+          <!-- RIGHT: buttons -->
           <div class="flex flex-col gap-1 text-[10px]">
             <button
               class="px-3 py-1 rounded-xl bg-blue-600 text-white font-semibold"

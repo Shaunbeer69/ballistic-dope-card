@@ -52,7 +52,6 @@ export class RiflesTabComponent implements OnInit {
     barrelLength: null,
     barrelUnit: 'inch',
     twistRate: '',
-    muzzleVelocityFps: 'Average Vel',
     scopeUnit: 'MIL',
     scope: '',
     notes: '',
@@ -305,7 +304,9 @@ return null;
 
       // Rifle header card (simple, clean)
       doc.setFontSize(12);
-      doc.text(`${r.name ?? 'Rifle'}${r.caliber ? ` (${r.caliber})` : ''}`, 10, y);
+         const sn = (r as any)?.serialNumber ? ` SN: ${(r as any).serialNumber}` : '';
+      doc.text(`${r.name ?? 'Rifle'}${r.caliber ? ` (${r.caliber})` : ''}${sn}`, 10, y);
+
       y += 5;
       
 
@@ -313,8 +314,7 @@ return null;
         ['Caliber', `${r.caliber ?? '-'}`],
         ['Barrel length', `${r.barrelLength ?? '-'} ${r.barrelUnit ?? ''}`.trim()],
         ['Twist rate', `${r.twistRate ?? '-'}`],
-        ['Muzzle velocity (fps)', `${r.muzzleVelocityFps ?? '-'}`],
-        ['Scope unit', `${r.scopeUnit ?? '-'}`],
+              ['Scope', `${r.scope ?? '-'}${r.scopeUnit ? ' (' + r.scopeUnit + ')' : ''}`],
         ['Round count', `${r.roundCount ?? 0}`],
         ['Notes', `${r.notes ?? '-'}`],
       ];
@@ -588,7 +588,6 @@ return null;
       barrelLength: null,
       barrelUnit: 'inch',
       twistRate: '',
-      muzzleVelocityFps: 0,
       scopeUnit: 'MIL',
       scope: '',
       notes: '',
