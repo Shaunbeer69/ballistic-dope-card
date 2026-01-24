@@ -792,6 +792,93 @@
                             >
                               📷
                             </button>
+                            <button
+                              class="text-[10px] px-2 py-0.5 rounded-full bg-gray-700/90 text-white mr-2 relative"
+                              title="Notes"
+                              (click)="openEntryNotes(entry, $event)"
+                            >
+                              Notes
+                              <span
+                                *ngIf="entryHasNotes(entry)"
+                                class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400"
+                              ></span>
+                            </button>
+
+                            <button
+                              class="text-[10px] px-2 py-0.5 rounded-full text-white mr-2 relative"
+                              [ngClass]="
+                                entryVoiceRecordingId === entry.id || entryHasVoice(entry)
+                                  ? 'bg-emerald-600/90'
+                                  : 'bg-gray-700/90'
+                              "
+                              title="Recording"
+                              (click)="onEntryMicToggle(entry, $event)"
+                            >
+                              {{ entryVoiceRecordingId === entry.id ? '⏹' : '🎤' }}
+                              <span
+                                *ngIf="entryHasVoice(entry) && entryVoiceRecordingId !== entry.id"
+                                class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400"
+                              ></span>
+                            </button>
+                            <tr
+                              *ngIf="entryNotesOpenId === entry.id"
+                              class="border-t border-gray-800 bg-black/50"
+                            >
+                              <td colspan="6" class="px-2 py-2">
+                                <div class="space-y-2">
+                                  <textarea
+                                    class="w-full min-h-[70px] rounded-xl bg-black/40 border border-gray-700 px-2 py-2 text-[11px] text-gray-100"
+                                    placeholder="Notes for this charge group..."
+                                    [(ngModel)]="entryNotesDraft"
+                                  ></textarea>
+
+                                  <div class="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      class="px-3 py-1.5 rounded-xl bg-emerald-500 text-black text-[11px] font-semibold"
+                                      (click)="saveEntryNotes(entry)"
+                                    >
+                                      Save
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      class="px-3 py-1.5 rounded-xl bg-gray-700 text-white text-[11px]"
+                                      (click)="closeEntryNotes()"
+                                    >
+                                      Close
+                                    </button>
+
+                                    <div class="ml-auto flex items-center gap-2">
+                                      <button
+                                        *ngIf="entryHasVoice(entry)"
+                                        type="button"
+                                        class="px-3 py-1.5 rounded-xl bg-sky-600/90 text-black text-[11px] font-semibold"
+                                        (click)="toggleEntryVoicePlayback(entry)"
+                                      >
+                                        {{ entryVoicePlayingId === entry.id ? 'Stop' : 'Play' }}
+                                      </button>
+
+                                      <button
+                                        *ngIf="entryHasVoice(entry)"
+                                        type="button"
+                                        class="px-3 py-1.5 rounded-xl bg-red-700/90 text-red-50 text-[11px] font-semibold"
+                                        (click)="deleteEntryVoiceNote(entry)"
+                                      >
+                                        Remove audio
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div
+                                    *ngIf="entryNotesInlineMessage"
+                                    class="text-[10px] rounded-xl bg-amber-500/10 border border-amber-400/60 text-amber-200 px-2 py-1"
+                                  >
+                                    {{ entryNotesInlineMessage }}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
 
                             <button
                               class="text-[10px] px-3 py-0.5 rounded-full bg-sky-600/90 text-black mr-2"

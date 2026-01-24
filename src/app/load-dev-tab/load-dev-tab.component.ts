@@ -143,6 +143,19 @@ photoViewerImgUrl: string | null = null;
 private pendingEntryForPhoto: LoadDevEntry | null = null;
 
 isAnnotatingPhoto = false;
+// ==========================
+// OCW per-entry notes + voice
+// ==========================
+entryNotesOpenId: number | null = null;
+entryNotesDraft: string = '';
+entryNotesInlineMessage: string | null = null;
+
+entryVoiceRecordingId: number | null = null;
+entryVoicePlayingId: number | null = null;
+
+private entryAudioCtx: AudioContext | null = null;
+private entryVoiceSource: AudioBufferSourceNode | null = null;
+
 
   @Output() backToMenu = new EventEmitter<void>();
 
@@ -462,6 +475,190 @@ deleteVoiceNote(): void {
 this.refreshSelectedProject();
 this.syncVoiceNoteFromProject();
 
+}
+// ==========================
+// OCW ENTRY NOTES
+// ==========================
+entryHasNotes(entry: LoadDevEntry): boolean {
+  const any = entry as any;
+  return !!(any?.notes ?? '').toString().trim();
+}
+
+openEntryNotes(entry: LoadDevEntry, event?: Event): void {
+  try {
+    event?.preventDefault();
+    event?.stopPropagation();
+  } catch {}
+
+  const any = entry as any;
+  this.entryNotesOpenId = entry.id ?? null;
+  this.entryNotesDraft = (any?.notes ?? '').toString();
+}
+
+closeEntryNotes(): void {
+  this.entryNotesOpenId = null;
+  this.entryNotesDraft = '';
+  this.entryNotesInlineMessage = null;
+}
+
+saveEntryNotes(entry: LoadDevEntry): void {
+  if (!this.selectedProject) return;
+
+  const trimmed = (this.entryNotesDraft ?? '').toString().trim();
+  const any: any = { ...(entry as any) };
+
+  if (trimmed) any.notes = trimmed;
+  else delete any.notes;
+
+  this.data.updateLoadDevEntry(this.selectedProject.id, any as LoadDevEntry);
+  this.refreshSelectedProject();
+
+  this.entryNotesInlineMessage = '✅ Notes saved';
+  setTimeout(() => (this.entryNotesInlineMessage = null), 1400);
+}
+
+// ==========================
+// OCW ENTRY VOICE (app-only)
+// ==========================
+entryHasVoice(entry: LoadDevEntry): boolean {
+  const any = entry as any;
+  return !!(any?.voiceNoteBase64 ?? '').toString().trim();
+}
+
+private stopEntryVoicePlayback(): void {
+  if (this.entryVoiceSource) {
+    try { this.entryVoiceSource.stop(); } catch {}
+    try { this.entryVoiceSource.disconnect(); } catch {}
+    this.entryVoiceSource = null;
+  }
+  if (this.entryAudioCtx) {
+    try { this.entryAudioCtx.close(); } catch {}
+    this.entryAudioCtx = null;
+  }
+  this.entryVoicePlayingId = null;
+}
+
+async toggleEntryVoicePlayback(entry: LoadDevEntry): Promise<void> {
+  const any = entry as any;
+  const base64 = (any?.voiceNoteBase64 ?? '').toString().trim();
+  if (!base64) return;
+
+  if (this.entryVoicePlayingId === entry.id) {
+    this.stopEntryVoicePlayback();
+    return;
+  }
+
+  this.stopEntryVoicePlayback();
+
+  const dataUrl = `data:audio/wav;base64,${base64}`;
+
+  await this.forceSpeakerForPlayback();
+
+  const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  this.entryAudioCtx = ctx;
+
+  const resp = await fetch(dataUrl);
+  const arr = await resp.arrayBuffer();
+  const buf = await ctx.decodeAudioData(arr.slice(0));
+
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+
+  src.onended = () => {
+    this.zone.run(() => {
+      this.stopEntryVoicePlayback();
+      try { this.cdr.detectChanges(); } catch {}
+    });
+  };
+
+  this.entryVoiceSource = src;
+  this.entryVoicePlayingId = entry.id ?? null;
+
+  try { await ctx.resume(); } catch {}
+  src.start(0);
+
+  setTimeout(() => { void this.forceSpeakerForPlayback(); }, 500);
+  setTimeout(() => { void this.forceSpeakerForPlayback(); }, 1200);
+}
+
+async onEntryMicToggle(entry: LoadDevEntry, event?: Event): Promise<void> {
+  try {
+    event?.preventDefault();
+    event?.stopPropagation();
+  } catch {}
+
+  if (!this.selectedProject) {
+    this.entryNotesInlineMessage = 'Select a project first';
+    setTimeout(() => (this.entryNotesInlineMessage = null), 1500);
+    return;
+  }
+
+  try {
+    // Start recording for this entry
+    if (this.entryVoiceRecordingId !== entry.id) {
+      const { status } = await CapacitorVoiceRecorder.canRecord();
+      if (status !== 'GRANTED') {
+        const perm = await CapacitorVoiceRecorder.requestPermission();
+        if (!perm.isGranted) {
+          this.entryNotesInlineMessage = 'Mic permission denied';
+          setTimeout(() => (this.entryNotesInlineMessage = null), 1800);
+          return;
+        }
+      }
+
+      await CapacitorVoiceRecorder.startRecording();
+      this.entryVoiceRecordingId = entry.id ?? null;
+      this.entryNotesInlineMessage = 'Recording… tap ⏹ to stop';
+      return;
+    }
+
+    // Stop + save recording to entry
+    const result = await CapacitorVoiceRecorder.stopRecording();
+    await this.forceSpeakerForPlayback();
+
+    const base64 = (result?.base64 ?? '').toString().trim();
+    const msDuration = Number(result?.msDuration ?? 0);
+
+    this.entryVoiceRecordingId = null;
+
+    if (!base64) {
+      this.entryNotesInlineMessage = 'No audio captured';
+      setTimeout(() => (this.entryNotesInlineMessage = null), 1800);
+      return;
+    }
+
+    const updated: any = { ...(entry as any) };
+    updated.voiceNoteBase64 = base64;
+    updated.voiceNoteDurationMs =
+      Number.isFinite(msDuration) && msDuration > 0 ? msDuration : undefined;
+
+    this.data.updateLoadDevEntry(this.selectedProject.id, updated as LoadDevEntry);
+    this.refreshSelectedProject();
+
+    this.entryNotesInlineMessage = '✅ Voice saved (app only)';
+    setTimeout(() => (this.entryNotesInlineMessage = null), 1600);
+  } catch {
+    this.entryVoiceRecordingId = null;
+    this.entryNotesInlineMessage = 'Mic error (permission / mic in use)';
+    setTimeout(() => (this.entryNotesInlineMessage = null), 2200);
+  }
+}
+
+deleteEntryVoiceNote(entry: LoadDevEntry): void {
+  if (!this.selectedProject) return;
+
+  this.stopEntryVoicePlayback();
+
+  const updated: any = { ...(entry as any) };
+  delete updated.voiceNoteBase64;
+  delete updated.voiceNoteDurationMs;
+
+  this.data.updateLoadDevEntry(this.selectedProject.id, updated as LoadDevEntry);
+  this.refreshSelectedProject();
+
+  this.entryNotesInlineMessage = 'Voice removed';
+  setTimeout(() => (this.entryNotesInlineMessage = null), 1200);
 }
 
 // ==========================
@@ -1917,6 +2114,24 @@ y += boxH + boxPadAfter;
           doc.text('Photo load failed', x + 10, y + 18);
           doc.setTextColor(0);
         }
+// ✅ OCW per-group notes under the matching photo (app-only voice notes are NOT exported)
+const entryNotesTxt = this.buildExportNotesForEntry(it.entry);
+doc.setFontSize(8);
+doc.setTextColor(40);
+
+const notesMaxW = Math.max(40, colW - 4);
+const wrappedNotes = entryNotesTxt
+  ? doc.splitTextToSize(entryNotesTxt, notesMaxW)
+  : [];
+
+const notesStartY = y + imgH + captionGap + 10; // under charge caption
+const maxLines = 5;
+
+for (let i = 0; i < Math.min(maxLines, wrappedNotes.length); i++) {
+  doc.text(String(wrappedNotes[i]), x + 2, notesStartY + i * 10);
+}
+
+doc.setTextColor(0);
 
         // Charge caption BELOW the photo (centered)
         const chargeTxt = `${Number(it.charge).toFixed(2)} gr`;
@@ -3956,7 +4171,14 @@ allEntriesHaveVelocity(): boolean {
     }
 
     this.ladderWizardEntries = entries;
-    this.ladderWizardIndex = 0;
+    const firstMissing = entries.findIndex(e => {
+  const any = e as any;
+  const vals = this.parseVelocityInput(any.velocityInput);
+  return !vals || vals.length === 0;
+});
+
+this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
+
     this.ladderWizardActive = true;
 
     this.singleVelocityEditActive = false;
