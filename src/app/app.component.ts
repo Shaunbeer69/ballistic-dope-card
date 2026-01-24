@@ -159,7 +159,7 @@ importBusy = false;
 showFirstLaunchSlogan = false;
 firstLaunchSlogan = '';
   // First-launch slogan sizing (no wrap, no ellipsis)
-  firstLaunchSloganFontPx = 36;
+  firstLaunchSloganFontPx = 16;
   private readonly firstLaunchSloganBaseFontPx = 36;
   private readonly firstLaunchSloganMinFontPx = 16;
 
@@ -385,7 +385,7 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
     let font = this.firstLaunchSloganBaseFontPx;
 
     // Direct style updates so measurement is real-time
-    el.style.whiteSpace = 'nowrap';
+        el.style.whiteSpace = 'normal';
 
     let guard = 0;
     while (guard < 80) {
