@@ -105,6 +105,7 @@ export class AppComponent implements OnInit {
 showExportImportModal = false;
 exportImportInlineMessage: string | null = null;
 @ViewChild('importFileInput') importFileInput!: ElementRef<HTMLInputElement>;
+@ViewChild('firstLaunchSloganEl') firstLaunchSloganEl?: ElementRef<HTMLElement>;
 exportMode: 'root' | 'export' = 'root';
 importBusy = false;
 
@@ -155,6 +156,12 @@ importBusy = false;
   
   showSetup = false;
   showTools = false;
+showFirstLaunchSlogan = false;
+firstLaunchSlogan = '';
+  // First-launch slogan sizing (no wrap, no ellipsis)
+  firstLaunchSloganFontPx = 36;
+  private readonly firstLaunchSloganBaseFontPx = 36;
+  private readonly firstLaunchSloganMinFontPx = 16;
 
   
  selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | 'preferences' | 'documents' | null = null;
@@ -202,6 +209,244 @@ importBusy = false;
   }
     get documentsHasSearch(): boolean {
     return (this.documentsSearch || '').trim().length > 0;
+  }
+  // ---------- first-launch slogan ----------
+  
+
+private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
+
+
+    private readonly FIRST_LAUNCH_SLOGANS: string[] = [
+    'PRECISION IS A DECISION',
+    'DATA BEATS GUESSWORK',
+    'DISCIPLINE OVER DISTANCE',
+    'PROCESS OVER PRIDE',
+    'CONTROL THE VARIABLES',
+    'ZERO IS SACRED',
+    'CALM BREATH CLEAN BREAK',
+    'CALL THE SHOT',
+    'TRACK EVERYTHING',
+    'DETAILS DECIDE',
+    'SLOW IS SMOOTH',
+    'SMOOTH IS FAST',
+    'NO RUSH ONLY RESULTS',
+    'STABILITY BEFORE SPEED',
+    'NATURAL POINT OF AIM',
+    'BREAK CLEAN FOLLOW THROUGH',
+    'ONE SHOT ONE STANDARD',
+    'HIT IS THE ONLY TRUTH',
+    'STEEL DOES NOT LIE',
+    'FOCUS THEN FIRE',
+    'SHOT PLAN SHOT EXECUTION',
+    'BUILD THE POSITION',
+    'TRUST YOUR DOPE',
+    'VERIFY THEN SEND',
+    'THE WIND IS ALWAYS TALKING',
+    'READ MIRAGE',
+    'WATCH THE GRASS',
+    'WATCH THE DUST',
+    'WATCH THE TREES',
+    'CALL YOUR WIND',
+    'WIND IS THE REAL BOSS',
+    'WIND FIRST EGO LAST',
+    'HOLD WITH PURPOSE',
+    'DIAL WITH CONFIDENCE',
+    'CLICK BY CLICK',
+    'MIL BY MIL',
+    'MOA BY MOA',
+    'RANGE IS EARNED',
+    'DISTANCE AMPLIFIES ERROR',
+    'SMALL MISS BIG LESSON',
+    'BUILD A SOLUTION',
+    'SOLVE THE PROBLEM',
+    'DOPE IS KING',
+    'TEMPERATURE MATTERS',
+    'DENSITY ALTITUDE MATTERS',
+    'CORIOLIS IS REAL',
+    'SPIN DRIFT IS REAL',
+    'ANGLE CHANGES EVERYTHING',
+    'CENTER PUNCH CULTURE',
+    'FIRST ROUND IMPACT',
+    'MAKE THE FIRST ONE COUNT',
+    'SEND IT WITH INTENT',
+    'FIND YOUR LIMITS',
+    'PUSH THE DISTANCE',
+    'STRETCH THE LEGS',
+    'FROM MUZZLE TO MILE',
+    'ELR IS A SYSTEM',
+    'ELR REWARDS PATIENCE',
+    'LONG RANGE SHORT MARGINS',
+    'ONE MIL OFF IS A MISS',
+    'ONE CLICK MATTERS',
+    'OWN THE FUNDAMENTALS',
+    'FUNDAMENTALS WIN MATCHES',
+    'POSITION IS EVERYTHING',
+    'RECOIL MANAGEMENT WINS',
+    'SEE YOUR TRACE',
+    'SPOT YOUR IMPACT',
+    'SPOT YOUR MISS',
+    'FOLLOW THE SPLASH',
+    'TRACE TELLS THE STORY',
+    'SPLASH IS FEEDBACK',
+    'MAKE CORRECTIONS FAST',
+    'MAKE CORRECTIONS SMART',
+    'REPEATABLE INPUTS',
+    'REPEATABLE RESULTS',
+    'BUILD YOUR BASELINE',
+    'CONFIRM YOUR ZERO',
+    'CONFIRM YOUR VELOCITY',
+    'CHRONO OR CHAOS',
+    'TRUE YOUR DOPE',
+    'TRUE AT DISTANCE',
+    'VERIFY AT RANGE',
+    'WRITE IT DOWN',
+    'LOG THE CONDITIONS',
+    'LOG THE RESULTS',
+    'NO DATA NO CONFIDENCE',
+    'RIFLE AMMO SHOOTER SYSTEM',
+    'GEAR SUPPORTS SKILL',
+    'SKILL BEATS GEAR',
+    'TRAIN WITH PURPOSE',
+    'PRACTICE WITH INTENT',
+    'MAKE EVERY ROUND COUNT',
+    'QUALITY OVER QUANTITY',
+    'PERFECT PRACTICE ONLY',
+    'PRESSURE REVEALS PROCESS',
+    'STAY IN THE GLASS',
+    'STAY BEHIND THE GUN',
+    'BUILD THE BIPOD LOAD',
+    'LOAD CONSISTENTLY',
+    'NPA THEN BREAK',
+    'DON’T CHASE MISSES',
+    'MEASURE THEN ADJUST',
+    'ADJUST THEN CONFIRM',
+    'CONFIRM THEN COMMIT',
+    'KEEP IT BORING',
+    'BORING IS CONSISTENT',
+    'CONSISTENT IS ACCURATE',
+    'ACCURATE IS DEADLY',
+    'TIGHT GROUPS TIGHT MIND',
+    'MINDSET IS A WEAPON',
+    'CALM IS A SKILL',
+    'DISCIPLINE IS A SKILL',
+    'THE WIND OWNS YOUT',
+    'RESPECT THE CONDITIONS',
+    'LET THE DATA LEAD',
+    'LET THE IMPACT SPEAK',
+    'MAKE STEEL RING',
+    'MAKE IT COUNT',
+    'EARN THE HIT',
+  ];
+
+
+  private pickRandomSlogan(maxLen?: number): string {
+    const all = this.FIRST_LAUNCH_SLOGANS || [];
+    if (!all.length) return 'TRUST THE DATA';
+
+    const filtered =
+      typeof maxLen === 'number'
+        ? all.filter((s) => (s || '').trim().length > 0 && (s || '').trim().length <= maxLen)
+        : all;
+
+    const pool = filtered.length ? filtered : all;
+    const i = Math.floor(Math.random() * pool.length);
+    return pool[i];
+  }
+
+  
+  // ---------- first-launch slogan (menu banner) ----------
+  private sloganListenerReady = false;
+  private lastSloganShownAt = 0;
+
+  private showMenuSlogan(): void {
+    // Only on main menu and only when no overlays/panels are open
+    if (this.currentTab !== 'menu') return;
+    if (this.showReportsForm || this.showTools || this.showSetup || this.showExportImportModal) return;
+    if (this.selectedTool) return;
+
+    // Throttle to avoid double-trigger flicker
+    const now = Date.now();
+    if (now - this.lastSloganShownAt < 250) return;
+    this.lastSloganShownAt = now;
+
+    this.firstLaunchSlogan = this.pickRandomSlogan();
+    this.showFirstLaunchSlogan = true;
+
+    // Reset font and shrink after render
+    this.firstLaunchSloganFontPx = this.firstLaunchSloganBaseFontPx;
+    setTimeout(() => this.shrinkFirstLaunchSloganToFit(), 0);
+  }
+
+  private shrinkFirstLaunchSloganToFit(): void {
+    const el = this.firstLaunchSloganEl?.nativeElement;
+    if (!el) return;
+
+    const min = this.firstLaunchSloganMinFontPx;
+
+    // Start from base and shrink until it fits
+    let font = this.firstLaunchSloganBaseFontPx;
+
+    // Direct style updates so measurement is real-time
+    el.style.whiteSpace = 'nowrap';
+
+    let guard = 0;
+    while (guard < 80) {
+      guard++;
+
+      el.style.fontSize = `${font}px`;
+
+      if (el.scrollWidth <= el.clientWidth) {
+        this.firstLaunchSloganFontPx = font;
+        return;
+      }
+
+      if (font <= min) break;
+      font -= 1;
+    }
+
+    // Still too long at min: pick a shorter slogan and try once more
+    const shorter = this.pickRandomSlogan(24);
+    if (shorter !== this.firstLaunchSlogan) {
+      this.firstLaunchSlogan = shorter;
+
+      font = this.firstLaunchSloganBaseFontPx;
+      while (font > min) {
+        el.style.fontSize = `${font}px`;
+        if (el.scrollWidth <= el.clientWidth) break;
+        font -= 1;
+      }
+
+      this.firstLaunchSloganFontPx = font;
+      return;
+    }
+
+    // Final fallback: lock to min (still no ellipsis, but should be extremely rare after shorter pick)
+    this.firstLaunchSloganFontPx = min;
+  }
+
+  private initSloganVisibilityListener(): void {
+    if (this.sloganListenerReady) return;
+    this.sloganListenerReady = true;
+
+    try {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+                    this.showMenuSlogan();
+
+        }
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  private maybeShowFirstLaunchSlogan(): void {
+    // Throttle to avoid double-trigger flicker
+    const now = Date.now();
+    if (now - this.lastSloganShownAt < 250) return;
+    this.lastSloganShownAt = now;
+
+    this.showMenuSlogan();
   }
 
 
@@ -509,6 +754,16 @@ kestrel: KestrelService = inject(KestrelService);
     }
 
 
+    // Show a random slogan on the main menu whenever the app becomes active.
+    // Hidden as soon as a main menu icon/button is pressed (handled in setTab/openTools/openSetup/etc).
+    this.initSloganVisibilityListener();
+        this.showMenuSlogan();
+
+
+
+
+
+
   }
 
 
@@ -543,23 +798,32 @@ kestrel: KestrelService = inject(KestrelService);
 
   // ---------- tab navigation ----------
 
-  setTab(
+      setTab(
     tab: 'menu' | 'sessions' | 'rifles' | 'venues' | 'history' | 'loadDev'
   ): void {
+    this.showFirstLaunchSlogan = false;
     this.currentTab = tab;
+
+    // Close overlays/panels when switching tabs
     this.selectedTool = null;
     this.showTools = false;
-        this.showBottomNav = true;
+    this.showSetup = false;
+    this.showReportsForm = false;
+
+    // Reset bottom-nav hiding state
+    this.showBottomNav = true;
     this.navHidden = false;
     this.lastScrollTop = 0;
 
-    this.selectedTool = null;
-  this.showReportsForm = false;
-
-    this.showReportsForm = false;
+    // When landing on the main menu again, show a fresh slogan (no wrap / no ellipsis)
+    if (tab === 'menu') {
+      this.showMenuSlogan();
+    }
   }
 
   goToSessionsTab(): void {
+    this.showFirstLaunchSlogan = false;
+
     this.setTab('sessions');
   }
 
@@ -576,6 +840,8 @@ kestrel: KestrelService = inject(KestrelService);
     // Close the full-screen wind tool and go back to the normal menu
     this.selectedTool = null;
     this.currentTab = 'menu';
+        this.showMenuSlogan();
+
   }
 
   // ---------- bottom icon bar ----------
@@ -639,6 +905,8 @@ kestrel: KestrelService = inject(KestrelService);
   }
 
   toggleReportsForm(): void {
+    this.showFirstLaunchSlogan = false;
+
     this.showReportsForm = !this.showReportsForm;
     if (this.showReportsForm) {
       this.showTools = false;
@@ -677,7 +945,8 @@ backToToolsAndResetReports(): void {
   // Navigate back to Tools & utilities (expanded)
   this.showReportsForm = false;
   this.selectedTool = null;
-  this.openTools(); // <-- expands Tools (same logic as everywhere else)
+  this.openTools(); 
+  // <-- expands Tools (same logic as everywhere else)
 }
 
   private getFilteredSessionsForReport(): any[] {
@@ -1182,6 +1451,8 @@ this.expandedDistanceM = distanceM;
 
 // ---------- tools / Kestrel / converter ----------
 openTools(): void {
+  this.showFirstLaunchSlogan = false;
+
   this.showTools = !this.showTools;
 
   // Tools and Setup are mutually exclusive panels
@@ -1197,6 +1468,8 @@ openTools(): void {
 }
 
   openSetup(): void {
+    this.showFirstLaunchSlogan = false;
+
   this.showSetup = !this.showSetup;
 
   // Tools and Setup are mutually exclusive panels

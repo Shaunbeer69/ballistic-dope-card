@@ -115,6 +115,19 @@
                   <div class="text-[10px] font-semibold text-center px-1">Setup/Backup</div>
                 </button>
               </div>
+              <!-- FIRST LAUNCH SLOGAN (BIG + CENTERED IN OPEN AREA) -->
+              <div
+                *ngIf="showFirstLaunchSlogan && !showReportsForm && !showTools && !showSetup"
+                class="mt-4 px-4 min-h-[45vh] flex items-center justify-center text-center select-none"
+              >
+                <div
+                  #firstLaunchSloganEl
+                  [style.fontSize.px]="firstLaunchSloganFontPx"
+                  class="w-full max-w-full px-2 whitespace-nowrap text-center font-black tracking-wider text-white leading-none"
+                >
+                  ⟪{{ firstLaunchSlogan }}⟫
+                </div>
+              </div>
 
               <!-- REPORTS -->
               <div *ngIf="showReportsForm" class="rounded-2xl p-3 shadow space-y-3 mt-3">
