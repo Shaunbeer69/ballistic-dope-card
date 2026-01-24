@@ -160,8 +160,8 @@ showFirstLaunchSlogan = false;
 firstLaunchSlogan = '';
   // First-launch slogan sizing (no wrap, no ellipsis)
   firstLaunchSloganFontPx = 16;
-  private readonly firstLaunchSloganBaseFontPx = 36;
-  private readonly firstLaunchSloganMinFontPx = 16;
+  private readonly firstLaunchSloganBaseFontPx = 16;
+  private readonly firstLaunchSloganMinFontPx = 14;
 
   
  selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | 'preferences' | 'documents' | null = null;
@@ -403,7 +403,7 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
     }
 
     // Still too long at min: pick a shorter slogan and try once more
-    const shorter = this.pickRandomSlogan(24);
+    const shorter = this.pickRandomSlogan(18);
     if (shorter !== this.firstLaunchSlogan) {
       this.firstLaunchSlogan = shorter;
 
