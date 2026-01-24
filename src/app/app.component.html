@@ -865,8 +865,28 @@
                         </svg>
                       </button>
 
-                      <span class="mt-1 text-[10px] text-gray-300">Export / Import</span>
+                      <span class="mt-1 text-[10px] text-gray-300">Backup / Restore</span>
                       <span class="text-[9px] text-gray-500 italic mt-0.5">JSON backup file</span>
+                    </div>
+                    <!-- Export / Import DATA (selective share) -->
+                    <div class="flex flex-col items-center">
+                      <button
+                        class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-emerald-500 via-teal-600 to-slate-900 hover:scale-105 active:scale-95 transition"
+                        (click)="openExportImportDataModal()"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+                          <path
+                            class="fill-white/60"
+                            d="M12 3a5 5 0 00-4.9 4H7a4 4 0 100 8h1v-2H7a2 2 0 110-4h.5a1 1 0 00.98-.8A3 3 0 0112 5a3 3 0 012.85 2.1 1 1 0 00.87.7H16a3 3 0 010 6h-1v2h1a5 5 0 000-10h-.03A5 5 0 0012 3z"
+                          />
+                          <path class="fill-white" d="M7 17h10v2H7v-2zm5-12l4 4h-3v5h-2V9H8l4-4z" />
+                        </svg>
+                      </button>
+
+                      <span class="mt-1 text-[10px] text-gray-300">Export / Import DATA</span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5"
+                        >Share selected items</span
+                      >
                     </div>
 
                     <!-- Hidden file input for Import (more reliable on Android WebView) -->
@@ -886,7 +906,7 @@
                       <div
                         class="w-full max-w-xs rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
                       >
-                        <div class="text-sm font-semibold">Export / Import</div>
+                        <div class="text-sm font-semibold">Backup and restore</div>
                         <div class="text-[11px] text-slate-300 mt-1 leading-snug">
                           Export a JSON backup to move your data to another device, or import a JSON
                           backup to restore it here.
@@ -977,6 +997,139 @@
                               Cancel
                             </button>
                           </ng-template>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- Export / Import DATA modal (selective share) -->
+                    <div
+                      *ngIf="showExportImportDataModal"
+                      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+                    >
+                      <div
+                        class="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
+                      >
+                        <div class="text-sm font-semibold">Export / Import DATA</div>
+                        <div class="text-[11px] text-slate-300 mt-1 leading-snug">
+                          Share selected data with another user (does not overwrite their data — it
+                          merges).
+                        </div>
+
+                        <div class="mt-3 space-y-3 text-[11px]">
+                          <!-- RIFLES -->
+                          <div class="rounded-xl border border-slate-700 bg-black/20 p-3">
+                            <label class="flex items-center gap-2 text-slate-200 font-semibold">
+                              <input type="checkbox" [(ngModel)]="dataShareIncludeRifles" />
+                              <span>Rifles</span>
+                            </label>
+
+                            <div *ngIf="dataShareIncludeRifles" class="mt-2 space-y-2">
+                              <label class="flex items-center gap-2 text-slate-300">
+                                <input type="checkbox" [(ngModel)]="dataShareAllRifles" />
+                                <span>All rifles</span>
+                              </label>
+
+                              <div
+                                *ngIf="!dataShareAllRifles"
+                                class="max-h-32 overflow-auto rounded-lg border border-slate-700 bg-black/30 p-2 space-y-1"
+                              >
+                                <label
+                                  *ngFor="let r of riflesOptions"
+                                  class="flex items-center gap-2 text-slate-200"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    [checked]="isRifleSelectedForShare(r.id)"
+                                    (change)="toggleRifleShare(r.id)"
+                                  />
+                                  <span class="truncate">{{ r.name }}</span>
+                                </label>
+                              </div>
+
+                              <div class="grid grid-cols-2 gap-2 pt-1">
+                                <label class="flex items-center gap-2 text-slate-300">
+                                  <input type="checkbox" [(ngModel)]="dataShareRifleData" />
+                                  <span>Rifle data</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-slate-300">
+                                  <input type="checkbox" [(ngModel)]="dataShareRifleLoadDev" />
+                                  <span>Load development</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-slate-300">
+                                  <input type="checkbox" [(ngModel)]="dataShareRifleSessions" />
+                                  <span>Session data</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-slate-300">
+                                  <input type="checkbox" [(ngModel)]="dataShareRifleShots" />
+                                  <span>Shot data</span>
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
+                          <!-- VENUES -->
+                          <div class="rounded-xl border border-slate-700 bg-black/20 p-3">
+                            <label class="flex items-center gap-2 text-slate-200 font-semibold">
+                              <input type="checkbox" [(ngModel)]="dataShareIncludeVenues" />
+                              <span>Venues</span>
+                            </label>
+
+                            <div *ngIf="dataShareIncludeVenues" class="mt-2 space-y-2">
+                              <label class="flex items-center gap-2 text-slate-300">
+                                <input type="checkbox" [(ngModel)]="dataShareAllVenues" />
+                                <span>All venues</span>
+                              </label>
+
+                              <div
+                                *ngIf="!dataShareAllVenues"
+                                class="max-h-32 overflow-auto rounded-lg border border-slate-700 bg-black/30 p-2 space-y-1"
+                              >
+                                <label
+                                  *ngFor="let v of venuesOptions"
+                                  class="flex items-center gap-2 text-slate-200"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    [checked]="isVenueSelectedForShare(v.id)"
+                                    (change)="toggleVenueShare(v.id)"
+                                  />
+                                  <span class="truncate">{{ v.name }}</span>
+                                </label>
+                              </div>
+
+                              <div class="grid grid-cols-2 gap-2 pt-1">
+                                <label class="flex items-center gap-2 text-slate-300">
+                                  <input type="checkbox" [(ngModel)]="dataShareVenueData" />
+                                  <span>Venue data</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-slate-300">
+                                  <input type="checkbox" [(ngModel)]="dataShareVenueSessions" />
+                                  <span>Session data</span>
+                                </label>
+                                <label class="flex items-center gap-2 text-slate-300">
+                                  <input type="checkbox" [(ngModel)]="dataShareVenueShots" />
+                                  <span>Shot data</span>
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
+                            (click)="onExportImportDataShare()"
+                          >
+                            Export (Share)
+                          </button>
+
+                          <button
+                            type="button"
+                            class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
+                            (click)="closeExportImportDataModal()"
+                          >
+                            Cancel
+                          </button>
                         </div>
                       </div>
                     </div>

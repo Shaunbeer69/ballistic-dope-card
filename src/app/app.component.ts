@@ -108,6 +108,31 @@ exportImportInlineMessage: string | null = null;
 @ViewChild('firstLaunchSloganEl') firstLaunchSloganEl?: ElementRef<HTMLElement>;
 exportMode: 'root' | 'export' = 'root';
 importBusy = false;
+// --- Export / Import DATA (selective share) ---
+showExportImportDataModal = false;
+
+// Master toggles
+dataShareIncludeRifles = true;
+dataShareIncludeVenues = false;
+
+// All vs selected
+dataShareAllRifles = true;
+dataShareAllVenues = true;
+
+// Rifle sub-options
+dataShareRifleData = true;
+dataShareRifleLoadDev = true;
+dataShareRifleSessions = true;
+dataShareRifleShots = true;
+
+// Venue sub-options
+dataShareVenueData = true;
+dataShareVenueSessions = true;
+dataShareVenueShots = true;
+
+// Selected IDs
+private dataShareRifleIds = new Set<number>();
+private dataShareVenueIds = new Set<number>();
 
   // bottom icon bar state (no logic tied yet, just to keep template happy)
   activeTab: 'start' | 'rifles' | 'venues' | 'tools' = 'start';
@@ -2117,6 +2142,44 @@ closeExportImportModal(): void {
 openExportSubmenu(): void {
   this.exportMode = 'export';
 }
+openExportImportDataModal(): void {
+  this.showExportImportDataModal = true;
+
+  // Ensure Setup is visible and other overlays closed
+  this.showSetup = true;
+  this.showTools = false;
+  this.selectedTool = null;
+
+  // Default selections:
+  // - If user chooses "All", the ID sets are ignored.
+  // - If they untick "All", we start empty to force explicit selection.
+  if (this.dataShareAllRifles) this.dataShareRifleIds.clear();
+  if (this.dataShareAllVenues) this.dataShareVenueIds.clear();
+}
+
+closeExportImportDataModal(): void {
+  this.showExportImportDataModal = false;
+}
+
+isRifleSelectedForShare(id: number): boolean {
+  return this.dataShareRifleIds.has(Number(id));
+}
+
+toggleRifleShare(id: number): void {
+  const n = Number(id);
+  if (this.dataShareRifleIds.has(n)) this.dataShareRifleIds.delete(n);
+  else this.dataShareRifleIds.add(n);
+}
+
+isVenueSelectedForShare(id: number): boolean {
+  return this.dataShareVenueIds.has(Number(id));
+}
+
+toggleVenueShare(id: number): void {
+  const n = Number(id);
+  if (this.dataShareVenueIds.has(n)) this.dataShareVenueIds.delete(n);
+  else this.dataShareVenueIds.add(n);
+}
 
 
 async onChooseExport(): Promise<void> {
@@ -2260,7 +2323,104 @@ const result = this.dataService.importFromBackupMerge(parsed);
 
   
 
-  
+  async onExportImportDataShare(): Promise<void> {
+  // Close modal immediately for clean UX
+  this.showExportImportDataModal = false;
+
+  const selectedRifleIds = this.dataShareAllRifles
+    ? null
+    : Array.from(this.dataShareRifleIds.values());
+
+  const selectedVenueIds = this.dataShareAllVenues
+    ? null
+    : Array.from(this.dataShareVenueIds.values());
+
+  // Basic validation: if "Select" mode but nothing selected
+  if (this.dataShareIncludeRifles && !this.dataShareAllRifles && (selectedRifleIds?.length ?? 0) === 0) {
+    alert('Select at least one rifle, or tick "All rifles".');
+    return;
+  }
+  if (this.dataShareIncludeVenues && !this.dataShareAllVenues && (selectedVenueIds?.length ?? 0) === 0) {
+    alert('Select at least one venue, or tick "All venues".');
+    return;
+  }
+
+  const payload = (this.dataService as any).exportSelectiveShare?.({
+    rifles: this.dataShareIncludeRifles
+      ? {
+          all: this.dataShareAllRifles,
+          ids: selectedRifleIds,
+          includeRifleData: this.dataShareRifleData,
+          includeLoadDev: this.dataShareRifleLoadDev,
+          includeSessions: this.dataShareRifleSessions,
+          includeShots: this.dataShareRifleShots,
+        }
+      : null,
+    venues: this.dataShareIncludeVenues
+      ? {
+          all: this.dataShareAllVenues,
+          ids: selectedVenueIds,
+          includeVenueData: this.dataShareVenueData,
+          includeSessions: this.dataShareVenueSessions,
+          includeShots: this.dataShareVenueShots,
+        }
+      : null,
+  });
+
+  if (!payload) {
+    alert('Export failed: no data selected.');
+    return;
+  }
+
+  const json = JSON.stringify(payload, null, 2);
+  const filename =
+    'gunstuff-share-data-' + new Date().toISOString().slice(0, 10) + '.json';
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const path = filename;
+
+      await Filesystem.writeFile({
+        path,
+        data: json,
+        directory: Directory.Documents,
+        encoding: Encoding.UTF8,
+      });
+
+      const { uri } = await Filesystem.getUri({
+        path,
+        directory: Directory.Documents,
+      });
+
+      await Share.share({
+        title: 'GS Export Data',
+        text: 'GS Ballistics selective export (share this file)',
+        url: uri,
+      });
+
+      alert('Data export created. Share or save it using the app you chose.');
+    } catch (err) {
+      console.error('Selective export failed:', err);
+      alert('Data export failed on this device.');
+    }
+  } else {
+    try {
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Browser selective export failed:', err);
+      alert('Browser export failed.');
+    }
+  }
+}
+
   // ---------- JSON load-dev backup (backup / export icon) ----------
 
 async exportLoadDevBackup(shareAfterSave: boolean = true): Promise<void> {

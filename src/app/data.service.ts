@@ -176,6 +176,119 @@ return store;
       store: storeCopy,
     };
   }
+  /**
+ * Selective share export (for sending to other users).
+ * Produces a smaller payload than full backup, and is meant for merge-import.
+ */
+exportSelectiveShare(opts: any): any | null {
+  const storeCopy: any = JSON.parse(JSON.stringify(this.store));
+
+  const out: any = {
+    schema: 'ballistic-dope-card-share-v1',
+    exportedAt: new Date().toISOString(),
+    data: {
+      rifles: [] as any[],
+      venues: [] as any[],
+      sessions: [] as any[],
+      loadDevProjects: [] as any[],
+    },
+  };
+
+  const riflesOpt = opts?.rifles ?? null;
+  const venuesOpt = opts?.venues ?? null;
+
+  const selectedRifleIds: number[] | null =
+    riflesOpt && riflesOpt.all ? null : Array.isArray(riflesOpt?.ids) ? riflesOpt.ids.map((x: any) => Number(x)) : null;
+
+  const selectedVenueIds: number[] | null =
+    venuesOpt && venuesOpt.all ? null : Array.isArray(venuesOpt?.ids) ? venuesOpt.ids.map((x: any) => Number(x)) : null;
+
+  // --- Rifles ---
+  if (riflesOpt) {
+    const includeRifleData = !!riflesOpt.includeRifleData;
+    const includeLoadDev = !!riflesOpt.includeLoadDev;
+    const includeSessions = !!riflesOpt.includeSessions;
+    const includeShots = !!riflesOpt.includeShots;
+
+    const rifleFilter = (r: any) =>
+      !selectedRifleIds || selectedRifleIds.includes(Number(r?.id));
+
+    if (includeRifleData) {
+      out.data.rifles = (storeCopy.rifles ?? []).filter(rifleFilter);
+    }
+
+    if (includeLoadDev) {
+      out.data.loadDevProjects = (storeCopy.loadDevProjects ?? []).filter((p: any) =>
+        selectedRifleIds ? selectedRifleIds.includes(Number(p?.rifleId)) : true
+      );
+    }
+
+    if (includeSessions || includeShots) {
+      const sessions = (storeCopy.sessions ?? []).filter((s: any) =>
+        selectedRifleIds ? selectedRifleIds.includes(Number(s?.rifleId)) : true
+      );
+
+      // If shots not included, strip dope array (shot rows)
+      if (!includeShots) {
+        for (const s of sessions) {
+          if (Array.isArray(s?.dope)) s.dope = [];
+        }
+      }
+
+      out.data.sessions = out.data.sessions.concat(sessions);
+    }
+  }
+
+  // --- Venues ---
+  if (venuesOpt) {
+    const includeVenueData = !!venuesOpt.includeVenueData;
+    const includeSessions = !!venuesOpt.includeSessions;
+    const includeShots = !!venuesOpt.includeShots;
+
+    const venueFilter = (v: any) =>
+      !selectedVenueIds || selectedVenueIds.includes(Number(v?.id));
+
+    if (includeVenueData) {
+      out.data.venues = (storeCopy.venues ?? []).filter(venueFilter);
+    }
+
+    if (includeSessions || includeShots) {
+      const sessions = (storeCopy.sessions ?? []).filter((s: any) =>
+        selectedVenueIds ? selectedVenueIds.includes(Number(s?.venueId)) : true
+      );
+
+      if (!includeShots) {
+        for (const s of sessions) {
+          if (Array.isArray(s?.dope)) s.dope = [];
+        }
+      }
+
+      out.data.sessions = out.data.sessions.concat(sessions);
+    }
+  }
+
+  // De-dupe sessions by id (rifle+venue selections can overlap)
+  if (Array.isArray(out.data.sessions)) {
+    const seen = new Set<number>();
+    out.data.sessions = out.data.sessions.filter((s: any) => {
+      const id = Number(s?.id);
+      if (!Number.isFinite(id)) return true;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }
+
+  const hasAny =
+    (out.data.rifles?.length ?? 0) +
+      (out.data.venues?.length ?? 0) +
+      (out.data.sessions?.length ?? 0) +
+      (out.data.loadDevProjects?.length ?? 0) >
+    0;
+
+  return hasAny ? out : null;
+}
+
     /**
    * Merge-import (append) a backup into existing data.
    * - DOES NOT overwrite existing store
