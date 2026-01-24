@@ -503,7 +503,7 @@
                         </svg>
                       </button>
 
-                      <span class="mt-1 text-[10px] text-gray-300">Mil ↔ MOA</span>
+                      <span class="mt-1 text-[10px] text-gray-300">Unit Converter</span>
                       <span class="text-[9px] text-gray-500 italic mt-0.5">
                         {{ $any(selectedTool) === 'converter' ? 'Tap to close' : 'Tap to open' }}
                       </span>
@@ -598,7 +598,7 @@
                   </div>
 
                   <!-- Kestrel details -->
-                  <div *ngIf="$any(selectedTool) === 'kestrel'" class="mt-2 space-y-1 text-[10px]">
+                  <div *ngIf="$any(selectedTool) === 'kestrel'" class="mt-4">
                     <p [ngClass]="kestrel.kestrelError ? 'text-red-400' : 'text-gray-300'">
                       {{ kestrel.kestrelStatus$ | async }}
                     </p>
@@ -640,114 +640,89 @@
                       </div>
                     </div>
                   </div>
-                  <!-- Converter header (grid hidden when open) -->
-                  <div
-                    *ngIf="$any(selectedTool) === 'converter'"
-                    class="mt-2 flex items-center justify-between"
-                  >
-                    <div class="text-[12px] font-semibold text-gray-100">Mil ↔ MOA converter</div>
-                    <button
-                      type="button"
-                      class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
-                      (click)="selectedTool = null"
-                    >
-                      Close
-                    </button>
-                  </div>
-
-                  <!-- CONVERTER TOOL -->
-                  <div class="mt-4" *ngIf="$any(selectedTool) === 'converter'">
-                    <h2 class="text-sm font-semibold text-center mb-2">Ballistics Converter</h2>
-
-                    <div class="bg-[#1f2937] rounded-lg p-3 border border-gray-700">
-                      <div class="grid grid-cols-2 gap-2">
+                  <!-- Converter (collapsed sections) -->
+                  <div *ngIf="selectedTool === 'converter'" class="mt-3 space-y-2 text-[11px]">
+                    <div class="flex items-center justify-between">
+                      <!-- Input / Output (moved to top, highlighted edges) -->
+                      <div class="mt-2 grid grid-cols-2 gap-2">
                         <div>
-                          <label class="text-xs text-gray-300">{{ converterInputLabel }}</label>
+                          <label class="block text-gray-300 mb-0.5 text-[10px]">Input</label>
                           <input
                             type="number"
-                            class="w-full px-2 py-1 rounded text-black text-sm"
+                            class="w-full bg-black border-2 border-orange-400/70 rounded px-2 py-1 text-[11px] outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-400/30"
                             [(ngModel)]="converterInput"
-                            placeholder="Enter value"
+                            placeholder="Enter value…"
                           />
                         </div>
 
                         <div>
-                          <label class="text-xs text-gray-300">Conversion</label>
-                          <select
-                            class="w-full px-2 py-1 rounded text-black text-sm"
-                            [(ngModel)]="converterMode"
+                          <label class="block text-gray-300 mb-0.5 text-[10px]">Output</label>
+                          <div
+                            class="w-full bg-black border-2 border-orange-400/70 rounded px-2 py-1 text-[11px] min-h-[28px] flex items-center justify-between"
                           >
-                            <optgroup label="Scope / Angle">
-                              <option value="milToMoa">mil → MOA</option>
-                              <option value="moaToMil">MOA → mil</option>
-                              <option value="clicksToMil">clicks → mil (0.1 mil/click)</option>
-                              <option value="clicksToMoa">clicks → MOA (0.25 MOA/click)</option>
-                              <option value="milToClicks">mil → clicks (0.1 mil/click)</option>
-                              <option value="moaToClicks">MOA → clicks (0.25 MOA/click)</option>
-                            </optgroup>
-
-                            <optgroup label="Range / Distance">
-                              <option value="mToYd">m → yd</option>
-                              <option value="ydToM">yd → m</option>
-                            </optgroup>
-
-                            <optgroup label="Velocity">
-                              <option value="mpsToFps">m/s → fps</option>
-                              <option value="fpsToMps">fps → m/s</option>
-                            </optgroup>
-
-                            <optgroup label="Temperature">
-                              <option value="cToF">°C → °F</option>
-                              <option value="fToC">°F → °C</option>
-                            </optgroup>
-
-                            <optgroup label="Pressure">
-                              <option value="hpaToInhg">hPa → inHg</option>
-                              <option value="inhgToHpa">inHg → hPa</option>
-                              <option value="hpaToMmhg">hPa → mmHg</option>
-                              <option value="mmhgToHpa">mmHg → hPa</option>
-                              <option value="hpaToKpa">hPa → kPa</option>
-                              <option value="kpaToHpa">kPa → hPa</option>
-                            </optgroup>
-
-                            <optgroup label="Wind Speed">
-                              <option value="kmhToMph">km/h → mph</option>
-                              <option value="mphToKmh">mph → km/h</option>
-                              <option value="kmhToMs">km/h → m/s</option>
-                              <option value="msToKmh">m/s → km/h</option>
-                              <option value="kmhToKn">km/h → kn</option>
-                              <option value="knToKmh">kn → km/h</option>
-                            </optgroup>
-
-                            <optgroup label="Angle ↔ Size at Distance">
-                              <option value="milToInAtDist">mil @ distance → inches</option>
-                              <option value="moaToInAtDist">MOA @ distance → inches</option>
-                              <option value="inToMilAtDist">inches @ distance → mil</option>
-                              <option value="inToMoaAtDist">inches @ distance → MOA</option>
-                            </optgroup>
-                          </select>
+                            <span class="text-gray-100 font-semibold">
+                              {{
+                                converterOutput === null ? '—' : (converterOutput | number: '1.3-3')
+                              }}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
-                      <!-- Distance input when required -->
-                      <div class="mt-2" *ngIf="converterUsesDistance">
-                        <label class="text-xs text-gray-300">{{ converterAuxLabel }}</label>
-                        <input
-                          type="number"
-                          class="w-full px-2 py-1 rounded text-black text-sm"
-                          [(ngModel)]="converterAux"
-                          placeholder="Enter distance"
-                        />
-                      </div>
+                      <button
+                        type="button"
+                        class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
+                        (click)="selectedTool = null"
+                      >
+                        Close
+                      </button>
+                    </div>
 
-                      <div class="mt-3">
-                        <label class="text-xs text-gray-300">{{ converterOutputLabel }}</label>
-                        <div class="mt-1 text-white text-base font-semibold">
-                          {{ converterOutput !== null ? converterOutput : '—' }}
+                    <!-- Selected conversion shown in header -->
+                    <div class="text-[10px] text-gray-300">
+                      Selected:
+                      <span class="text-gray-100 font-semibold">{{
+                        converterSelectedModeLabel
+                      }}</span>
+                    </div>
+
+                    <!-- Accordion: one open at a time (all collapsed by default) -->
+                    <div class="space-y-1">
+                      <div
+                        *ngFor="let s of converterSections"
+                        class="rounded-lg border border-gray-700 bg-black/20 overflow-hidden"
+                      >
+                        <button
+                          type="button"
+                          class="w-full flex items-center justify-between px-3 py-2 text-left"
+                          (click)="toggleConverterSection(s.id)"
+                        >
+                          <span class="text-[11px] font-semibold text-gray-100">{{ s.label }}</span>
+                          <span class="text-gray-400 text-[11px]">
+                            {{ expandedConverterSection === s.id ? '▲' : '▼' }}
+                          </span>
+                        </button>
+
+                        <div *ngIf="expandedConverterSection === s.id" class="px-2 pb-2">
+                          <button
+                            *ngFor="let m of s.modes"
+                            type="button"
+                            class="w-full mt-1 px-3 py-2 rounded-lg border text-left text-[11px]"
+                            [ngClass]="
+                              converterMode === m.id
+                                ? 'border-emerald-500 bg-emerald-600/20 text-gray-100'
+                                : 'border-gray-700 bg-black/30 text-gray-200'
+                            "
+                            (click)="selectConverterMode(s.id, m.id)"
+                          >
+                            {{ m.label }}
+                          </button>
                         </div>
                       </div>
                     </div>
                   </div>
+
+                  <!-- Converter content continues below -->
 
                   <!-- Documents panel -->
                   <div *ngIf="selectedTool === 'documents'" class="mt-3 space-y-3 text-[11px]">
