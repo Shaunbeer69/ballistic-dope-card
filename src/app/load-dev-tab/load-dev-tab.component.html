@@ -741,127 +741,92 @@
 
                   <tbody>
                     <!-- OCW: 2-line rows (metrics, then actions) -->
-                    <ng-container *ngIf="selectedProject?.type === 'ocw'; else ladderBody">
-                      <ng-container *ngFor="let entry of visibleEntries">
-                        <!-- Line 1: metrics (matches header: Charge / Vel / SD / ES / Group size) -->
-                        <tr [ngClass]="ocwSdCssClass(entry)">
-                          <td class="px-2 py-1 text-gray-100">
-                            <div class="leading-tight">
-                              <div>
-                                {{ entry.chargeGr | number: '1.0-2' }}
-                                <span *ngIf="hasEntryPhoto(entry)" class="ml-1 opacity-80">📷</span>
+                    <ng-container *ngIf="selectedProject?.type === 'ocw'; else ladderTbody">
+                      <tbody>
+                        <!-- OCW entries table -->
+                        <ng-container *ngIf="ocwEntryItems().length === 0">
+                          <tr>
+                            <td class="py-4 text-center text-[11px] text-slate-400" colspan="8">
+                              No OCW entries yet.
+                            </td>
+                          </tr>
+                        </ng-container>
+
+                        <ng-container *ngFor="let it of ocwEntryItems()">
+                          <tr class="border-t border-slate-700">
+                            <td class="py-2">{{ it.chargeGr }}</td>
+                            <td class="py-2">{{ it.stepIndex }}</td>
+                            <td class="py-2">{{ it.totalShots }}</td>
+                            <td class="py-2">{{ it.aveVelocityFps || '-' }}</td>
+                            <td class="py-2">{{ it.sdVelocityFps || '-' }}</td>
+                            <td class="py-2">{{ it.esVelocityFps || '-' }}</td>
+                            <td class="py-2">
+                              <button
+                                class="px-2 py-1 rounded-lg bg-blue-600 text-white text-[10px] font-semibold"
+                                (click)="openOcwVelocityWizardForEntry(it)"
+                              >
+                                Vel
+                              </button>
+                            </td>
+                            <td class="py-2">
+                              <div class="flex items-center gap-1 justify-end">
+                                <button
+                                  class="px-2 py-1 rounded-lg bg-slate-700 text-white text-[10px] font-semibold"
+                                  (click)="editLoadDevEntry(it)"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  class="px-2 py-1 rounded-lg bg-red-600 text-white text-[10px] font-semibold"
+                                  (click)="deleteLoadDevEntry(it)"
+                                >
+                                  Del
+                                </button>
                               </div>
-                            </div>
-                          </td>
-                          <td class="px-2 py-1 text-gray-100">
-                            {{ entry.shotsFired ?? planner.shotsPerGroup ?? '—' }}
-                          </td>
-
-                          <ng-container *ngIf="statsForEntry(entry) as s; else dashTplStatsRow">
-                            <td class="px-2 py-1 text-gray-100">
-                              {{ s.avg | number: '1.0-0' }}
                             </td>
-
-                            <td class="px-2 py-1 text-gray-100">
-                              {{ s.sd | number: '1.1-1' }}
-                            </td>
-
-                            <td class="px-2 py-1 text-gray-100">
-                              {{ s.es | number: '1.0-0' }}
-                            </td>
-                          </ng-container>
-
-                          <ng-template #dashTplStatsRow>
-                            <td class="px-2 py-1 text-gray-100">—</td>
-                            <td class="px-2 py-1 text-gray-100">—</td>
-                            <td class="px-2 py-1 text-gray-100">—</td>
-                          </ng-template>
-
-                          <td class="px-2 py-1 text-right text-gray-100">
-                            {{ formatGroupSize(entry) }}
-                          </td>
-                        </tr>
-
-                        <!-- Line 2: actions -->
-                        <tr class="border-t border-gray-800 bg-black/40">
-                          <td colspan="6" class="px-2 py-1.5 text-right whitespace-nowrap">
-                            <button
-                              class="text-[10px] px-2 py-0.5 rounded-full bg-gray-600/90 text-white mr-2"
-                              title="Target photo"
-                              (click)="onEntryTargetPhotoClick(entry, $event)"
-                            >
-                              📷
-                            </button>
-
-                            <button
-                              class="text-[10px] px-3 py-0.5 rounded-full bg-sky-600/90 text-black mr-2"
-                              (click)="editVelocityForEntry(entry)"
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              class="text-[10px] px-3 py-0.5 rounded-full bg-red-700/90 text-red-50"
-                              (click)="deleteEntry(entry)"
-                            >
-                              Del
-                            </button>
-                          </td>
-                        </tr>
-                      </ng-container>
-
-                      <ng-template #dashTpl>—</ng-template>
+                          </tr>
+                        </ng-container>
+                      </tbody>
                     </ng-container>
 
-                    <!-- Ladder: single-line rows -->
-                    <ng-template #ladderBody>
-                      <tr
-                        *ngFor="let entry of visibleEntries; let i = index"
-                        [ngClass]="nodeCssClass(entry)"
-                      >
-                        <td class="px-2 py-1 text-gray-100">
-                          <div class="leading-tight">
-                            <div class="flex items-center gap-1">
-                              <span>{{ entry.chargeGr | number: '1.0-2' }}</span>
+                    <ng-template #ladderTbody>
+                      <tbody>
+                        <!-- LADDER entries table -->
+                        <ng-container *ngIf="ladderEntryItems().length === 0">
+                          <tr>
+                            <td class="py-4 text-center text-[11px] text-slate-400" colspan="8">
+                              No Ladder entries yet.
+                            </td>
+                          </tr>
+                        </ng-container>
 
-                              <!-- ✅ Node indicator (shows in UI + PDF export) -->
-                              <span
-                                *ngIf="isLadderNode(entry)"
-                                class="px-1.5 py-[1px] rounded-full bg-emerald-500/20 border border-emerald-400/60 text-emerald-200 text-[9px] font-semibold"
-                              >
-                                Node
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td class="px-2 py-1 text-gray-100">
-                          <ng-container *ngIf="statsForEntry(entry) as s; else dashTpl2">
-                            {{ s.avg | number: '1.0-0' }}
-                          </ng-container>
-                          <ng-template #dashTpl2>—</ng-template>
-                        </td>
-
-                        <td class="px-2 py-1 text-gray-100">
-                          {{ i + 1 }} / {{ visibleEntries.length }}
-                        </td>
-
-                        <td class="px-2 py-1 text-right whitespace-nowrap">
-                          <button
-                            class="text-[10px] px-2 py-0.5 rounded-full bg-sky-600/90 text-black mr-1"
-                            (click)="editVelocityForEntry(entry)"
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            class="text-[10px] px-2 py-0.5 rounded-full bg-red-700/90 text-red-50"
-                            (click)="deleteEntry(entry)"
-                          >
-                            Del
-                          </button>
-                        </td>
-                      </tr>
+                        <ng-container *ngFor="let it of ladderEntryItems()">
+                          <tr class="border-t border-slate-700">
+                            <td class="py-2">{{ it.chargeGr }}</td>
+                            <td class="py-2">{{ it.stepIndex }}</td>
+                            <td class="py-2">{{ it.totalShots }}</td>
+                            <td class="py-2">{{ it.aveVelocityFps || '-' }}</td>
+                            <td class="py-2">{{ it.sdVelocityFps || '-' }}</td>
+                            <td class="py-2">{{ it.esVelocityFps || '-' }}</td>
+                            <td class="py-2">
+                              <div class="flex items-center gap-1 justify-end">
+                                <button
+                                  class="px-2 py-1 rounded-lg bg-slate-700 text-white text-[10px] font-semibold"
+                                  (click)="editLoadDevEntry(it)"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  class="px-2 py-1 rounded-lg bg-red-600 text-white text-[10px] font-semibold"
+                                  (click)="deleteLoadDevEntry(it)"
+                                >
+                                  Del
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        </ng-container>
+                      </tbody>
                     </ng-template>
                   </tbody>
                 </table>
@@ -877,6 +842,44 @@
                   class="w-full flex items-center justify-between font-semibold text-emerald-200 mb-0.5"
                   (click)="toggleHowToHint()"
                 >
+                  <!-- OCW entry (group) notes editor -->
+                  <div
+                    *ngIf="entryNotesEditorOpen"
+                    class="mt-2 bg-slate-900 border border-slate-700 rounded-xl p-3"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <div class="text-[11px] font-semibold text-slate-200">Group notes</div>
+                      <button
+                        class="px-3 py-1 rounded-lg bg-slate-800 border border-slate-600 text-[11px]"
+                        (click)="cancelEntryNotesEditor()"
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    <textarea
+                      class="w-full mt-2 p-2 rounded-lg bg-slate-950 border border-slate-700 text-[11px] text-white"
+                      rows="3"
+                      [(ngModel)]="entryNotesEditorText"
+                      placeholder="Notes for this charge group..."
+                    ></textarea>
+
+                    <div class="flex items-center justify-end gap-2 mt-2">
+                      <button
+                        class="px-3 py-1 rounded-lg bg-slate-800 border border-slate-600 text-[11px]"
+                        (click)="cancelEntryNotesEditor()"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        class="px-3 py-1 rounded-lg bg-green-600 text-white text-[11px] font-semibold"
+                        (click)="saveEntryNotesEditor()"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+
                   <span>How to use this data:</span>
                   <span class="text-gray-200/80">{{
                     howToExpanded ? 'Tap to collapse' : 'Tap'

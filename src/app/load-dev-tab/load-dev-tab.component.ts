@@ -249,6 +249,18 @@ private audioRoute: AudioRoutePlugin | null = AudioRoute;
 
 private voiceAudioCtx: AudioContext | null = null;
 private voiceSource: AudioBufferSourceNode | null = null;
+// ------------------------------
+// Per-entry (OCW group) notes + voice notes
+// ------------------------------
+entryNotesEditorOpen = false;
+entryNotesEditorEntryId: number | null = null;
+entryNotesEditorText = '';
+
+private entryVoiceRecordingEntryId: number | null = null;
+private entryVoiceRecordingStartedAt = 0;
+  
+private entryVoiceAudio: HTMLAudioElement | null = null;
+entryVoicePlayingEntryId: number | null = null;
 
 private syncVoiceNoteFromProject(): void {
   try {
@@ -402,40 +414,37 @@ if (status !== 'GRANTED') {
       return;
     }
 
-    // Stop + save
-    const result = await CapacitorVoiceRecorder.stopRecording();
-    await this.forceSpeakerForPlayback();
+              const result: any = await VoiceRecorder.stopRecording();
 
-    this.isVoiceRecording = false;
+      const recordDataBase64 =
+        result?.value?.recordDataBase64 ?? result?.recordDataBase64 ?? '';
 
-    const base64 = (result?.base64 ?? '').toString().trim();
-    const msDuration = Number(result?.msDuration ?? 0);
+      const mimeType =
+        result?.value?.mimeType ?? result?.mimeType ?? 'audio/aac';
 
-    if (!base64) {
-      this.micInlineMessage = 'No audio captured';
-      setTimeout(() => (this.micInlineMessage = null), 1800);
-      return;
-    }
 
-    const updated: any = {
-      ...(this.selectedProject as any),
-      voiceNoteBase64: base64,
-      voiceNoteDurationMs: Number.isFinite(msDuration) && msDuration > 0 ? msDuration : undefined
-    };
+      const base64 = result?.value?.recordDataBase64;
+      const durationMs = result?.value?.msDuration ?? 0;
 
-    this.data.updateLoadDevProject(updated);
-this.data.updateLoadDevProject(updated);
+      if (!base64) {
+        this.micInlineMessage = 'No audio captured';
+        setTimeout(() => (this.micInlineMessage = null), 1600);
+        return;
+      }
 
-// 🔥 IMPORTANT: reload selectedProject from DataService, then rebuild preview
-this.refreshSelectedProject();
-this.syncVoiceNoteFromProject();
+      const updated: any = { ...(this.selectedProject as any) };
+      updated.voiceNoteBase64 = base64;
+      updated.voiceNoteDurationMs = durationMs;
 
-    // Refresh UI preview
-    this.syncVoiceNoteFromProject();
+      this.data.updateLoadDevProject(updated);
 
-    this.micInlineMessage = '✅ Voice note saved';
-    setTimeout(() => (this.micInlineMessage = null), 1600);
-  } catch (err) {
+      // Reload selectedProject from DataService, then rebuild preview
+      this.refreshSelectedProject();
+      this.syncVoiceNoteFromProject();
+
+      this.micInlineMessage = '✅ Voice note saved';
+      setTimeout(() => (this.micInlineMessage = null), 1600);
+ } catch (err) {
     this.isVoiceRecording = false;
     this.micInlineMessage = 'Mic error (check permission / mic in use)';
     setTimeout(() => (this.micInlineMessage = null), 2200);
@@ -648,6 +657,7 @@ async onEntryTargetPhotoClick(entry: LoadDevEntry, event?: Event): Promise<void>
     setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
     return;
   }
+  
  // IMPORTANT:
   // Do NOT overwrite entry.targetPhoto here.
   // The correct photo is written after capture in attachPhotoToEntry(...)
@@ -690,6 +700,187 @@ async onEntryTargetPhotoClick(entry: LoadDevEntry, event?: Event): Promise<void>
     setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
   }
 }
+
+openEntryNotesEditor(entry: any, ev?: Event): void {
+  try { ev?.stopPropagation?.(); } catch {}
+  const anyEntry = entry as any;
+
+  this.entryNotesEditorEntryId = Number(anyEntry?.id ?? null);
+  this.entryNotesEditorText = (anyEntry?.notes ?? '').toString();
+  this.entryNotesEditorOpen = true;
+}
+
+cancelEntryNotesEditor(): void {
+  this.entryNotesEditorOpen = false;
+  this.entryNotesEditorEntryId = null;
+  this.entryNotesEditorText = '';
+}
+
+saveEntryNotesEditor(): void {
+  if (!this.selectedProject || !this.selectedRifleId) {
+    this.cancelEntryNotesEditor();
+    return;
+  }
+
+  const entryId = this.entryNotesEditorEntryId;
+  if (!entryId) {
+    this.cancelEntryNotesEditor();
+    return;
+  }
+
+  const note = (this.entryNotesEditorText ?? '').toString();
+
+  // Save note on the entry (used for export-under-photo)
+       // Save note on the entry (used for export-under-photo)
+  const found = (this.selectedProject.entries ?? []).find((x: any) => Number(x?.id) === Number(entryId));
+  if (!found) return;
+
+  const updatedEntry = { ...(found as any), notes: note } as any;
+  this.data.updateLoadDevEntry(this.selectedProject.id, updatedEntry);
+
+
+  // Keep local UI consistent if selectedProject is already in memory
+  try {
+    const e = (this.selectedProject.entries ?? []).find((x: any) => Number(x?.id) === Number(entryId));
+    if (e) (e as any).notes = note;
+  } catch {}
+
+  this.cancelEntryNotesEditor();
+}
+
+isEntryVoiceRecordingFor(entry: any): boolean {
+  return this.entryVoiceRecordingEntryId !== null && Number((entry as any)?.id) === this.entryVoiceRecordingEntryId;
+}
+
+entryHasVoiceNote(entry: any): boolean {
+  const anyEntry = entry as any;
+  const b64 = (anyEntry?.voiceNoteBase64 ?? '').toString().trim();
+  return !!b64;
+}
+
+isEntryVoicePlayingFor(entry: any): boolean {
+  return this.entryVoicePlayingEntryId !== null && Number((entry as any)?.id) === this.entryVoicePlayingEntryId;
+}
+
+async toggleEntryVoiceRecording(entry: any, ev?: Event): Promise<void> {
+  try { ev?.stopPropagation?.(); } catch {}
+
+  const entryId = Number((entry as any)?.id ?? 0);
+  if (!entryId || !this.selectedProject || !this.selectedRifleId) return;
+
+  // Stop current recording
+  if (this.entryVoiceRecordingEntryId === entryId) {
+    await this.stopEntryVoiceRecording(entry);
+    return;
+  }
+
+  // If recording another entry, stop it first
+  if (this.entryVoiceRecordingEntryId !== null) {
+    const prev = (this.selectedProject.entries ?? []).find((x: any) => Number(x?.id) === Number(this.entryVoiceRecordingEntryId));
+    if (prev) await this.stopEntryVoiceRecording(prev);
+    this.entryVoiceRecordingEntryId = null;
+  }
+
+  try {
+        await CapacitorVoiceRecorder.startRecording();
+    this.entryVoiceRecordingEntryId = entryId;
+    this.entryVoiceRecordingStartedAt = Date.now();
+  } catch (e) {
+    console.warn('startEntryVoiceRecording failed', e);
+    this.entryVoiceRecordingEntryId = null;
+    this.entryVoiceRecordingStartedAt = 0;
+  }
+}
+
+private async stopEntryVoiceRecording(entry: any): Promise<void> {
+  const entryId = Number((entry as any)?.id ?? 0);
+  if (!entryId || !this.selectedProject || !this.selectedRifleId) return;
+
+     try {
+     const res: any = await CapacitorVoiceRecorder.stopRecording();
+
+     const base64 = (
+       res?.value?.recordDataBase64 ??
+       res?.value ??
+       res?.recordDataBase64 ??
+       ''
+     ).toString().trim();
+
+     const durationMs = Math.max(0, Date.now() - (this.entryVoiceRecordingStartedAt || Date.now()));
+
+     if (base64) {
+       const found = (this.selectedProject.entries ?? []).find((x: any) => Number(x?.id) === Number(entryId));
+       if (found) {
+         const updatedEntry = {
+           ...(found as any),
+           voiceNoteBase64: base64,
+           voiceNoteDurationMs: durationMs,
+         } as any;
+
+         this.data.updateLoadDevEntry(this.selectedProject.id, updatedEntry);
+       }
+     }
+   } catch (e) {
+     console.error('stopEntryVoiceRecording failed', e);
+   } finally {
+     this.entryVoiceRecordingEntryId = null;
+     this.entryVoiceRecordingStartedAt = 0;
+   }
+
+}
+
+toggleEntryVoicePlayback(entry: any, ev?: Event): void {
+  try { ev?.stopPropagation?.(); } catch {}
+
+  const entryId = Number((entry as any)?.id ?? 0);
+  if (!entryId) return;
+
+  if (this.entryVoicePlayingEntryId === entryId) {
+    this.stopEntryVoicePlayback();
+    return;
+  }
+
+  this.playEntryVoicePlayback(entry);
+}
+
+private playEntryVoicePlayback(entry: any): void {
+  const anyEntry = entry as any;
+  const base64 = (anyEntry?.voiceNoteBase64 ?? '').toString().trim();
+  if (!base64) return;
+
+  this.stopEntryVoicePlayback();
+
+  try {
+    const audio = new Audio(`data:audio/wav;base64,${base64}`);
+    this.entryVoiceAudio = audio;
+    this.entryVoicePlayingEntryId = Number(anyEntry?.id ?? null);
+
+    audio.onended = () => {
+      this.entryVoicePlayingEntryId = null;
+      this.entryVoiceAudio = null;
+    };
+
+    audio.play().catch(() => {
+      this.entryVoicePlayingEntryId = null;
+      this.entryVoiceAudio = null;
+    });
+  } catch {
+    this.entryVoicePlayingEntryId = null;
+    this.entryVoiceAudio = null;
+  }
+}
+
+private stopEntryVoicePlayback(): void {
+  try {
+    if (this.entryVoiceAudio) {
+      this.entryVoiceAudio.pause();
+      this.entryVoiceAudio.currentTime = 0;
+    }
+  } catch {}
+  this.entryVoiceAudio = null;
+  this.entryVoicePlayingEntryId = null;
+}
+
 async onEntryFileChosen(ev: Event): Promise<void> {
   const input = ev.target as HTMLInputElement;
   const file = input.files?.[0];
@@ -1837,8 +2028,28 @@ y += boxH + boxPadAfter;
         yStart = y;
       };
 
+const drawNoteText = (text: string, x: number, y: number, maxW: number) => {
+    const h = doc.internal.pageSize.getHeight();
+
+  const t = (text ?? '').toString().trim();
+  if (!t) return;
+
+  doc.setFontSize(7);
+  doc.setTextColor(230, 230, 230);
+
+  const lines = doc.splitTextToSize(t, maxW);
+  let yy = y;
+
+  for (const line of lines) {
+    doc.text(line, x, yy);
+    yy += 10;
+    if (yy > h - 60) break; // safety
+  }
+};
 
       const drawNoteLines = (startY: number) => {
+       
+
         doc.setLineWidth(0.3);
         doc.setDrawColor(160);
 
@@ -1860,6 +2071,12 @@ y += boxH + boxPadAfter;
 
       // Start Page 2 (or next pages)
       startNewPhotosPage();
+      let rowLeftNote = '';
+      let rowRightNote = '';
+      let rowLeftX = leftX;
+let rowRightX = leftX + colW;
+let rowNoteY = 0;
+
 
       for (const it of photoItems) {
         // Max 4 photos per page
@@ -1925,6 +2142,13 @@ y += boxH + boxPadAfter;
 
         const tw = doc.getTextWidth(chargeTxt);
         doc.text(chargeTxt, x + (colW - tw) / 2, y + imgH + captionGap);
+               const entryNote = this.buildExportNotesForEntry(it.entry) || '';
+        if (col === 0) {
+          rowLeftNote = entryNote;
+        } else {
+          rowRightNote = entryNote;
+        }
+
 
         // advance column/row
         photosOnPage++;
@@ -1937,6 +2161,14 @@ y += boxH + boxPadAfter;
 
           const linesStartY = y + imgH + captionGap + noteTopGap;
           drawNoteLines(linesStartY);
+          // Print notes under each photo (page 2+)
+          const noteMaxW = colW - pad * 2;
+          drawNoteText(rowLeftNote, leftX + pad, linesStartY + 6, noteMaxW);
+          drawNoteText(rowRightNote, leftX + colW + pad, linesStartY + 6, noteMaxW);
+
+          // reset for next row
+          rowLeftNote = '';
+          rowRightNote = '';
 
           // move to next row start
           y = linesStartY + (noteLineCount * noteLineGap) + afterNotesGap;
@@ -1947,9 +2179,19 @@ y += boxH + boxPadAfter;
       if (col === 1) {
         const linesStartY = y + imgH + captionGap + noteTopGap;
         drawNoteLines(linesStartY);
+                // Print note under the single (left) photo (page 2+)
+        const noteMaxW = colW - pad * 2;
+        drawNoteText(rowLeftNote, leftX + pad, linesStartY + 6, noteMaxW);
+
+        // reset for next row
+        rowLeftNote = '';
+        rowRightNote = '';
+
         y = linesStartY + (noteLineCount * noteLineGap) + afterNotesGap;
       }
+      
     }
+    
   }
 
             // -------------------------------
@@ -3347,11 +3589,41 @@ if (type === 'ladder' || type === 'ocw') {
   }
 
   deleteEntry(entry: LoadDevEntry): void {
+    
     if (!this.selectedProject) return;
     if (!confirm('Delete this entry?')) return;
     this.data.deleteLoadDevEntry(this.selectedProject.id, entry.id);
     this.loadProjects();
   }
+    // --- Template helper wrappers (used by HTML) ---
+  // OCW entries for the currently selected project
+  ocwEntryItems(): any[] {
+    const p: any = this.selectedProject as any;
+    if (!p || !Array.isArray(p.entries)) return [];
+    // sort by charge if present, otherwise preserve order
+    return [...p.entries].sort((a: any, b: any) => (a?.chargeGr ?? 0) - (b?.chargeGr ?? 0));
+  }
+
+  // Ladder entries for the currently selected project
+  ladderEntryItems(): any[] {
+    const p: any = this.selectedProject as any;
+    if (!p || !Array.isArray(p.entries)) return [];
+    return [...p.entries].sort((a: any, b: any) => (a?.chargeGr ?? 0) - (b?.chargeGr ?? 0));
+  }
+
+  // Button click handlers used by the table templates
+  openOcwVelocityWizardForEntry(entry: any): void {
+    this.editVelocityForEntry(entry);
+  }
+
+  editLoadDevEntry(entry: any): void {
+    this.editEntry(entry);
+  }
+
+  deleteLoadDevEntry(entry: any): void {
+    this.deleteEntry(entry);
+  }
+
   // Removed duplicate implementation of rebuildVisibleEntries()
   entriesForSelectedProject(): LoadDevEntry[] {
    
@@ -3956,7 +4228,13 @@ allEntriesHaveVelocity(): boolean {
     }
 
     this.ladderWizardEntries = entries;
-    this.ladderWizardIndex = 0;
+    // Resume: start at first entry that still needs velocity input (so Cancel doesn't lose progress)
+const resumeIdx = this.ladderWizardEntries.findIndex((e: any) => {
+  const v = (e?.velocityInput ?? '').toString().trim();
+  return !v;
+});
+this.ladderWizardIndex = resumeIdx >= 0 ? resumeIdx : 0;
+
     this.ladderWizardActive = true;
 
     this.singleVelocityEditActive = false;
