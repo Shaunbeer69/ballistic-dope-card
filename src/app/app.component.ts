@@ -723,9 +723,169 @@ exportSubMenuOpen = false;
 
   kestrelData: KestrelDataSnapshot | null = null;
 
-  converterMode: 'milToMoa' | 'moaToMil' | 'clicksToMil' | 'clicksToMoa' =
+    converterMode:
+    | 'milToMoa'
+    | 'moaToMil'
+    | 'clicksToMil'
+    | 'clicksToMoa'
+    | 'milToClicks'
+    | 'moaToClicks'
+    | 'mToYd'
+    | 'ydToM'
+    | 'cToF'
+    | 'fToC'
+    | 'mpsToFps'
+    | 'fpsToMps'
+    | 'hpaToInhg'
+    | 'inhgToHpa'
+    | 'hpaToMmhg'
+    | 'mmhgToHpa'
+    | 'hpaToKpa'
+    | 'kpaToHpa'
+    | 'kmhToMph'
+    | 'mphToKmh'
+    | 'kmhToMs'
+    | 'msToKmh'
+    | 'kmhToKn'
+    | 'knToKmh'
+    | 'milToInAtDist'
+    | 'moaToInAtDist'
+    | 'inToMilAtDist'
+    | 'inToMoaAtDist' =
     'milToMoa';
+
   converterInput: number | null = null;
+  converterAux: number | null = null;
+
+  private readonly MIL_PER_CLICK = 0.1;
+  private readonly MOA_PER_CLICK = 0.25;
+
+  get converterUsesDistance(): boolean {
+    return (
+      this.converterMode === 'milToInAtDist' ||
+      this.converterMode === 'moaToInAtDist' ||
+      this.converterMode === 'inToMilAtDist' ||
+      this.converterMode === 'inToMoaAtDist'
+    );
+  }
+
+  get converterInputLabel(): string {
+    switch (this.converterMode) {
+      case 'milToMoa':
+      case 'milToClicks':
+      case 'milToInAtDist':
+        return 'Input (mil)';
+      case 'moaToMil':
+      case 'moaToClicks':
+      case 'moaToInAtDist':
+        return 'Input (MOA)';
+      case 'clicksToMil':
+      case 'clicksToMoa':
+        return 'Input (clicks)';
+      case 'mToYd':
+        return 'Input (m)';
+      case 'ydToM':
+        return 'Input (yd)';
+      case 'cToF':
+        return 'Input (°C)';
+      case 'fToC':
+        return 'Input (°F)';
+      case 'mpsToFps':
+        return 'Input (m/s)';
+      case 'fpsToMps':
+        return 'Input (fps)';
+      case 'hpaToInhg':
+      case 'hpaToMmhg':
+      case 'hpaToKpa':
+        return 'Input (hPa)';
+      case 'inhgToHpa':
+        return 'Input (inHg)';
+      case 'mmhgToHpa':
+        return 'Input (mmHg)';
+      case 'kpaToHpa':
+        return 'Input (kPa)';
+      case 'kmhToMph':
+      case 'kmhToMs':
+      case 'kmhToKn':
+        return 'Input (km/h)';
+      case 'mphToKmh':
+        return 'Input (mph)';
+      case 'msToKmh':
+        return 'Input (m/s)';
+      case 'knToKmh':
+        return 'Input (kn)';
+      case 'inToMilAtDist':
+      case 'inToMoaAtDist':
+        return 'Input (inches)';
+      default:
+        return 'Input';
+    }
+  }
+
+  get converterAuxLabel(): string {
+    return 'Distance (m)';
+  }
+
+  get converterOutputLabel(): string {
+    switch (this.converterMode) {
+      case 'milToMoa':
+        return 'Result (MOA)';
+      case 'moaToMil':
+        return 'Result (mil)';
+      case 'clicksToMil':
+        return 'Result (mil)';
+      case 'clicksToMoa':
+        return 'Result (MOA)';
+      case 'milToClicks':
+      case 'moaToClicks':
+        return 'Result (clicks)';
+      case 'mToYd':
+        return 'Result (yd)';
+      case 'ydToM':
+        return 'Result (m)';
+      case 'cToF':
+        return 'Result (°F)';
+      case 'fToC':
+        return 'Result (°C)';
+      case 'mpsToFps':
+        return 'Result (fps)';
+      case 'fpsToMps':
+        return 'Result (m/s)';
+      case 'hpaToInhg':
+        return 'Result (inHg)';
+      case 'inhgToHpa':
+        return 'Result (hPa)';
+      case 'hpaToMmhg':
+        return 'Result (mmHg)';
+      case 'mmhgToHpa':
+        return 'Result (hPa)';
+      case 'hpaToKpa':
+        return 'Result (kPa)';
+      case 'kpaToHpa':
+        return 'Result (hPa)';
+      case 'kmhToMph':
+        return 'Result (mph)';
+      case 'mphToKmh':
+        return 'Result (km/h)';
+      case 'kmhToMs':
+        return 'Result (m/s)';
+      case 'msToKmh':
+        return 'Result (km/h)';
+      case 'kmhToKn':
+        return 'Result (kn)';
+      case 'knToKmh':
+        return 'Result (km/h)';
+      case 'milToInAtDist':
+      case 'moaToInAtDist':
+        return 'Result (inches)';
+      case 'inToMilAtDist':
+        return 'Result (mil)';
+      case 'inToMoaAtDist':
+        return 'Result (MOA)';
+      default:
+        return 'Result';
+    }
+  }
 
   private dataService: DataService = inject(DataService);
 kestrel: KestrelService = inject(KestrelService);
@@ -1759,33 +1919,115 @@ private blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-  get converterOutput(): number | null {
+    get converterOutput(): number | null {
     if (this.converterInput == null || Number.isNaN(this.converterInput)) {
       return null;
     }
-    const value = this.converterInput;
 
+    const v = this.converterInput;
+
+    // Distance-dependent conversions (expects converterAux = distance in meters)
+    const needsDistance = this.converterUsesDistance;
+    const distanceM =
+      needsDistance && this.converterAux != null && !Number.isNaN(this.converterAux)
+        ? this.converterAux
+        : null;
+
+    const toInches = (meters: number) => meters * 39.37007874015748;
+    const inchesToMeters = (inches: number) => inches / 39.37007874015748;
+    const moaToRadians = (moa: number) => (moa * Math.PI) / 180 / 60;
+
+    // ---- angle / click conversions ----
     if (this.converterMode === 'milToMoa') {
-      return Math.round(value * 3.43775 * 100) / 100;
+      return Math.round(v * 3.43775 * 100) / 100;
     }
 
     if (this.converterMode === 'moaToMil') {
-      return Math.round((value / 3.43775) * 1000) / 1000;
+      return Math.round((v / 3.43775) * 1000) / 1000;
     }
 
-    // clicks conversions – simple assumptions
     if (this.converterMode === 'clicksToMil') {
-      const mil = value / 10; // 0.1 mil per click
+      const mil = v * this.MIL_PER_CLICK;
       return Math.round(mil * 1000) / 1000;
     }
 
     if (this.converterMode === 'clicksToMoa') {
-      const moa = value / 4; // ¼ MOA per click
-      return Math.round(moa * 1000) / 1000;
+      const moa = v * this.MOA_PER_CLICK;
+      return Math.round(moa * 100) / 100;
+    }
+
+    if (this.converterMode === 'milToClicks') {
+      const clicks = v / this.MIL_PER_CLICK;
+      return Math.round(clicks * 10) / 10;
+    }
+
+    if (this.converterMode === 'moaToClicks') {
+      const clicks = v / this.MOA_PER_CLICK;
+      return Math.round(clicks * 10) / 10;
+    }
+
+    // ---- distance / env / speed units ----
+    if (this.converterMode === 'mToYd') return Math.round(v * 1.0936133 * 1000) / 1000;
+    if (this.converterMode === 'ydToM') return Math.round((v / 1.0936133) * 1000) / 1000;
+
+    if (this.converterMode === 'cToF') return Math.round((v * 9 / 5 + 32) * 100) / 100;
+    if (this.converterMode === 'fToC') return Math.round(((v - 32) * 5 / 9) * 100) / 100;
+
+    if (this.converterMode === 'mpsToFps') return Math.round(v * 3.280839895 * 100) / 100;
+    if (this.converterMode === 'fpsToMps') return Math.round((v / 3.280839895) * 1000) / 1000;
+
+    if (this.converterMode === 'hpaToInhg') return Math.round((v / 33.8638866667) * 10000) / 10000;
+    if (this.converterMode === 'inhgToHpa') return Math.round((v * 33.8638866667) * 100) / 100;
+
+    if (this.converterMode === 'hpaToMmhg') return Math.round((v / 1.3332239) * 1000) / 1000;
+    if (this.converterMode === 'mmhgToHpa') return Math.round((v * 1.3332239) * 100) / 100;
+
+    if (this.converterMode === 'hpaToKpa') return Math.round((v / 10) * 1000) / 1000;
+    if (this.converterMode === 'kpaToHpa') return Math.round((v * 10) * 100) / 100;
+
+    if (this.converterMode === 'kmhToMph') return Math.round((v * 0.621371) * 1000) / 1000;
+    if (this.converterMode === 'mphToKmh') return Math.round((v / 0.621371) * 1000) / 1000;
+
+    if (this.converterMode === 'kmhToMs') return Math.round((v / 3.6) * 1000) / 1000;
+    if (this.converterMode === 'msToKmh') return Math.round((v * 3.6) * 100) / 100;
+
+    if (this.converterMode === 'kmhToKn') return Math.round((v * 0.539957) * 1000) / 1000;
+    if (this.converterMode === 'knToKmh') return Math.round((v / 0.539957) * 1000) / 1000;
+
+    // ---- angle ↔ size at distance (distanceM required) ----
+    if (
+      this.converterMode === 'milToInAtDist' ||
+      this.converterMode === 'moaToInAtDist' ||
+      this.converterMode === 'inToMilAtDist' ||
+      this.converterMode === 'inToMoaAtDist'
+    ) {
+      if (distanceM == null || distanceM <= 0) return null;
+
+      if (this.converterMode === 'milToInAtDist') {
+        const sizeM = distanceM * (v / 1000);
+        return Math.round(toInches(sizeM) * 1000) / 1000;
+      }
+
+      if (this.converterMode === 'moaToInAtDist') {
+        const sizeM = distanceM * moaToRadians(v);
+        return Math.round(toInches(sizeM) * 1000) / 1000;
+      }
+
+      if (this.converterMode === 'inToMilAtDist') {
+        const sizeM = inchesToMeters(v);
+        const mil = (sizeM / distanceM) * 1000;
+        return Math.round(mil * 1000) / 1000;
+      }
+
+      // inToMoaAtDist
+      const sizeM = inchesToMeters(v);
+      const moa = (sizeM / distanceM) * (180 / Math.PI) * 60;
+      return Math.round(moa * 100) / 100;
     }
 
     return null;
   }
+
 
   private buildMultiDistanceSummary(
     sessions: any[],
