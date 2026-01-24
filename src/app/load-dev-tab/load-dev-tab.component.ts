@@ -483,6 +483,10 @@ entryHasNotes(entry: LoadDevEntry): boolean {
   const any = entry as any;
   return !!(any?.notes ?? '').toString().trim();
 }
+getVisibleEntryById(id: number | null): LoadDevEntry | null {
+  if (id == null) return null;
+  return (this.visibleEntries ?? []).find((e) => e.id === id) ?? null;
+}
 
 openEntryNotes(entry: LoadDevEntry, event?: Event): void {
   try {
@@ -513,8 +517,16 @@ saveEntryNotes(entry: LoadDevEntry): void {
   this.data.updateLoadDevEntry(this.selectedProject.id, any as LoadDevEntry);
   this.refreshSelectedProject();
 
-  this.entryNotesInlineMessage = '✅ Notes saved';
-  setTimeout(() => (this.entryNotesInlineMessage = null), 1400);
+   this.entryNotesInlineMessage = '✅ Notes saved';
+  setTimeout(() => (this.entryNotesInlineMessage = null), 2000);
+
+  // Toast/banner message (your app uses postSaveMessage as the toast-style banner)
+  this.postSaveMessage = 'Notes saved ✅';
+  setTimeout(() => (this.postSaveMessage = null), 2000);
+
+  // Collapse the notes overlay AFTER the message has appeared
+  setTimeout(() => this.closeEntryNotes(), 250);
+
 }
 
 // ==========================
@@ -1659,7 +1671,33 @@ doc.text(noteLines, leftMargin, y);
       }
 
       // ----- Table (real data) -----
-      const entries = this.entriesForSelectedProject();
+            const entriesUnsorted = this.entriesForSelectedProject();
+
+      // ✅ Export must always be first-to-last (charge ascending) for OCW,
+      // regardless of how the UI is currently sorted.
+      const entryTimeMs = (e: any): number => {
+        const t = (e as any)?.updatedAt ?? (e as any)?.createdAt ?? null;
+        const ms = t ? new Date(t).getTime() : NaN;
+        return Number.isFinite(ms) ? ms : 0;
+      };
+
+      const entries = isOcwProject
+        ? [...entriesUnsorted].sort((a, b) => {
+            const ac = (a as any)?.chargeGr;
+            const bc = (b as any)?.chargeGr;
+
+            const an =
+              typeof ac === 'number' && Number.isFinite(ac) ? ac : Number.POSITIVE_INFINITY;
+            const bn =
+              typeof bc === 'number' && Number.isFinite(bc) ? bc : Number.POSITIVE_INFINITY;
+
+            if (an !== bn) return an - bn;
+
+            // Deterministic secondary order inside the same charge
+            return entryTimeMs(a) - entryTimeMs(b);
+          })
+        : entriesUnsorted;
+
       doc.setFontSize(11);
      doc.text('Data', leftMargin, y);
       y += 12;
