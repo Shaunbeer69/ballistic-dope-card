@@ -272,10 +272,16 @@
                   <!-- Venue -->
                   <div>
                     <label class="block text-gray-300 mb-0.5">Venue</label>
-                    <select
-                      class="w-full bg-black border border-gray-700 rounded px-2 py-1 text-[11px]"
-                      [(ngModel)]="reportRequest.venueId"
+                    <button
+                      type="button"
+                      class="w-full bg-black border border-gray-700 rounded px-2 py-1 text-[11px] text-left"
+                      (click)="openReportVenuePicker()"
                     >
+                      {{ reportSelectedVenueName || 'Select venue…' }}
+                    </button>
+
+                    <!-- keep ngModel + options (but hide native select UI) -->
+                    <select class="hidden" [(ngModel)]="reportRequest.venueId">
                       <option [ngValue]="null">Select venue…</option>
                       <option *ngFor="let v of venuesOptions" [ngValue]="v.id">
                         {{ v.name }}
@@ -286,10 +292,16 @@
                   <!-- Rifle -->
                   <div>
                     <label class="block text-gray-300 mb-0.5">Rifle</label>
-                    <select
-                      class="w-full bg-black border border-gray-700 rounded px-2 py-1 text-[11px]"
-                      [(ngModel)]="reportRequest.rifleId"
+                    <button
+                      type="button"
+                      class="w-full bg-black border border-gray-700 rounded px-2 py-1 text-[11px] text-left"
+                      (click)="openReportRiflePicker()"
                     >
+                      {{ reportSelectedRifleName || 'Select rifle…' }}
+                    </button>
+
+                    <!-- keep ngModel + options (but hide native select UI) -->
+                    <select class="hidden" [(ngModel)]="reportRequest.rifleId">
                       <option [ngValue]="null">Select rifle…</option>
                       <option *ngFor="let r of riflesOptions" [ngValue]="r.id">
                         {{ r.name }}
@@ -306,6 +318,163 @@
                       [(ngModel)]="reportDistanceM"
                       placeholder="Leave blank = show all"
                     />
+                  </div>
+                  <!-- REPORTS: Venue picker modal (canonical) -->
+                  <div
+                    *ngIf="reportVenuePickerOpen"
+                    class="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-3"
+                    (click)="closeReportVenuePicker()"
+                  >
+                    <div
+                      class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-3"
+                      (click)="$event.stopPropagation()"
+                    >
+                      <div class="flex items-start justify-between gap-2">
+                        <div class="text-[12px] font-semibold text-slate-100">Select venue</div>
+
+                        <div class="flex gap-2">
+                          <button
+                            type="button"
+                            class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                            (click)="clearReportVenueFromPicker()"
+                          >
+                            Clear
+                          </button>
+
+                          <button
+                            type="button"
+                            class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                            (click)="closeReportVenuePicker()"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="mt-2">
+                        <input
+                          type="text"
+                          class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
+                          placeholder="Search venues…"
+                          [(ngModel)]="reportVenuePickerSearch"
+                          (ngModelChange)="onReportVenuePickerSearchChange($event)"
+                          name="reportVenuePickerSearch"
+                        />
+                      </div>
+
+                      <div
+                        class="mt-2 rounded-xl border border-slate-700 bg-slate-900 p-2 max-h-[45vh] overflow-y-auto"
+                      >
+                        <div
+                          *ngIf="reportVenuePickerFiltered.length === 0"
+                          class="text-[10px] text-slate-400 px-1 py-2"
+                        >
+                          No matches
+                        </div>
+
+                        <button
+                          *ngFor="let v of reportVenuePickerFiltered"
+                          type="button"
+                          class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
+                          (click)="selectReportVenueFromPicker(v)"
+                        >
+                          <input
+                            type="checkbox"
+                            class="h-4 w-4 shrink-0 mt-[2px]"
+                            [checked]="v.id === reportVenueIdNum"
+                            (click)="$event.stopPropagation(); selectReportVenueFromPicker(v)"
+                          />
+
+                          <div class="min-w-0 flex-1 leading-tight">
+                            <div class="text-[11px] text-white font-semibold truncate">
+                              {{ v.name || '-' }}
+                            </div>
+                            <div class="text-[10px] text-slate-400 truncate" *ngIf="v.location">
+                              {{ v.location }}
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- REPORTS: Rifle picker modal (canonical) -->
+                  <div
+                    *ngIf="reportRiflePickerOpen"
+                    class="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-3"
+                    (click)="closeReportRiflePicker()"
+                  >
+                    <div
+                      class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-3"
+                      (click)="$event.stopPropagation()"
+                    >
+                      <div class="flex items-start justify-between gap-2">
+                        <div class="text-[12px] font-semibold text-slate-100">Select rifle</div>
+
+                        <div class="flex gap-2">
+                          <button
+                            type="button"
+                            class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                            (click)="clearReportRifleFromPicker()"
+                          >
+                            Clear
+                          </button>
+
+                          <button
+                            type="button"
+                            class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                            (click)="closeReportRiflePicker()"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="mt-2">
+                        <input
+                          type="text"
+                          class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
+                          placeholder="Search rifles…"
+                          [(ngModel)]="reportRiflePickerSearch"
+                          (ngModelChange)="onReportRiflePickerSearchChange($event)"
+                          name="reportRiflePickerSearch"
+                        />
+                      </div>
+
+                      <div
+                        class="mt-2 rounded-xl border border-slate-700 bg-slate-900 p-2 max-h-[45vh] overflow-y-auto"
+                      >
+                        <div
+                          *ngIf="reportRiflePickerFiltered.length === 0"
+                          class="text-[10px] text-slate-400 px-1 py-2"
+                        >
+                          No matches
+                        </div>
+
+                        <button
+                          *ngFor="let r of reportRiflePickerFiltered"
+                          type="button"
+                          class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
+                          (click)="selectReportRifleFromPicker(r)"
+                        >
+                          <input
+                            type="checkbox"
+                            class="h-4 w-4 shrink-0 mt-[2px]"
+                            [checked]="r.id === reportRifleIdNum"
+                            (click)="$event.stopPropagation(); selectReportRifleFromPicker(r)"
+                          />
+
+                          <div class="min-w-0 flex-1 leading-tight">
+                            <div class="text-[11px] text-white font-semibold truncate">
+                              {{ r.name || '-' }}
+                            </div>
+                            <div class="text-[10px] text-slate-400 truncate" *ngIf="r.caliber">
+                              {{ r.caliber }}
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <button

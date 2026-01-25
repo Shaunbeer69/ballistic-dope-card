@@ -172,6 +172,38 @@ private dataShareVenueIds = new Set<number>();
 
   riflesOptions: any[] = [];
   venuesOptions: any[] = [];
+  // REPORTS: canonical pickers (venue + rifle)
+  reportVenuePickerOpen = false;
+  reportVenuePickerSearch = '';
+  reportVenuePickerFiltered: any[] = [];
+
+  reportRiflePickerOpen = false;
+  reportRiflePickerSearch = '';
+  reportRiflePickerFiltered: any[] = [];
+
+  get reportVenueIdNum(): number | null {
+    const n = this.reportRequest?.venueId != null ? Number(this.reportRequest.venueId) : null;
+    return n != null && !Number.isNaN(n) ? n : null;
+  }
+
+  get reportRifleIdNum(): number | null {
+    const n = this.reportRequest?.rifleId != null ? Number(this.reportRequest.rifleId) : null;
+    return n != null && !Number.isNaN(n) ? n : null;
+  }
+
+  get reportSelectedVenueName(): string | null {
+    const id = this.reportVenueIdNum;
+    if (id == null) return null;
+    const v = (this.venuesOptions || []).find((x: any) => Number(x?.id) === id);
+    return v?.name ?? null;
+  }
+
+  get reportSelectedRifleName(): string | null {
+    const id = this.reportRifleIdNum;
+    if (id == null) return null;
+    const r = (this.riflesOptions || []).find((x: any) => Number(x?.id) === id);
+    return r?.name ?? null;
+  }
 
   // Full distance history at this venue
   distanceHistoryGroups: DistanceHistoryGroup[] = [];
@@ -1157,6 +1189,75 @@ backToToolsAndResetReports(): void {
   this.openTools(); 
   // <-- expands Tools (same logic as everywhere else)
 }
+  // ---------------- REPORTS: canonical Venue picker ----------------
+  openReportVenuePicker(): void {
+    this.reportVenuePickerOpen = true;
+    this.reportVenuePickerSearch = '';
+    this.reportVenuePickerFiltered = [...(this.venuesOptions || [])];
+  }
+
+  closeReportVenuePicker(): void {
+    this.reportVenuePickerOpen = false;
+  }
+
+  clearReportVenueFromPicker(): void {
+    this.reportRequest.venueId = null;
+    this.closeReportVenuePicker();
+  }
+
+  onReportVenuePickerSearchChange(v: string): void {
+    const q = (v || '').toLowerCase().trim();
+    const list = this.venuesOptions || [];
+    if (!q) {
+      this.reportVenuePickerFiltered = [...list];
+      return;
+    }
+    this.reportVenuePickerFiltered = list.filter((x: any) => {
+      const name = (x?.name || '').toString().toLowerCase();
+      const loc = (x?.location || '').toString().toLowerCase();
+      return name.includes(q) || loc.includes(q);
+    });
+  }
+
+  selectReportVenueFromPicker(v: any): void {
+    this.reportRequest.venueId = v?.id != null ? String(v.id) : null;
+    this.closeReportVenuePicker();
+  }
+
+  // ---------------- REPORTS: canonical Rifle picker ----------------
+  openReportRiflePicker(): void {
+    this.reportRiflePickerOpen = true;
+    this.reportRiflePickerSearch = '';
+    this.reportRiflePickerFiltered = [...(this.riflesOptions || [])];
+  }
+
+  closeReportRiflePicker(): void {
+    this.reportRiflePickerOpen = false;
+  }
+
+  clearReportRifleFromPicker(): void {
+    this.reportRequest.rifleId = null;
+    this.closeReportRiflePicker();
+  }
+
+  onReportRiflePickerSearchChange(v: string): void {
+    const q = (v || '').toLowerCase().trim();
+    const list = this.riflesOptions || [];
+    if (!q) {
+      this.reportRiflePickerFiltered = [...list];
+      return;
+    }
+    this.reportRiflePickerFiltered = list.filter((x: any) => {
+      const name = (x?.name || '').toString().toLowerCase();
+      const cal = (x?.caliber || '').toString().toLowerCase();
+      return name.includes(q) || cal.includes(q);
+    });
+  }
+
+  selectReportRifleFromPicker(r: any): void {
+    this.reportRequest.rifleId = r?.id != null ? String(r.id) : null;
+    this.closeReportRiflePicker();
+  }
 
   private getFilteredSessionsForReport(): any[] {
     let sessions = [...this.allSessions];
