@@ -69,16 +69,14 @@ export class VenuesTabComponent implements OnInit {
   private loadVenues(): void {
     this.venues = this.data.getVenues();
 
-    if (this.venues.length > 0 && this.selectedVenueId == null) {
-      this.selectedVenueId = this.venues[0].id as number;
-    }
-
-    if (
+   
+      if (
       this.selectedVenueId != null &&
       !this.venues.some((v) => v.id === this.selectedVenueId)
     ) {
-      this.selectedVenueId = this.venues[0]?.id as number | null;
+      this.selectedVenueId = null;
     }
+
   }
 
   get selectedVenue(): Venue | undefined {
@@ -170,7 +168,7 @@ export class VenuesTabComponent implements OnInit {
 
   private async sharePdfBlob(blob: Blob, filename: string): Promise<void> {
     const isNative =
-      Capacitor.isNativePlatform?.() ?? (Capacitor.getPlatform?.() !== 'web');
+      Capacitor.isNativePlatform() ?? (Capacitor.getPlatform() !== 'web');
 
     // Web: download
     if (!isNative) {
@@ -228,13 +226,85 @@ export class VenuesTabComponent implements OnInit {
 
   onSelectedVenueChange(id: number | null): void {
     this.selectedVenueId = id;
+
+    // reset subrange selection when switching venues
+    this.selectedSubRangeVenueId = null;
+    this.selectedSubRangeName = null;
+
     // keep subranges collapsed by default
     this.expandedVenueId = null;
+  }
+
+  // ===== Venue picker (Export/Import style) =====
+  venuePickerOpen = false;
+  venuePickerSearch = '';
+  venuePickerFiltered: Venue[] = [];
+
+  openVenuePicker(): void {
+    this.venuePickerOpen = true;
+    this.venuePickerSearch = '';
+    this.updateVenuePickerFilter();
+  }
+
+  closeVenuePicker(): void {
+    this.venuePickerOpen = false;
+  }
+
+  clearVenueFromPicker(): void {
+    // Keep same behaviour as your select: clear, then let UI show "no venue" state if applicable
+    this.selectedVenueId = null;
+    this.onSelectedVenueChange(this.selectedVenueId);
+    this.closeVenuePicker();
+  }
+
+  onVenuePickerSearchChange(v: string): void {
+    this.venuePickerSearch = v ?? '';
+    this.updateVenuePickerFilter();
+  }
+
+  private updateVenuePickerFilter(): void {
+    const q = (this.venuePickerSearch || '').toLowerCase().trim();
+    const src = this.venues || [];
+
+    if (!q) {
+      this.venuePickerFiltered = [...src];
+      return;
+    }
+
+    this.venuePickerFiltered = src.filter((v) => {
+      const name = (v?.name || '').toLowerCase();
+      const loc = (v?.location || '').toLowerCase();
+      return name.includes(q) || loc.includes(q);
+    });
+  }
+
+  selectVenueFromPicker(v: Venue): void {
+    // Same selection logic as the select:
+    // set selectedVenueId -> call onSelectedVenueChange -> close modal
+    this.selectedVenueId = (v?.id as number) ?? null;
+    this.onSelectedVenueChange(this.selectedVenueId);
+    this.closeVenuePicker();
   }
 
   toggleExpanded(v: Venue): void {
     this.expandedVenueId =
       this.expandedVenueId === (v.id as number) ? null : (v.id as number);
+  }
+  // ---------- subrange selection (single-select checkbox style) ----------
+
+  selectedSubRangeVenueId: number | null = null;
+  selectedSubRangeName: string | null = null;
+
+  selectSubRangeForVenue(venueId: number, sr: SubRange): void {
+    this.selectedSubRangeVenueId = venueId;
+    this.selectedSubRangeName = (sr as any)?.name ?? null;
+  }
+
+  isSubRangeSelected(venueId: number, sr: SubRange): boolean {
+    return (
+      this.selectedSubRangeVenueId === venueId &&
+      this.selectedSubRangeName === ((sr as any)?.name ?? null)
+    );
   }
 
   // ---------- subrange form rows ----------
