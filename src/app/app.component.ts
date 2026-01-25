@@ -190,6 +190,9 @@ firstLaunchSlogan = '';
 
   
  selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | 'preferences' | 'documents' | null = null;
+private converterReturnState:
+  | { showTools: boolean; showSetup: boolean; showReportsForm: boolean; selectedTool: any }
+  | null = null;
 
   // Preferences (Units & Display v1)
   // (removed duplicate 'prefs' declaration; see below for the strongly typed version)
@@ -1034,6 +1037,21 @@ const firstLaunchDone = localStorage.getItem(this.firstLaunchSloganKey);
     this.selectedTool = null;
     this.currentTab = 'menu';
   }
+onBackFromConverter(): void {
+  // Restore the exact UI state from when the converter was opened
+  if (this.converterReturnState) {
+    this.showTools = this.converterReturnState.showTools;
+    this.showSetup = this.converterReturnState.showSetup;
+    this.showReportsForm = this.converterReturnState.showReportsForm;
+    this.selectedTool = this.converterReturnState.selectedTool;
+    this.converterReturnState = null;
+    return;
+  }
+
+  // Fallback
+  this.selectedTool = null;
+  this.currentTab = 'menu';
+}
 
   // ---------- bottom icon bar ----------
 
@@ -1690,18 +1708,34 @@ openTargetDownloads(): void {
 
 /** Mil/MOA converter tool toggle (button calls this) */
 onConverterToolClick(): void {
+  const opening = this.selectedTool !== 'converter';
+
+  if (opening) {
+    // Capture where we came from so Back returns to the same UI state
+    this.converterReturnState = {
+      showTools: this.showTools,
+      showSetup: this.showSetup,
+      showReportsForm: this.showReportsForm,
+      selectedTool: this.selectedTool,
+    };
+  }
+
   this.showTools = true;
   this.showSetup = false;
-   const opening = this.selectedTool !== 'converter';
+
   this.selectedTool = opening ? 'converter' : null;
 
   if (opening) {
     // collapsed by default
     this.expandedConverterSection = null;
+  } else {
+    // closing via toggle clears return state
+    this.converterReturnState = null;
   }
 
   this.showReportsForm = false;
 }
+
 
 /** Wind effect tool toggle (button calls this) */
 onWindEffectToolClick(): void {
@@ -2010,6 +2044,10 @@ private blobToBase64(blob: Blob): Promise<string> {
     return null;
   }
 
+  get converterOutputDisplay(): string {
+    const v = this.converterOutput;
+    return v == null ? '—' : v.toFixed(3);
+  }
 
   private buildMultiDistanceSummary(
     sessions: any[],
