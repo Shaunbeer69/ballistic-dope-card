@@ -29,6 +29,9 @@ import {
 import { DataService } from '../data.service';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { registerPlugin } from '@capacitor/core';
+import { RiflePickerComponent } from '../shared/rifle-picker/rifle-picker.component';
+
+
 interface AudioRoutePlugin {
   forceSpeaker(): Promise<void>;
 }
@@ -126,7 +129,7 @@ interface OcwGroupEllipse {
 @Component({
   selector: 'app-load-dev-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+imports: [CommonModule, FormsModule, RiflePickerComponent],
   templateUrl: './load-dev-tab.component.html'
 })
 export class LoadDevTabComponent implements OnInit {
@@ -2933,56 +2936,13 @@ private async drawAssetImageInBox(
 
     this.refreshSelectedProject();
   }
-  // ---------- rifle picker modal (same as Rifles tab) ----------
-  riflePickerOpen = false;
-  riflePickerSearch = '';
-  riflePickerFiltered: Rifle[] = [];
-
-  selectedRiflePickerLabel(): string {
-    if (this.selectedRifleId == null) return 'Select rifle…';
-    const r = this.rifles.find(x => x.id === this.selectedRifleId);
-    return r?.name ?? `Rifle ${this.selectedRifleId}`;
-  }
-
-  openRiflePicker(): void {
-    this.riflePickerSearch = '';
-    this.riflePickerFiltered = [...this.rifles];
-    this.riflePickerOpen = true;
-  }
-
-  closeRiflePicker(): void {
-    this.riflePickerOpen = false;
-  }
-
-  clearRifleFromPicker(): void {
-    this.selectedRifleId = null;
-    this.closeRiflePicker();
-    this.onRifleChange();
-  }
-
-  onRiflePickerSearchChange(v: string): void {
-    this.riflePickerSearch = (v ?? '').toString();
-    const q = this.riflePickerSearch.trim().toLowerCase();
-
-    if (!q) {
-      this.riflePickerFiltered = [...this.rifles];
-      return;
-    }
-
-    this.riflePickerFiltered = this.rifles.filter(r => {
-      const hay = `${r?.name ?? ''} ${r?.caliber ?? ''}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }
-
-  selectRifleFromPicker(r: Rifle): void {
-    const id = Number((r as any)?.id ?? (r as any)?.rifleId);
-    this.selectedRifleId = Number.isFinite(id) ? id : null;
-    this.closeRiflePicker();
-    this.onRifleChange();
-  }
-
+ 
   // ---------- loading ----------
+    onRiflePicked(id: number | null): void {
+    this.selectedRifleId = id;
+    this.onRifleChange();
+  }
+
   onRifleChange(): void {
     this.selectedProjectId = null;
     this.selectedProject = null;

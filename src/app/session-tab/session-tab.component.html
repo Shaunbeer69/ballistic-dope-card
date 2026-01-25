@@ -67,6 +67,84 @@
         </span>
       </div>
     </div>
+    <!-- Venue picker modal (canonical) -->
+    <div
+      *ngIf="venuePickerOpen"
+      class="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-3"
+      (click)="closeVenuePicker()"
+    >
+      <div
+        class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-3"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="flex items-start justify-between gap-2">
+          <div class="text-[12px] font-semibold text-slate-100">Select venue</div>
+
+          <div class="flex gap-2">
+            <button
+              type="button"
+              class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+              (click)="clearVenueFromPicker()"
+            >
+              Clear
+            </button>
+
+            <button
+              type="button"
+              class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+              (click)="closeVenuePicker()"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-2">
+          <input
+            type="text"
+            class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
+            placeholder="Search venues…"
+            [(ngModel)]="venuePickerSearch"
+            (ngModelChange)="onVenuePickerSearchChange($event)"
+            name="venuePickerSearch"
+          />
+        </div>
+
+        <div
+          class="mt-2 rounded-xl border border-slate-700 bg-slate-900 p-2 max-h-[45vh] overflow-y-auto"
+        >
+          <div
+            *ngIf="venuePickerFiltered.length === 0"
+            class="text-[10px] text-slate-400 px-1 py-2"
+          >
+            No matches
+          </div>
+
+          <button
+            *ngFor="let v of venuePickerFiltered"
+            type="button"
+            class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
+            (click)="selectVenueFromPicker(v)"
+          >
+            <input
+              type="checkbox"
+              class="h-4 w-4 shrink-0 mt-[2px]"
+              [checked]="v.id === venueId"
+              (click)="$event.stopPropagation(); selectVenueFromPicker(v)"
+            />
+
+            <div class="min-w-0 flex-1 leading-tight">
+              <div class="text-[11px] text-white font-semibold truncate">
+                {{ v.name || '-' }}
+              </div>
+              <div class="text-[10px] text-slate-400 truncate" *ngIf="v.location">
+                {{ v.location }}
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <div class="w-full mt-2">
       <div class="h-1 bg-gray-800 rounded-full overflow-hidden">
@@ -77,10 +155,10 @@
               step === 'setup'
                 ? '25%'
                 : step === 'environment'
-                ? '50%'
-                : step === 'shots'
-                ? '75%'
-                : '100%'
+                  ? '50%'
+                  : step === 'shots'
+                    ? '75%'
+                    : '100%',
           }"
         ></div>
       </div>
@@ -105,28 +183,141 @@
       <!-- 2) Rifle -->
       <label class="block mb-2">
         <span class="text-[11px] text-gray-300">Rifle</span>
+
+        <!-- Tap-to-open picker (canonical, same as Rifles tab) -->
+        <button
+          type="button"
+          class="mt-1 w-full px-2 py-1 rounded bg-slate-900 border border-slate-700 flex items-center justify-between"
+          (click)="openRiflePicker()"
+        >
+          <span class="truncate">{{ selectedRifleLabel() }}</span>
+
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-4 h-4 opacity-80">
+            <path class="fill-white" d="M7 10l5 5 5-5H7z" />
+          </svg>
+        </button>
+
+        <!-- Keep the real select (hidden) so ngModel stays exactly the same -->
         <select
+          class="hidden"
           [(ngModel)]="rifleId"
-          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
+          (ngModelChange)="onSelectedRifleChange($event)"
+          name="rifleId"
         >
           <option [ngValue]="null">Select rifle…</option>
-          <option *ngFor="let r of rifles" [ngValue]="r.id">
-            {{ r.name || 'Unnamed rifle' }}
+          <option *ngFor="let r of rifles" [ngValue]="rifleAnyId(r)">
+            {{ r.name || 'Unnamed rifle' }}{{ r.caliber ? ' (' + r.caliber + ')' : '' }}
           </option>
         </select>
       </label>
 
+      <!-- Rifle picker modal (canonical, same as Rifles tab) -->
+      <div
+        *ngIf="riflePickerOpen"
+        class="fixed inset-0 z-[9999] bg-black/80 flex items-start justify-center pt-[72px] px-3 pb-3"
+        (click)="closeRiflePicker()"
+      >
+        <div
+          class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-3"
+          (click)="$event.stopPropagation()"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div class="text-[12px] font-semibold text-slate-100">Select rifle</div>
+
+            <div class="flex gap-2">
+              <button
+                type="button"
+                class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                (click)="clearRifleFromPicker()"
+              >
+                Clear
+              </button>
+
+              <button
+                type="button"
+                class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                (click)="closeRiflePicker()"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-2">
+            <input
+              type="text"
+              class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
+              placeholder="Search rifles…"
+              [(ngModel)]="riflePickerSearch"
+              (ngModelChange)="onRiflePickerSearchChange($event)"
+              name="riflePickerSearch"
+            />
+          </div>
+
+          <div
+            class="mt-2 rounded-xl border border-slate-700 bg-slate-900 p-2 max-h-[45vh] overflow-y-auto"
+          >
+            <div
+              *ngIf="riflePickerFiltered.length === 0"
+              class="text-[10px] text-slate-400 px-1 py-2"
+            >
+              No matches
+            </div>
+
+            <button
+              *ngFor="let r of riflePickerFiltered"
+              type="button"
+              class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
+              (click)="selectRifleFromPicker(r)"
+            >
+              <input
+                type="checkbox"
+                class="h-4 w-4 shrink-0 mt-[2px]"
+                [checked]="rifleAnyId(r) === rifleId"
+                (click)="$event.stopPropagation(); selectRifleFromPicker(r)"
+              />
+
+              <div class="min-w-0 flex-1">
+                <div class="text-[11px] text-white font-semibold truncate">
+                  {{ r.name || '-' }}
+                </div>
+                <div class="text-[10px] text-slate-400 truncate">
+                  {{ r.caliber || '-' }}
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- 3) Venue -->
       <label class="block mb-2">
         <span class="text-[11px] text-gray-300">Venue</span>
-        <select
-          [(ngModel)]="venueId"
-          (change)="onVenueChange()"
-          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
+
+        <!-- Tap-to-open picker (canonical, from Venues tab) -->
+        <button
+          type="button"
+          class="mt-1 w-full px-2 py-1 rounded bg-slate-900 border border-slate-700 flex items-center justify-between"
+          (click)="openVenuePicker()"
         >
-          <option [ngValue]="null">Select venue…</option>
+          <span class="truncate">
+            {{ selectedVenue ? selectedVenue.name : 'Select venue' }}
+          </span>
+
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-4 h-4 opacity-80">
+            <path class="fill-white" d="M7 10l5 5 5-5H7z" />
+          </svg>
+        </button>
+
+        <!-- Keep the real select (hidden) so ngModel stays exactly the same -->
+        <select
+          class="hidden"
+          [(ngModel)]="venueId"
+          (ngModelChange)="onVenueChange()"
+          name="venueId"
+        >
           <option *ngFor="let v of venues" [ngValue]="v.id">
-            {{ v.name || 'Unnamed venue' }}
+            {{ v.name }}
           </option>
         </select>
       </label>
@@ -144,6 +335,84 @@
           </option>
         </select>
       </label>
+      <!-- Venue picker modal (canonical) -->
+      <div
+        *ngIf="venuePickerOpen"
+        class="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-3"
+        (click)="closeVenuePicker()"
+      >
+        <div
+          class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-3"
+          (click)="$event.stopPropagation()"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div class="text-[12px] font-semibold text-slate-100">Select venue</div>
+
+            <div class="flex gap-2">
+              <button
+                type="button"
+                class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                (click)="clearVenueFromPicker()"
+              >
+                Clear
+              </button>
+
+              <button
+                type="button"
+                class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                (click)="closeVenuePicker()"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-2">
+            <input
+              type="text"
+              class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
+              placeholder="Search venues…"
+              [(ngModel)]="venuePickerSearch"
+              (ngModelChange)="onVenuePickerSearchChange($event)"
+              name="venuePickerSearch"
+            />
+          </div>
+
+          <div
+            class="mt-2 rounded-xl border border-slate-700 bg-slate-900 p-2 max-h-[45vh] overflow-y-auto"
+          >
+            <div
+              *ngIf="venuePickerFiltered.length === 0"
+              class="text-[10px] text-slate-400 px-1 py-2"
+            >
+              No matches
+            </div>
+
+            <button
+              *ngFor="let v of venuePickerFiltered"
+              type="button"
+              class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
+              (click)="selectVenueFromPicker(v)"
+            >
+              <input
+                type="checkbox"
+                class="h-4 w-4 shrink-0 mt-[2px]"
+                [checked]="v.id === venueId"
+                (click)="$event.stopPropagation(); selectVenueFromPicker(v)"
+              />
+
+              <div class="min-w-0 flex-1 leading-tight">
+                <div class="text-[11px] text-white font-semibold truncate">
+                  {{ v.name || '-' }}
+                </div>
+                <div class="text-[10px] text-slate-400 truncate" *ngIf="v.location">
+                  {{ v.location }}
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div class="flex justify-between mt-2">
         <button
@@ -200,19 +469,19 @@
           <div>
             Pressure:
             <span class="font-semibold">
-              {{ kestrelData.pressureInHg | number : '1.0-0' }} inHg
+              {{ kestrelData.pressureInHg | number: '1.0-0' }} inHg
             </span>
           </div>
           <div>
             Humidity:
             <span class="font-semibold">
-              {{ kestrelData.humidityPercent | number : '1.0-0' }} %
+              {{ kestrelData.humidityPercent | number: '1.0-0' }} %
             </span>
           </div>
           <div>
             Wind:
             <span class="font-semibold">
-              {{ kestrelData.windSpeedMph | number : '1.1-1' }} mph
+              {{ kestrelData.windSpeedMph | number: '1.1-1' }} mph
             </span>
           </div>
         </div>

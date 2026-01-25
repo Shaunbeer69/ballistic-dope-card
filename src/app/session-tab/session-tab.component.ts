@@ -43,6 +43,10 @@ export class SessionTabComponent implements OnInit {
   rifleId: number | null = null;
   venueId: number | null = null;
   subRangeId: number | null = null;
+  // ---------- Rifle picker modal (canonical; matches Rifles tab) ----------
+  riflePickerOpen = false;
+  riflePickerSearch = '';
+  riflePickerFiltered: Rifle[] = [];
 
   title = '';
   environment: Environment = {};
@@ -169,6 +173,81 @@ private mpsToKmh(mps: number): number {
   ngOnInit(): void {
     this.rifles = this.data.getRifles();
     this.venues = this.data.getVenues();
+  }
+  // ---------- Rifle picker (canonical; matches Rifles tab) ----------
+
+  selectedRifleLabel(): string {
+    const r = this.rifles.find(
+      x => ((x as any).id ?? (x as any).rifleId) === this.rifleId
+    );
+
+    if (!r) return 'Select rifle';
+
+    const name = (r as any).name || '-';
+    const cal = (r as any).caliber || '';
+    return cal ? `${name} (${cal})` : name;
+  }
+
+  onSelectedRifleChange(id: number | null): void {
+    // Keep this hook so it matches Rifles tab pattern.
+    // If later you need to reset dependent fields when rifle changes, do it here.
+    this.rifleId = id;
+  }
+
+  openRiflePicker(): void {
+    this.riflePickerOpen = true;
+    this.riflePickerSearch = '';
+    this.riflePickerFiltered = [...this.rifles];
+  }
+
+  closeRiflePicker(): void {
+    this.riflePickerOpen = false;
+  }
+
+  clearRifleFromPicker(): void {
+    this.rifleId = null;
+    this.closeRiflePicker();
+  }
+
+  selectRifleFromPicker(r: Rifle): void {
+    this.rifleId = ((r as any).id ?? (r as any).rifleId) ?? null;
+    this.closeRiflePicker();
+  }
+
+  onRiflePickerSearchChange(v: string): void {
+    const q = (v ?? '').toString().trim().toLowerCase();
+
+    if (!q) {
+      this.riflePickerFiltered = [...this.rifles];
+      return;
+    }
+
+    this.riflePickerFiltered = this.rifles.filter(r => {
+      const name = ((r as any).name ?? '').toString().toLowerCase();
+      const cal = ((r as any).caliber ?? '').toString().toLowerCase();
+      return name.includes(q) || cal.includes(q);
+    });
+  }
+  // ---------- Rifle picker helpers (template-safe; avoids "as any" in HTML) ----------
+
+  rifleAnyId(r: Rifle | any): number | null {
+    if (!r) return null;
+    // Some parts of the app historically used rifleId; others use id.
+    const id = (r as any).id;
+    if (id !== null && id !== undefined) return Number(id);
+
+    const legacy = (r as any).rifleId;
+    if (legacy !== null && legacy !== undefined) return Number(legacy);
+
+    return null;
+  }
+
+  rifleAnyLabel(r: Rifle | any): string {
+    if (!r) return 'Select rifle';
+    const name = ((r as any).name ?? '').toString().trim();
+    const cal = ((r as any).caliber ?? '').toString().trim();
+    if (!name && !cal) return 'Select rifle';
+    return cal ? `${name || '-'} (${cal})` : (name || '-');
   }
 
   // ---------- Derived getters ----------
@@ -499,7 +578,54 @@ private mpsToKmh(mps: number): number {
   }
   // ---------- Session Voice Note (Mic) handlers ----------
 
- 
+   // ===== Venue picker (canonical, same as Venues tab) =====
+  venuePickerOpen = false;
+  venuePickerSearch = '';
+  venuePickerFiltered: Venue[] = [];
+
+  openVenuePicker(): void {
+    this.venuePickerOpen = true;
+    this.venuePickerSearch = '';
+    this.updateVenuePickerFilter();
+  }
+
+  closeVenuePicker(): void {
+    this.venuePickerOpen = false;
+  }
+
+  clearVenueFromPicker(): void {
+    this.venueId = null;
+    this.onVenueChange();
+    this.closeVenuePicker();
+  }
+
+  onVenuePickerSearchChange(v: string): void {
+    this.venuePickerSearch = v ?? '';
+    this.updateVenuePickerFilter();
+  }
+
+  private updateVenuePickerFilter(): void {
+    const q = (this.venuePickerSearch || '').toLowerCase().trim();
+    const src = this.venues || [];
+
+    if (!q) {
+      this.venuePickerFiltered = [...src];
+      return;
+    }
+
+    this.venuePickerFiltered = src.filter((v) => {
+      const name = (v?.name || '').toLowerCase();
+      const loc = (v?.location || '').toLowerCase();
+      return name.includes(q) || loc.includes(q);
+    });
+  }
+
+  selectVenueFromPicker(v: Venue): void {
+    this.venueId = (v?.id as number) ?? null;
+    this.onVenueChange();
+    this.closeVenuePicker();
+  }
+
 
   private async startSessionRecording(): Promise<void> {
     // Basic guard for environments without MediaRecorder
