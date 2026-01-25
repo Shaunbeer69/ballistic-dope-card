@@ -2933,6 +2933,54 @@ private async drawAssetImageInBox(
 
     this.refreshSelectedProject();
   }
+  // ---------- rifle picker modal (same as Rifles tab) ----------
+  riflePickerOpen = false;
+  riflePickerSearch = '';
+  riflePickerFiltered: Rifle[] = [];
+
+  selectedRiflePickerLabel(): string {
+    if (this.selectedRifleId == null) return 'Select rifle…';
+    const r = this.rifles.find(x => x.id === this.selectedRifleId);
+    return r?.name ?? `Rifle ${this.selectedRifleId}`;
+  }
+
+  openRiflePicker(): void {
+    this.riflePickerSearch = '';
+    this.riflePickerFiltered = [...this.rifles];
+    this.riflePickerOpen = true;
+  }
+
+  closeRiflePicker(): void {
+    this.riflePickerOpen = false;
+  }
+
+  clearRifleFromPicker(): void {
+    this.selectedRifleId = null;
+    this.closeRiflePicker();
+    this.onRifleChange();
+  }
+
+  onRiflePickerSearchChange(v: string): void {
+    this.riflePickerSearch = (v ?? '').toString();
+    const q = this.riflePickerSearch.trim().toLowerCase();
+
+    if (!q) {
+      this.riflePickerFiltered = [...this.rifles];
+      return;
+    }
+
+    this.riflePickerFiltered = this.rifles.filter(r => {
+      const hay = `${r?.name ?? ''} ${r?.caliber ?? ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  selectRifleFromPicker(r: Rifle): void {
+    const id = Number((r as any)?.id ?? (r as any)?.rifleId);
+    this.selectedRifleId = Number.isFinite(id) ? id : null;
+    this.closeRiflePicker();
+    this.onRifleChange();
+  }
 
   // ---------- loading ----------
   onRifleChange(): void {
