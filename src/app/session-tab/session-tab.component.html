@@ -67,84 +67,6 @@
         </span>
       </div>
     </div>
-    <!-- Venue picker modal (canonical) -->
-    <div
-      *ngIf="venuePickerOpen"
-      class="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-3"
-      (click)="closeVenuePicker()"
-    >
-      <div
-        class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-3"
-        (click)="$event.stopPropagation()"
-      >
-        <div class="flex items-start justify-between gap-2">
-          <div class="text-[12px] font-semibold text-slate-100">Select venue</div>
-
-          <div class="flex gap-2">
-            <button
-              type="button"
-              class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
-              (click)="clearVenueFromPicker()"
-            >
-              Clear
-            </button>
-
-            <button
-              type="button"
-              class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
-              (click)="closeVenuePicker()"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-
-        <div class="mt-2">
-          <input
-            type="text"
-            class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
-            placeholder="Search venues…"
-            [(ngModel)]="venuePickerSearch"
-            (ngModelChange)="onVenuePickerSearchChange($event)"
-            name="venuePickerSearch"
-          />
-        </div>
-
-        <div
-          class="mt-2 rounded-xl border border-slate-700 bg-slate-900 p-2 max-h-[45vh] overflow-y-auto"
-        >
-          <div
-            *ngIf="venuePickerFiltered.length === 0"
-            class="text-[10px] text-slate-400 px-1 py-2"
-          >
-            No matches
-          </div>
-
-          <button
-            *ngFor="let v of venuePickerFiltered"
-            type="button"
-            class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
-            (click)="selectVenueFromPicker(v)"
-          >
-            <input
-              type="checkbox"
-              class="h-4 w-4 shrink-0 mt-[2px]"
-              [checked]="v.id === venueId"
-              (click)="$event.stopPropagation(); selectVenueFromPicker(v)"
-            />
-
-            <div class="min-w-0 flex-1 leading-tight">
-              <div class="text-[11px] text-white font-semibold truncate">
-                {{ v.name || '-' }}
-              </div>
-              <div class="text-[10px] text-slate-400 truncate" *ngIf="v.location">
-                {{ v.location }}
-              </div>
-            </div>
-          </button>
-        </div>
-      </div>
-    </div>
 
     <div class="w-full mt-2">
       <div class="h-1 bg-gray-800 rounded-full overflow-hidden">
@@ -312,26 +234,14 @@
         <!-- Keep the real select (hidden) so ngModel stays exactly the same -->
         <select
           class="hidden"
+          style="display: none"
           [(ngModel)]="venueId"
           (ngModelChange)="onVenueChange()"
           name="venueId"
         >
+          <option [ngValue]="null">Select venue…</option>
           <option *ngFor="let v of venues" [ngValue]="v.id">
             {{ v.name }}
-          </option>
-        </select>
-      </label>
-
-      <!-- 4) Sub-range -->
-      <label class="block mb-2">
-        <span class="text-[11px] text-gray-300">Sub-range</span>
-        <select
-          [(ngModel)]="subRangeId"
-          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
-        >
-          <option [ngValue]="null">Whole venue / no sub-range</option>
-          <option *ngFor="let sr of subRanges" [ngValue]="sr.id">
-            {{ sr.name || 'Sub-range' }}
           </option>
         </select>
       </label>
@@ -413,6 +323,20 @@
           </div>
         </div>
       </div>
+
+      <!-- 4) Sub-range -->
+      <label class="block mb-2">
+        <span class="text-[11px] text-gray-300">Sub-range</span>
+        <select
+          [(ngModel)]="subRangeId"
+          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
+        >
+          <option [ngValue]="null">Whole venue / no sub-range</option>
+          <option *ngFor="let sr of subRanges" [ngValue]="sr.id">
+            {{ sr.name || 'Sub-range' }}
+          </option>
+        </select>
+      </label>
 
       <div class="flex justify-between mt-2">
         <button

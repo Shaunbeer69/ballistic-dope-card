@@ -705,4 +705,5 @@ private mpsToKmh(mps: number): number {
        this.backToMenu.emit();
    
 }
+
 }
