@@ -24,6 +24,11 @@ export class RiflesTabComponent implements OnInit {
 
   // Rifle selection / forms
   selectedRifleId: number | string | null = null;
+    // Rifle picker (Export/Import style dropdown)
+  riflePickerOpen = false;
+  riflePickerSearch = '';
+  riflePickerFiltered: any[] = [];
+
   addFormVisible = false;
   editingRifle: any | null = null;
 
@@ -630,6 +635,48 @@ return null;
     }
 
     this.selectedRifleId = nextId;
+  }
+  // ---------- Rifle picker (Export/Import style dropdown) ----------
+  openRiflePicker(): void {
+    this.riflePickerOpen = true;
+    this.riflePickerSearch = '';
+    this.updateRiflePickerFilter();
+  }
+
+  closeRiflePicker(): void {
+    this.riflePickerOpen = false;
+  }
+
+  clearRifleFromPicker(): void {
+    this.closeRiflePicker();
+    this.onSelectedRifleChange(null);
+  }
+
+  onRiflePickerSearchChange(v: any): void {
+    this.riflePickerSearch = (v ?? '').toString();
+    this.updateRiflePickerFilter();
+  }
+
+  private updateRiflePickerFilter(): void {
+    const q = (this.riflePickerSearch || '').trim().toLowerCase();
+    const list = Array.isArray(this.rifles) ? this.rifles : [];
+
+    if (!q) {
+      this.riflePickerFiltered = list.slice();
+      return;
+    }
+
+    this.riflePickerFiltered = list.filter((r: any) => {
+      const name = (r?.name ?? '').toString().toLowerCase();
+      const cal = (r?.caliber ?? '').toString().toLowerCase();
+      return name.includes(q) || cal.includes(q);
+    });
+  }
+
+  selectRifleFromPicker(r: any): void {
+    const id = r?.id ?? r?.rifleId ?? null;
+    this.closeRiflePicker();
+    this.onSelectedRifleChange(id);
   }
 
 
