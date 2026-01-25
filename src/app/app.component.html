@@ -148,10 +148,11 @@
                               class="mt-[2px] w-4 h-4 rounded border flex items-center justify-center shrink-0"
                               [ngClass]="
                                 converterMode === m.id
-                                  ? 'bg-sky-500/70 border-sky-300'
-                                  : 'bg-black/20 border-white/20'
+                                  ? 'bg-white border-white'
+                                  : 'bg-black/20 border-white/30'
                               "
                             >
+                              >
                               <svg
                                 *ngIf="converterMode === m.id"
                                 xmlns="http://www.w3.org/2000/svg"
@@ -828,11 +829,16 @@
                     </div>
 
                     <!-- Selected conversion shown in header -->
-                    <div class="text-[10px] text-gray-300">
-                      Selected:
-                      <span class="text-gray-100 font-semibold">{{
-                        converterSelectedModeLabel
-                      }}</span>
+                    <div
+                      class="mt-2 flex items-center justify-between rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2"
+                    >
+                      <span class="text-[11px] text-sky-200 uppercase tracking-wide">
+                        Selected unit
+                      </span>
+
+                      <span class="text-[17px] font-bold text-white tracking-wide">
+                        {{ converterSelectedModeLabel }}
+                      </span>
                     </div>
 
                     <!-- Accordion: one open at a time (all collapsed by default) -->
