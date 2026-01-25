@@ -184,9 +184,9 @@ private dataShareVenueIds = new Set<number>();
 showFirstLaunchSlogan = false;
 firstLaunchSlogan = '';
   // First-launch slogan sizing (no wrap, no ellipsis)
-  firstLaunchSloganFontPx = 16;
-  private readonly firstLaunchSloganBaseFontPx = 16;
-  private readonly firstLaunchSloganMinFontPx = 14;
+  firstLaunchSloganFontPx = 12;
+  private readonly firstLaunchSloganBaseFontPx = 13;
+  private readonly firstLaunchSloganMinFontPx = 12;
 
   
  selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | 'preferences' | 'documents' | null = null;
