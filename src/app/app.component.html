@@ -106,11 +106,16 @@
                   </div>
 
                   <!-- Selected conversion shown in header -->
-                  <div class="text-[10px] text-gray-300">
-                    Selected:
-                    <span class="text-gray-100 font-semibold">{{
-                      converterSelectedModeLabel
-                    }}</span>
+                  <div
+                    class="mt-2 flex items-center justify-between rounded-xl border border-sky-400/40 bg-sky-500/10 px-3 py-2"
+                  >
+                    <span class="text-[11px] text-sky-200 uppercase tracking-wide"
+                      >Selected unit</span
+                    >
+
+                    <span class="text-[30px] font-bold text-white tracking-wide leading-none">
+                      {{ converterSelectedModeLabel }}
+                    </span>
                   </div>
 
                   <!-- Accordion: one open at a time (all collapsed by default) -->
@@ -1472,305 +1477,781 @@
 
                   <!-- Preferences panel (moved here from Tools) -->
 
-                  <!-- Preferences panel -->
-                  <div *ngIf="selectedTool === 'preferences'" class="mt-3 space-y-3 text-[11px]">
-                    <div class="text-[12px] font-semibold text-gray-100">Preferences</div>
-                    <div *ngIf="preferencesSavedMsg" class="text-[10px] text-emerald-300">
-                      {{ preferencesSavedMsg }}
-                    </div>
+                  <!-- Preferences screen (FULLSCREEN overlay) -->
+                  <div
+                    *ngIf="selectedTool === 'preferences'"
+                    class="fixed inset-0 z-[9999] bg-[#111827] text-white pt-[18px]"
+                  >
+                    >
+                    <!-- Screen body -->
+                    <div class="min-h-screen w-full flex justify-center">
+                      <div
+                        class="w-full max-w-sm md:max-w-3xl lg:max-w-5xl xl:max-w-6xl px-3 pt-4 pb-6"
+                      >
+                        <!-- Header row (Back + title) -->
+                        <div class="flex items-center justify-between gap-2 mb-3">
+                          <!-- Spacer to balance layout -->
+                          <div class="w-[64px]"></div>
 
-                    <div class="rounded-xl bg-black/30 border border-gray-700 p-3 space-y-3">
-                      <div class="text-[11px] text-gray-300">
-                        Units & Display (v1) — these defaults will be used across the app.
-                      </div>
+                          <div class="text-[12px] font-semibold text-gray-100">Preferences</div>
 
-                      <!-- Distance -->
-                      <div>
-                        <div class="text-[11px] font-semibold text-gray-200 mb-1">Distance</div>
-                        <div class="grid grid-cols-2 gap-2 text-[11px]">
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
+                          <button
+                            type="button"
+                            class="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-semibold"
+                            (click)="closePreferences()"
                           >
-                            <input
-                              type="radio"
-                              name="prefDistance"
-                              [value]="'m'"
-                              [(ngModel)]="prefs.distanceUnit"
-                            />
-                            <span>Meters (m)</span>
-                          </label>
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefDistance"
-                              [value]="'yd'"
-                              [(ngModel)]="prefs.distanceUnit"
-                            />
-                            <span>Yards (yd)</span>
-                          </label>
+                            Back
+                          </button>
                         </div>
-                      </div>
-                      <!-- Load Dev COAL / Ogive -->
-                      <div class="mt-2">
-                        <div class="text-[11px] font-semibold text-gray-200 mb-1">
-                          Load Dev (COAL/Ogive)
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 text-[11px]">
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefLoadDevOal"
-                              [value]="'mm'"
-                              [(ngModel)]="prefs.loadDevOalUnit"
-                            />
-                            <span>mm</span>
-                          </label>
 
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefLoadDevOal"
-                              [value]="'in'"
-                              [(ngModel)]="prefs.loadDevOalUnit"
-                            />
-                            <span>Inches (in)</span>
-                          </label>
+                        <div *ngIf="preferencesSavedMsg" class="text-[10px] text-emerald-300 mb-2">
+                          {{ preferencesSavedMsg }}
                         </div>
-                      </div>
 
-                      <!-- Velocity -->
-                      <div>
-                        <div class="text-[11px] font-semibold text-gray-200 mb-1">Velocity</div>
-                        <div class="grid grid-cols-2 gap-2 text-[11px]">
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefVelocity"
-                              [value]="'mps'"
-                              [(ngModel)]="prefs.velocityUnit"
-                            />
-                            <span>m/s</span>
-                          </label>
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefVelocity"
-                              [value]="'fps'"
-                              [(ngModel)]="prefs.velocityUnit"
-                            />
-                            <span>fps</span>
-                          </label>
-                        </div>
-                      </div>
+                        <!-- Card -->
+                        <div class="rounded-2xl bg-black/30 border border-gray-700 p-3 space-y-3">
+                          <div class="text-[11px] text-gray-300">
+                            Units & Display (v1) — these defaults will be used across the app.
+                          </div>
 
-                      <!-- Temperature -->
-                      <div>
-                        <div class="text-[11px] font-semibold text-gray-200 mb-1">Temperature</div>
-                        <div class="grid grid-cols-2 gap-2 text-[11px]">
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefTemp"
-                              [value]="'c'"
-                              [(ngModel)]="prefs.temperatureUnit"
-                            />
-                            <span>°C</span>
-                          </label>
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefTemp"
-                              [value]="'f'"
-                              [(ngModel)]="prefs.temperatureUnit"
-                            />
-                            <span>°F</span>
-                          </label>
-                        </div>
-                      </div>
+                          <!-- helper: option button with square blue tick -->
+                          <!-- Distance -->
+                          <div>
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">Distance</div>
+                            <div class="grid grid-cols-2 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.distanceUnit === 'm'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.distanceUnit = 'm'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.distanceUnit === 'm'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.distanceUnit === 'm'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>Meters (m)</span>
+                              </button>
 
-                      <!-- Pressure -->
-                      <div>
-                        <div class="text-[11px] font-semibold text-gray-200 mb-1">Pressure</div>
-                        <div class="grid grid-cols-2 gap-2 text-[11px]">
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefPress"
-                              [value]="'hpa'"
-                              [(ngModel)]="prefs.pressureUnit"
-                            />
-                            <span>hPa</span>
-                          </label>
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefPress"
-                              [value]="'inhg'"
-                              [(ngModel)]="prefs.pressureUnit"
-                            />
-                            <span>inHg</span>
-                          </label>
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefPress"
-                              [value]="'mmhg'"
-                              [(ngModel)]="prefs.pressureUnit"
-                            />
-                            <span>mmHg</span>
-                          </label>
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefPress"
-                              [value]="'kpa'"
-                              [(ngModel)]="prefs.pressureUnit"
-                            />
-                            <span>kPa</span>
-                          </label>
-                        </div>
-                      </div>
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.distanceUnit === 'yd'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.distanceUnit = 'yd'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.distanceUnit === 'yd'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.distanceUnit === 'yd'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>Yards (yd)</span>
+                              </button>
+                            </div>
+                          </div>
 
-                      <!-- Wind speed -->
-                      <div>
-                        <div class="text-[11px] font-semibold text-gray-200 mb-1">Wind speed</div>
-                        <div class="grid grid-cols-2 gap-2 text-[11px]">
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefWind"
-                              [value]="'kmh'"
-                              [(ngModel)]="prefs.windSpeedUnit"
-                            />
-                            <span>km/h</span>
-                          </label>
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefWind"
-                              [value]="'mph'"
-                              [(ngModel)]="prefs.windSpeedUnit"
-                            />
-                            <span>mph</span>
-                          </label>
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefWind"
-                              [value]="'ms'"
-                              [(ngModel)]="prefs.windSpeedUnit"
-                            />
-                            <span>m/s</span>
-                          </label>
-                          <label> </label>
-                        </div>
-                      </div>
+                          <!-- Load Dev COAL / Ogive -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                              Load Dev (COAL/Ogive)
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.loadDevOalUnit === 'mm'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.loadDevOalUnit = 'mm'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.loadDevOalUnit === 'mm'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.loadDevOalUnit === 'mm'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>mm</span>
+                              </button>
 
-                      <!-- Angle display -->
-                      <div>
-                        <div class="text-[11px] font-semibold text-gray-200 mb-1">
-                          Angle display
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 text-[11px]">
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefAngle"
-                              [value]="'degrees'"
-                              [(ngModel)]="prefs.angleDisplay"
-                            />
-                            <span>Degrees</span>
-                          </label>
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefAngle"
-                              [value]="'clock'"
-                              [(ngModel)]="prefs.angleDisplay"
-                            />
-                            <span>Clock system</span>
-                          </label>
-                        </div>
-                      </div>
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.loadDevOalUnit === 'in'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.loadDevOalUnit = 'in'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.loadDevOalUnit === 'in'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.loadDevOalUnit === 'in'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>Inches (in)</span>
+                              </button>
+                            </div>
+                          </div>
 
-                      <!-- Scope adjustment -->
-                      <div>
-                        <div class="text-[11px] font-semibold text-gray-200 mb-1">
-                          Scope adjustment
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 text-[11px]">
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefScope"
-                              [value]="'mil'"
-                              [(ngModel)]="prefs.scopeAdjust"
-                            />
-                            <span>MIL</span>
-                          </label>
-                          <label
-                            class="flex items-center gap-2 rounded-lg border border-gray-700 bg-black/30 px-2 py-2"
-                          >
-                            <input
-                              type="radio"
-                              name="prefScope"
-                              [value]="'moa'"
-                              [(ngModel)]="prefs.scopeAdjust"
-                            />
-                            <span>MOA</span>
-                          </label>
-                        </div>
-                      </div>
+                          <!-- Velocity -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">Velocity</div>
+                            <div class="grid grid-cols-2 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.velocityUnit === 'mps'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.velocityUnit = 'mps'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.velocityUnit === 'mps'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.velocityUnit === 'mps'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>m/s</span>
+                              </button>
 
-                      <div class="mt-2 grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          class="px-3 py-2 rounded-lg bg-emerald-700 text-[11px] text-gray-100 font-semibold"
-                          (click)="savePreferences()"
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          class="px-3 py-2 rounded-lg bg-gray-700 text-[11px] text-gray-100 font-semibold"
-                          (click)="closePreferences()"
-                        >
-                          Close
-                        </button>
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.velocityUnit === 'fps'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.velocityUnit = 'fps'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.velocityUnit === 'fps'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.velocityUnit === 'fps'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>fps</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <!-- Temperature -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                              Temperature
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.temperatureUnit === 'c'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.temperatureUnit = 'c'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.temperatureUnit === 'c'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.temperatureUnit === 'c'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>°C</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.temperatureUnit === 'f'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.temperatureUnit = 'f'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.temperatureUnit === 'f'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.temperatureUnit === 'f'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>°F</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <!-- Pressure -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">Pressure</div>
+                            <div class="grid grid-cols-2 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.pressureUnit === 'hpa'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.pressureUnit = 'hpa'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.pressureUnit === 'hpa'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.pressureUnit === 'hpa'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>hPa</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.pressureUnit === 'inhg'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.pressureUnit = 'inhg'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.pressureUnit === 'inhg'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.pressureUnit === 'inhg'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>inHg</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.pressureUnit === 'mmhg'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.pressureUnit = 'mmhg'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.pressureUnit === 'mmhg'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.pressureUnit === 'mmhg'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>mmHg</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.pressureUnit === 'kpa'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.pressureUnit = 'kpa'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.pressureUnit === 'kpa'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.pressureUnit === 'kpa'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>kPa</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <!-- Wind speed -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                              Wind speed
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.windSpeedUnit === 'kmh'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.windSpeedUnit = 'kmh'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.windSpeedUnit === 'kmh'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.windSpeedUnit === 'kmh'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>km/h</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.windSpeedUnit === 'mph'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.windSpeedUnit = 'mph'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.windSpeedUnit === 'mph'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.windSpeedUnit === 'mph'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>mph</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.windSpeedUnit === 'ms'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.windSpeedUnit = 'ms'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.windSpeedUnit === 'ms'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.windSpeedUnit === 'ms'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>m/s</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.windSpeedUnit === 'kn'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.windSpeedUnit = 'kn'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.windSpeedUnit === 'kn'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.windSpeedUnit === 'kn'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>kn</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <!-- Angle display -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                              Angle display
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.angleDisplay === 'degrees'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.angleDisplay = 'degrees'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.angleDisplay === 'degrees'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.angleDisplay === 'degrees'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>Degrees</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.angleDisplay === 'clock'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.angleDisplay = 'clock'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.angleDisplay === 'clock'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.angleDisplay === 'clock'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>Clock system</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <!-- Scope adjustment -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                              Scope adjustment
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.scopeAdjust === 'mil'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.scopeAdjust = 'mil'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.scopeAdjust === 'mil'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.scopeAdjust === 'mil'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>MIL</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.scopeAdjust === 'moa'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.scopeAdjust = 'moa'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
+                                  [ngClass]="
+                                    prefs.scopeAdjust === 'moa'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
+                                  "
+                                >
+                                  <svg
+                                    *ngIf="prefs.scopeAdjust === 'moa'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
+                                  >
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>MOA</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <!-- Actions -->
+                          <div class="mt-2 grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              class="px-3 py-2 rounded-lg bg-emerald-700 text-[11px] text-gray-100 font-semibold"
+                              (click)="savePreferences()"
+                            >
+                              Save
+                            </button>
+
+                            <button
+                              type="button"
+                              class="px-3 py-2 rounded-lg bg-gray-700 text-[11px] text-gray-100 font-semibold"
+                              (click)="closePreferences()"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>

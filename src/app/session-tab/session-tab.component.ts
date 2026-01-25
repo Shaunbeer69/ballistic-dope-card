@@ -47,6 +47,10 @@ export class SessionTabComponent implements OnInit {
   riflePickerOpen = false;
   riflePickerSearch = '';
   riflePickerFiltered: Rifle[] = [];
+  // ---------- Sub-range picker modal (canonical; matches Venues tab style) ----------
+  subRangePickerOpen = false;
+  subRangePickerSearch = '';
+  subRangePickerFiltered: SubRange[] = [];
 
   title = '';
   environment: Environment = {};
@@ -265,6 +269,7 @@ private mpsToKmh(mps: number): number {
     const list = this.subRanges;
     return list.find(sr => sr.id === this.subRangeId);
   }
+
 
   get distanceOptions(): number[] {
     const sr = this.selectedSubRange;
@@ -626,6 +631,58 @@ private mpsToKmh(mps: number): number {
     this.closeVenuePicker();
   }
 
+ 
+  // ===== Sub-range picker (canonical modal, like Venues/Rifles) =====
+
+
+  openSubRangePicker(): void {
+    if (!this.venueId) return;
+    this.subRangePickerOpen = true;
+    this.subRangePickerSearch = '';
+    this.updateSubRangePickerFilter();
+  }
+
+  closeSubRangePicker(): void {
+    this.subRangePickerOpen = false;
+  }
+
+  clearSubRangeFromPicker(): void {
+    this.subRangeId = null;
+    this.selectedDistances = [];
+    this.closeSubRangePicker();
+  }
+
+  onSubRangePickerSearchChange(v: string): void {
+    this.subRangePickerSearch = (v ?? '').toString();
+    this.updateSubRangePickerFilter();
+  }
+
+  private updateSubRangePickerFilter(): void {
+    const q = (this.subRangePickerSearch || '').toLowerCase().trim();
+    const src = this.subRanges || [];
+
+    if (!q) {
+      this.subRangePickerFiltered = [...src];
+      return;
+    }
+
+    this.subRangePickerFiltered = src.filter((sr) => {
+      const name = (sr?.name || '').toLowerCase();
+      return name.includes(q);
+    });
+  }
+
+  selectSubRangeFromPicker(sr: SubRange | null): void {
+    this.subRangeId = sr ? ((sr?.id as number) ?? null) : null;
+    this.selectedDistances = [];
+    this.closeSubRangePicker();
+  }
+
+  selectedSubRangeLabel(): string {
+    if (!this.venueId) return 'Select venue first';
+    if (this.subRangeId == null) return 'Whole venue / no sub-range';
+    return this.selectedSubRange?.name || 'Sub-range';
+  }
 
   private async startSessionRecording(): Promise<void> {
     // Basic guard for environments without MediaRecorder
