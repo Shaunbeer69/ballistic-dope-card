@@ -326,15 +326,14 @@ private mpsToKmh(mps: number): number {
 
   // ---------- Setup step ----------
 
-  onVenueChange(): void {
-    const srs = this.subRanges;
-    if (srs.length > 0) {
-      this.subRangeId = srs[0].id;
-    } else {
-      this.subRangeId = null;
-    }
+    onVenueChange(): void {
+    // Default to "Whole venue / no sub-range" whenever the venue changes
+    this.subRangeId = null;
+
+    // Changing venue resets selected distances
     this.selectedDistances = [];
   }
+
 
   canGoToEnvironment(): boolean {
     if (!this.rifleId) return false;
