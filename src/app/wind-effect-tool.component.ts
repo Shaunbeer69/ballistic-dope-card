@@ -54,14 +54,14 @@ export class WindEffectToolComponent implements OnInit {
   selectedRifleId: number | null = null;
 
   // Core ballistic inputs
-  rangeMeters = 600;
-  muzzleVelocityFps = 2800;
-  ballisticCoeff = 0.5;
+  rangeMeters = 350;
+  muzzleVelocityFps = 2700;
+  ballisticCoeff = 0.35;
 
   // Wind
   windUnit: WindUnit = 'mph';
-  windSpeedInput = 10; // what user sees/edits
-  windSpeedMph = 10;   // internal mph
+  windSpeedInput = 6; // what user sees/edits
+  windSpeedMph = 6;   // internal mph
 
   windFromClock = '3 o\'clock';
 
@@ -153,6 +153,56 @@ export class WindEffectToolComponent implements OnInit {
     if (bc !== undefined) {
       this.ballisticCoeff = bc as number;
     }
+  }
+  // --------------------------------
+  // Rifle picker (canonical modal)
+  // --------------------------------
+  riflePickerOpen = false;
+  riflePickerSearch = '';
+
+  openRiflePicker(): void {
+    this.riflePickerOpen = true;
+    this.riflePickerSearch = '';
+  }
+
+  closeRiflePicker(): void {
+    this.riflePickerOpen = false;
+  }
+
+  clearRifleFromPicker(): void {
+    this.onRifleChanged(null);
+    this.closeRiflePicker();
+  }
+
+  onRiflePickerSearchChange(v: string): void {
+    this.riflePickerSearch = (v ?? '').toString();
+  }
+
+  get riflePickerFiltered(): RifleLike[] {
+    const list = Array.isArray(this.rifles) ? this.rifles : [];
+    const q = (this.riflePickerSearch ?? '').trim().toLowerCase();
+    if (!q) return list;
+
+    return list.filter((r) => {
+      const name = (r?.name ?? r?.label ?? '').toString().toLowerCase();
+      return name.includes(q);
+    });
+  }
+
+  selectedRifleLabel(): string {
+    const id = this.selectedRifleId;
+    if (id == null) return 'Choose rifle';
+
+    const r = (this.rifles ?? []).find((x) => (x.id ?? x.rifleId) === id);
+    return r?.name || r?.label || `Rifle ${id}`;
+  }
+
+  selectRifleFromPicker(r: RifleLike): void {
+    const id = (r?.id ?? r?.rifleId) as any;
+    if (typeof id === 'number') {
+      this.onRifleChanged(id);
+    }
+    this.closeRiflePicker();
   }
 
   // --------------------------------
@@ -331,6 +381,12 @@ export class WindEffectToolComponent implements OnInit {
     const factorAbs = Math.abs(cross);
     return { factorAbs };
   }
+  
+  /** head/tail factor: +1 at 12 o’clock (headwind), -1 at 6 o’clock (tailwind) */
+  private getHeadwindComponent(): number {
+    const rad = (this.arrowAngleDeg * Math.PI) / 180;
+    return Math.cos(rad);
+  }
 
   // --------------------------------
   // Ballistic core: TOF & drift
@@ -355,6 +411,7 @@ export class WindEffectToolComponent implements OnInit {
 
   /** physical lateral drift in inches */
   private computeLateralInches(): number {
+    
     if (
       !this.windSpeedMph ||
       this.rangeMeters <= 0 ||
@@ -377,6 +434,70 @@ export class WindEffectToolComponent implements OnInit {
 
     const lateralFeet = windFps * tof * windEfficiency;
     return lateralFeet * 12;
+    
+  }
+  /** physical vertical drop delta in inches due to head/tail wind (headwind => more drop) */
+  private computeVerticalDropInchesDelta(): number {
+    if (
+      !this.windSpeedMph ||
+      this.rangeMeters <= 0 ||
+      this.muzzleVelocityFps <= 0
+    ) {
+      return 0;
+    }
+
+    const headFactor = this.getHeadwindComponent(); // signed
+    if (!headFactor) {
+      return 0;
+    }
+
+    const alongWindFps = this.mphToFps(this.windSpeedMph) * headFactor;
+    const tof = this.timeOfFlightSeconds;
+
+    // How strongly head/tail wind influences TOF (small on purpose; keeps figures sane)
+    const k = 0.45;
+
+    const tofWind = Math.max(
+      0.05,
+      tof * (1 + k * (alongWindFps / this.muzzleVelocityFps))
+    );
+
+    // Gravity drop difference (ft), then inches
+    const g = 32.174;
+    const dropNoWindFt = 0.5 * g * tof * tof;
+    const dropWindFt = 0.5 * g * tofWind * tofWind;
+
+    const deltaFt = dropWindFt - dropNoWindFt; // + = more drop
+    return deltaFt * 12;
+  }
+  /** signed vertical delta */
+  get verticalDropInches(): number {
+    return this.computeVerticalDropInchesDelta();
+  }
+
+  get verticalDropInchesAbs(): number {
+    return Math.abs(this.verticalDropInches);
+  }
+
+  get verticalDropCmAbs(): number {
+    return this.verticalDropInchesAbs * 2.54;
+  }
+
+  /** signed vertical mil delta for red dot (BC-adjusted same as milDrift) */
+  get verticalMilDelta(): number {
+    const deltaInches = this.verticalDropInches;
+    if (!deltaInches) return 0;
+
+    const rangeInches = this.rangeMeters * 39.3701;
+    if (!rangeInches) return 0;
+
+    const angleRad = deltaInches / rangeInches;
+    let mils = angleRad / 0.001;
+
+    const bc = this.ballisticCoeff || 0.5;
+    mils = mils / (bc / 0.5);
+
+    return mils;
   }
 
   // Exposed to template
@@ -386,6 +507,10 @@ export class WindEffectToolComponent implements OnInit {
 
   get driftCm(): number {
     return this.driftInches * 2.54;
+  }
+  get driftDirection(): '' | 'Left' | 'Right' {
+    if (!this.driftInches) return '';
+    return this.driftInches < 0 ? 'Left' : 'Right';
   }
 
   get milDrift(): number {
@@ -408,38 +533,88 @@ export class WindEffectToolComponent implements OnInit {
     return this.milDrift * 3.43775;
   }
 
+  // Prefer showing inches when scope adjustment is MOA, otherwise prefer cm.
+  get isImperialOutput(): boolean {
+    try {
+      const p: any = this.data.getPreferences?.() ?? {};
+      return String(p?.scopeAdjustment ?? '').toUpperCase() === 'MOA';
+    } catch {
+      return false;
+    }
+  }
+
+
+  /** Vertical drift component (absolute) in inches, derived from wind direction on the dial. */
+  get verticalDriftInchesAbs(): number {
+    const mag = Math.abs(this.driftInches);
+    if (!mag) return 0;
+
+    // Wind-from -> downwind direction (where bullet drifts)
+    const downwindTopDeg = (this.arrowAngleDeg + 180) % 360;
+    const rad = (downwindTopDeg * Math.PI) / 180;
+
+    // Same mapping as the POI dot: y uses -cos()
+    const yFactorAbs = Math.abs(-Math.cos(rad));
+    return mag * yFactorAbs;
+  }
+
+  /** Vertical drift component (absolute) in cm. */
+  get verticalDriftCmAbs(): number {
+    return this.verticalDriftInchesAbs * 2.54;
+  }
+
   // --------------------------------
   // Red POI dot (visual only)
   // --------------------------------
-  updatePoiFromDrift(): void {
+    updatePoiFromDrift(): void {
 
     const centerX = 50;
     const centerY = 50;
 
-    const mils = this.milDrift;
-    if (!mils) {
-      this.poiX = centerX;
-      this.poiY = centerY;
-      return;
-    }
+    // Lateral (crosswind) in mils (already BC-adjusted)
+    const lateralMilsAbs = Math.abs(this.milDrift || 0);
+
+    // Vertical drop delta (headwind = more drop, tailwind = less drop)
+    const verticalMils = this.verticalMilDelta || 0; // signed
 
     // Visual exaggeration only (same exaggeration in every direction)
     const visualScale = 2;
-    const pixelsPerMil = 6;
+    const pixelsPerMil = 4;
+
+    // Clamp so dot stays inside the circle visually
     const maxRadius = 36;
 
-    const rawRadius = Math.abs(mils) * visualScale * pixelsPerMil;
-    const radius = Math.min(rawRadius, maxRadius);
+    // --- LATERAL VECTOR (downwind direction) ---
+    let dxL = 0;
+    let dyL = 0;
 
-    // Wind-from -> downwind direction (where bullet drifts)
-    const downwindTopDeg = (this.arrowAngleDeg + 180) % 360;
+    if (lateralMilsAbs > 0) {
+      const rawRadiusL = lateralMilsAbs * visualScale * pixelsPerMil;
+      const radiusL = Math.min(rawRadiusL, maxRadius);
 
-    // SAME mapping as buildHourMarkers(): x uses sin, y uses -cos
-    const rad = (downwindTopDeg * Math.PI) / 180;
+      // Wind-from -> downwind direction (where bullet drifts)
+      const downwindTopDeg = (this.arrowAngleDeg + 180) % 360;
 
-    this.poiX = centerX + radius * Math.sin(rad);
-    this.poiY = centerY - radius * Math.cos(rad);
+      // SAME mapping as buildHourMarkers(): x uses sin, y uses -cos
+      const rad = (downwindTopDeg * Math.PI) / 180;
+
+      dxL = radiusL * Math.sin(rad);
+      dyL = -radiusL * Math.cos(rad);
+    }
+
+    // --- VERTICAL VECTOR (pure up/down, independent of arrow direction) ---
+    // Positive verticalMils = more drop => dot moves DOWN (+Y)
+    const rawDyV = verticalMils * visualScale * pixelsPerMil;
+    const dyV = Math.max(Math.min(rawDyV, maxRadius), -maxRadius);
+
+    const x = centerX + dxL;
+    const y = centerY + dyL + dyV;
+
+    // Keep inside viewbox-safe area (avoid touching frame)
+    this.poiX = Math.max(14, Math.min(86, x));
+    this.poiY = Math.max(14, Math.min(86, y));
   }
+
 
   // --------------------------------
   // Back button (if used in template)

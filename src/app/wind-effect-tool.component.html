@@ -3,16 +3,104 @@
 >
   <!-- Choose rifle -->
   <div class="w-full bg-gray-900/70 border border-gray-700 rounded-xl p-2">
+    <!-- Tap-to-open picker (canonical modal style) -->
+    <button
+      type="button"
+      class="w-full bg-black border border-gray-700 rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px] flex items-center justify-between"
+      (click)="openRiflePicker()"
+    >
+      <span class="truncate">{{ selectedRifleLabel() }}</span>
+
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-4 h-4 opacity-80">
+        <path class="fill-white" d="M7 10l5 5 5-5H7z" />
+      </svg>
+    </button>
+
+    <!-- Keep the real select (hidden) so ngModel stays exactly the same -->
     <select
-      class="w-full bg-black border border-gray-700 rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px]"
+      class="hidden"
       [(ngModel)]="selectedRifleId"
       (ngModelChange)="onRifleChanged($event)"
+      name="selectedRifleId"
     >
       <option [ngValue]="null">Choose rifle</option>
       <option *ngFor="let r of rifles" [ngValue]="r.id ?? r.rifleId">
         {{ r.name || r.label || 'Rifle ' + (r.id ?? r.rifleId) }}
       </option>
     </select>
+  </div>
+
+  <!-- Rifle picker modal (canonical style) -->
+  <div
+    *ngIf="riflePickerOpen"
+    class="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-3"
+    (click)="closeRiflePicker()"
+  >
+    <div
+      class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-3"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="flex items-start justify-between gap-2">
+        <div class="text-[12px] font-semibold text-slate-100">Select rifle</div>
+
+        <div class="flex gap-2">
+          <button
+            type="button"
+            class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+            (click)="clearRifleFromPicker()"
+          >
+            Clear
+          </button>
+
+          <button
+            type="button"
+            class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+            (click)="closeRiflePicker()"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-2">
+        <input
+          type="text"
+          class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
+          placeholder="Search rifles…"
+          [(ngModel)]="riflePickerSearch"
+          (ngModelChange)="onRiflePickerSearchChange($event)"
+          name="riflePickerSearch"
+        />
+      </div>
+
+      <div
+        class="mt-2 rounded-xl border border-slate-700 bg-slate-900 p-2 max-h-[45vh] overflow-y-auto"
+      >
+        <div *ngIf="riflePickerFiltered.length === 0" class="text-[10px] text-slate-400 px-1 py-2">
+          No matches
+        </div>
+
+        <button
+          *ngFor="let r of riflePickerFiltered"
+          type="button"
+          class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
+          (click)="selectRifleFromPicker(r)"
+        >
+          <input
+            type="checkbox"
+            class="h-4 w-4 shrink-0 mt-[2px]"
+            [checked]="(r.id ?? r.rifleId) === selectedRifleId"
+            (click)="$event.stopPropagation(); selectRifleFromPicker(r)"
+          />
+
+          <div class="min-w-0 flex-1 leading-tight">
+            <div class="text-[11px] text-white font-semibold truncate">
+              {{ r.name || r.label || '-' }}
+            </div>
+          </div>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Rifle / wind from -->
@@ -156,10 +244,12 @@
 
   <!-- Drift result cards -->
   <div
-    class="w-full max-w-[520px] sm:max-w-[640px] lg:max-w-[820px] mx-auto grid grid-cols-2 gap-2 sm:gap-3 mt-1 shrink-0 px-2 sm:px-0 mb-2"
+    class="w-full max-w-[520px] sm:max-w-[640px] lg:max-w-[820px] mx-auto grid grid-cols-3 gap-2 sm:gap-3 mt-1 shrink-0 px-2 sm:px-0 mb-2"
   >
-    <!-- Mil + cm -->
-    <div class="bg-gray-900/90 border border-emerald-500/70 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5">
+    <!-- Mil + cm (horizontal drift) -->
+    <div
+      class="flex-1 min-w-0 bg-gray-900/90 border border-emerald-500/70 rounded-xl px-2 py-1 sm:py-1.5"
+    >
       <div class="flex items-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold">
         <span class="flex-1 text-emerald-400"> Drift (mil) </span>
         <span class="flex-1 text-emerald-300 text-right"> Drift (cm) </span>
@@ -169,17 +259,47 @@
         class="flex items-baseline text-[12px] sm:text-[13px] md:text-[14px] lg:text-[15px] text-gray-50 font-bold"
       >
         <span class="flex-1">
-          {{ milDrift | number : '1.2-2' }}
+          {{ milDrift | number: '1.2-2' }}
         </span>
         <span class="w-px h-4 bg-gray-700 mx-1"></span>
-        <span class="flex-1 text-right">
-          {{ driftCm | number : '1.1-1' }}
+        <span class="flex-1 text-right flex flex-col items-end leading-tight">
+          <span class="text-[9px] text-gray-400">
+            {{ driftDirection }}
+          </span>
+          <span>
+            {{ driftCm | number: '1.1-1' }}
+          </span>
         </span>
       </div>
     </div>
 
-    <!-- MOA + inch -->
-    <div class="bg-gray-900/90 border border-sky-500/70 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5">
+    <!-- Vertical drift (cm / inch) -->
+    <!-- Vertical drop (cm / inch) -->
+    <div class="bg-gray-900/90 border border-slate-600/60 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5">
+      <div class="flex items-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold">
+        <span class="flex-1 text-emerald-300">Drop (cm)</span>
+        <span class="flex-1 text-emerald-300 text-right">Drop (inch)</span>
+      </div>
+
+      <div class="h-px bg-gray-800 my-0.5"></div>
+
+      <div
+        class="flex items-baseline justify-between gap-2 text-[12px] sm:text-[13px] md:text-[14px] lg:text-[15px] font-bold"
+      >
+        <span [ngClass]="!isImperialOutput ? 'text-emerald-400' : 'text-gray-500'">
+          {{ verticalDropCmAbs | number: '1.1-1' }}
+        </span>
+
+        <span [ngClass]="isImperialOutput ? 'text-emerald-400' : 'text-gray-500'">
+          {{ verticalDropInchesAbs | number: '1.2-2' }}
+        </span>
+      </div>
+    </div>
+
+    <!-- MOA + inch (horizontal drift) -->
+    <div
+      class="flex-1 min-w-0 bg-gray-900/90 border border-sky-500/70 rounded-xl px-2 py-1 sm:py-1.5"
+    >
       <div class="flex items-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold">
         <span class="flex-1 text-sky-400"> Drift (MOA) </span>
         <span class="flex-1 text-sky-300 text-right"> Drift (inch) </span>
@@ -189,11 +309,16 @@
         class="flex items-baseline text-[12px] sm:text-[13px] md:text-[14px] lg:text-[15px] text-gray-50 font-bold"
       >
         <span class="flex-1">
-          {{ moaDrift | number : '1.2-2' }}
+          {{ moaDrift | number: '1.2-2' }}
         </span>
         <span class="w-px h-4 bg-gray-700 mx-1"></span>
-        <span class="flex-1 text-right">
-          {{ driftInches | number : '1.2-2' }}
+        <span class="flex-1 text-right flex flex-col items-end leading-tight">
+          <span class="text-[9px] text-gray-400">
+            {{ driftDirection }}
+          </span>
+          <span>
+            {{ driftInches | number: '1.2-2' }}
+          </span>
         </span>
       </div>
     </div>
