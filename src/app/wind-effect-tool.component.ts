@@ -482,6 +482,18 @@ export class WindEffectToolComponent implements OnInit {
   get verticalDropCmAbs(): number {
     return this.verticalDropInchesAbs * 2.54;
   }
+  
+   get verticalLabel(): 'Drop' | 'Lift' {
+    // verticalDropInches is + when headwind increases drop, - when tailwind reduces drop (lift)
+    return this.verticalDropInches < 0 ? 'Lift' : 'Drop';
+  }
+
+  get verticalArrow(): '' | '↑' | '↓' {
+    if (!this.windSpeedMph) return '';
+    if (!this.verticalDropInches) return '';
+    return this.verticalDropInches < 0 ? '↑' : '↓';
+  }
+
 
   /** signed vertical mil delta for red dot (BC-adjusted same as milDrift) */
   get verticalMilDelta(): number {
@@ -508,6 +520,20 @@ export class WindEffectToolComponent implements OnInit {
   get driftCm(): number {
     return this.driftInches * 2.54;
   }
+      get driftArrow(): '' | '←' | '→' {
+    if (!this.windSpeedMph) return '';
+
+    const rad = (this.arrowAngleDeg * Math.PI) / 180;
+    const cross = Math.sin(rad);
+
+    // no crosswind at 12/6
+    if (Math.abs(cross) < 1e-6) return '';
+
+    // wind FROM right (3 o'clock) pushes LEFT, and vice-versa
+    return cross > 0 ? '←' : '→';
+  }
+
+
   get driftDirection(): '' | 'Left' | 'Right' {
     if (!this.driftInches) return '';
     return this.driftInches < 0 ? 'Left' : 'Right';
@@ -523,8 +549,8 @@ export class WindEffectToolComponent implements OnInit {
     const angleRad = lateralInches / rangeInches;
     let mils = angleRad / 0.001; // 1 mil ≈ 0.001 rad
 
-    const bc = this.ballisticCoeff || 0.5;
-    mils = mils / (bc / 0.5);
+    const bc = this.ballisticCoeff || 0.35;
+    mils = mils / (bc / 0.35);
 
     return mils;
   }

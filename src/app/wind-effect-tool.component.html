@@ -252,7 +252,10 @@
     >
       <div class="flex items-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold">
         <span class="flex-1 text-emerald-400"> Drift (mil) </span>
-        <span class="flex-1 text-emerald-300 text-right"> Drift (cm) </span>
+        <span class="flex-1 text-emerald-300 text-right flex flex-col items-end leading-tight">
+          <span class="text-[12px] text-gray-100">{{ driftArrow }}</span>
+          <span class="text-[9px] text-emerald-300">(cm)</span>
+        </span>
       </div>
       <div class="h-px bg-gray-800 my-0.5"></div>
       <div
@@ -262,23 +265,21 @@
           {{ milDrift | number: '1.2-2' }}
         </span>
         <span class="w-px h-4 bg-gray-700 mx-1"></span>
-        <span class="flex-1 text-right flex flex-col items-end leading-tight">
-          <span class="text-[9px] text-gray-400">
-            {{ driftDirection }}
-          </span>
-          <span>
-            {{ driftCm | number: '1.1-1' }}
-          </span>
+        <span class="flex-1 text-right">
+          {{ driftCm | number: '1.1-1' }}
         </span>
       </div>
     </div>
 
-    <!-- Vertical drift (cm / inch) -->
-    <!-- Vertical drop (cm / inch) -->
+    <!-- Vertical drop (cm / inch) -- Vertical drift (cm / inch) -->
     <div class="bg-gray-900/90 border border-slate-600/60 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5">
       <div class="flex items-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold">
-        <span class="flex-1 text-emerald-300">Drop (cm)</span>
-        <span class="flex-1 text-emerald-300 text-right">Drop (inch)</span>
+        <span class="flex-1 text-emerald-300">{{ verticalLabel }} (cm)</span>
+
+        <span class="flex-1 text-emerald-300 text-right flex flex-col items-end leading-tight">
+          <span class="text-[12px] text-gray-100">{{ verticalArrow }}</span>
+          <span class="text-[9px] text-emerald-300">(inch)</span>
+        </span>
       </div>
 
       <div class="h-px bg-gray-800 my-0.5"></div>
@@ -286,11 +287,11 @@
       <div
         class="flex items-baseline justify-between gap-2 text-[12px] sm:text-[13px] md:text-[14px] lg:text-[15px] font-bold"
       >
-        <span [ngClass]="!isImperialOutput ? 'text-emerald-400' : 'text-gray-500'">
+        <span class="text-gray-50">
           {{ verticalDropCmAbs | number: '1.1-1' }}
         </span>
 
-        <span [ngClass]="isImperialOutput ? 'text-emerald-400' : 'text-gray-500'">
+        <span class="text-gray-50">
           {{ verticalDropInchesAbs | number: '1.2-2' }}
         </span>
       </div>
@@ -302,7 +303,10 @@
     >
       <div class="flex items-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold">
         <span class="flex-1 text-sky-400"> Drift (MOA) </span>
-        <span class="flex-1 text-sky-300 text-right"> Drift (inch) </span>
+        <span class="flex-1 text-sky-300 text-right flex flex-col items-end leading-tight">
+          <span class="text-[12px] text-gray-100">{{ driftArrow }}</span>
+          <span class="text-[9px] text-sky-300">(inch)</span>
+        </span>
       </div>
       <div class="h-px bg-gray-800 my-0.5"></div>
       <div
@@ -312,13 +316,8 @@
           {{ moaDrift | number: '1.2-2' }}
         </span>
         <span class="w-px h-4 bg-gray-700 mx-1"></span>
-        <span class="flex-1 text-right flex flex-col items-end leading-tight">
-          <span class="text-[9px] text-gray-400">
-            {{ driftDirection }}
-          </span>
-          <span>
-            {{ driftInches | number: '1.2-2' }}
-          </span>
+        <span class="flex-1 text-right">
+          {{ driftInches | number: '1.2-2' }}
         </span>
       </div>
     </div>
