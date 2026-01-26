@@ -20,7 +20,6 @@ import { BleClient } from '@capacitor-community/bluetooth-le';
 import {
   KestrelDataSnapshot,
   KestrelService,
-
   
 } from './shared/services/kestrel-bluetooth.service';
 
@@ -270,6 +269,7 @@ private converterReturnState:
     get documentsHasSearch(): boolean {
     return (this.documentsSearch || '').trim().length > 0;
   }
+  
   // ---------- first-launch slogan ----------
   
 
@@ -1150,8 +1150,12 @@ onBackFromConverter(): void {
 
     this.showReportsForm = !this.showReportsForm;
     if (this.showReportsForm) {
-      this.showTools = false;
+           this.showTools = false;
+      this.showSetup = false;
+      this.showExportImportModal = false;
+      this.showExportImportDataModal = false;
       this.selectedTool = null;
+
     } else {
       // clear report state when collapsing
       this.lastSettingsResult = null;
@@ -1783,18 +1787,20 @@ openTools(): void {
   this.showSetup = !this.showSetup;
 
   // Tools and Setup are mutually exclusive panels
-  if (this.showSetup) {
-    this.showTools = false;
-    this.selectedTool = null;
-  }
-
-  if (!this.showSetup) {
-    this.selectedTool = null;
-  }
+if (this.showSetup) {
+  this.showTools = false;
+}
+this.selectedTool = null;
 
   this.showReportsForm = false;
 }
 
+closeToolsSetupPanels(): void {
+  this.showTools = false;
+  this.showSetup = false;
+  this.selectedTool = null;
+  this.showReportsForm = false;
+}
 
 
 openTargetDownloads(): void {

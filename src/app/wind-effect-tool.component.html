@@ -253,7 +253,15 @@
       <div class="flex items-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold">
         <span class="flex-1 text-emerald-400"> Drift (mil) </span>
         <span class="flex-1 text-emerald-300 text-right flex flex-col items-end leading-tight">
-          <span class="text-[12px] text-gray-100">{{ driftArrow }}</span>
+          <span class="flex items-center justify-end h-[16px]">
+            <svg *ngIf="driftArrow === '→'" viewBox="0 0 24 24" class="w-4 h-4 fill-emerald-200">
+              <path d="M5 11h10l-3.5-3.5 1.4-1.4L20.8 12l-7.9 6.9-1.4-1.4L15 13H5z" />
+            </svg>
+            <svg *ngIf="driftArrow === '←'" viewBox="0 0 24 24" class="w-4 h-4 fill-emerald-200">
+              <path d="M19 11H9l3.5-3.5-1.4-1.4L3.2 12l7.9 6.9 1.4-1.4L9 13h10z" />
+            </svg>
+          </span>
+
           <span class="text-[9px] text-emerald-300">(cm)</span>
         </span>
       </div>
@@ -272,13 +280,21 @@
     </div>
 
     <!-- Vertical drop (cm / inch) -- Vertical drift (cm / inch) -->
-    <div class="bg-gray-900/90 border border-slate-600/60 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5">
+    <div class="bg-gray-900/90 border border-sky-500/70 rounded-xl px-2 sm:px-3 py-1 sm:py-1.5">
       <div class="flex items-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold">
-        <span class="flex-1 text-emerald-300">{{ verticalLabel }} (cm)</span>
+        <span class="flex-1 text-sky-300">{{ verticalLabel }} (cm)</span>
 
-        <span class="flex-1 text-emerald-300 text-right flex flex-col items-end leading-tight">
-          <span class="text-[12px] text-gray-100">{{ verticalArrow }}</span>
-          <span class="text-[9px] text-emerald-300">(inch)</span>
+        <span class="flex-1 text-sky-300 text-right flex flex-col items-end leading-tight">
+          <span class="flex items-center justify-end h-[16px]">
+            <svg *ngIf="verticalArrow === '↑'" viewBox="0 0 24 24" class="w-4 h-4 fill-sky-200">
+              <path d="M11 19V9l-3.5 3.5-1.4-1.4L12 3.2l6.9 7.9-1.4 1.4L13 9v10z" />
+            </svg>
+            <svg *ngIf="verticalArrow === '↓'" viewBox="0 0 24 24" class="w-4 h-4 fill-sky-200">
+              <path d="M11 5v10l-3.5-3.5-1.4 1.4L12 20.8l6.9-7.9-1.4-1.4L13 15V5z" />
+            </svg>
+          </span>
+
+          <span class="text-[9px] text-sky-300">(inch)</span>
         </span>
       </div>
 
@@ -299,13 +315,21 @@
 
     <!-- MOA + inch (horizontal drift) -->
     <div
-      class="flex-1 min-w-0 bg-gray-900/90 border border-sky-500/70 rounded-xl px-2 py-1 sm:py-1.5"
+      class="flex-1 min-w-0 bg-gray-900/90 border border-emerald-500/70 rounded-xl px-2 py-1 sm:py-1.5"
     >
       <div class="flex items-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold">
-        <span class="flex-1 text-sky-400"> Drift (MOA) </span>
-        <span class="flex-1 text-sky-300 text-right flex flex-col items-end leading-tight">
-          <span class="text-[12px] text-gray-100">{{ driftArrow }}</span>
-          <span class="text-[9px] text-sky-300">(inch)</span>
+        <span class="flex-1 text-emerald-400"> Drift (MOA) </span>
+        <span class="flex-1 text-emerald-300 text-right flex flex-col items-end leading-tight">
+          <span class="flex items-center justify-end h-[16px]">
+            <svg *ngIf="driftArrow === '→'" viewBox="0 0 24 24" class="w-4 h-4 fill-emerald-200">
+              <path d="M5 11h10l-3.5-3.5 1.4-1.4L20.8 12l-7.9 6.9-1.4-1.4L15 13H5z" />
+            </svg>
+            <svg *ngIf="driftArrow === '←'" viewBox="0 0 24 24" class="w-4 h-4 fill-emerald-200">
+              <path d="M19 11H9l3.5-3.5-1.4-1.4L3.2 12l7.9 6.9 1.4-1.4L9 13h10z" />
+            </svg>
+          </span>
+
+          <span class="text-[9px] text-emerald-300">(inch)</span>
         </span>
       </div>
       <div class="h-px bg-gray-800 my-0.5"></div>
