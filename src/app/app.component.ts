@@ -2290,14 +2290,14 @@ openExportSubmenu(): void {
   this.exportMode = 'export';
 }
    openDataShareChooser(): void {
-    // Chooser modal is currently located inside the Setup block in the HTML,
-    // so we must switch to Setup for it to render.
-    this.showSetup = true;
-    this.showTools = false;
-    this.selectedTool = null;
+  // Keep Utilities visible (chooser now lives under Utilities)
+  this.showTools = true;
+  this.showSetup = false;
+  this.selectedTool = null;
 
-    this.showDataShareChooserModal = true;
-  }
+  this.showDataShareChooserModal = true;
+}
+
 
 
   closeDataShareChooser(): void {
@@ -2319,9 +2319,9 @@ openExportSubmenu(): void {
 openExportImportDataModal(): void {
   this.showExportImportDataModal = true;
 
-  // Ensure Setup is visible and other overlays closed
-  this.showSetup = true;
-  this.showTools = false;
+  // Keep Utilities visible (modals now live under Utilities)
+  this.showTools = true;
+  this.showSetup = false;
   this.selectedTool = null;
 
   // Default selections:
@@ -2330,6 +2330,7 @@ openExportImportDataModal(): void {
   if (this.dataShareAllRifles) this.dataShareRifleIds.clear();
   if (this.dataShareAllVenues) this.dataShareVenueIds.clear();
 }
+
 
 closeExportImportDataModal(): void {
   this.showExportImportDataModal = false;
@@ -2554,60 +2555,190 @@ const result = this.dataService.importFromBackupMerge(parsed);
       return;
     }
 
-    // Build a readable “report-style” PDF from the JSON (no external libs)
-    const json = JSON.stringify(payload, null, 2);
-    const pdfBase64 = this.buildSimplePdfBase64FromText(
-      'GS Ballistics - Export (PDF)\n\n' + json
-    );
+       // Build a proper PDF report (Rifles-tab style) instead of embedding JSON text
+    const jspdfMod: any = await import('jspdf');
+    const autoTableMod: any = await import('jspdf-autotable');
+
+    const jsPDF = jspdfMod?.jsPDF ?? jspdfMod?.default;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let y = 12;
+
+    doc.setFontSize(16);
+    doc.text('Selective Data Export', 10, y);
+    y += 7;
+
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 10, y);
+    y += 8;
+
+    const data: any = (payload as any)?.data ?? {};
+    const rifles: any[] = Array.isArray(data?.rifles) ? data.rifles : [];
+    const venues: any[] = Array.isArray(data?.venues) ? data.venues : [];
+
+    // ---------- Rifles ----------
+    if (rifles.length) {
+      doc.setFontSize(12);
+      doc.text(`Rifles (${rifles.length})`, 10, y);
+      y += 4;
+
+      for (let i = 0; i < rifles.length; i++) {
+        const r = rifles[i] ?? {};
+        const title = `${r?.name ?? 'Rifle'}${r?.caliber ? ` (${r.caliber})` : ''}`;
+
+        doc.setFontSize(11);
+        doc.text(title, 10, y);
+        y += 3;
+
+        const rifleRows: Array<[string, string]> = [
+          ['Caliber', `${r?.caliber ?? '-'}`],
+          ['Barrel length', `${r?.barrelLength ?? '-'} ${r?.barrelUnit ?? ''}`.trim()],
+          ['Twist rate', `${r?.twistRate ?? '-'}`],
+          ['Scope', `${r?.scope ?? '-'}${r?.scopeUnit ? ' (' + r.scopeUnit + ')' : ''}`],
+          ['Round count', `${r?.roundCount ?? 0}`],
+          ['Notes', `${r?.notes ?? '-'}`],
+        ];
+
+        autoTableMod.default(doc, {
+          startY: y,
+          theme: 'grid',
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: pageWidth - 20 - 45 } },
+          body: rifleRows.map(([k, v]) => [k, v]),
+        });
+
+        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 5 : y + 25;
+
+        // Loads (if present)
+        const loads: any[] = Array.isArray(r?.loads) ? r.loads : [];
+        if (loads.length) {
+          doc.setFontSize(11);
+          doc.text(`Load Data (${loads.length})`, 10, y);
+          y += 4;
+
+          const body = loads.map((l: any) => [
+            `${l?.powder ?? ''}`,
+            `${l?.chargeGn ?? ''}`,
+            `${l?.aveVelocityFps ?? ''}`,
+            `${l?.coal ?? ''}${l?.coalUnit ? ' ' + l.coalUnit : ''}`,
+            `${l?.primer ?? ''}`,
+            `${l?.bullet ?? ''}`,
+            `${l?.bulletWeightGr ?? ''}`,
+            `${l?.bulletBc ?? ''}`,
+          ]);
+
+          autoTableMod.default(doc, {
+            startY: y,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fontSize: 8 },
+            head: [[
+              'Powder',
+              'Charge (gr)',
+              'Vel (fps)',
+              'COAL',
+              'Primer',
+              'Bullet',
+              'Weight (gr)',
+              'BC',
+            ]],
+            body,
+          });
+
+          y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+        }
+
+        // New page if needed (simple guard)
+        const pageHeight = doc.internal.pageSize.getHeight();
+        if (y > pageHeight - 20 && i < rifles.length - 1) {
+          doc.addPage();
+          y = 12;
+        }
+      }
+    }
+
+    // ---------- Venues ----------
+    if (venues.length) {
+      const pageHeight = doc.internal.pageSize.getHeight();
+      if (y > pageHeight - 40) {
+        doc.addPage();
+        y = 12;
+      }
+
+      doc.setFontSize(12);
+      doc.text(`Venues (${venues.length})`, 10, y);
+      y += 4;
+
+      const body = venues.map((v: any) => [
+        `${v?.name ?? ''}`,
+        `${v?.location ?? ''}`,
+        `${v?.notes ?? ''}`,
+      ]);
+
+      autoTableMod.default(doc, {
+        startY: y,
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fontSize: 9 },
+        head: [['Name', 'Location', 'Notes']],
+        body,
+      });
+
+      y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+    }
 
     const filename =
-      'gunstuff-share-data-' + new Date().toISOString().slice(0, 10) + '.pdf';
+      'gunstuff-export-' + new Date().toISOString().slice(0, 10) + '.pdf';
+
+    const pdfBlob = doc.output('blob');
 
     if (Capacitor.isNativePlatform()) {
       try {
-        const path = filename;
+        await Filesystem.requestPermissions();
+
+        const base64 = await this.blobToBase64(pdfBlob);
+        const cachePath = `gs-exports/${filename}`;
 
         await Filesystem.writeFile({
-          path,
-          data: pdfBase64,
-          directory: Directory.Documents,
+          path: cachePath,
+          data: base64,
+          directory: Directory.Cache,
+          recursive: true,
         });
 
-        const { uri } = await Filesystem.getUri({
-          path,
-          directory: Directory.Documents,
+        const uriObj = await Filesystem.getUri({
+          path: cachePath,
+          directory: Directory.Cache,
         });
 
-           // Open the PDF directly (best UX for Print)
+        const shareUrl = uriObj.uri;
+
+        // Prefer open (print flow), fallback share
         try {
+          const filePath = shareUrl.startsWith('file://')
+            ? shareUrl.slice('file://'.length)
+            : shareUrl;
+
           await FileOpener.open({
-            filePath: uri,
+            filePath,
             contentType: 'application/pdf',
           });
-        } catch (openErr) {
-          // Fallback: share sheet (user can still pick Print from the share targets)
+        } catch {
           await Share.share({
             title: 'GS Export PDF',
             text: 'GS Ballistics export PDF',
-            url: uri,
+            url: shareUrl,
           });
         }
-
       } catch (err) {
         console.error('PDF export failed:', err);
         alert('PDF export failed on this device.');
       }
     } else {
       try {
-       const bytes = this.base64ToUint8Array(pdfBase64);
-
-// force a real ArrayBuffer copy (avoids SharedArrayBuffer / ArrayBufferLike typing)
-const ab = new ArrayBuffer(bytes.byteLength);
-new Uint8Array(ab).set(bytes);
-
-const blob = new Blob([ab], { type: 'application/pdf' });
-
-        const url = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
@@ -2782,7 +2913,8 @@ const blob = new Blob([ab], { type: 'application/pdf' });
 
   if (Capacitor.isNativePlatform()) {
     try {
-      const path = filename;
+            await Filesystem.requestPermissions();
+       const path = filename;
 
       await Filesystem.writeFile({
         path,
@@ -2801,6 +2933,8 @@ const blob = new Blob([ab], { type: 'application/pdf' });
         text: 'GS Ballistics selective export (share this file)',
         url: uri,
       });
+
+
 
       alert('Data export created. Share or save it using the app you chose.');
     } catch (err) {
