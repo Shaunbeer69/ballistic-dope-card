@@ -109,6 +109,8 @@ exportMode: 'root' | 'export' = 'root';
 importBusy = false;
 // --- Export / Import DATA (selective share) ---
 showExportImportDataModal = false;
+  showDataShareChooserModal = false;
+  dataShareActionMode: 'export' | 'print' = 'export';
 
 // Master toggles
 dataShareIncludeRifles = true;
@@ -2287,6 +2289,33 @@ closeExportImportModal(): void {
 openExportSubmenu(): void {
   this.exportMode = 'export';
 }
+   openDataShareChooser(): void {
+    // Chooser modal is currently located inside the Setup block in the HTML,
+    // so we must switch to Setup for it to render.
+    this.showSetup = true;
+    this.showTools = false;
+    this.selectedTool = null;
+
+    this.showDataShareChooserModal = true;
+  }
+
+
+  closeDataShareChooser(): void {
+    this.showDataShareChooserModal = false;
+
+    // Return to Utilities (Tools) screen where the user tapped Export / Print
+    this.showTools = true;
+    this.showSetup = false;
+    this.selectedTool = null;
+  }
+
+
+  chooseDataShareMode(mode: 'export' | 'print'): void {
+    this.dataShareActionMode = mode;
+    this.showDataShareChooserModal = false;
+    this.openExportImportDataModal();
+  }
+
 openExportImportDataModal(): void {
   this.showExportImportDataModal = true;
 
@@ -2467,6 +2496,236 @@ const result = this.dataService.importFromBackupMerge(parsed);
   }
 
   
+  async exportPdfFromSelectedData(): Promise<void> {
+    // Close modal immediately for clean UX
+    this.showExportImportDataModal = false;
+
+    const selectedRifleIds = this.dataShareAllRifles
+      ? null
+      : Array.from(this.dataShareRifleIds.values());
+
+    const selectedVenueIds = this.dataShareAllVenues
+      ? null
+      : Array.from(this.dataShareVenueIds.values());
+
+    // Same validation rules as your share-export
+    if (
+      this.dataShareIncludeRifles &&
+      !this.dataShareAllRifles &&
+      (selectedRifleIds?.length ?? 0) === 0
+    ) {
+      alert('Select at least one rifle, or tick "All rifles".');
+      return;
+    }
+
+    if (
+      this.dataShareIncludeVenues &&
+      !this.dataShareAllVenues &&
+      (selectedVenueIds?.length ?? 0) === 0
+    ) {
+      alert('Select at least one venue, or tick "All venues".');
+      return;
+    }
+
+    const payload = (this.dataService as any).exportSelectiveShare?.({
+      rifles: this.dataShareIncludeRifles
+        ? {
+            all: this.dataShareAllRifles,
+            ids: selectedRifleIds,
+            includeRifleData: this.dataShareRifleData,
+            includeLoadDev: this.dataShareRifleLoadDev,
+            includeSessions: this.dataShareRifleSessions,
+            includeShots: this.dataShareRifleShots,
+          }
+        : null,
+      venues: this.dataShareIncludeVenues
+        ? {
+            all: this.dataShareAllVenues,
+            ids: selectedVenueIds,
+            includeVenueData: this.dataShareVenueData,
+            includeSessions: this.dataShareVenueSessions,
+            includeShots: this.dataShareVenueShots,
+          }
+        : null,
+    });
+
+    if (!payload) {
+      alert('Export failed: no data selected.');
+      return;
+    }
+
+    // Build a readable “report-style” PDF from the JSON (no external libs)
+    const json = JSON.stringify(payload, null, 2);
+    const pdfBase64 = this.buildSimplePdfBase64FromText(
+      'GS Ballistics - Export (PDF)\n\n' + json
+    );
+
+    const filename =
+      'gunstuff-share-data-' + new Date().toISOString().slice(0, 10) + '.pdf';
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const path = filename;
+
+        await Filesystem.writeFile({
+          path,
+          data: pdfBase64,
+          directory: Directory.Documents,
+        });
+
+        const { uri } = await Filesystem.getUri({
+          path,
+          directory: Directory.Documents,
+        });
+
+           // Open the PDF directly (best UX for Print)
+        try {
+          await FileOpener.open({
+            filePath: uri,
+            contentType: 'application/pdf',
+          });
+        } catch (openErr) {
+          // Fallback: share sheet (user can still pick Print from the share targets)
+          await Share.share({
+            title: 'GS Export PDF',
+            text: 'GS Ballistics export PDF',
+            url: uri,
+          });
+        }
+
+      } catch (err) {
+        console.error('PDF export failed:', err);
+        alert('PDF export failed on this device.');
+      }
+    } else {
+      try {
+       const bytes = this.base64ToUint8Array(pdfBase64);
+
+// force a real ArrayBuffer copy (avoids SharedArrayBuffer / ArrayBufferLike typing)
+const ab = new ArrayBuffer(bytes.byteLength);
+new Uint8Array(ab).set(bytes);
+
+const blob = new Blob([ab], { type: 'application/pdf' });
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Browser PDF export failed:', err);
+        alert('Browser PDF export failed.');
+      }
+    }
+  }
+
+  private buildSimplePdfBase64FromText(text: string): string {
+    // Very small “text-only” PDF generator (single page, Courier).
+    // Keeps dependencies at zero.
+    const maxLineLen = 92;
+
+    const rawLines = (text ?? '').replace(/\r/g, '').split('\n');
+    const lines: string[] = [];
+
+    for (const ln of rawLines) {
+      if (ln.length <= maxLineLen) {
+        lines.push(ln);
+        continue;
+      }
+      // hard wrap
+      for (let i = 0; i < ln.length; i += maxLineLen) {
+        lines.push(ln.slice(i, i + maxLineLen));
+      }
+    }
+
+    // Limit lines so we don't overflow a single page
+    const maxLines = 55;
+    const pageLines =
+      lines.length > maxLines
+        ? [...lines.slice(0, maxLines - 1), '…(truncated)…']
+        : lines;
+
+    const escapePdfText = (s: string) =>
+      s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+
+    // Content stream: start near top, move down line-by-line with T*
+    const contentLines = pageLines
+      .map((l) => `(${escapePdfText(l)}) Tj T*`)
+      .join('\n');
+
+    const stream =
+      `BT\n/F1 9 Tf\n72 780 Td\n10 TL\n` + contentLines + `\nET\n`;
+
+    // Minimal PDF objects
+    const objs: string[] = [];
+    objs.push('%PDF-1.4');
+
+    const xref: number[] = [0];
+
+    const pushObj = (s: string) => {
+      const offset = objs.join('\n').length + 1; // +1 for the '\n' that will be added when joining
+      xref.push(offset);
+      objs.push(s);
+    };
+
+    // 1: catalog
+    pushObj(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj`);
+
+    // 2: pages
+    pushObj(`2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj`);
+
+    // 3: page
+    pushObj(
+      `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj`
+    );
+
+    // 4: font
+    pushObj(
+      `4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj`
+    );
+
+    // 5: contents
+    const streamBytes = new TextEncoder().encode(stream);
+    pushObj(
+      `5 0 obj\n<< /Length ${streamBytes.length} >>\nstream\n${stream}\nendstream\nendobj`
+    );
+
+    // xref + trailer
+    const xrefStart = objs.join('\n').length + 1;
+    const xrefLines = [
+      'xref',
+      `0 ${xref.length}`,
+      '0000000000 65535 f ',
+      ...xref.slice(1).map((n) => String(n).padStart(10, '0') + ' 00000 n '),
+      'trailer',
+      `<< /Size ${xref.length} /Root 1 0 R >>`,
+      'startxref',
+      String(xrefStart),
+      '%%EOF',
+    ];
+
+    const pdfText = objs.join('\n') + '\n' + xrefLines.join('\n') + '\n';
+
+    // Base64 encode
+    const bytes = new TextEncoder().encode(pdfText);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.slice(i, i + chunkSize));
+    }
+    return btoa(binary);
+  }
+
+  private base64ToUint8Array(base64: string): Uint8Array {
+    const bin = atob(base64);
+    const len = bin.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
 
   async onExportImportDataShare(): Promise<void> {
   // Close modal immediately for clean UX

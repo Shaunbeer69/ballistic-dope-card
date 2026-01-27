@@ -37,7 +37,7 @@
 
     <!-- MAIN CONTENT AREA -->
     <div
-      class="flex-1 flex flex-col mt-4 overflow-y-auto overflow-x-hidden pbpb-6]"
+      class="flex-1 flex flex-col mt-4 overflow-y-auto overflow-x-hidden pb-[120px]"
       (scroll)="onMainScroll($event)"
     >
       <!-- MENU TAB CONTENT -->
@@ -156,7 +156,6 @@
                                   : 'bg-black/20 border-white/30'
                               "
                             >
-                              >
                               <svg
                                 *ngIf="converterMode === m.id"
                                 xmlns="http://www.w3.org/2000/svg"
@@ -886,7 +885,7 @@
                     <div class="flex flex-col items-center">
                       <button
                         class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-emerald-500 via-teal-600 to-slate-900 hover:scale-105 active:scale-95 transition"
-                        (click)="openExportImportDataModal()"
+                        (click)="openDataShareChooser()"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
                           <path
@@ -897,8 +896,8 @@
                         </svg>
                       </button>
 
-                      <span class="mt-1 text-[10px] text-gray-300">Export / Import</span>
-                      <span class="text-[9px] text-gray-500 italic mt-0.5">Share Selected</span>
+                      <span class="mt-1 text-[10px] text-gray-300">Export / Print</span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5">Share or Print</span>
                     </div>
                   </div>
 
@@ -1244,108 +1243,106 @@
                       class="hidden"
                       (change)="onImportFileSelected($event)"
                     />
-
-                    <!-- Export / Import modal -->
+                    <!-- Export / Print chooser (opens the existing Export / Import DATA modal) -->
                     <div
-                      *ngIf="showExportImportModal"
+                      *ngIf="showDataShareChooserModal"
                       class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+                      (click)="closeDataShareChooser()"
                     >
                       <div
-                        class="w-full max-w-xs rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
+                        class="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
+                        (click)="$event.stopPropagation()"
                       >
-                        <div class="text-sm font-semibold">Backup and restore</div>
+                        <div class="text-sm font-semibold">Export / Print</div>
                         <div class="text-[11px] text-slate-300 mt-1 leading-snug">
-                          Backup a full JSON file for safekeeping. Import a JSON file to restore it.
+                          Choose how you want to share this data.
                         </div>
 
-                        <!-- Import busy indicator -->
-                        <div
-                          *ngIf="importBusy"
-                          class="mt-3 flex items-center gap-2 rounded-xl border border-slate-700 bg-black/30 px-3 py-2 text-slate-200"
-                        >
-                          <svg
-                            class="h-4 w-4 animate-spin"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
+                        <div class="mt-4 space-y-3 text-[11px]">
+                          <!-- Export (JSON file) -->
+                          <button
+                            type="button"
+                            class="w-full text-left rounded-xl border border-slate-700 bg-black/20 p-3 hover:bg-black/30 transition"
+                            (click)="chooseDataShareMode('export')"
                           >
-                            <circle
-                              class="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              stroke-width="4"
-                            ></circle>
-                            <path
-                              class="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
-                            ></path>
-                          </svg>
-                          <div class="text-[11px] leading-snug">Importing… please wait</div>
-                        </div>
+                            <div class="flex items-center justify-between gap-3">
+                              <div class="min-w-0">
+                                <div class="text-[12px] font-semibold text-emerald-200">
+                                  Export (File)
+                                </div>
+                                <div class="text-[10px] text-slate-300 mt-0.5 leading-snug">
+                                  Create a merge-safe JSON file to share with other users.
+                                </div>
+                              </div>
 
-                        <div class="mt-4 grid grid-cols-1 gap-2">
-                          <!-- ROOT MENU -->
-                          <ng-container *ngIf="exportMode === 'root'; else exportSubmenu">
-                            <button
-                              type="button"
-                              class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
-                              (click)="openExportSubmenu()"
-                              [disabled]="importBusy"
-                            >
-                              Backup (Json)
-                            </button>
+                              <div
+                                class="shrink-0 h-9 w-9 rounded-lg border border-emerald-400/20 bg-emerald-500/10 flex items-center justify-center"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  class="w-5 h-5"
+                                >
+                                  <path
+                                    class="fill-emerald-300"
+                                    d="M12 3a1 1 0 011 1v8.59l2.3-2.3a1 1 0 111.4 1.42l-4.01 4a1 1 0 01-1.4 0l-4.01-4a1 1 0 111.4-1.42L11 12.59V4a1 1 0 011-1z"
+                                  />
+                                  <path
+                                    class="fill-emerald-300/70"
+                                    d="M5 19a1 1 0 011-1h12a1 1 0 110 2H6a1 1 0 01-1-1z"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
+                          </button>
 
-                            <button
-                              type="button"
-                              class="w-full py-2 rounded-xl bg-indigo-600/90 hover:bg-indigo-600 text-white text-sm"
-                              (click)="onChooseImport()"
-                              [disabled]="importBusy"
-                            >
-                              Restore (Json)
-                            </button>
+                          <!-- Print (PDF) -->
+                          <button
+                            type="button"
+                            class="w-full text-left rounded-xl border border-slate-700 bg-black/20 p-3 hover:bg-black/30 transition"
+                            (click)="chooseDataShareMode('print')"
+                          >
+                            <div class="flex items-center justify-between gap-3">
+                              <div class="min-w-0">
+                                <div class="text-[12px] font-semibold text-sky-200">
+                                  Print (PDF)
+                                </div>
+                                <div class="text-[10px] text-slate-300 mt-0.5 leading-snug">
+                                  Export a PDF for printing or sharing via WhatsApp/email.
+                                </div>
+                              </div>
 
+                              <div
+                                class="shrink-0 h-9 w-9 rounded-lg border border-sky-400/20 bg-sky-500/10 flex items-center justify-center"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  class="w-5 h-5"
+                                >
+                                  <path
+                                    class="fill-sky-200"
+                                    d="M6 9V4a2 2 0 012-2h8a2 2 0 012 2v5H6zm12 2a2 2 0 012 2v5h-3v4H7v-4H4v-5a2 2 0 012-2h12zm-3 11v-5H9v5h6z"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
+                          </button>
+
+                          <!-- Cancel -->
+                          <div class="pt-1">
                             <button
                               type="button"
                               class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
-                              (click)="closeExportImportModal()"
-                              [disabled]="importBusy"
+                              (click)="closeDataShareChooser()"
                             >
                               Cancel
                             </button>
-                          </ng-container>
-
-                          <!-- EXPORT SUBMENU -->
-                          <ng-template #exportSubmenu>
-                            <button
-                              type="button"
-                              class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
-                              (click)="onExportSaveLocal()"
-                            >
-                              Save to file (device)
-                            </button>
-
-                            <button
-                              type="button"
-                              class="w-full py-2 rounded-xl bg-sky-600/90 hover:bg-sky-600 text-white text-sm"
-                              (click)="onExportShare()"
-                            >
-                              Share to app
-                            </button>
-
-                            <button
-                              type="button"
-                              class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
-                              (click)="closeExportImportModal()"
-                            >
-                              Cancel
-                            </button>
-                          </ng-template>
+                          </div>
                         </div>
                       </div>
                     </div>
+
                     <!-- Export / Import DATA modal (selective share) -->
                     <div
                       *ngIf="showExportImportDataModal"
@@ -1460,832 +1457,945 @@
                           </div>
                         </div>
 
-                        <div class="mt-4 grid grid-cols-2 gap-2">
+                        <button
+                          *ngIf="dataShareActionMode === 'export'"
+                          type="button"
+                          class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
+                          (click)="onExportImportDataShare()"
+                        >
+                          Export (Share)
+                        </button>
+
+                        <button
+                          *ngIf="dataShareActionMode === 'print'"
+                          type="button"
+                          class="w-full py-2 rounded-xl bg-sky-600/90 hover:bg-sky-600 text-white text-sm"
+                          (click)="exportPdfFromSelectedData()"
+                        >
+                          Print (PDF)
+                        </button>
+
+                        <button
+                          type="button"
+                          class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
+                          (click)="closeExportImportDataModal()"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Export / Import modal -->
+                  <div
+                    *ngIf="showExportImportModal"
+                    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+                  >
+                    <div
+                      class="w-full max-w-xs rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
+                    >
+                      <div class="text-sm font-semibold">Backup and restore</div>
+                      <div class="text-[11px] text-slate-300 mt-1 leading-snug">
+                        Backup a full JSON file for safekeeping. Import a JSON file to restore it.
+                      </div>
+
+                      <!-- Import busy indicator -->
+                      <div
+                        *ngIf="importBusy"
+                        class="mt-3 flex items-center gap-2 rounded-xl border border-slate-700 bg-black/30 px-3 py-2 text-slate-200"
+                      >
+                        <svg
+                          class="h-4 w-4 animate-spin"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                          ></circle>
+                          <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
+                          ></path>
+                        </svg>
+                        <div class="text-[11px] leading-snug">Importing… please wait</div>
+                      </div>
+
+                      <div class="mt-4 grid grid-cols-1 gap-2">
+                        <!-- ROOT MENU -->
+                        <ng-container *ngIf="exportMode === 'root'; else exportSubmenu">
                           <button
                             type="button"
                             class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
-                            (click)="onExportImportDataShare()"
+                            (click)="openExportSubmenu()"
+                            [disabled]="importBusy"
                           >
-                            Export (Share)
+                            Backup (Json)
+                          </button>
+
+                          <button
+                            type="button"
+                            class="w-full py-2 rounded-xl bg-indigo-600/90 hover:bg-indigo-600 text-white text-sm"
+                            (click)="onChooseImport()"
+                            [disabled]="importBusy"
+                          >
+                            Restore (Json)
+                          </button>
+
+                          <button
+                            type="button"
+                            class="w-full py-2 rounded-xl bg-indigo-600/90 hover:bg-indigo-600 text-white text-sm"
+                            (click)="onChooseImport()"
+                            [disabled]="importBusy"
+                          >
+                            Import (File from another user)
                           </button>
 
                           <button
                             type="button"
                             class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
-                            (click)="closeExportImportDataModal()"
+                            (click)="closeExportImportModal()"
+                            [disabled]="importBusy"
                           >
                             Cancel
                           </button>
-                        </div>
-                      </div>
-                    </div>
+                        </ng-container>
 
-                    <!-- Preferences -->
-                    <div class="flex flex-col items-center">
-                      <button
-                        class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-zinc-500 via-slate-600 to-slate-900 hover:scale-105 active:scale-95 transition"
-                        (click)="openPreferences()"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
-                          <path
-                            class="fill-white"
-                            d="M12 8a4 4 0 100 8 4 4 0 000-8Zm9 4a7.7 7.7 0 00-.12-1.35l2.02-1.57-2-3.46-2.42.98a8.2 8.2 0 00-2.34-1.35L13.8 2h-3.6L9.86 5.25A8.2 8.2 0 007.52 6.6L5.1 5.62l-2 3.46 2.02 1.57A7.7 7.7 0 005 12c0 .46.04.91.12 1.35L3.1 14.92l2 3.46 2.42-.98c.72.58 1.5 1.03 2.34 1.35L10.2 22h3.6l.34-3.25c.84-.32 1.62-.77 2.34-1.35l2.42.98 2-3.46-2.02-1.57c.08-.44.12-.89.12-1.35Z"
-                          />
-                        </svg>
-                      </button>
-
-                      <span class="mt-1 text-[10px] text-gray-300">Preferences</span>
-                      <span class="text-[9px] text-gray-500 italic mt-0.5">Profile & units</span>
-                    </div>
-                  </div>
-
-                  <!-- Preferences panel (moved here from Tools) -->
-
-                  <!-- Preferences screen (FULLSCREEN overlay) -->
-                  <div
-                    *ngIf="selectedTool === 'preferences'"
-                    class="fixed inset-0 z-[9999] bg-[#111827] text-white pt-[18px] overflow-hidden"
-                  >
-                    <!-- Screen body -->
-                    <div
-                      class="h-full w-full flex justify-center overflow-y-auto overscroll-contain pb-[calc(96px+env(safe-area-inset-bottom))]"
-                    >
-                      <div
-                        class="w-full max-w-sm md:max-w-3xl lg:max-w-5xl xl:max-w-6xl px-3 pt-4 pb-[calc(120px+env(safe-area-inset-bottom))]"
-                      >
-                        <!-- Header row (Back + title) -->
-                        <div
-                          class="sticky top-0 z-10 flex items-center justify-between gap-2 mb-3 bg-[#111827] pt-1"
-                        >
-                          <!-- Spacer to balance layout -->
-                          <div class="w-[64px]"></div>
-
-                          <div class="text-[12px] font-semibold text-gray-100">Preferences</div>
+                        <!-- EXPORT SUBMENU -->
+                        <ng-template #exportSubmenu>
+                          <button
+                            type="button"
+                            class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
+                            (click)="onExportSaveLocal()"
+                          >
+                            Save to file (device)
+                          </button>
 
                           <button
                             type="button"
-                            class="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-semibold"
-                            (click)="closePreferences()"
+                            class="w-full py-2 rounded-xl bg-sky-600/90 hover:bg-sky-600 text-white text-sm"
+                            (click)="onExportShare()"
                           >
-                            Back
+                            Share to app
                           </button>
+
+                          <button
+                            type="button"
+                            class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
+                            (click)="closeExportImportModal()"
+                          >
+                            Cancel
+                          </button>
+                        </ng-template>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Preferences -->
+                  <div class="flex flex-col items-center">
+                    <button
+                      class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-zinc-500 via-slate-600 to-slate-900 hover:scale-105 active:scale-95 transition"
+                      (click)="openPreferences()"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+                        <path
+                          class="fill-white"
+                          d="M12 8a4 4 0 100 8 4 4 0 000-8Zm9 4a7.7 7.7 0 00-.12-1.35l2.02-1.57-2-3.46-2.42.98a8.2 8.2 0 00-2.34-1.35L13.8 2h-3.6L9.86 5.25A8.2 8.2 0 007.52 6.6L5.1 5.62l-2 3.46 2.02 1.57A7.7 7.7 0 005 12c0 .46.04.91.12 1.35L3.1 14.92l2 3.46 2.42-.98c.72.58 1.5 1.03 2.34 1.35L10.2 22h3.6l.34-3.25c.84-.32 1.62-.77 2.34-1.35l2.42.98 2-3.46-2.02-1.57c.08-.44.12-.89.12-1.35Z"
+                        />
+                      </svg>
+                    </button>
+
+                    <span class="mt-1 text-[10px] text-gray-300">Preferences</span>
+                    <span class="text-[9px] text-gray-500 italic mt-0.5">Profile & units</span>
+                  </div>
+                </div>
+
+                <!-- Preferences panel (moved here from Tools) -->
+
+                <!-- Preferences screen (FULLSCREEN overlay) -->
+                <div
+                  *ngIf="selectedTool === 'preferences'"
+                  class="fixed inset-0 z-[9999] bg-[#111827] text-white pt-[18px] overflow-hidden"
+                >
+                  <!-- Screen body -->
+                  <div
+                    class="h-full w-full flex justify-center overflow-y-auto overscroll-contain pb-[calc(96px+env(safe-area-inset-bottom))]"
+                  >
+                    <div
+                      class="w-full max-w-sm md:max-w-3xl lg:max-w-5xl xl:max-w-6xl px-3 pt-4 pb-[calc(120px+env(safe-area-inset-bottom))]"
+                    >
+                      <!-- Header row (Back + title) -->
+                      <div
+                        class="sticky top-0 z-10 flex items-center justify-between gap-2 mb-3 bg-[#111827] pt-1"
+                      >
+                        <!-- Spacer to balance layout -->
+                        <div class="w-[64px]"></div>
+
+                        <div class="text-[12px] font-semibold text-gray-100">Preferences</div>
+
+                        <button
+                          type="button"
+                          class="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-semibold"
+                          (click)="closePreferences()"
+                        >
+                          Back
+                        </button>
+                      </div>
+
+                      <div *ngIf="preferencesSavedMsg" class="text-[10px] text-emerald-300 mb-2">
+                        {{ preferencesSavedMsg }}
+                      </div>
+
+                      <!-- Card -->
+                      <div class="rounded-2xl bg-black/30 border border-gray-700 p-3 space-y-3">
+                        <div class="text-[11px] text-gray-300">
+                          Units & Display (v1) — these defaults will be used across the app.
                         </div>
 
-                        <div *ngIf="preferencesSavedMsg" class="text-[10px] text-emerald-300 mb-2">
-                          {{ preferencesSavedMsg }}
-                        </div>
-
-                        <!-- Card -->
-                        <div class="rounded-2xl bg-black/30 border border-gray-700 p-3 space-y-3">
-                          <div class="text-[11px] text-gray-300">
-                            Units & Display (v1) — these defaults will be used across the app.
-                          </div>
-
-                          <!-- helper: option button with square blue tick -->
-                          <!-- Distance -->
-                          <div class="grid grid-cols-3 gap-3">
-                            <div>
-                              <div class="text-[11px] font-semibold text-gray-200 mb-1">
-                                Distance
-                              </div>
-                              <div class="grid grid-cols-1 gap-2 text-[11px]">
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                        <!-- helper: option button with square blue tick -->
+                        <!-- Distance -->
+                        <div class="grid grid-cols-3 gap-3">
+                          <div>
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">Distance</div>
+                            <div class="grid grid-cols-1 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.distanceUnit === 'm'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.distanceUnit = 'm'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.distanceUnit === 'm'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.distanceUnit = 'm'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.distanceUnit === 'm'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.distanceUnit === 'm'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.distanceUnit === 'm'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>Meters (m)</span>
-                                </button>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>Meters (m)</span>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.distanceUnit === 'yd'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.distanceUnit = 'yd'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.distanceUnit === 'yd'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.distanceUnit = 'yd'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.distanceUnit === 'yd'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.distanceUnit === 'yd'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.distanceUnit === 'yd'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>Yards (yd)</span>
-                                </button>
-                              </div>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>Yards (yd)</span>
+                              </button>
                             </div>
+                          </div>
 
-                            <!-- Load Dev COAL / Ogive -->
-                            <div class="mt-2">
-                              <div class="text-[11px] font-semibold text-gray-200 mb-1">
-                                Load Dev (COAL/Ogive)
-                              </div>
-                              <div class="grid grid-cols-1 gap-2 text-[11px]">
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                          <!-- Load Dev COAL / Ogive -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                              Load Dev (COAL/Ogive)
+                            </div>
+                            <div class="grid grid-cols-1 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.loadDevOalUnit === 'mm'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.loadDevOalUnit = 'mm'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.loadDevOalUnit === 'mm'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.loadDevOalUnit = 'mm'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.loadDevOalUnit === 'mm'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.loadDevOalUnit === 'mm'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.loadDevOalUnit === 'mm'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>mm</span>
-                                </button>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>mm</span>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.loadDevOalUnit === 'in'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.loadDevOalUnit = 'in'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.loadDevOalUnit === 'in'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.loadDevOalUnit = 'in'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.loadDevOalUnit === 'in'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.loadDevOalUnit === 'in'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.loadDevOalUnit === 'in'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>Inches (in)</span>
-                                </button>
-                              </div>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>Inches (in)</span>
+                              </button>
                             </div>
+                          </div>
 
-                            <!-- Velocity -->
-                            <div class="mt-2">
-                              <div class="text-[11px] font-semibold text-gray-200 mb-1">
-                                Velocity
-                              </div>
-                              <div class="grid grid-cols-1 gap-2 text-[11px]">
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                          <!-- Velocity -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">Velocity</div>
+                            <div class="grid grid-cols-1 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.velocityUnit === 'mps'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.velocityUnit = 'mps'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.velocityUnit === 'mps'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.velocityUnit = 'mps'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.velocityUnit === 'mps'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.velocityUnit === 'mps'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.velocityUnit === 'mps'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>m/s</span>
-                                </button>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>m/s</span>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.velocityUnit === 'fps'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.velocityUnit = 'fps'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.velocityUnit === 'fps'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.velocityUnit = 'fps'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.velocityUnit === 'fps'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.velocityUnit === 'fps'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.velocityUnit === 'fps'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>fps</span>
-                                </button>
-                              </div>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>fps</span>
+                              </button>
                             </div>
+                          </div>
 
-                            <!-- Temperature -->
-                            <div class="mt-2">
-                              <div class="text-[11px] font-semibold text-gray-200 mb-1">
-                                Temperature
-                              </div>
-                              <div class="grid grid-cols-1 gap-2 text-[11px]">
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                          <!-- Temperature -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                              Temperature
+                            </div>
+                            <div class="grid grid-cols-1 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.temperatureUnit === 'c'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.temperatureUnit = 'c'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.temperatureUnit === 'c'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.temperatureUnit = 'c'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.temperatureUnit === 'c'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.temperatureUnit === 'c'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.temperatureUnit === 'c'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>°C</span>
-                                </button>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>°C</span>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.temperatureUnit === 'f'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.temperatureUnit = 'f'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.temperatureUnit === 'f'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.temperatureUnit = 'f'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.temperatureUnit === 'f'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.temperatureUnit === 'f'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.temperatureUnit === 'f'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>°F</span>
-                                </button>
-                              </div>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>°F</span>
+                              </button>
                             </div>
+                          </div>
 
-                            <!-- Pressure -->
-                            <div class="mt-2">
-                              <div class="text-[11px] font-semibold text-gray-200 mb-1">
-                                Pressure
-                              </div>
-                              <div class="grid grid-cols-1 gap-2 text-[11px]">
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                          <!-- Pressure -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">Pressure</div>
+                            <div class="grid grid-cols-1 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.pressureUnit === 'hpa'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.pressureUnit = 'hpa'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.pressureUnit === 'hpa'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.pressureUnit = 'hpa'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.pressureUnit === 'hpa'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.pressureUnit === 'hpa'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.pressureUnit === 'hpa'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>hPa</span>
-                                </button>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>hPa</span>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.pressureUnit === 'inhg'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.pressureUnit = 'inhg'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.pressureUnit === 'inhg'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.pressureUnit = 'inhg'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.pressureUnit === 'inhg'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.pressureUnit === 'inhg'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.pressureUnit === 'inhg'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>inHg</span>
-                                </button>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>inHg</span>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.pressureUnit === 'mmhg'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.pressureUnit = 'mmhg'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.pressureUnit === 'mmhg'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.pressureUnit = 'mmhg'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.pressureUnit === 'mmhg'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.pressureUnit === 'mmhg'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.pressureUnit === 'mmhg'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>mmHg</span>
-                                </button>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>mmHg</span>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.pressureUnit === 'kpa'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.pressureUnit = 'kpa'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.pressureUnit === 'kpa'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.pressureUnit = 'kpa'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.pressureUnit === 'kpa'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.pressureUnit === 'kpa'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.pressureUnit === 'kpa'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>kPa</span>
-                                </button>
-                              </div>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>kPa</span>
+                              </button>
                             </div>
+                          </div>
 
-                            <!-- Wind speed -->
-                            <div class="mt-2">
-                              <div class="text-[11px] font-semibold text-gray-200 mb-1">
-                                Wind speed
-                              </div>
-                              <div class="grid grid-cols-1 gap-2 text-[11px]">
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                          <!-- Wind speed -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                              Wind speed
+                            </div>
+                            <div class="grid grid-cols-1 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.windSpeedUnit === 'kmh'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.windSpeedUnit = 'kmh'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.windSpeedUnit === 'kmh'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.windSpeedUnit = 'kmh'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.windSpeedUnit === 'kmh'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.windSpeedUnit === 'kmh'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.windSpeedUnit === 'kmh'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>km/h</span>
-                                </button>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>km/h</span>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.windSpeedUnit === 'mph'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.windSpeedUnit = 'mph'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.windSpeedUnit === 'mph'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.windSpeedUnit = 'mph'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.windSpeedUnit === 'mph'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.windSpeedUnit === 'mph'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.windSpeedUnit === 'mph'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>mph</span>
-                                </button>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>mph</span>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.windSpeedUnit === 'ms'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.windSpeedUnit = 'ms'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.windSpeedUnit === 'ms'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.windSpeedUnit = 'ms'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.windSpeedUnit === 'ms'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.windSpeedUnit === 'ms'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.windSpeedUnit === 'ms'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>m/s</span>
-                                </button>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>m/s</span>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.windSpeedUnit === 'kn'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.windSpeedUnit = 'kn'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.windSpeedUnit === 'kn'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.windSpeedUnit = 'kn'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.windSpeedUnit === 'kn'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.windSpeedUnit === 'kn'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.windSpeedUnit === 'kn'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>kn</span>
-                                </button>
-                              </div>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>kn</span>
+                              </button>
                             </div>
+                          </div>
 
-                            <!-- Angle display -->
-                            <div class="mt-2">
-                              <div class="text-[11px] font-semibold text-gray-200 mb-1">
-                                Angle display
-                              </div>
-                              <div class="grid grid-cols-1 gap-2 text-[11px]">
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                          <!-- Angle display -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                              Angle display
+                            </div>
+                            <div class="grid grid-cols-1 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.angleDisplay === 'degrees'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.angleDisplay = 'degrees'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.angleDisplay === 'degrees'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.angleDisplay = 'degrees'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.angleDisplay === 'degrees'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.angleDisplay === 'degrees'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.angleDisplay === 'degrees'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>Degrees</span>
-                                </button>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>Degrees</span>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.angleDisplay === 'clock'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.angleDisplay = 'clock'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.angleDisplay === 'clock'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.angleDisplay = 'clock'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.angleDisplay === 'clock'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.angleDisplay === 'clock'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.angleDisplay === 'clock'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>Clock system</span>
-                                </button>
-                              </div>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>Clock system</span>
+                              </button>
                             </div>
+                          </div>
 
-                            <!-- Scope adjustment -->
-                            <div class="mt-2">
-                              <div class="text-[11px] font-semibold text-gray-200 mb-1">
-                                Scope adjustment
-                              </div>
-                              <div class="grid grid-cols-1 gap-2 text-[11px]">
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                          <!-- Scope adjustment -->
+                          <div class="mt-2">
+                            <div class="text-[11px] font-semibold text-gray-200 mb-1">
+                              Scope adjustment
+                            </div>
+                            <div class="grid grid-cols-1 gap-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.scopeAdjust === 'mil'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.scopeAdjust = 'mil'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.scopeAdjust === 'mil'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.scopeAdjust = 'mil'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.scopeAdjust === 'mil'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.scopeAdjust === 'mil'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.scopeAdjust === 'mil'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>MIL</span>
-                                </button>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>MIL</span>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                              <button
+                                type="button"
+                                class="flex items-center gap-2 rounded-lg border px-2 py-2 text-left"
+                                [ngClass]="
+                                  prefs.scopeAdjust === 'moa'
+                                    ? 'border-sky-400 bg-black/40'
+                                    : 'border-gray-700 bg-black/30'
+                                "
+                                (click)="prefs.scopeAdjust = 'moa'"
+                              >
+                                <span
+                                  class="w-4 h-4 border flex items-center justify-center"
                                   [ngClass]="
                                     prefs.scopeAdjust === 'moa'
-                                      ? 'border-sky-400 bg-black/40'
-                                      : 'border-gray-700 bg-black/30'
+                                      ? 'bg-sky-500 border-sky-400'
+                                      : 'bg-black/30 border-gray-500'
                                   "
-                                  (click)="prefs.scopeAdjust = 'moa'"
                                 >
-                                  <span
-                                    class="w-4 h-4 border flex items-center justify-center"
-                                    [ngClass]="
-                                      prefs.scopeAdjust === 'moa'
-                                        ? 'bg-sky-500 border-sky-400'
-                                        : 'bg-black/30 border-gray-500'
-                                    "
+                                  <svg
+                                    *ngIf="prefs.scopeAdjust === 'moa'"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    class="w-3 h-3"
                                   >
-                                    <svg
-                                      *ngIf="prefs.scopeAdjust === 'moa'"
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 24 24"
-                                      class="w-3 h-3"
-                                    >
-                                      <path
-                                        class="fill-white"
-                                        d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span>MOA</span>
-                                </button>
-                              </div>
+                                    <path
+                                      class="fill-white"
+                                      d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"
+                                    />
+                                  </svg>
+                                </span>
+                                <span>MOA</span>
+                              </button>
                             </div>
                           </div>
+                        </div>
 
-                          <!-- Actions -->
-                          <div class="mt-2 grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              class="px-3 py-2 rounded-lg bg-emerald-700 text-[11px] text-gray-100 font-semibold"
-                              (click)="savePreferences()"
-                            >
-                              Save
-                            </button>
+                        <!-- Actions -->
+                        <div class="mt-2 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            class="px-3 py-2 rounded-lg bg-emerald-700 text-[11px] text-gray-100 font-semibold"
+                            (click)="savePreferences()"
+                          >
+                            Save
+                          </button>
 
-                            <button
-                              type="button"
-                              class="px-3 py-2 rounded-lg bg-gray-700 text-[11px] text-gray-100 font-semibold"
-                              (click)="closePreferences()"
-                            >
-                              Close
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            class="px-3 py-2 rounded-lg bg-gray-700 text-[11px] text-gray-100 font-semibold"
+                            (click)="closePreferences()"
+                          >
+                            Close
+                          </button>
                         </div>
                       </div>
                     </div>
