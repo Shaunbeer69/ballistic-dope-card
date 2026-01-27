@@ -2576,6 +2576,16 @@ const result = this.dataService.importFromBackupMerge(parsed);
     const data: any = (payload as any)?.data ?? {};
     const rifles: any[] = Array.isArray(data?.rifles) ? data.rifles : [];
     const venues: any[] = Array.isArray(data?.venues) ? data.venues : [];
+    
+        const sessions: any[] = Array.isArray(data?.sessions) ? data.sessions : [];
+    const loadDevProjects: any[] = Array.isArray(data?.loadDevProjects) ? data.loadDevProjects : [];
+
+    const rifleNameById = new Map<number, string>(
+      (rifles ?? []).map((r: any) => [Number(r?.id), String(r?.name ?? '')])
+    );
+    const venueNameById = new Map<number, string>(
+      (venues ?? []).map((v: any) => [Number(v?.id), String(v?.name ?? '')])
+    );
 
     // ---------- Rifles ----------
     if (rifles.length) {
@@ -2687,6 +2697,356 @@ const result = this.dataService.importFromBackupMerge(parsed);
       });
 
       y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+    }
+    // ---------- Sessions ----------
+    if (sessions.length) {
+      const pageHeight = doc.internal.pageSize.getHeight();
+      if (y > pageHeight - 40) {
+        doc.addPage();
+        y = 12;
+      }
+
+      doc.setFontSize(12);
+      doc.text(`Sessions (${sessions.length})`, 10, y);
+      y += 4;
+
+      const sessionBody = sessions.map((s: any) => {
+        const dt =
+          s?.date ??
+          s?.sessionDate ??
+          s?.createdAt ??
+          s?.created ??
+          s?.timestamp ??
+          '';
+
+        const rifleName = s?.rifleName ?? s?.rifle?.name ?? s?.rifle ?? '';
+        const venueName = s?.venueName ?? s?.venue?.name ?? s?.venue ?? '';
+        const dist =
+          s?.distance ??
+          s?.range ??
+          s?.distanceM ??
+          s?.rangeM ??
+          '';
+
+        const shotsArr = Array.isArray(s?.shots) ? s.shots : [];
+        const shotsCount = shotsArr.length || s?.shotCount || s?.shotsCount || '';
+
+        return [
+          `${dt ?? ''}`.toString(),
+          `${rifleName ?? ''}`.toString(),
+          `${venueName ?? ''}`.toString(),
+          `${dist ?? ''}`.toString(),
+          `${shotsCount ?? ''}`.toString(),
+          `${s?.notes ?? s?.comment ?? ''}`.toString(),
+        ];
+      });
+
+      autoTableMod.default(doc, {
+        startY: y,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fontSize: 8 },
+        head: [['Date', 'Rifle', 'Venue', 'Dist', 'Shots', 'Notes']],
+        body: sessionBody,
+      });
+
+      y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+
+      // If shots exist (and you ticked Shot data), include a per-session shots table when present.
+      for (const s of sessions) {
+        const shotsArr = Array.isArray(s?.shots) ? s.shots : [];
+        if (!shotsArr.length) continue;
+
+        const pageHeight2 = doc.internal.pageSize.getHeight();
+        if (y > pageHeight2 - 40) {
+          doc.addPage();
+          y = 12;
+        }
+
+        doc.setFontSize(11);
+        doc.text(
+          `Shots (${shotsArr.length}) — ${s?.rifleName ?? s?.rifle?.name ?? s?.rifle ?? ''} @ ${s?.venueName ?? s?.venue?.name ?? s?.venue ?? ''}`,
+          10,
+          y
+        );
+        y += 4;
+
+        const shotBody = shotsArr.map((sh: any, idx: number) => {
+          const dist =
+            sh?.distance ??
+            sh?.range ??
+            sh?.distanceM ??
+            sh?.rangeM ??
+            '';
+
+          const elev =
+            sh?.elevation ??
+            sh?.drop ??
+            sh?.elev ??
+            '';
+
+          const wind =
+            sh?.wind ??
+            sh?.drift ??
+            sh?.windHold ??
+            '';
+
+          const poi =
+            sh?.poi ??
+            sh?.impact ??
+            sh?.hit ??
+            '';
+
+          const note = sh?.notes ?? sh?.comment ?? '';
+          return [
+            `${idx + 1}`,
+            `${dist ?? ''}`,
+            `${elev ?? ''}`,
+            `${wind ?? ''}`,
+            `${poi ?? ''}`,
+            `${note ?? ''}`,
+          ];
+        });
+
+        autoTableMod.default(doc, {
+          startY: y,
+          theme: 'grid',
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fontSize: 8 },
+          head: [['#', 'Dist', 'Elev/Drop', 'Wind/Drift', 'POI', 'Notes']],
+          body: shotBody,
+        });
+
+        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+      }
+    }
+
+    // ---------- Load Development Projects ----------
+    if (loadDevProjects.length) {
+      const pageHeight = doc.internal.pageSize.getHeight();
+      if (y > pageHeight - 40) {
+        doc.addPage();
+        y = 12;
+      }
+
+      doc.setFontSize(12);
+      doc.text(`Load Development (${loadDevProjects.length})`, 10, y);
+      y += 4;
+
+      for (const p of loadDevProjects) {
+        const pageHeight2 = doc.internal.pageSize.getHeight();
+        if (y > pageHeight2 - 40) {
+          doc.addPage();
+          y = 12;
+        }
+
+        const title = `${p?.name ?? p?.projectName ?? 'Project'}${p?.rifleName ? ' — ' + p.rifleName : ''}`;
+        doc.setFontSize(11);
+        doc.text(title, 10, y);
+        y += 3;
+
+        const projRows: Array<[string, string]> = [
+          ['Rifle', `${p?.rifleName ?? p?.rifle?.name ?? p?.rifle ?? '-'}`],
+          ['Venue', `${p?.venueName ?? p?.venue?.name ?? p?.venue ?? '-'}`],
+          ['Notes', `${p?.notes ?? '-'}`],
+        ];
+
+        autoTableMod.default(doc, {
+          startY: y,
+          theme: 'grid',
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: pageWidth - 20 - 45 } },
+          body: projRows.map(([k, v]) => [k, v]),
+        });
+
+        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 5 : y + 25;
+
+        // Entries: support multiple possible shapes (entries / ocwEntries / ladderEntries)
+        const entries: any[] = []
+          .concat(Array.isArray(p?.entries) ? p.entries : [])
+          .concat(Array.isArray(p?.ocwEntries) ? p.ocwEntries : [])
+          .concat(Array.isArray(p?.ladderEntries) ? p.ladderEntries : []);
+
+        if (entries.length) {
+          const body = entries.map((e: any) => [
+            `${e?.type ?? e?.mode ?? ''}`,
+            `${e?.charge ?? e?.chargeGn ?? e?.powderCharge ?? ''}`,
+            `${e?.vel ?? e?.velocity ?? e?.aveVelocityFps ?? ''}`,
+            `${e?.es ?? e?.extremeSpread ?? ''}`,
+            `${e?.sd ?? e?.stdDev ?? ''}`,
+            `${e?.group ?? e?.groupSize ?? ''}`,
+            `${e?.notes ?? e?.comment ?? ''}`,
+          ]);
+
+          autoTableMod.default(doc, {
+            startY: y,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fontSize: 8 },
+            head: [['Type', 'Charge', 'Vel', 'ES', 'SD', 'Group', 'Notes']],
+            body,
+          });
+
+          y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+        }
+      }
+    }
+    // ---------- Sessions ----------
+    if (sessions.length) {
+      const pageHeight = doc.internal.pageSize.getHeight();
+      if (y > pageHeight - 40) {
+        doc.addPage();
+        y = 12;
+      }
+
+      doc.setFontSize(12);
+      doc.text(`Sessions (${sessions.length})`, 10, y);
+      y += 4;
+
+      const sessionBody = sessions.map((s: any) => {
+        const rifleName = rifleNameById.get(Number(s?.rifleId)) || `#${s?.rifleId ?? ''}`;
+        const venueName = venueNameById.get(Number(s?.venueId)) || `#${s?.venueId ?? ''}`;
+        const shotsArr = Array.isArray(s?.dope) ? s.dope : [];
+        const shotsCount = shotsArr.length;
+
+        return [
+          `${s?.date ?? ''}`,
+          `${s?.title ?? ''}`,
+          `${rifleName}`,
+          `${venueName}`,
+          `${shotsCount}`,
+          `${s?.completed ? 'Yes' : 'No'}`,
+          `${s?.notes ?? ''}`,
+        ];
+      });
+
+      autoTableMod.default(doc, {
+        startY: y,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fontSize: 8 },
+        head: [['Date', 'Title', 'Rifle', 'Venue', 'Shots', 'Done', 'Notes']],
+        body: sessionBody,
+      });
+
+      y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+
+      // ---------- Shots (per session) ----------
+      for (const s of sessions) {
+        const shotsArr = Array.isArray(s?.dope) ? s.dope : [];
+        if (!shotsArr.length) continue;
+
+        const pageHeight2 = doc.internal.pageSize.getHeight();
+        if (y > pageHeight2 - 40) {
+          doc.addPage();
+          y = 12;
+        }
+
+        const rifleName = rifleNameById.get(Number(s?.rifleId)) || `#${s?.rifleId ?? ''}`;
+        const venueName = venueNameById.get(Number(s?.venueId)) || `#${s?.venueId ?? ''}`;
+
+        doc.setFontSize(11);
+        doc.text(`Shots (${shotsArr.length}) — ${rifleName} @ ${venueName}`, 10, y);
+        y += 4;
+
+        const shotBody = shotsArr.map((sh: any, idx: number) => {
+          // We don't assume field names; we show common ones + a compact fallback
+          const dist = sh?.distance ?? sh?.range ?? sh?.rangeM ?? sh?.distanceM ?? '';
+          const elev = sh?.elevation ?? sh?.drop ?? sh?.elev ?? '';
+          const wind = sh?.wind ?? sh?.drift ?? sh?.windHold ?? '';
+          const note = sh?.notes ?? sh?.comment ?? '';
+          const raw = (() => {
+            try {
+              const s = JSON.stringify(sh);
+              return s.length > 120 ? s.slice(0, 120) + '…' : s;
+            } catch {
+              return '';
+            }
+          })();
+
+          return [`${idx + 1}`, `${dist}`, `${elev}`, `${wind}`, `${note}`, `${raw}`];
+        });
+
+        autoTableMod.default(doc, {
+          startY: y,
+          theme: 'grid',
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fontSize: 8 },
+          head: [['#', 'Dist', 'Elev/Drop', 'Wind/Drift', 'Notes', 'Raw']],
+          body: shotBody,
+        });
+
+        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+      }
+    }
+
+    // ---------- Load Development ----------
+    if (loadDevProjects.length) {
+      const pageHeight = doc.internal.pageSize.getHeight();
+      if (y > pageHeight - 40) {
+        doc.addPage();
+        y = 12;
+      }
+
+      doc.setFontSize(12);
+      doc.text(`Load Development (${loadDevProjects.length})`, 10, y);
+      y += 4;
+
+      for (const p of loadDevProjects) {
+        const pageHeight2 = doc.internal.pageSize.getHeight();
+        if (y > pageHeight2 - 40) {
+          doc.addPage();
+          y = 12;
+        }
+
+        const rifleName = rifleNameById.get(Number(p?.rifleId)) || `#${p?.rifleId ?? ''}`;
+        const title = `${p?.name ?? 'Project'} — ${rifleName}`;
+
+        doc.setFontSize(11);
+        doc.text(title, 10, y);
+        y += 3;
+
+        const projRows: Array<[string, string]> = [
+          ['Type', `${p?.type ?? '-'}`],
+          ['Date started', `${p?.dateStarted ?? '-'}`],
+          ['Notes', `${p?.notes ?? '-'}`],
+        ];
+
+        autoTableMod.default(doc, {
+          startY: y,
+          theme: 'grid',
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fontSize: 9 },
+          columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: pageWidth - 20 - 45 } },
+          body: projRows.map(([k, v]) => [k, v]),
+        });
+
+        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 5 : y + 25;
+
+        const entries: any[] = Array.isArray(p?.entries) ? p.entries : [];
+        if (entries.length) {
+          const entryBody = entries.map((e: any) => {
+            const charge = e?.chargeGr ?? e?.charge ?? '';
+            const shotsFired = e?.shotsFired ?? '';
+            const velocity = e?.velocity ?? e?.aveVelocityFps ?? '';
+            const velocityInput = e?.velocityInput ?? '';
+            const notes = e?.notes ?? '';
+            return [`${charge}`, `${shotsFired}`, `${velocity}`, `${velocityInput}`, `${notes}`];
+          });
+
+          autoTableMod.default(doc, {
+            startY: y,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fontSize: 8 },
+            head: [['Charge', 'Shots', 'Velocity', 'Velocity Input', 'Notes']],
+            body: entryBody,
+          });
+
+          y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+        }
+      }
     }
 
     const filename =
@@ -2993,6 +3353,8 @@ async exportLoadDevBackup(shareAfterSave: boolean = true): Promise<void> {
 
   if (Capacitor.isNativePlatform()) {
     try {
+            await Filesystem.requestPermissions();
+
       const path = filename;
 
       await Filesystem.writeFile({

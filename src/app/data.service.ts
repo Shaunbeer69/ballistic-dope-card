@@ -267,17 +267,43 @@ exportSelectiveShare(opts: any): any | null {
     }
   }
 
-  // De-dupe sessions by id (rifle+venue selections can overlap)
+    // De-dupe sessions by id (rifle+venue selections can overlap)
+  // IMPORTANT: Prefer the "richer" version when duplicates exist (keep dope if present).
   if (Array.isArray(out.data.sessions)) {
-    const seen = new Set<number>();
-    out.data.sessions = out.data.sessions.filter((s: any) => {
+    const byId = new Map<number, any>();
+    const ordered: any[] = [];
+
+    for (const s of out.data.sessions) {
       const id = Number(s?.id);
-      if (!Number.isFinite(id)) return true;
-      if (seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    });
+
+      // If id is not numeric, just keep as-is (can't dedupe reliably)
+      if (!Number.isFinite(id)) {
+        ordered.push(s);
+        continue;
+      }
+
+      const existing = byId.get(id);
+
+      if (!existing) {
+        byId.set(id, s);
+        ordered.push(s);
+        continue;
+      }
+
+      const existingDopeLen = Array.isArray(existing?.dope) ? existing.dope.length : 0;
+      const incomingDopeLen = Array.isArray(s?.dope) ? s.dope.length : 0;
+
+      // If the existing one has no shots but the incoming one does, replace it in-place.
+      if (existingDopeLen === 0 && incomingDopeLen > 0) {
+        byId.set(id, s);
+        const idx = ordered.findIndex(x => Number(x?.id) === id);
+        if (idx >= 0) ordered[idx] = s;
+      }
+    }
+
+    out.data.sessions = ordered;
   }
+
 
   const hasAny =
     (out.data.rifles?.length ?? 0) +
