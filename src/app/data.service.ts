@@ -304,6 +304,13 @@ exportSelectiveShare(opts: any): any | null {
     out.data.sessions = ordered;
   }
 
+  // Make the share payload compatible with importFromBackupMerge (expects store.* or flat arrays)
+  out.store = {
+    rifles: out.data.rifles ?? [],
+    venues: out.data.venues ?? [],
+    sessions: out.data.sessions ?? [],
+    loadDevProjects: out.data.loadDevProjects ?? [],
+  };
 
   const hasAny =
     (out.data.rifles?.length ?? 0) +
@@ -314,6 +321,25 @@ exportSelectiveShare(opts: any): any | null {
 
   return hasAny ? out : null;
 }
+  /**
+   * Selective share export but shaped exactly like importFromBackupMerge expects:
+   * { schema, exportedAt, store: { rifles, venues, sessions, loadDevProjects } }
+   */
+  exportSelectiveShareForMerge(opts: any): any | null {
+    const base = this.exportSelectiveShare(opts);
+    if (!base) return null;
+
+    return {
+      schema: base.schema ?? 'ballistic-dope-card-share-v1',
+      exportedAt: base.exportedAt ?? new Date().toISOString(),
+      store: base.data ?? {
+        rifles: [],
+        venues: [],
+        sessions: [],
+        loadDevProjects: [],
+      },
+    };
+  }
 
     /**
    * Merge-import (append) a backup into existing data.

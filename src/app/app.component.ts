@@ -2327,6 +2327,10 @@ openExportImportDataModal(): void {
   // Default selections:
   // - If user chooses "All", the ID sets are ignored.
   // - If they untick "All", we start empty to force explicit selection.
+    // Reset the two top-level options so the modal always opens unselected
+  this.dataShareIncludeRifles = false;
+  this.dataShareIncludeVenues = false;
+
   if (this.dataShareAllRifles) this.dataShareRifleIds.clear();
   if (this.dataShareAllVenues) this.dataShareVenueIds.clear();
 }
@@ -2528,27 +2532,34 @@ const result = this.dataService.importFromBackupMerge(parsed);
       return;
     }
 
-    const payload = (this.dataService as any).exportSelectiveShare?.({
-      rifles: this.dataShareIncludeRifles
-        ? {
-            all: this.dataShareAllRifles,
-            ids: selectedRifleIds,
-            includeRifleData: this.dataShareRifleData,
-            includeLoadDev: this.dataShareRifleLoadDev,
-            includeSessions: this.dataShareRifleSessions,
-            includeShots: this.dataShareRifleShots,
-          }
-        : null,
-      venues: this.dataShareIncludeVenues
-        ? {
-            all: this.dataShareAllVenues,
-            ids: selectedVenueIds,
-            includeVenueData: this.dataShareVenueData,
-            includeSessions: this.dataShareVenueSessions,
-            includeShots: this.dataShareVenueShots,
-          }
-        : null,
-    });
+      const opts = {
+    rifles: this.dataShareIncludeRifles
+      ? {
+          all: this.dataShareAllRifles,
+          ids: selectedRifleIds,
+          includeRifleData: this.dataShareRifleData,
+          includeLoadDev: this.dataShareRifleLoadDev,
+          includeSessions: this.dataShareRifleSessions,
+          includeShots: this.dataShareRifleShots,
+        }
+      : null,
+    venues: this.dataShareIncludeVenues
+      ? {
+          all: this.dataShareAllVenues,
+          ids: selectedVenueIds,
+          includeVenueData: this.dataShareVenueData,
+          includeSessions: this.dataShareVenueSessions,
+          includeShots: this.dataShareVenueShots,
+        }
+      : null,
+  };
+
+  // IMPORTANT:
+  // - File share must be merge-import compatible => prefer exportSelectiveShareForMerge()
+  // - Fallback to exportSelectiveShare() if older builds don’t have it
+  const payload =
+    (this.dataService as any).exportSelectiveShareForMerge?.(opts) ??
+    (this.dataService as any).exportSelectiveShare?.(opts);
 
     if (!payload) {
       alert('Export failed: no data selected.');
@@ -2573,7 +2584,7 @@ const result = this.dataService.importFromBackupMerge(parsed);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 10, y);
     y += 8;
 
-    const data: any = (payload as any)?.data ?? {};
+   const data: any = (payload as any)?.data ?? (payload as any)?.store ?? {};
     const rifles: any[] = Array.isArray(data?.rifles) ? data.rifles : [];
     const venues: any[] = Array.isArray(data?.venues) ? data.venues : [];
     
@@ -2681,63 +2692,36 @@ const result = this.dataService.importFromBackupMerge(parsed);
       doc.text(`Venues (${venues.length})`, 10, y);
       y += 4;
 
-      const body = venues.map((v: any) => [
-        `${v?.name ?? ''}`,
-        `${v?.location ?? ''}`,
-        `${v?.notes ?? ''}`,
-      ]);
+         // Export venues with a cleaner display (subranges grouped + readable distances)
+      const fmt = (val: any) => {
+        if (val == null) return '';
+        if (typeof val === 'string') return val;
+        if (typeof val === 'number') return Number.isFinite(val) ? String(val) : '';
+        try {
+          return JSON.stringify(val);
+        } catch {
+          return String(val);
+        }
+      };
 
-      autoTableMod.default(doc, {
-        startY: y,
-        theme: 'grid',
-        styles: { fontSize: 9, cellPadding: 2 },
-        headStyles: { fontSize: 9 },
-        head: [['Name', 'Location', 'Notes']],
-        body,
-      });
+      // Summary table (one row per venue)
+      const venueSummaryRows = venues.map((v: any) => {
+        const distances =
+          Array.isArray(v?.distances) ? v.distances :
+          Array.isArray(v?.distancesM) ? v.distancesM :
+          [];
 
-      y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
-    }
-    // ---------- Sessions ----------
-    if (sessions.length) {
-      const pageHeight = doc.internal.pageSize.getHeight();
-      if (y > pageHeight - 40) {
-        doc.addPage();
-        y = 12;
-      }
-
-      doc.setFontSize(12);
-      doc.text(`Sessions (${sessions.length})`, 10, y);
-      y += 4;
-
-      const sessionBody = sessions.map((s: any) => {
-        const dt =
-          s?.date ??
-          s?.sessionDate ??
-          s?.createdAt ??
-          s?.created ??
-          s?.timestamp ??
-          '';
-
-        const rifleName = s?.rifleName ?? s?.rifle?.name ?? s?.rifle ?? '';
-        const venueName = s?.venueName ?? s?.venue?.name ?? s?.venue ?? '';
-        const dist =
-          s?.distance ??
-          s?.range ??
-          s?.distanceM ??
-          s?.rangeM ??
-          '';
-
-        const shotsArr = Array.isArray(s?.shots) ? s.shots : [];
-        const shotsCount = shotsArr.length || s?.shotCount || s?.shotsCount || '';
+        const subRanges =
+          Array.isArray(v?.subRanges) ? v.subRanges :
+          Array.isArray(v?.subranges) ? v.subranges :
+          [];
 
         return [
-          `${dt ?? ''}`.toString(),
-          `${rifleName ?? ''}`.toString(),
-          `${venueName ?? ''}`.toString(),
-          `${dist ?? ''}`.toString(),
-          `${shotsCount ?? ''}`.toString(),
-          `${s?.notes ?? s?.comment ?? ''}`.toString(),
+          `${v?.name ?? ''}`,
+          `${v?.location ?? ''}`,
+          `${v?.notes ?? ''}`,
+          `${distances.length}`,
+          `${subRanges.length}`,
         ];
       });
 
@@ -2746,66 +2730,92 @@ const result = this.dataService.importFromBackupMerge(parsed);
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: { fontSize: 8 },
-        head: [['Date', 'Rifle', 'Venue', 'Dist', 'Shots', 'Notes']],
-        body: sessionBody,
+        head: [['Name', 'Location', 'Notes', '#Distances', '#Subranges']],
+        body: venueSummaryRows,
       });
 
       y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
 
-      // If shots exist (and you ticked Shot data), include a per-session shots table when present.
-      for (const s of sessions) {
-        const shotsArr = Array.isArray(s?.shots) ? s.shots : [];
-        if (!shotsArr.length) continue;
+      // Detailed distances grouped by subrange for each venue
+      for (const v of venues as any[]) {
+        const distancesRaw =
+          Array.isArray(v?.distances) ? v.distances :
+          Array.isArray(v?.distancesM) ? v.distancesM :
+          [];
 
-        const pageHeight2 = doc.internal.pageSize.getHeight();
-        if (y > pageHeight2 - 40) {
+        const subRangesArr =
+          Array.isArray(v?.subRanges) ? v.subRanges :
+          Array.isArray(v?.subranges) ? v.subranges :
+          [];
+
+        const srNameById = new Map<number, string>();
+        for (const sr of subRangesArr) {
+          const id = Number((sr as any)?.id);
+          const name = (sr as any)?.name ?? (sr as any)?.title ?? '';
+          if (Number.isFinite(id) && String(name).trim()) srNameById.set(id, String(name));
+        }
+
+        // group distances under a subrange key
+        const groups = new Map<string, number[]>();
+
+        const addDist = (key: string, distVal: any) => {
+          const n = Number(distVal);
+          if (!Number.isFinite(n)) return;
+          const k = key || 'Main';
+          if (!groups.has(k)) groups.set(k, []);
+          groups.get(k)!.push(n);
+        };
+
+        for (const d of distancesRaw) {
+          if (typeof d === 'number') {
+            addDist('Main', d);
+            continue;
+          }
+
+          if (d && typeof d === 'object') {
+            const dist =
+              (d as any).distanceM ??
+              (d as any).distance ??
+              (d as any).m ??
+              (d as any).value ??
+              (d as any).meters;
+
+            const srId =
+              (d as any).subRangeId ??
+              (d as any).subrangeId ??
+              (d as any).subRange ??
+              (d as any).subrange;
+
+            const srName =
+              (d as any).subRangeName ??
+              (d as any).subrangeName ??
+              (d as any).name ??
+              (Number.isFinite(Number(srId)) ? srNameById.get(Number(srId)) : '') ??
+              (Number.isFinite(Number(srId)) ? `Subrange ${Number(srId)}` : 'Main');
+
+            addDist(String(srName || 'Main'), dist);
+            continue;
+          }
+
+          // fallback
+          addDist('Main', d);
+        }
+
+        if (groups.size === 0) continue;
+
+        // page break if needed
+        if (y > 260) {
           doc.addPage();
           y = 12;
         }
 
-        doc.setFontSize(11);
-        doc.text(
-          `Shots (${shotsArr.length}) — ${s?.rifleName ?? s?.rifle?.name ?? s?.rifle ?? ''} @ ${s?.venueName ?? s?.venue?.name ?? s?.venue ?? ''}`,
-          10,
-          y
-        );
+        doc.setFontSize(10);
+        doc.text(`Venue: ${v?.name ?? ''}`, 10, y);
         y += 4;
 
-        const shotBody = shotsArr.map((sh: any, idx: number) => {
-          const dist =
-            sh?.distance ??
-            sh?.range ??
-            sh?.distanceM ??
-            sh?.rangeM ??
-            '';
-
-          const elev =
-            sh?.elevation ??
-            sh?.drop ??
-            sh?.elev ??
-            '';
-
-          const wind =
-            sh?.wind ??
-            sh?.drift ??
-            sh?.windHold ??
-            '';
-
-          const poi =
-            sh?.poi ??
-            sh?.impact ??
-            sh?.hit ??
-            '';
-
-          const note = sh?.notes ?? sh?.comment ?? '';
-          return [
-            `${idx + 1}`,
-            `${dist ?? ''}`,
-            `${elev ?? ''}`,
-            `${wind ?? ''}`,
-            `${poi ?? ''}`,
-            `${note ?? ''}`,
-          ];
+        const groupRows = Array.from(groups.entries()).map(([k, arr]) => {
+          const uniq = Array.from(new Set(arr)).sort((a, b) => a - b);
+          return [k, uniq.join(', ')];
         });
 
         autoTableMod.default(doc, {
@@ -2813,85 +2823,15 @@ const result = this.dataService.importFromBackupMerge(parsed);
           theme: 'grid',
           styles: { fontSize: 8, cellPadding: 2 },
           headStyles: { fontSize: 8 },
-          head: [['#', 'Dist', 'Elev/Drop', 'Wind/Drift', 'POI', 'Notes']],
-          body: shotBody,
+          head: [['Subrange', 'Distances']],
+          body: groupRows,
         });
 
         y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
       }
-    }
 
-    // ---------- Load Development Projects ----------
-    if (loadDevProjects.length) {
-      const pageHeight = doc.internal.pageSize.getHeight();
-      if (y > pageHeight - 40) {
-        doc.addPage();
-        y = 12;
-      }
-
-      doc.setFontSize(12);
-      doc.text(`Load Development (${loadDevProjects.length})`, 10, y);
-      y += 4;
-
-      for (const p of loadDevProjects) {
-        const pageHeight2 = doc.internal.pageSize.getHeight();
-        if (y > pageHeight2 - 40) {
-          doc.addPage();
-          y = 12;
-        }
-
-        const title = `${p?.name ?? p?.projectName ?? 'Project'}${p?.rifleName ? ' — ' + p.rifleName : ''}`;
-        doc.setFontSize(11);
-        doc.text(title, 10, y);
-        y += 3;
-
-        const projRows: Array<[string, string]> = [
-          ['Rifle', `${p?.rifleName ?? p?.rifle?.name ?? p?.rifle ?? '-'}`],
-          ['Venue', `${p?.venueName ?? p?.venue?.name ?? p?.venue ?? '-'}`],
-          ['Notes', `${p?.notes ?? '-'}`],
-        ];
-
-        autoTableMod.default(doc, {
-          startY: y,
-          theme: 'grid',
-          styles: { fontSize: 9, cellPadding: 2 },
-          headStyles: { fontSize: 9 },
-          columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: pageWidth - 20 - 45 } },
-          body: projRows.map(([k, v]) => [k, v]),
-        });
-
-        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 5 : y + 25;
-
-        // Entries: support multiple possible shapes (entries / ocwEntries / ladderEntries)
-        const entries: any[] = []
-          .concat(Array.isArray(p?.entries) ? p.entries : [])
-          .concat(Array.isArray(p?.ocwEntries) ? p.ocwEntries : [])
-          .concat(Array.isArray(p?.ladderEntries) ? p.ladderEntries : []);
-
-        if (entries.length) {
-          const body = entries.map((e: any) => [
-            `${e?.type ?? e?.mode ?? ''}`,
-            `${e?.charge ?? e?.chargeGn ?? e?.powderCharge ?? ''}`,
-            `${e?.vel ?? e?.velocity ?? e?.aveVelocityFps ?? ''}`,
-            `${e?.es ?? e?.extremeSpread ?? ''}`,
-            `${e?.sd ?? e?.stdDev ?? ''}`,
-            `${e?.group ?? e?.groupSize ?? ''}`,
-            `${e?.notes ?? e?.comment ?? ''}`,
-          ]);
-
-          autoTableMod.default(doc, {
-            startY: y,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2 },
-            headStyles: { fontSize: 8 },
-            head: [['Type', 'Charge', 'Vel', 'ES', 'SD', 'Group', 'Notes']],
-            body,
-          });
-
-          y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
-        }
-      }
-    }
+   
+   
     // ---------- Sessions ----------
     if (sessions.length) {
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -2907,8 +2847,9 @@ const result = this.dataService.importFromBackupMerge(parsed);
       const sessionBody = sessions.map((s: any) => {
         const rifleName = rifleNameById.get(Number(s?.rifleId)) || `#${s?.rifleId ?? ''}`;
         const venueName = venueNameById.get(Number(s?.venueId)) || `#${s?.venueId ?? ''}`;
-        const shotsArr = Array.isArray(s?.dope) ? s.dope : [];
-        const shotsCount = shotsArr.length;
+                const allShots = this.extractAllDopeEntries(s);
+        const shotsCount = allShots.length;
+
 
         return [
           `${s?.date ?? ''}`,
@@ -2950,22 +2891,95 @@ const result = this.dataService.importFromBackupMerge(parsed);
         doc.text(`Shots (${shotsArr.length}) — ${rifleName} @ ${venueName}`, 10, y);
         y += 4;
 
-        const shotBody = shotsArr.map((sh: any, idx: number) => {
-          // We don't assume field names; we show common ones + a compact fallback
-          const dist = sh?.distance ?? sh?.range ?? sh?.rangeM ?? sh?.distanceM ?? '';
-          const elev = sh?.elevation ?? sh?.drop ?? sh?.elev ?? '';
-          const wind = sh?.wind ?? sh?.drift ?? sh?.windHold ?? '';
-          const note = sh?.notes ?? sh?.comment ?? '';
-          const raw = (() => {
-            try {
-              const s = JSON.stringify(sh);
-              return s.length > 120 ? s.slice(0, 120) + '…' : s;
-            } catch {
-              return '';
-            }
-          })();
+                const shotRows: Array<{ subRange: string; sh: any }> = [];
+        const seen = new Set<string>();
 
-          return [`${idx + 1}`, `${dist}`, `${elev}`, `${wind}`, `${note}`, `${raw}`];
+        const safeKey = (v: any) => {
+          try {
+            return JSON.stringify(v);
+          } catch {
+            return String(v);
+          }
+        };
+
+        const pushDope = (arr: any, srName: string) => {
+          if (!Array.isArray(arr)) return;
+          for (const sh of arr) {
+            if (!sh) continue;
+            const k = safeKey(sh);
+            if (seen.has(k)) continue;
+            seen.add(k);
+            shotRows.push({ subRange: srName, sh });
+          }
+        };
+
+        const fmt = (v: any) => {
+          if (v == null) return '';
+          if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '';
+          if (typeof v === 'string') return v;
+          try {
+            return JSON.stringify(v);
+          } catch {
+            return String(v);
+          }
+        };
+
+        // ---- Top-level dope sources (match extractAllDopeEntries logic) ----
+        pushDope((s as any).distanceDopes, '');
+        pushDope((s as any).distances, '');
+        pushDope((s as any).distanceDope, '');
+        pushDope((s as any).dopes, '');
+        pushDope((s as any).dope, '');
+        if ((s as any).dopeMap && typeof (s as any).dopeMap === 'object') {
+          pushDope(Object.values((s as any).dopeMap), '');
+        }
+
+        // ---- SubRanges dope sources ----
+        if (Array.isArray((s as any).subRanges)) {
+          for (let sri = 0; sri < (s as any).subRanges.length; sri++) {
+            const sr = (s as any).subRanges[sri];
+            const srName = sr?.name ?? sr?.title ?? `Subrange ${sri + 1}`;
+
+            pushDope(sr?.distanceDopes, srName);
+            pushDope(sr?.distances, srName);
+            pushDope(sr?.distanceDope, srName);
+            pushDope(sr?.dope, srName);
+            if (sr?.dopeMap && typeof sr.dopeMap === 'object') {
+              pushDope(Object.values(sr.dopeMap), srName);
+            }
+          }
+        }
+
+        const shotBody = shotRows.map((row: any, idx: number) => {
+          const sh = row?.sh ?? {};
+
+          const dist =
+            typeof sh?.distanceM === 'number'
+              ? sh.distanceM
+              : typeof sh?.distance === 'number'
+                ? sh.distance
+                : (sh?.rangeM ?? sh?.range ?? '');
+
+          const elev =
+            sh?.elevationMil ?? sh?.elevation ?? sh?.drop ?? sh?.elev ?? '';
+
+          const wind =
+            sh?.windageMil ?? sh?.windage ?? sh?.wind ?? sh?.drift ?? sh?.windHold ?? '';
+
+          const impact =
+            sh?.impactsDescription ?? sh?.impact ?? sh?.poi ?? sh?.hit ?? '';
+
+          const note = sh?.notes ?? sh?.comment ?? '';
+
+          return [
+            `${idx + 1}`,
+            `${row.subRange ?? ''}`,
+            fmt(dist),
+            fmt(elev),
+            fmt(wind),
+            fmt(impact),
+            fmt(note),
+          ];
         });
 
         autoTableMod.default(doc, {
@@ -2973,7 +2987,20 @@ const result = this.dataService.importFromBackupMerge(parsed);
           theme: 'grid',
           styles: { fontSize: 8, cellPadding: 2 },
           headStyles: { fontSize: 8 },
-          head: [['#', 'Dist', 'Elev/Drop', 'Wind/Drift', 'Notes', 'Raw']],
+          head: [['#', 'SubRange', 'Dist', 'Elev', 'Wind', 'Impact', 'Notes']],
+          body: shotBody,
+        });
+
+        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+
+
+        autoTableMod.default(doc, {
+          startY: y,
+          theme: 'grid',
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fontSize: 8 },
+                    head: [['#', 'SubRange', 'Dist', 'Elev', 'Wind', 'Impact', 'Notes']],
+
           body: shotBody,
         });
 
@@ -3024,13 +3051,29 @@ const result = this.dataService.importFromBackupMerge(parsed);
 
         y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 5 : y + 25;
 
-        const entries: any[] = Array.isArray(p?.entries) ? p.entries : [];
+                const entries: any[] = Array.isArray(p?.entries) ? p.entries : [];
         if (entries.length) {
           const entryBody = entries.map((e: any) => {
             const charge = e?.chargeGr ?? e?.charge ?? '';
             const shotsFired = e?.shotsFired ?? '';
-            const velocity = e?.velocity ?? e?.aveVelocityFps ?? '';
-            const velocityInput = e?.velocityInput ?? '';
+
+            const velocitiesArr = Array.isArray(e?.velocities) ? e.velocities : [];
+            const velocityInput =
+              e?.velocityInput ??
+              (velocitiesArr.length ? velocitiesArr.join(', ') : '');
+
+            // Prefer stored average/velocity; else compute from velocities if present
+            let velocity =
+              e?.velocity ?? e?.aveVelocityFps ?? '';
+
+            if ((velocity === '' || velocity == null) && velocitiesArr.length) {
+              const nums = velocitiesArr.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n));
+              if (nums.length) {
+                const avg = nums.reduce((a: number, b: number) => a + b, 0) / nums.length;
+                velocity = Math.round(avg);
+              }
+            }
+
             const notes = e?.notes ?? '';
             return [`${charge}`, `${shotsFired}`, `${velocity}`, `${velocityInput}`, `${notes}`];
           });
@@ -3045,7 +3088,12 @@ const result = this.dataService.importFromBackupMerge(parsed);
           });
 
           y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+        } else {
+          doc.setFontSize(9);
+          doc.text('No entries', 10, y);
+          y += 6;
         }
+
       }
     }
 
@@ -3113,95 +3161,130 @@ const result = this.dataService.importFromBackupMerge(parsed);
     }
   }
 
-  private buildSimplePdfBase64FromText(text: string): string {
-    // Very small “text-only” PDF generator (single page, Courier).
-    // Keeps dependencies at zero.
+    private buildSimplePdfBase64FromText(text: string): string {
+    // Text-only multipage PDF generator (Courier).
+    // Fixes the previous single-page truncation that caused missing subranges / load-dev entries.
     const maxLineLen = 92;
+    const maxLinesPerPage = 55;
 
     const rawLines = (text ?? '').replace(/\r/g, '').split('\n');
     const lines: string[] = [];
 
+    // hard wrap long lines
     for (const ln of rawLines) {
       if (ln.length <= maxLineLen) {
         lines.push(ln);
         continue;
       }
-      // hard wrap
       for (let i = 0; i < ln.length; i += maxLineLen) {
         lines.push(ln.slice(i, i + maxLineLen));
       }
     }
 
-    // Limit lines so we don't overflow a single page
-    const maxLines = 55;
-    const pageLines =
-      lines.length > maxLines
-        ? [...lines.slice(0, maxLines - 1), '…(truncated)…']
-        : lines;
-
     const escapePdfText = (s: string) =>
       s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 
-    // Content stream: start near top, move down line-by-line with T*
-    const contentLines = pageLines
-      .map((l) => `(${escapePdfText(l)}) Tj T*`)
-      .join('\n');
+    // paginate
+    const pages: string[][] = [];
+    for (let i = 0; i < lines.length; i += maxLinesPerPage) {
+      pages.push(lines.slice(i, i + maxLinesPerPage));
+    }
+    if (pages.length === 0) pages.push(['']);
 
-    const stream =
-      `BT\n/F1 9 Tf\n72 780 Td\n10 TL\n` + contentLines + `\nET\n`;
+    // Object numbering plan:
+    // 1 = catalog
+    // 2 = pages
+    // 3..(2+N) = page objects
+    // (3+N) = font
+    // (4+N)..(3+2N) = content streams
+    const N = pages.length;
+    const firstPageObj = 3;
+    const fontObj = 3 + N;
+    const firstContentObj = fontObj + 1;
 
-    // Minimal PDF objects
-    const objs: string[] = [];
-    objs.push('%PDF-1.4');
+    type Obj = { num: number; body: string };
+    const objs: Obj[] = [];
 
-    const xref: number[] = [0];
-
-    const pushObj = (s: string) => {
-      const offset = objs.join('\n').length + 1; // +1 for the '\n' that will be added when joining
-      xref.push(offset);
-      objs.push(s);
-    };
+    const pageRefs = Array.from({ length: N }, (_, i) => `${firstPageObj + i} 0 R`);
+    const kidsArray = `[${pageRefs.join(' ')}]`;
 
     // 1: catalog
-    pushObj(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj`);
+    objs.push({
+      num: 1,
+      body: `<< /Type /Catalog /Pages 2 0 R >>`,
+    });
 
     // 2: pages
-    pushObj(`2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj`);
+    objs.push({
+      num: 2,
+      body: `<< /Type /Pages /Kids ${kidsArray} /Count ${N} >>`,
+    });
 
-    // 3: page
-    pushObj(
-      `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj`
-    );
+    // font
+    objs.push({
+      num: fontObj,
+      body: `<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>`,
+    });
 
-    // 4: font
-    pushObj(
-      `4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj`
-    );
+    // pages + contents
+    for (let p = 0; p < N; p++) {
+      const pageNum = firstPageObj + p;
+      const contentNum = firstContentObj + p;
 
-    // 5: contents
-    const streamBytes = new TextEncoder().encode(stream);
-    pushObj(
-      `5 0 obj\n<< /Length ${streamBytes.length} >>\nstream\n${stream}\nendstream\nendobj`
-    );
+      const contentLines = pages[p].map((l) => `(${escapePdfText(l)}) Tj T*`).join('\n');
+      const stream = `BT\n/F1 9 Tf\n72 780 Td\n10 TL\n${contentLines}\nET\n`;
 
-    // xref + trailer
-    const xrefStart = objs.join('\n').length + 1;
-    const xrefLines = [
-      'xref',
-      `0 ${xref.length}`,
-      '0000000000 65535 f ',
-      ...xref.slice(1).map((n) => String(n).padStart(10, '0') + ' 00000 n '),
-      'trailer',
-      `<< /Size ${xref.length} /Root 1 0 R >>`,
-      'startxref',
-      String(xrefStart),
-      '%%EOF',
-    ];
+      const streamBytes = new TextEncoder().encode(stream);
 
-    const pdfText = objs.join('\n') + '\n' + xrefLines.join('\n') + '\n';
+      // content stream obj
+      objs.push({
+        num: contentNum,
+        body: `<< /Length ${streamBytes.length} >>\nstream\n${stream}\nendstream`,
+      });
 
-    // Base64 encode
-    const bytes = new TextEncoder().encode(pdfText);
+      // page obj
+      objs.push({
+        num: pageNum,
+        body:
+          `<< /Type /Page /Parent 2 0 R ` +
+          `/MediaBox [0 0 612 792] ` +
+          `/Resources << /Font << /F1 ${fontObj} 0 R >> >> ` +
+          `/Contents ${contentNum} 0 R >>`,
+      });
+    }
+
+    // sort objects by number
+    objs.sort((a, b) => a.num - b.num);
+
+    // build PDF + xref
+    let pdf = '%PDF-1.4\n';
+    const xref: number[] = [];
+    const maxObjNum = objs[objs.length - 1].num;
+
+    // xref[0] is special
+    xref[0] = 0;
+    for (let i = 1; i <= maxObjNum; i++) xref[i] = 0;
+
+    for (const o of objs) {
+      xref[o.num] = pdf.length;
+      pdf += `${o.num} 0 obj\n${o.body}\nendobj\n`;
+    }
+
+    const xrefStart = pdf.length;
+    pdf += `xref\n0 ${maxObjNum + 1}\n`;
+    pdf += `0000000000 65535 f \n`;
+
+    for (let i = 1; i <= maxObjNum; i++) {
+      const off = xref[i] || 0;
+      pdf += `${String(off).padStart(10, '0')} 00000 n \n`;
+    }
+
+    pdf +=
+      `trailer\n<< /Size ${maxObjNum + 1} /Root 1 0 R >>\n` +
+      `startxref\n${xrefStart}\n%%EOF\n`;
+
+    // base64 encode
+    const bytes = new TextEncoder().encode(pdf);
     let binary = '';
     const chunkSize = 0x8000;
     for (let i = 0; i < bytes.length; i += chunkSize) {
@@ -3209,6 +3292,7 @@ const result = this.dataService.importFromBackupMerge(parsed);
     }
     return btoa(binary);
   }
+
 
   private base64ToUint8Array(base64: string): Uint8Array {
     const bin = atob(base64);
