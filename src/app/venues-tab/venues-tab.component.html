@@ -1,6 +1,10 @@
-<div class="space-y-3 text-xs">
+<div
+  class="space-y-3 text-xs bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10"
+>
   <!-- Add / Edit Venue header -->
-  <div class="bg-slate-800 rounded-2xl p-3 shadow flex items-center justify-between">
+  <div
+    class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 flex items-center justify-between"
+  >
     <div class="text-sm font-semibold">
       {{ editingVenue ? 'Edit Venue' : 'Add Venue' }}
     </div>
@@ -13,7 +17,10 @@
   </div>
 
   <!-- Venue form -->
-  <div *ngIf="formVisible" class="bg-slate-800 rounded-2xl p-3 shadow space-y-2">
+  <div
+    *ngIf="formVisible"
+    class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 space-y-2"
+  >
     <!-- Basic venue fields -->
     <div class="grid grid-cols-2 gap-2">
       <label class="flex flex-col">
@@ -21,7 +28,7 @@
         <input
           [(ngModel)]="venueForm.name"
           name="venueName"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+          class="mt-1 px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-white outline-none ring-1 ring-white/5"
         />
       </label>
 
@@ -31,7 +38,7 @@
           [(ngModel)]="venueForm.location"
           name="venueLocation"
           placeholder="e.g. Vaalwater onderkant"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+          class="mt-1 px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-white outline-none ring-1 ring-white/5"
         />
       </label>
     </div>
@@ -43,7 +50,7 @@
           type="number"
           [(ngModel)]="venueForm.altitudeM"
           name="venueAltitude"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+          class="mt-1 px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-white outline-none ring-1 ring-white/5"
         />
       </label>
 
@@ -52,7 +59,7 @@
         <input
           [(ngModel)]="venueForm.notes"
           name="venueNotes"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+          class="mt-1 px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-white outline-none ring-1 ring-white/5"
         />
       </label>
     </div>
@@ -73,7 +80,7 @@
       <!-- Subrange rows -->
       <div
         *ngFor="let sr of subRangeRows; let i = index"
-        class="bg-slate-900 rounded-lg p-2 mt-1 space-y-1"
+        class="bg-slate-900/60 rounded-2xl p-3 mt-1 space-y-2 border border-slate-700 ring-1 ring-white/5"
       >
         <div class="flex justify-between items-center">
           <span class="font-semibold text-[11px]">Subrange #{{ i + 1 }}</span>
@@ -127,7 +134,9 @@
   </div>
 
   <!-- Stored venues (dropdown + single expanded card) -->
-  <div class="bg-slate-800 rounded-2xl p-3 shadow space-y-2">
+  <div
+    class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 space-y-2"
+  >
     <div class="flex justify-between items-center mb-1">
       <h2 class="text-sm font-semibold">Venues</h2>
       <div class="text-[11px] text-slate-300">Total: {{ venues.length }}</div>
@@ -142,7 +151,7 @@
         <!-- No venue selected info card -->
         <div
           *ngIf="!selectedVenue"
-          class="bg-slate-900 rounded-2xl p-3 border border-slate-700 space-y-1"
+          class="bg-slate-900/60 rounded-2xl p-3 border border-slate-700 space-y-1 ring-1 ring-white/5"
         >
           <div class="text-xs font-semibold text-slate-200">No venue selected</div>
           <div class="text-[10px] text-slate-400">
@@ -155,7 +164,7 @@
         <!-- Tap-to-open picker (Export/Import style) -->
         <button
           type="button"
-          class="mt-1 w-full px-2 py-1 rounded bg-slate-900 border border-slate-700 flex items-center justify-between"
+          class="mt-1 w-full px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 flex items-center justify-between ring-1 ring-white/5"
           (click)="openVenuePicker()"
         >
           <span class="truncate">
@@ -215,7 +224,7 @@
           <div class="mt-2">
             <input
               type="text"
-              class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
+              class="w-full px-2 py-2 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-white outline-none ring-1 ring-white/5"
               placeholder="Search venues…"
               [(ngModel)]="venuePickerSearch"
               (ngModelChange)="onVenuePickerSearchChange($event)"
@@ -262,7 +271,9 @@
       </div>
 
       <ng-container *ngIf="selectedVenue as v">
-        <div class="bg-slate-900 rounded-2xl p-3 mt-1 space-y-2">
+        <div
+          class="bg-slate-950 rounded-2xl border border-slate-700 p-3 mt-1 space-y-2 shadow-lg ring-1 ring-white/10"
+        >
           <!-- Venue header -->
           <div class="flex justify-between items-center">
             <div>
@@ -314,7 +325,7 @@
             <button
               *ngFor="let sr of v.subRanges"
               type="button"
-              class="w-full text-left bg-slate-950 rounded-xl px-2 py-2 text-[11px] hover:bg-slate-900 flex items-start gap-2"
+              class="w-full text-left bg-slate-900/60 rounded-2xl px-3 py-2 text-[11px] hover:bg-slate-800 border border-slate-700 flex items-start gap-2 ring-1 ring-white/5"
               (click)="selectSubRangeForVenue($any(v.id), sr)"
             >
               <!-- LEFT checkbox (aligned with name line) -->
@@ -345,7 +356,9 @@
   </div>
 
   <!-- Bottom actions: Export (left) / Back (right) -->
-  <div class="bg-slate-800 rounded-2xl p-3 shadow mt-3">
+  <div
+    class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 mt-3"
+  >
     <div class="flex items-center justify-between">
       <button
         type="button"
