@@ -1,9 +1,4 @@
-import {
-  Component,
-  ElementRef,
-  OnInit,
-  ViewChild,
-} from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -56,19 +51,16 @@ export class WindEffectToolComponent implements OnInit {
   // Core ballistic inputs
   rangeMeters: number | null = 350;
 
-
   muzzleVelocityFps = 2700;
   ballisticCoeff = 0.35;
 
-   // Wind
+  // Wind
   // Wind
   windUnit: WindUnit = 'mph';
   windSpeedInput: number | null = 6; // what user sees/edits (allow empty)
   windSpeedMph = 6; // internal mph used by math
 
-
-
-  windFromClock = '3 o\'clock';
+  windFromClock = "3 o'clock";
 
   // SVG / dial
   @ViewChild('circleArea', { static: true })
@@ -85,17 +77,17 @@ export class WindEffectToolComponent implements OnInit {
 
   constructor(
     private data: DataService,
-    private router: Router
+    private router: Router,
   ) {}
 
   // --------------------------------
   // Lifecycle
   // --------------------------------
-    ngOnInit(): void {
+  ngOnInit(): void {
     this.buildHourMarkers();
     this.loadRifles();
 
-      // Preferences default wind unit (mph/kmh/mps)
+    // Preferences default wind unit (mph/kmh/mps)
     const prefUnit = (this.data as any).getDefaultWindSpeedUnit?.();
     if (prefUnit === 'kmh' || prefUnit === 'mph' || prefUnit === 'mps') {
       this.windUnit = prefUnit;
@@ -104,7 +96,7 @@ export class WindEffectToolComponent implements OnInit {
     this.updateWindSpeedInputFromMph();
     this.updatePoiFromDrift();
   }
-// --------------------------------
+  // --------------------------------
   // Rifle handling
   // --------------------------------
   private loadRifles(): void {
@@ -119,9 +111,7 @@ export class WindEffectToolComponent implements OnInit {
 
   onRifleChanged(id: number | null): void {
     this.selectedRifleId = id;
-    const r = this.rifles.find(
-      (rifle) => (rifle.id ?? rifle.rifleId) === id
-    );
+    const r = this.rifles.find((rifle) => (rifle.id ?? rifle.rifleId) === id);
     if (r) {
       this.applyRifleBallistics(r);
       this.updatePoiFromDrift();
@@ -137,24 +127,14 @@ export class WindEffectToolComponent implements OnInit {
       r.mv,
       r.zeroMuzzleVelocity,
     ];
-    const mv = mvCandidates.find(
-      (v) => typeof v === 'number' && Number.isFinite(v) && v > 0
-    );
+    const mv = mvCandidates.find((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
     if (mv !== undefined) {
       this.muzzleVelocityFps = mv as number;
     }
 
     // BC
-    const bcCandidates: any[] = [
-      r.ballisticCoeff,
-      r.bulletBc,
-      r.bulletBcG7,
-      r.bulletBcG1,
-      r.bc,
-    ];
-    const bc = bcCandidates.find(
-      (v) => typeof v === 'number' && Number.isFinite(v) && v > 0
-    );
+    const bcCandidates: any[] = [r.ballisticCoeff, r.bulletBc, r.bulletBcG7, r.bulletBcG1, r.bc];
+    const bc = bcCandidates.find((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
     if (bc !== undefined) {
       this.ballisticCoeff = bc as number;
     }
@@ -213,7 +193,7 @@ export class WindEffectToolComponent implements OnInit {
   // --------------------------------
   // Wind speed input
   // --------------------------------
-   onWindSpeedInputChange(value: any): void {
+  onWindSpeedInputChange(value: any): void {
     // Allow empty (do NOT force 0 into the field)
     if (value === '' || value === null || value === undefined) {
       this.windSpeedInput = null;
@@ -263,36 +243,28 @@ export class WindEffectToolComponent implements OnInit {
     this.updatePoiFromDrift();
   }
 
-
-
   private updateWindSpeedInputFromMph(): void {
-    this.windSpeedInput = this.fromMph(
-      this.windSpeedMph,
-      this.windUnit
-    );
+    this.windSpeedInput = this.fromMph(this.windSpeedMph, this.windUnit);
   }
 
- onRangeMetersChange(raw: any): void {
-  if (raw === '' || raw === null || raw === undefined) {
-    this.rangeMeters = null;
+  onRangeMetersChange(raw: any): void {
+    if (raw === '' || raw === null || raw === undefined) {
+      this.rangeMeters = null;
+      this.updatePoiFromDrift();
+      return;
+    }
+
+    const v = Number(raw);
+    this.rangeMeters = Number.isFinite(v) && v > 0 ? v : null;
     this.updatePoiFromDrift();
-    return;
   }
-
-  const v = Number(raw);
-  this.rangeMeters = Number.isFinite(v) && v > 0 ? v : null;
-  this.updatePoiFromDrift();
-}
-
 
   // --------------------------------
   // Dial / pointer handling
   // --------------------------------
   startDrag(event: PointerEvent): void {
     this.dragging = true;
-    (event.target as HTMLElement).setPointerCapture(
-      event.pointerId
-    );
+    (event.target as HTMLElement).setPointerCapture(event.pointerId);
     this.handlePointer(event);
   }
 
@@ -304,16 +276,13 @@ export class WindEffectToolComponent implements OnInit {
   endDrag(event: PointerEvent): void {
     if (!this.dragging) return;
     this.dragging = false;
-    (event.target as HTMLElement).releasePointerCapture(
-      event.pointerId
-    );
+    (event.target as HTMLElement).releasePointerCapture(event.pointerId);
   }
 
   private handlePointer(event: PointerEvent): void {
     if (!this.circleAreaRef) return;
 
-    const rect =
-      this.circleAreaRef.nativeElement.getBoundingClientRect();
+    const rect = this.circleAreaRef.nativeElement.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
 
@@ -410,7 +379,7 @@ export class WindEffectToolComponent implements OnInit {
     const factorAbs = Math.abs(cross);
     return { factorAbs };
   }
-  
+
   /** head/tail factor: +1 at 12 o’clock (headwind), -1 at 6 o’clock (tailwind) */
   private getHeadwindComponent(): number {
     const rad = (this.arrowAngleDeg * Math.PI) / 180;
@@ -423,14 +392,13 @@ export class WindEffectToolComponent implements OnInit {
   /** simple TOF model that grows with distance and depends on BC */
   private get timeOfFlightSeconds(): number {
     if ((this.rangeMeters ?? 0) <= 0 || this.muzzleVelocityFps <= 0) {
-
       return 0;
     }
-   const distanceFt = this.metersToFeet(this.rangeMeters ?? 0);
+    const distanceFt = this.metersToFeet(this.rangeMeters ?? 0);
 
     const v = this.muzzleVelocityFps;
 
-   const rangeKm = (this.rangeMeters ?? 0) / 1000;
+    const rangeKm = (this.rangeMeters ?? 0) / 1000;
 
     const bc = this.ballisticCoeff || 0.5;
     const bcFactor = 0.5 / bc;
@@ -443,13 +411,7 @@ export class WindEffectToolComponent implements OnInit {
 
   /** physical lateral drift in inches */
   private computeLateralInches(): number {
-    
-    if (
-      !this.windSpeedMph ||
-    (this.rangeMeters ?? 0) <= 0 ||
-
-      this.muzzleVelocityFps <= 0
-    ) {
+    if (!this.windSpeedMph || (this.rangeMeters ?? 0) <= 0 || this.muzzleVelocityFps <= 0) {
       return 0;
     }
 
@@ -458,8 +420,7 @@ export class WindEffectToolComponent implements OnInit {
       return 0;
     }
 
-    const windFps =
-      this.mphToFps(this.windSpeedMph) * factorAbs;
+    const windFps = this.mphToFps(this.windSpeedMph) * factorAbs;
     const tof = this.timeOfFlightSeconds;
 
     // how effectively wind pushes bullet (fudge factor)
@@ -467,15 +428,10 @@ export class WindEffectToolComponent implements OnInit {
 
     const lateralFeet = windFps * tof * windEfficiency;
     return lateralFeet * 12;
-    
   }
   /** physical vertical drop delta in inches due to head/tail wind (headwind => more drop) */
   private computeVerticalDropInchesDelta(): number {
-    if (
-      !this.windSpeedMph ||
-     (this.rangeMeters ?? 0) <= 0 ||
-      this.muzzleVelocityFps <= 0
-    ) {
+    if (!this.windSpeedMph || (this.rangeMeters ?? 0) <= 0 || this.muzzleVelocityFps <= 0) {
       return 0;
     }
 
@@ -490,10 +446,7 @@ export class WindEffectToolComponent implements OnInit {
     // How strongly head/tail wind influences TOF (small on purpose; keeps figures sane)
     const k = 0.45;
 
-    const tofWind = Math.max(
-      0.05,
-      tof * (1 + k * (alongWindFps / this.muzzleVelocityFps))
-    );
+    const tofWind = Math.max(0.05, tof * (1 + k * (alongWindFps / this.muzzleVelocityFps)));
 
     // Gravity drop difference (ft), then inches
     const g = 32.174;
@@ -515,7 +468,7 @@ export class WindEffectToolComponent implements OnInit {
   get verticalDropCmAbs(): number {
     return this.verticalDropInchesAbs * 2.54;
   }
-   get verticalLabel(): 'Drop' | 'Lift' {
+  get verticalLabel(): 'Drop' | 'Lift' {
     // verticalDropInches is + when headwind increases drop, - when tailwind reduces drop (lift)
     return this.verticalDropInches < 0 ? 'Lift' : 'Drop';
   }
@@ -526,13 +479,12 @@ export class WindEffectToolComponent implements OnInit {
     return this.verticalDropInches < 0 ? '↑' : '↓';
   }
 
-
   /** signed vertical mil delta for red dot (BC-adjusted same as milDrift) */
   get verticalMilDelta(): number {
     const deltaInches = this.verticalDropInches;
     if (!deltaInches) return 0;
 
-   const rangeInches = (this.rangeMeters ?? 0) * 39.3701;
+    const rangeInches = (this.rangeMeters ?? 0) * 39.3701;
 
     if (!rangeInches) return 0;
 
@@ -553,7 +505,7 @@ export class WindEffectToolComponent implements OnInit {
   get driftCm(): number {
     return this.driftInches * 2.54;
   }
-      get driftArrow(): '' | '←' | '→' {
+  get driftArrow(): '' | '←' | '→' {
     if (!this.windSpeedMph) return '';
 
     const rad = (this.arrowAngleDeg * Math.PI) / 180;
@@ -565,7 +517,6 @@ export class WindEffectToolComponent implements OnInit {
     // wind FROM right (3 o'clock) pushes LEFT, and vice-versa
     return cross > 0 ? '←' : '→';
   }
-
 
   get driftDirection(): '' | 'Left' | 'Right' {
     if (!this.driftInches) return '';
@@ -602,7 +553,6 @@ export class WindEffectToolComponent implements OnInit {
     }
   }
 
-
   /** Vertical drift component (absolute) in inches, derived from wind direction on the dial. */
   get verticalDriftInchesAbs(): number {
     const mag = Math.abs(this.driftInches);
@@ -625,8 +575,7 @@ export class WindEffectToolComponent implements OnInit {
   // --------------------------------
   // Red POI dot (visual only)
   // --------------------------------
-    updatePoiFromDrift(): void {
-
+  updatePoiFromDrift(): void {
     const centerX = 50;
     const centerY = 50;
 
@@ -673,7 +622,6 @@ export class WindEffectToolComponent implements OnInit {
     this.poiX = Math.max(14, Math.min(86, x));
     this.poiY = Math.max(14, Math.min(86, y));
   }
-
 
   // --------------------------------
   // Back button (if used in template)

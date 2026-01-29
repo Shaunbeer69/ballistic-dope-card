@@ -342,7 +342,7 @@
                   {{ sr.name || '-' }}
                 </div>
                 <div class="text-[10px] text-slate-400 truncate">
-                  <ng-container *ngIf="sr.distancesM?.length; else noSrDistances">
+                  <ng-container *ngIf="sr.distancesM.length; else noSrDistances">
                     {{ sr.distancesM.join(', ') }} m
                   </ng-container>
                   <ng-template #noSrDistances>—</ng-template>

@@ -3358,4 +3358,131 @@ export class AppComponent implements OnInit {
     await this.kestrel.connectKestrelBluetooth();
     this.kestrelData = this.kestrel.kestrelData$.getValue();
   }
+  // ---------- Support (WhatsApp share) ----------
+
+  showSupportModal = false;
+  supportBusy = false;
+
+  supportMessage = '';
+  supportScreenshotDataUrl: string | null = null;
+  supportScreenshotName: string | null = null;
+
+  @ViewChild('supportScreenshotInput') supportScreenshotInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('supportScreenshotFileInput')
+  supportScreenshotFileInput!: ElementRef<HTMLInputElement>;
+
+  openSupportModal(): void {
+    this.showSupportModal = true;
+
+    // Keep Setup panel visible
+    this.showSetup = true;
+    this.showTools = false;
+    this.selectedTool = null;
+  }
+
+  closeSupportModal(): void {
+    this.showSupportModal = false;
+    this.supportBusy = false;
+    this.supportMessage = '';
+    this.clearSupportScreenshot();
+  }
+
+  triggerSupportScreenshotPick(): void {
+    try {
+      this.supportScreenshotInput?.nativeElement?.click();
+    } catch {
+      // ignore
+    }
+  }
+  triggerSupportScreenshotPickFile(): void {
+    try {
+      this.supportScreenshotFileInput?.nativeElement?.click();
+    } catch {
+      // ignore
+    }
+  }
+
+  onSupportScreenshotSelected(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    if (!file) return;
+
+    this.supportScreenshotName = file.name;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.supportScreenshotDataUrl = String(reader.result ?? '');
+    };
+    reader.readAsDataURL(file);
+
+    // allow picking the same file again
+    if (input) input.value = '';
+  }
+
+  clearSupportScreenshot(): void {
+    this.supportScreenshotDataUrl = null;
+    this.supportScreenshotName = null;
+  }
+
+  private buildSupportShareText(): string {
+    const header = `${this.appTitle} v${this.appVersion}`;
+    const msg = (this.supportMessage || '').trim();
+    return msg ? `${header}\n\n${msg}` : header;
+  }
+
+  async sendSupportViaWhatsApp(): Promise<void> {
+    const text = this.buildSupportShareText();
+
+    if (Capacitor.isNativePlatform()) {
+      this.supportBusy = true;
+
+      try {
+        let urlToShare: string | undefined;
+
+        // If screenshot selected: write to Cache and share the file URI (Android-safe)
+        if (this.supportScreenshotDataUrl) {
+          const parts = this.supportScreenshotDataUrl.split(',');
+          const base64 = parts.length > 1 ? parts[1] : '';
+          const isJpg = this.supportScreenshotDataUrl.startsWith('data:image/jpeg');
+          const ext = isJpg ? 'jpg' : 'png';
+
+          const filename =
+            'gs-support-' + new Date().toISOString().replace(/[:.]/g, '-') + '.' + ext;
+
+          const directory = Directory.Cache;
+
+          await Filesystem.writeFile({
+            path: filename,
+            data: base64,
+            directory,
+          });
+
+          const { uri } = await Filesystem.getUri({
+            path: filename,
+            directory,
+          });
+
+          urlToShare = uri;
+        }
+
+        await Share.share({
+          title: 'GS Support',
+          text,
+          url: urlToShare,
+        });
+
+        this.closeSupportModal();
+      } catch (err) {
+        console.error('Support share failed:', err);
+        alert('Support share failed on this device.\n\n' + ((err as any)?.message ?? String(err)));
+      } finally {
+        this.supportBusy = false;
+      }
+      return;
+    }
+
+    // Browser fallback: text-only via wa.me
+    const wa = 'https://wa.me/?text=' + encodeURIComponent(text);
+    window.open(wa, '_blank');
+  }
 }
