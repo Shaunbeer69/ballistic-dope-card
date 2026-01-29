@@ -17,11 +17,7 @@ import { WindEffectToolComponent } from './wind-effect-tool.component';
 import { environment } from './environments/environment';
 import { DataService } from './data.service';
 import { BleClient } from '@capacitor-community/bluetooth-le';
-import {
-  KestrelDataSnapshot,
-  KestrelService,
-  
-} from './shared/services/kestrel-bluetooth.service';
+import { KestrelDataSnapshot, KestrelService } from './shared/services/kestrel-bluetooth.service';
 
 interface ReportRequest {
   type: 'recent' | 'rifle' | 'venue' | 'dateRange';
@@ -39,7 +35,7 @@ interface LastSettingsResult {
   distanceM: number | null;
   elevationMil: number | null;
   windageMil: number | null;
-  
+
   environment: {
     temperatureC: number | null;
     pressureInHg: number | null;
@@ -79,7 +75,7 @@ interface WindTrendSummary {
   selector: 'app-root',
   standalone: true,
   templateUrl: './app.component.html',
-  
+
   imports: [
     CommonModule,
     FormsModule,
@@ -94,46 +90,43 @@ interface WindTrendSummary {
 export class AppComponent implements OnInit {
   appTitle = 'GS Dope Card';
   appSubtitle = 'Field log for rifles, venues & sessions';
-    appVersion = APP_VERSION;
+  appVersion = APP_VERSION;
 
-
-
-  currentTab: 'menu' | 'sessions' | 'rifles' | 'venues' | 'history' | 'loadDev' =
-    'menu';
-// --- Export / Import UI ---
-showExportImportModal = false;
-exportImportInlineMessage: string | null = null;
-@ViewChild('importFileInput') importFileInput!: ElementRef<HTMLInputElement>;
-@ViewChild('firstLaunchSloganEl') firstLaunchSloganEl?: ElementRef<HTMLElement>;
-exportMode: 'root' | 'export' = 'root';
-importBusy = false;
-// --- Export / Import DATA (selective share) ---
-showExportImportDataModal = false;
+  currentTab: 'menu' | 'sessions' | 'rifles' | 'venues' | 'history' | 'loadDev' = 'menu';
+  // --- Export / Import UI ---
+  showExportImportModal = false;
+  exportImportInlineMessage: string | null = null;
+  @ViewChild('importFileInput') importFileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('firstLaunchSloganEl') firstLaunchSloganEl?: ElementRef<HTMLElement>;
+  exportMode: 'root' | 'export' = 'root';
+  importBusy = false;
+  // --- Export / Import DATA (selective share) ---
+  showExportImportDataModal = false;
   showDataShareChooserModal = false;
   dataShareActionMode: 'export' | 'print' = 'export';
 
-// Master toggles
-dataShareIncludeRifles = true;
-dataShareIncludeVenues = false;
+  // Master toggles
+  dataShareIncludeRifles = true;
+  dataShareIncludeVenues = false;
 
-// All vs selected
-dataShareAllRifles = true;
-dataShareAllVenues = true;
+  // All vs selected
+  dataShareAllRifles = true;
+  dataShareAllVenues = true;
 
-// Rifle sub-options
-dataShareRifleData = true;
-dataShareRifleLoadDev = true;
-dataShareRifleSessions = true;
-dataShareRifleShots = true;
+  // Rifle sub-options
+  dataShareRifleData = true;
+  dataShareRifleLoadDev = true;
+  dataShareRifleSessions = true;
+  dataShareRifleShots = true;
 
-// Venue sub-options
-dataShareVenueData = true;
-dataShareVenueSessions = true;
-dataShareVenueShots = true;
+  // Venue sub-options
+  dataShareVenueData = true;
+  dataShareVenueSessions = true;
+  dataShareVenueShots = true;
 
-// Selected IDs
-private dataShareRifleIds = new Set<number>();
-private dataShareVenueIds = new Set<number>();
+  // Selected IDs
+  private dataShareRifleIds = new Set<number>();
+  private dataShareVenueIds = new Set<number>();
 
   // bottom icon bar state (no logic tied yet, just to keep template happy)
   activeTab: 'start' | 'rifles' | 'venues' | 'tools' = 'start';
@@ -211,29 +204,43 @@ private dataShareVenueIds = new Set<number>();
   expandedDistanceM: number | null = null;
 
   // TOOLS / KESTREL / CONVERTER
-  
+
   showSetup = false;
   showTools = false;
-showFirstLaunchSlogan = false;
-firstLaunchSlogan = '';
+  showFirstLaunchSlogan = false;
+  firstLaunchSlogan = '';
   // First-launch slogan sizing (no wrap, no ellipsis)
   firstLaunchSloganFontPx = 12;
   private readonly firstLaunchSloganBaseFontPx = 13;
   private readonly firstLaunchSloganMinFontPx = 12;
 
-  
- selectedTool: 'converter' | 'windEffect' | 'kestrel' | 'targets' | 'preferences' | 'documents' | null = null;
-private converterReturnState:
-  | { showTools: boolean; showSetup: boolean; showReportsForm: boolean; selectedTool: any }
-  | null = null;
+  selectedTool:
+    | 'converter'
+    | 'windEffect'
+    | 'kestrel'
+    | 'targets'
+    | 'preferences'
+    | 'documents'
+    | null = null;
+  private converterReturnState: {
+    showTools: boolean;
+    showSetup: boolean;
+    showReportsForm: boolean;
+    selectedTool: any;
+  } | null = null;
 
   // Preferences (Units & Display v1)
   // (removed duplicate 'prefs' declaration; see below for the strongly typed version)
 
-
   // ---------------- Documents tool ----------------
   private readonly documentsKey = 'gs_documents_v1';
-    documents: Array<{ id: string; title: string; tags: string[]; link?: string | null; createdAt: number }> = [];
+  documents: Array<{
+    id: string;
+    title: string;
+    tags: string[];
+    link?: string | null;
+    createdAt: number;
+  }> = [];
 
   documentsSearch: string = '';
   documentsSort: 'az' | 'za' | 'new' | 'old' = 'az';
@@ -244,11 +251,17 @@ private converterReturnState:
   newDocTags = '';
   newDocLink = '';
 
-    get filteredDocuments(): Array<{ id: string; title: string; tags: string[]; link?: string | null; createdAt: number }> {
+  get filteredDocuments(): Array<{
+    id: string;
+    title: string;
+    tags: string[];
+    link?: string | null;
+    createdAt: number;
+  }> {
     const q = (this.documentsSearch || '').trim().toLowerCase();
     let items = [...(this.documents || [])];
 
-        if (q) {
+    if (q) {
       items = items.filter((d) => {
         const t = (d.title || '').toLowerCase();
         const g = (d.tags || []).join(' ').toLowerCase();
@@ -256,8 +269,6 @@ private converterReturnState:
         return t.includes(q) || g.includes(q) || l.includes(q);
       });
     }
-
-
 
     items.sort((a, b) => {
       if (this.documentsSort === 'new') return (b.createdAt || 0) - (a.createdAt || 0);
@@ -268,17 +279,15 @@ private converterReturnState:
 
     return items;
   }
-    get documentsHasSearch(): boolean {
+  get documentsHasSearch(): boolean {
     return (this.documentsSearch || '').trim().length > 0;
   }
-  
+
   // ---------- first-launch slogan ----------
-  
 
-private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
+  private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
 
-
-    private readonly FIRST_LAUNCH_SLOGANS: string[] = [
+  private readonly FIRST_LAUNCH_SLOGANS: string[] = [
     'PRECISION IS A DECISION',
     'DATA BEATS GUESSWORK',
     'DISCIPLINE OVER DISTANCE',
@@ -295,7 +304,7 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
     'STABILITY BEFORE SPEED',
     'NATURAL POINT OF AIM',
     'BREAK CLEAN FOLLOW THROUGH',
-    'ONE SHOT ONE STANDARD',
+    '**** HOM OP DIE DAK',
     'HIT IS THE ONLY TRUTH',
     'STEEL DOES NOT LIE',
     'FOCUS THEN FIRE',
@@ -354,6 +363,7 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
     'MAKE CORRECTIONS SMART',
     'REPEATABLE INPUTS',
     'REPEATABLE RESULTS',
+    'HEY JY SKIET SOOS N D**S',
     'BUILD YOUR BASELINE',
     'CONFIRM YOUR ZERO',
     'CONFIRM YOUR VELOCITY',
@@ -374,6 +384,8 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
     'QUALITY OVER QUANTITY',
     'PERFECT PRACTICE ONLY',
     'PRESSURE REVEALS PROCESS',
+    'MAAK DIE WIND JOU BITCH',
+    'PRESSURE REVEALS PROCESS',
     'STAY IN THE GLASS',
     'STAY BEHIND THE GUN',
     'BUILD THE BIPOD LOAD',
@@ -391,7 +403,7 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
     'MINDSET IS A WEAPON',
     'CALM IS A SKILL',
     'DISCIPLINE IS A SKILL',
-    'THE WIND OWNS YOUT',
+    'THE WIND OWNS YOU',
     'RESPECT THE CONDITIONS',
     'LET THE DATA LEAD',
     'LET THE IMPACT SPEAK',
@@ -399,7 +411,6 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
     'MAKE IT COUNT',
     'EARN THE HIT',
   ];
-
 
   private pickRandomSlogan(maxLen?: number): string {
     const all = this.FIRST_LAUNCH_SLOGANS || [];
@@ -421,7 +432,8 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
   private showMenuSlogan(): void {
     // Only on main menu and only when no overlays/panels are open
     if (this.currentTab !== 'menu') return;
-    if (this.showReportsForm || this.showTools || this.showSetup || this.showExportImportModal) return;
+    if (this.showReportsForm || this.showTools || this.showSetup || this.showExportImportModal)
+      return;
     if (this.selectedTool) return;
 
     // Throttle to avoid double-trigger flicker
@@ -447,7 +459,7 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
     let font = this.firstLaunchSloganBaseFontPx;
 
     // Direct style updates so measurement is real-time
-        el.style.whiteSpace = 'normal';
+    el.style.whiteSpace = 'normal';
 
     let guard = 0;
     while (guard < 80) {
@@ -502,7 +514,8 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
   private maybeShowFirstLaunchSlogan(): void {
     // Only on main menu and only when no overlays/panels are open
     if (this.currentTab !== 'menu') return;
-    if (this.showReportsForm || this.showTools || this.showSetup || this.showExportImportModal) return;
+    if (this.showReportsForm || this.showTools || this.showSetup || this.showExportImportModal)
+      return;
     if (this.selectedTool) return;
 
     // Throttle to avoid double-trigger flicker
@@ -560,27 +573,24 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
     this.newDocTags = '';
     this.newDocLink = '';
     this.showAddDocumentForm = false;
-       this.documentsListExpanded = false;
-
-
+    this.documentsListExpanded = false;
   }
 
   deleteDocument(id: string): void {
     this.documents = (this.documents || []).filter((d) => d.id !== id);
     this.saveDocuments();
   }
-    private toAbsoluteUrl(url: string): string {
+  private toAbsoluteUrl(url: string): string {
     return url && url.includes('://') ? url : new URL(url || '', window.location.origin).toString();
   }
 
-    private sanitizeFileName(name: string): string {
+  private sanitizeFileName(name: string): string {
     return (name || 'document')
       .trim()
       .replace(/[/\\?%*:|"<>]/g, '_')
       .replace(/\s+/g, ' ')
       .slice(0, 80);
   }
-
 
   private arrayBufferToBase64(buffer: ArrayBuffer): string {
     const bytes = new Uint8Array(buffer);
@@ -593,10 +603,7 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
     return btoa(binary);
   }
 
-  private async getShareableDocUrl(doc: {
-    title: string;
-    link?: string | null;
-  }): Promise<string> {
+  private async getShareableDocUrl(doc: { title: string; link?: string | null }): Promise<string> {
     const rawLink = doc.link || '';
     const absoluteUrl = this.toAbsoluteUrl(rawLink);
 
@@ -621,7 +628,7 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
       path,
       data: base64,
       directory: Directory.Cache,
-           recursive: true,
+      recursive: true,
     });
 
     const uri = await Filesystem.getUri({ path, directory: Directory.Cache });
@@ -661,13 +668,13 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
         const saved = await Filesystem.writeFile({
           path: filename,
           data: base64,
-          directory: Directory.Cache
+          directory: Directory.Cache,
         });
 
         await Share.share({
           title: doc.title,
           text: doc.title,
-          url: saved.uri
+          url: saved.uri,
         });
 
         return;
@@ -677,7 +684,7 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
       await Share.share({
         title: doc.title,
         text: doc.title,
-        url: absoluteUrl
+        url: absoluteUrl,
       });
     } catch (err) {
       console.error('shareDocument failed', err);
@@ -685,7 +692,7 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
     }
   }
 
-       async openDocument(doc: {
+  async openDocument(doc: {
     id: string;
     title: string;
     tags: string[];
@@ -730,7 +737,7 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
 
         const uri = await Filesystem.getUri({ path, directory: Directory.Cache });
 
-               // ✅ Open with Android system PDF viewer (FileOpener expects a filesystem path on many builds)
+        // ✅ Open with Android system PDF viewer (FileOpener expects a filesystem path on many builds)
         const filePath = uri.uri.startsWith('file://') ? uri.uri.slice('file://'.length) : uri.uri;
         await FileOpener.open({ filePath, contentType: 'application/pdf' });
 
@@ -738,16 +745,12 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
       }
 
       // Native non-asset
-                window.open(absoluteUrl, '_blank');
-
-
+      window.open(absoluteUrl, '_blank');
     } catch (err) {
       console.error('openDocument failed', err);
       alert('Could not open document.');
     }
   }
-
-
 
   private async loadDocumentsFromAssets(): Promise<
     Array<{ id: string; title: string; tags: string[]; link?: string | null; createdAt: number }>
@@ -769,7 +772,10 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
           const tags = Array.isArray(x.tags)
             ? x.tags.map((t: any) => String(t).trim()).filter(Boolean)
             : typeof x.tags === 'string'
-              ? x.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+              ? x.tags
+                  .split(',')
+                  .map((t: string) => t.trim())
+                  .filter(Boolean)
               : [];
 
           const id = x.id ?? (file ? `asset:${file}` : `asset:${title}`);
@@ -782,8 +788,7 @@ private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
     }
   }
 
-exportSubMenuOpen = false;
-
+  exportSubMenuOpen = false;
 
   kestrelData: KestrelDataSnapshot | null = null;
   // ---------- Converter (accordion) ----------
@@ -838,14 +843,7 @@ exportSubMenuOpen = false;
 
   // UI structure (collapsed groups)
   converterSections: Array<{
-    id:
-      | 'scope'
-      | 'distance'
-      | 'velocity'
-      | 'temperature'
-      | 'pressure'
-      | 'wind'
-      | 'angleSize';
+    id: 'scope' | 'distance' | 'velocity' | 'temperature' | 'pressure' | 'wind' | 'angleSize';
     label: string;
     modes: Array<{ id: any; label: string }>;
   }> = [
@@ -928,14 +926,7 @@ exportSubMenuOpen = false;
   }
 
   toggleConverterSection(
-    id:
-      | 'scope'
-      | 'distance'
-      | 'velocity'
-      | 'temperature'
-      | 'pressure'
-      | 'wind'
-      | 'angleSize'
+    id: 'scope' | 'distance' | 'velocity' | 'temperature' | 'pressure' | 'wind' | 'angleSize',
   ): void {
     this.expandedConverterSection = this.expandedConverterSection === id ? null : id;
   }
@@ -949,7 +940,7 @@ exportSubMenuOpen = false;
       | 'pressure'
       | 'wind'
       | 'angleSize',
-    modeId: any
+    modeId: any,
   ): void {
     // Make selection visible in header + ensure only one group open at a time
     this.converterSection = sectionId;
@@ -957,48 +948,37 @@ exportSubMenuOpen = false;
     this.expandedConverterSection = null;
   }
 
-
   private dataService: DataService = inject(DataService);
-kestrel: KestrelService = inject(KestrelService);
+  kestrel: KestrelService = inject(KestrelService);
 
-// ---------- lifecycle ----------
+  // ---------- lifecycle ----------
 
-     ngOnInit(): void {
+  ngOnInit(): void {
     this.loadCoreData();
     this.initKestrelSubscription();
 
     // Load saved prefs on app start (permanent across restarts)
     this.loadPreferences();
-    
-        // First-run: if no saved preferences exist yet, force user into Preferences
+
+    // First-run: if no saved preferences exist yet, force user into Preferences
     try {
       const raw = localStorage.getItem(this.prefsKey);
-            if (!raw) {
+      if (!raw) {
         // First-run (or after reinstall): do NOT force Preferences.
         // Stay on main menu.
         this.showReportsForm = false;
       }
-
-        } catch {
+    } catch {
       // If storage is blocked, do not force Preferences open.
       // Stay on main menu.
     }
 
-const firstLaunchDone = localStorage.getItem(this.firstLaunchSloganKey);
+    const firstLaunchDone = localStorage.getItem(this.firstLaunchSloganKey);
     // Show a random slogan on the main menu whenever the app becomes active.
     // Hidden as soon as a main menu icon/button is pressed (handled in setTab/openTools/openSetup/etc).
     this.initSloganVisibilityListener();
     this.maybeShowFirstLaunchSlogan();
-
-
-
-
-
   }
-
-
-
-
 
   private loadCoreData(): void {
     this.allSessions = this.dataService.getSessions();
@@ -1028,9 +1008,7 @@ const firstLaunchDone = localStorage.getItem(this.firstLaunchSloganKey);
 
   // ---------- tab navigation ----------
 
-      setTab(
-    tab: 'menu' | 'sessions' | 'rifles' | 'venues' | 'history' | 'loadDev'
-  ): void {
+  setTab(tab: 'menu' | 'sessions' | 'rifles' | 'venues' | 'history' | 'loadDev'): void {
     this.showFirstLaunchSlogan = false;
     this.currentTab = tab;
 
@@ -1071,21 +1049,21 @@ const firstLaunchDone = localStorage.getItem(this.firstLaunchSloganKey);
     this.selectedTool = null;
     this.currentTab = 'menu';
   }
-onBackFromConverter(): void {
-  // Restore the exact UI state from when the converter was opened
-  if (this.converterReturnState) {
-    this.showTools = this.converterReturnState.showTools;
-    this.showSetup = this.converterReturnState.showSetup;
-    this.showReportsForm = this.converterReturnState.showReportsForm;
-    this.selectedTool = this.converterReturnState.selectedTool;
-    this.converterReturnState = null;
-    return;
-  }
+  onBackFromConverter(): void {
+    // Restore the exact UI state from when the converter was opened
+    if (this.converterReturnState) {
+      this.showTools = this.converterReturnState.showTools;
+      this.showSetup = this.converterReturnState.showSetup;
+      this.showReportsForm = this.converterReturnState.showReportsForm;
+      this.selectedTool = this.converterReturnState.selectedTool;
+      this.converterReturnState = null;
+      return;
+    }
 
-  // Fallback
-  this.selectedTool = null;
-  this.currentTab = 'menu';
-}
+    // Fallback
+    this.selectedTool = null;
+    this.currentTab = 'menu';
+  }
 
   // ---------- bottom icon bar ----------
 
@@ -1096,7 +1074,6 @@ onBackFromConverter(): void {
     // (You can wire this harder later if you want icons to also switch tabs.)
   }
 
-  
   // ---------- haptics (safe: no extra plugin install) ----------
   private hapticTap(): void {
     try {
@@ -1152,12 +1129,11 @@ onBackFromConverter(): void {
 
     this.showReportsForm = !this.showReportsForm;
     if (this.showReportsForm) {
-           this.showTools = false;
+      this.showTools = false;
       this.showSetup = false;
       this.showExportImportModal = false;
       this.showExportImportDataModal = false;
       this.selectedTool = null;
-
     } else {
       // clear report state when collapsing
       this.lastSettingsResult = null;
@@ -1168,33 +1144,33 @@ onBackFromConverter(): void {
       this.expandedDistanceM = null;
     }
   }
-backToToolsAndResetReports(): void {
-  // Reset report filters to defaults
-  this.reportRequest = {
-    type: 'recent',
-    rifleId: null,
-    venueId: null,
-    dateFrom: null,
-    dateTo: null,
-    limit: 10,
-  };
+  backToToolsAndResetReports(): void {
+    // Reset report filters to defaults
+    this.reportRequest = {
+      type: 'recent',
+      rifleId: null,
+      venueId: null,
+      dateFrom: null,
+      dateTo: null,
+      limit: 10,
+    };
 
-  this.reportDistanceM = null;
+    this.reportDistanceM = null;
 
-  // Clear report results
-  this.lastSettingsResult = null;
-  this.lastSettingsError = null;
-  this.multiDistanceSummary = [];
-  this.windTrendSummary = null;
-  this.distanceHistoryGroups = [];
-  this.expandedDistanceM = null;
+    // Clear report results
+    this.lastSettingsResult = null;
+    this.lastSettingsError = null;
+    this.multiDistanceSummary = [];
+    this.windTrendSummary = null;
+    this.distanceHistoryGroups = [];
+    this.expandedDistanceM = null;
 
-  // Navigate back to Tools & utilities (expanded)
-  this.showReportsForm = false;
-  this.selectedTool = null;
-  this.openTools(); 
-  // <-- expands Tools (same logic as everywhere else)
-}
+    // Navigate back to Tools & utilities (expanded)
+    this.showReportsForm = false;
+    this.selectedTool = null;
+    this.openTools();
+    // <-- expands Tools (same logic as everywhere else)
+  }
   // ---------------- REPORTS: canonical Venue picker ----------------
   openReportVenuePicker(): void {
     this.reportVenuePickerOpen = true;
@@ -1289,18 +1265,11 @@ backToToolsAndResetReports(): void {
       const from = this.reportRequest.dateFrom
         ? new Date(this.reportRequest.dateFrom).getTime()
         : null;
-      const to = this.reportRequest.dateTo
-        ? new Date(this.reportRequest.dateTo).getTime()
-        : null;
+      const to = this.reportRequest.dateTo ? new Date(this.reportRequest.dateTo).getTime() : null;
 
       sessions = sessions.filter((s) => {
         const rawDate =
-          s.date ||
-          s.sessionDate ||
-          s.startTime ||
-          s.startedAt ||
-          s.createdAt ||
-          s.timestamp;
+          s.date || s.sessionDate || s.startTime || s.startedAt || s.createdAt || s.timestamp;
         if (!rawDate) return false;
 
         const t = new Date(rawDate).getTime();
@@ -1316,12 +1285,7 @@ backToToolsAndResetReports(): void {
     sessions.sort((a, b) => {
       const getTime = (x: any) => {
         const raw =
-          x.date ||
-          x.sessionDate ||
-          x.startTime ||
-          x.startedAt ||
-          x.createdAt ||
-          x.timestamp;
+          x.date || x.sessionDate || x.startTime || x.startedAt || x.createdAt || x.timestamp;
         return raw ? new Date(raw).getTime() : 0;
       };
       return getTime(a) - getTime(b);
@@ -1341,30 +1305,25 @@ backToToolsAndResetReports(): void {
     this.windTrendSummary = null;
     this.distanceHistoryGroups = [];
     this.expandedDistanceM = null;
-    
-// Require Venue + Rifle
-if (!this.reportRequest.venueId || !this.reportRequest.rifleId) {
-  this.lastSettingsError = 'Please select a Venue and a Rifle first.';
-  return;
-}
 
+    // Require Venue + Rifle
+    if (!this.reportRequest.venueId || !this.reportRequest.rifleId) {
+      this.lastSettingsError = 'Please select a Venue and a Rifle first.';
+      return;
+    }
 
     const sessions = this.getFilteredSessionsForReport();
     if (!sessions.length) {
-      this.lastSettingsError =
-        'No sessions found for this filter yet. Shoot a session first.';
+      this.lastSettingsError = 'No sessions found for this filter yet. Shoot a session first.';
       return;
     }
 
     // ✅ NEW BEHAVIOUR:
     // If distance is blank/0, show ALL available distances (grouped) instead of erroring.
     if (!this.reportDistanceM || this.reportDistanceM <= 0) {
-      this.distanceHistoryGroups = this.buildDistanceHistoryGroupsAllDistances(
-        sessions
-      );
+      this.distanceHistoryGroups = this.buildDistanceHistoryGroupsAllDistances(sessions);
       if (!this.distanceHistoryGroups.length) {
-        this.lastSettingsError =
-          'No DOPE distances found in the filtered sessions.';
+        this.lastSettingsError = 'No DOPE distances found in the filtered sessions.';
       }
       return;
     }
@@ -1374,61 +1333,44 @@ if (!this.reportRequest.venueId || !this.reportRequest.rifleId) {
     // 1) Last settings at this exact distance
     const last = this.findLastSettingsForDistance(sessions, distanceM);
     if (!last) {
-      this.lastSettingsError =
-        'No DOPE found for this distance in the filtered sessions.';
+      this.lastSettingsError = 'No DOPE found for this distance in the filtered sessions.';
       return;
     }
     this.lastSettingsResult = last;
 
     // 2) Quick DOPE view at key distances
-    this.multiDistanceSummary = this.buildMultiDistanceSummary(
-      sessions,
-      this.REPORT_DISTANCES
-    );
+    this.multiDistanceSummary = this.buildMultiDistanceSummary(sessions, this.REPORT_DISTANCES);
 
     // 3) Wind trend at this distance
     this.windTrendSummary = this.buildWindTrendSummary(sessions, distanceM);
 
     // 4) Full distance history groups (ALL distances, comprehensive)
-this.distanceHistoryGroups = this.buildDistanceHistoryGroupsAllDistances(sessions);
+    this.distanceHistoryGroups = this.buildDistanceHistoryGroupsAllDistances(sessions);
 
-// Optional: auto-expand the selected distance group (nice UX)
-this.expandedDistanceM = distanceM;
-
-    ;
+    // Optional: auto-expand the selected distance group (nice UX)
+    this.expandedDistanceM = distanceM;
   }
 
   private findLastSettingsForDistance(
     sessions: any[],
-    distanceM: number
+    distanceM: number,
   ): LastSettingsResult | null {
     for (let i = sessions.length - 1; i >= 0; i--) {
       const s = sessions[i];
       const dope = this.findDopeForExactDistance(s, distanceM);
       if (!dope) continue;
 
-      const rifleName =
-        this.dataService.getRifleById?.(s.rifleId)?.name || 'Unknown rifle';
-      const venueName =
-        this.dataService.getVenueById?.(s.venueId)?.name || 'Unknown venue';
+      const rifleName = this.dataService.getRifleById?.(s.rifleId)?.name || 'Unknown rifle';
+      const venueName = this.dataService.getVenueById?.(s.venueId)?.name || 'Unknown venue';
 
       const rawDate =
-        s.sessionDate ||
-        s.date ||
-        s.startTime ||
-        s.startedAt ||
-        s.createdAt ||
-        s.timestamp;
-      const dateStr = rawDate
-        ? new Date(rawDate).toISOString().slice(0, 10)
-        : 'Unknown date';
+        s.sessionDate || s.date || s.startTime || s.startedAt || s.createdAt || s.timestamp;
+      const dateStr = rawDate ? new Date(rawDate).toISOString().slice(0, 10) : 'Unknown date';
 
       const env = s.environment || {};
 
-      const elevationMil =
-        dope.elevationMil ?? dope.elevation ?? dope.elevationClicks ?? null;
-      const windageMil =
-        dope.windageMil ?? dope.windage ?? dope.windClicks ?? null;
+      const elevationMil = dope.elevationMil ?? dope.elevation ?? dope.elevationClicks ?? null;
+      const windageMil = dope.windageMil ?? dope.windage ?? dope.windClicks ?? null;
 
       const result: LastSettingsResult = {
         rifleName,
@@ -1436,28 +1378,15 @@ this.expandedDistanceM = distanceM;
         sessionDate: dateStr,
         distanceM: dope.distanceM ?? dope.distance ?? null,
         elevationMil:
-          typeof elevationMil === 'number' && !Number.isNaN(elevationMil)
-            ? elevationMil
-            : null,
-        windageMil:
-          typeof windageMil === 'number' && !Number.isNaN(windageMil)
-            ? windageMil
-            : null,
+          typeof elevationMil === 'number' && !Number.isNaN(elevationMil) ? elevationMil : null,
+        windageMil: typeof windageMil === 'number' && !Number.isNaN(windageMil) ? windageMil : null,
         environment: {
-          temperatureC:
-            typeof env.temperatureC === 'number' ? env.temperatureC : null,
-          pressureInHg:
-            typeof env.pressureInHg === 'number' ? env.pressureInHg : null,
-          humidityPercent:
-            typeof env.humidityPercent === 'number'
-              ? env.humidityPercent
-              : null,
-          windSpeedMps:
-            typeof env.windSpeedMps === 'number' ? env.windSpeedMps : null,
+          temperatureC: typeof env.temperatureC === 'number' ? env.temperatureC : null,
+          pressureInHg: typeof env.pressureInHg === 'number' ? env.pressureInHg : null,
+          humidityPercent: typeof env.humidityPercent === 'number' ? env.humidityPercent : null,
+          windSpeedMps: typeof env.windSpeedMps === 'number' ? env.windSpeedMps : null,
           windDirectionClock:
-            typeof env.windDirectionClock === 'number'
-              ? env.windDirectionClock
-              : null,
+            typeof env.windDirectionClock === 'number' ? env.windDirectionClock : null,
         },
       };
 
@@ -1467,10 +1396,7 @@ this.expandedDistanceM = distanceM;
     return null;
   }
 
-  private buildDistanceHistoryGroups(
-    sessions: any[],
-    distanceM: number
-  ): DistanceHistoryGroup[] {
+  private buildDistanceHistoryGroups(sessions: any[], distanceM: number): DistanceHistoryGroup[] {
     const groupsMap = new Map<number, DistanceHistoryEntry[]>();
 
     for (const s of sessions) {
@@ -1478,39 +1404,25 @@ this.expandedDistanceM = distanceM;
       if (!dope) continue;
 
       const rawDate =
-        s.sessionDate ||
-        s.date ||
-        s.startTime ||
-        s.startedAt ||
-        s.createdAt ||
-        s.timestamp;
-      const dateStr = rawDate
-        ? new Date(rawDate).toISOString().slice(0, 10)
-        : 'Unknown date';
+        s.sessionDate || s.date || s.startTime || s.startedAt || s.createdAt || s.timestamp;
+      const dateStr = rawDate ? new Date(rawDate).toISOString().slice(0, 10) : 'Unknown date';
 
       const d =
         typeof dope.distanceM === 'number'
           ? dope.distanceM
           : typeof dope.distance === 'number'
-          ? dope.distance
-          : distanceM;
+            ? dope.distance
+            : distanceM;
 
-      const elevationMil =
-        dope.elevationMil ?? dope.elevation ?? dope.elevationClicks ?? null;
-      const windageMil =
-        dope.windageMil ?? dope.windage ?? dope.windClicks ?? null;
+      const elevationMil = dope.elevationMil ?? dope.elevation ?? dope.elevationClicks ?? null;
+      const windageMil = dope.windageMil ?? dope.windage ?? dope.windClicks ?? null;
 
       const entry: DistanceHistoryEntry = {
         sessionDate: dateStr,
         distanceM: d,
         elevationMil:
-          typeof elevationMil === 'number' && !Number.isNaN(elevationMil)
-            ? elevationMil
-            : null,
-        windageMil:
-          typeof windageMil === 'number' && !Number.isNaN(windageMil)
-            ? windageMil
-            : null,
+          typeof elevationMil === 'number' && !Number.isNaN(elevationMil) ? elevationMil : null,
+        windageMil: typeof windageMil === 'number' && !Number.isNaN(windageMil) ? windageMil : null,
       };
 
       const list = groupsMap.get(d) ?? [];
@@ -1529,9 +1441,7 @@ this.expandedDistanceM = distanceM;
   }
 
   // ✅ NEW helper: build groups across ALL distances in the filtered sessions
-  private buildDistanceHistoryGroupsAllDistances(
-    sessions: any[]
-  ): DistanceHistoryGroup[] {
+  private buildDistanceHistoryGroupsAllDistances(sessions: any[]): DistanceHistoryGroup[] {
     const groupsMap = new Map<number, DistanceHistoryEntry[]>();
 
     for (const s of sessions) {
@@ -1540,43 +1450,29 @@ this.expandedDistanceM = distanceM;
       if (!dopes.length) continue;
 
       const rawDate =
-        s.sessionDate ||
-        s.date ||
-        s.startTime ||
-        s.startedAt ||
-        s.createdAt ||
-        s.timestamp;
-      const dateStr = rawDate
-        ? new Date(rawDate).toISOString().slice(0, 10)
-        : 'Unknown date';
+        s.sessionDate || s.date || s.startTime || s.startedAt || s.createdAt || s.timestamp;
+      const dateStr = rawDate ? new Date(rawDate).toISOString().slice(0, 10) : 'Unknown date';
 
       for (const dope of dopes) {
         const d =
           typeof dope.distanceM === 'number'
             ? dope.distanceM
             : typeof dope.distance === 'number'
-            ? dope.distance
-            : null;
+              ? dope.distance
+              : null;
 
         if (d == null || Number.isNaN(d)) continue;
 
-        const elevationMil =
-          dope.elevationMil ?? dope.elevation ?? dope.elevationClicks ?? null;
-        const windageMil =
-          dope.windageMil ?? dope.windage ?? dope.windClicks ?? null;
+        const elevationMil = dope.elevationMil ?? dope.elevation ?? dope.elevationClicks ?? null;
+        const windageMil = dope.windageMil ?? dope.windage ?? dope.windClicks ?? null;
 
         const entry: DistanceHistoryEntry = {
           sessionDate: dateStr,
           distanceM: d,
           elevationMil:
-            typeof elevationMil === 'number' && !Number.isNaN(elevationMil)
-              ? elevationMil
-              : null,
+            typeof elevationMil === 'number' && !Number.isNaN(elevationMil) ? elevationMil : null,
           windageMil:
-            typeof windageMil === 'number' && !Number.isNaN(windageMil)
-              ? windageMil
-              : null,
-              
+            typeof windageMil === 'number' && !Number.isNaN(windageMil) ? windageMil : null,
         };
 
         const list = groupsMap.get(d) ?? [];
@@ -1639,8 +1535,8 @@ this.expandedDistanceM = distanceM;
         typeof c?.distanceM === 'number'
           ? c.distanceM
           : typeof c?.distance === 'number'
-          ? c.distance
-          : null;
+            ? c.distance
+            : null;
       return d != null && !Number.isNaN(d);
     });
   }
@@ -1693,8 +1589,8 @@ this.expandedDistanceM = distanceM;
         typeof c?.distanceM === 'number'
           ? c.distanceM
           : typeof c?.distance === 'number'
-          ? c.distance
-          : null;
+            ? c.distance
+            : null;
       if (d == null) return false;
       return Math.abs(d - distanceM) <= TOL;
     });
@@ -1734,8 +1630,7 @@ this.expandedDistanceM = distanceM;
     }
 
     const withDistance = candidates.filter(
-      (c) =>
-        typeof c?.distanceM === 'number' || typeof c?.distance === 'number'
+      (c) => typeof c?.distanceM === 'number' || typeof c?.distance === 'number',
     );
 
     if (!withDistance.length) {
@@ -1743,7 +1638,7 @@ this.expandedDistanceM = distanceM;
     }
 
     const distances = withDistance.map((c) =>
-      typeof c.distanceM === 'number' ? c.distanceM : c.distance
+      typeof c.distanceM === 'number' ? c.distanceM : c.distance,
     );
     const min = Math.min(...distances);
     const max = Math.max(...distances);
@@ -1753,8 +1648,7 @@ this.expandedDistanceM = distanceM;
     let bestDelta = Number.POSITIVE_INFINITY;
 
     for (const c of withDistance) {
-      const d =
-        typeof c.distanceM === 'number' ? c.distanceM : c.distance;
+      const d = typeof c.distanceM === 'number' ? c.distanceM : c.distance;
       const delta = Math.abs(d - target);
       if (delta < bestDelta) {
         bestDelta = delta;
@@ -1765,342 +1659,332 @@ this.expandedDistanceM = distanceM;
     return best;
   }
 
-// ---------- tools / Kestrel / converter ----------
-openTools(): void {
-  this.showFirstLaunchSlogan = false;
+  // ---------- tools / Kestrel / converter ----------
+  openTools(): void {
+    this.showFirstLaunchSlogan = false;
 
-  this.showTools = !this.showTools;
+    this.showTools = !this.showTools;
 
-  // Tools and Setup are mutually exclusive panels
-  if (this.showTools) {
-    this.showSetup = false;
+    // Tools and Setup are mutually exclusive panels
+    if (this.showTools) {
+      this.showSetup = false;
+    }
+
+    if (!this.showTools) {
+      this.selectedTool = null;
+    }
+
+    this.showReportsForm = false;
   }
-
-  if (!this.showTools) {
-    this.selectedTool = null;
-  }
-
-  this.showReportsForm = false;
-}
 
   openSetup(): void {
     this.showFirstLaunchSlogan = false;
 
-  this.showSetup = !this.showSetup;
+    this.showSetup = !this.showSetup;
 
-  // Tools and Setup are mutually exclusive panels
-if (this.showSetup) {
-  this.showTools = false;
-}
-this.selectedTool = null;
+    // Tools and Setup are mutually exclusive panels
+    if (this.showSetup) {
+      this.showTools = false;
+    }
+    this.selectedTool = null;
 
-  this.showReportsForm = false;
-}
-
-closeToolsSetupPanels(): void {
-  this.showTools = false;
-  this.showSetup = false;
-  this.selectedTool = null;
-  this.showReportsForm = false;
-}
-
-
-openTargetDownloads(): void {
-  // Ensure the tools panel is open
-  this.showTools = true;
-  
-
-  // Toggle the targets panel
-  this.selectedTool = this.selectedTool === 'targets' ? null : 'targets';
-  this.showReportsForm = false;
-}
-
-/** Mil/MOA converter tool toggle (button calls this) */
-onConverterToolClick(): void {
-  const opening = this.selectedTool !== 'converter';
-
-  if (opening) {
-    // Capture where we came from so Back returns to the same UI state
-    this.converterReturnState = {
-      showTools: this.showTools,
-      showSetup: this.showSetup,
-      showReportsForm: this.showReportsForm,
-      selectedTool: this.selectedTool,
-    };
+    this.showReportsForm = false;
   }
 
-  this.showTools = true;
-  this.showSetup = false;
-
-  this.selectedTool = opening ? 'converter' : null;
-
-  if (opening) {
-    // collapsed by default
-    this.expandedConverterSection = null;
-  } else {
-    // closing via toggle clears return state
-    this.converterReturnState = null;
+  closeToolsSetupPanels(): void {
+    this.showTools = false;
+    this.showSetup = false;
+    this.selectedTool = null;
+    this.showReportsForm = false;
   }
 
-  this.showReportsForm = false;
-}
+  openTargetDownloads(): void {
+    // Ensure the tools panel is open
+    this.showTools = true;
 
-
-/** Wind effect tool toggle (button calls this) */
-onWindEffectToolClick(): void {
-  this.showTools = true;
-  this.showSetup = false;
-  this.selectedTool = this.selectedTool === 'windEffect' ? null : 'windEffect';
-  this.showReportsForm = false;
-}
-onDocumentsToolClick(): void {
-  this.showTools = true;
-  this.showSetup = false;
-
-  const opening = this.selectedTool !== 'documents';
-  this.selectedTool = opening ? 'documents' : null;
-
-  this.showReportsForm = false;
-
-  // When opening Documents: start collapsed + empty search
-  if (opening) {
-    this.documentsSearch = '';
-    this.documentsListExpanded = false;
-    this.showAddDocumentForm = false;
-  } else {
-    return;
+    // Toggle the targets panel
+    this.selectedTool = this.selectedTool === 'targets' ? null : 'targets';
+    this.showReportsForm = false;
   }
 
-  // Prefer bundled documents (assets/documents/index.json)
-  this.loadDocumentsFromAssets()
-    .then((assetDocs) => {
-      if (assetDocs && assetDocs.length) {
-        this.documents = assetDocs;
-        this.saveDocuments(); // optional: keeps them visible even if assets load fails later
-      } else {
-        this.loadDocuments(); // fallback
-      }
-    })
-    .catch(() => this.loadDocuments());
-}
+  /** Mil/MOA converter tool toggle (button calls this) */
+  onConverterToolClick(): void {
+    const opening = this.selectedTool !== 'converter';
 
-
-
-// ---------------- Preferences ----------------
-private readonly prefsKey = 'gs_preferences_v1';
-
-prefs: {
-  distanceUnit: 'm' | 'yd';
-  velocityUnit: 'mps' | 'fps';
-  temperatureUnit: 'c' | 'f';
-    loadDevOalUnit: 'mm' | 'in';
-
-  pressureUnit: 'hpa' | 'inhg' | 'mmhg' | 'kpa';
-  windSpeedUnit: 'kmh' | 'mph' | 'ms' | 'kn';
-  angleDisplay: 'degrees' | 'clock';
-  scopeAdjust: 'mil' | 'moa';
-} = {
-  distanceUnit: 'm',
-  velocityUnit: 'mps',
-    loadDevOalUnit: 'mm',
-
-  temperatureUnit: 'c',
-  pressureUnit: 'hpa',
-  windSpeedUnit: 'kmh',
-  angleDisplay: 'clock',
-  scopeAdjust: 'mil',
-};
-
-// ✅ this is what your template is complaining about
-preferencesSavedMsg: string = '';
-
-  openPreferences(): void {
-  // Preferences live under Setup now
-  this.showSetup = true;
-  this.showTools = false;
-
-  this.selectedTool = this.selectedTool === 'preferences' ? null : 'preferences';
-  this.showReportsForm = false;
-  this.loadPreferences();
-}
-
-
-closePreferences(): void {
-  // Persist structured prefs (v1)
-  this.dataService.updatePreferences({
-    loadDev: { oalUnit: this.prefs.loadDevOalUnit },
-    onboarding: { completed: true },
-  });
-
-  // Collapse/close the preferences panel
-  this.selectedTool = null;
-
-  // Preferences live under Setup now
-  this.showTools = false;
-  this.showSetup = true;
-}
-
-
-
-// ✅ Save button = "autosave + message + collapse"
-savePreferences(): void {
-  try {
-    localStorage.setItem(this.prefsKey, JSON.stringify(this.prefs));
-  } catch {
-    // ignore storage failure for UX
-  }
-  // Also save Load Dev COAL/Ogive unit into the structured prefs used by components
-  try {
-    this.dataService.updatePreferences({ loadDev: { oalUnit: this.prefs.loadDevOalUnit } });
-  } catch {
-    // ignore (keep UI save working even if storage blocked)
-  }
-
-  // Simple “Saved” feedback (no Capacitor Toast dependency)
-  this.preferencesSavedMsg = 'Saved';
-  setTimeout(() => (this.preferencesSavedMsg = ''), 1200);
-
-  // Collapse/close the preferences panel
-  this.closePreferences();
-}
-
-
-
-
-private loadPreferences(): void {
-  try {
-    const raw = localStorage.getItem(this.prefsKey);
-    if (!raw) return;
-
-    const parsed: any = JSON.parse(raw);
-
-    // Migration from old profile-style prefs
-    if (parsed && typeof parsed === 'object' && !parsed.distanceUnit) {
-      const units = (parsed.units ?? '').toString().toLowerCase();
-
-      if (units === 'imperial') {
-        parsed.distanceUnit = 'yd';
-        parsed.velocityUnit = 'fps';
-        parsed.temperatureUnit = 'f';
-        parsed.pressureUnit = 'inhg';
-        parsed.windSpeedUnit = 'mph';
-        parsed.angleDisplay = 'clock';
-        parsed.scopeAdjust = 'moa';
-      } else {
-        parsed.distanceUnit = 'm';
-        parsed.velocityUnit = 'mps';
-        parsed.temperatureUnit = 'c';
-        parsed.pressureUnit = 'hpa';
-        parsed.windSpeedUnit = 'kmh';
-        parsed.angleDisplay = 'clock';
-        parsed.scopeAdjust = 'mil';
-      }
+    if (opening) {
+      // Capture where we came from so Back returns to the same UI state
+      this.converterReturnState = {
+        showTools: this.showTools,
+        showSetup: this.showSetup,
+        showReportsForm: this.showReportsForm,
+        selectedTool: this.selectedTool,
+      };
     }
 
-    this.prefs = {
-      distanceUnit: parsed.distanceUnit === 'yd' ? 'yd' : 'm',
-      velocityUnit: parsed.velocityUnit === 'fps' ? 'fps' : 'mps',
-            loadDevOalUnit:
-        String(parsed.loadDevOalUnit ?? parsed.loadDev?.oalUnit ?? this.dataService.getDefaultLoadDevOalUnit?.())
-          .toLowerCase() === 'in'
-          ? 'in'
-          : 'mm',
+    this.showTools = true;
+    this.showSetup = false;
 
-      temperatureUnit: parsed.temperatureUnit === 'f' ? 'f' : 'c',
-      pressureUnit: ['hpa', 'inhg', 'mmhg', 'kpa'].includes(parsed.pressureUnit)
-        ? parsed.pressureUnit
-        : 'hpa',
-      windSpeedUnit: ['kmh', 'mph', 'ms', 'kn'].includes(parsed.windSpeedUnit)
-        ? parsed.windSpeedUnit
-        : 'kmh',
-      angleDisplay: parsed.angleDisplay === 'degrees' ? 'degrees' : 'clock',
-      scopeAdjust: parsed.scopeAdjust === 'moa' ? 'moa' : 'mil'
-    };
-  } catch {
-    // ignore parse errors
+    this.selectedTool = opening ? 'converter' : null;
+
+    if (opening) {
+      // collapsed by default
+      this.expandedConverterSection = null;
+    } else {
+      // closing via toggle clears return state
+      this.converterReturnState = null;
+    }
+
+    this.showReportsForm = false;
   }
-}
 
+  /** Wind effect tool toggle (button calls this) */
+  onWindEffectToolClick(): void {
+    this.showTools = true;
+    this.showSetup = false;
+    this.selectedTool = this.selectedTool === 'windEffect' ? null : 'windEffect';
+    this.showReportsForm = false;
+  }
+  onDocumentsToolClick(): void {
+    this.showTools = true;
+    this.showSetup = false;
 
+    const opening = this.selectedTool !== 'documents';
+    this.selectedTool = opening ? 'documents' : null;
 
+    this.showReportsForm = false;
 
-async downloadTarget(type: 'ocw' | 'group' | 'dots'): Promise<void> {
-  try {
-    const files: Record<string, string> = {
-      ocw: 'assets/targets/ocw-ladder-a4.pdf',
-      group: 'assets/targets/group-zero-a4.pdf',
-      dots: 'assets/targets/dot-drill-a4.pdf'
-    };
+    // When opening Documents: start collapsed + empty search
+    if (opening) {
+      this.documentsSearch = '';
+      this.documentsListExpanded = false;
+      this.showAddDocumentForm = false;
+    } else {
+      return;
+    }
 
-    const url = files[type];
-    if (!url) throw new Error(`Unknown target type: ${type}`);
+    // Prefer bundled documents (assets/documents/index.json)
+    this.loadDocumentsFromAssets()
+      .then((assetDocs) => {
+        if (assetDocs && assetDocs.length) {
+          this.documents = assetDocs;
+          this.saveDocuments(); // optional: keeps them visible even if assets load fails later
+        } else {
+          this.loadDocuments(); // fallback
+        }
+      })
+      .catch(() => this.loadDocuments());
+  }
 
-    // 1) fetch asset
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Target not found: ${url} (${response.status})`);
+  // ---------------- Preferences ----------------
+  private readonly prefsKey = 'gs_preferences_v1';
 
-    const blob = await response.blob();
-    const base64 = await this.blobToBase64(blob);
+  prefs: {
+    distanceUnit: 'm' | 'yd';
+    velocityUnit: 'mps' | 'fps';
+    temperatureUnit: 'c' | 'f';
+    loadDevOalUnit: 'mm' | 'in';
 
-    const filename = url.split('/').pop() ?? `target-${type}.pdf`;
+    pressureUnit: 'hpa' | 'inhg' | 'mmhg' | 'kpa';
+    windSpeedUnit: 'kmh' | 'mph' | 'ms' | 'kn';
+    angleDisplay: 'degrees' | 'clock';
+    scopeAdjust: 'mil' | 'moa';
+  } = {
+    distanceUnit: 'm',
+    velocityUnit: 'mps',
+    loadDevOalUnit: 'mm',
 
-       // 2) Save to Cache (same method as working Documents) — avoids Android scoped-storage permission errors
-    await Filesystem.requestPermissions();
+    temperatureUnit: 'c',
+    pressureUnit: 'hpa',
+    windSpeedUnit: 'kmh',
+    angleDisplay: 'clock',
+    scopeAdjust: 'mil',
+  };
 
-    const safeName = this.sanitizeFileName(filename.replace(/\.pdf$/i, ''));
-    const cachePath = `gstargets/${safeName}.pdf`;
+  // ✅ this is what your template is complaining about
+  preferencesSavedMsg: string = '';
 
-    await Filesystem.writeFile({
-      path: cachePath,
-      data: base64,
-      directory: Directory.Cache,
-      recursive: true,
+  openPreferences(): void {
+    // Preferences live under Setup now
+    this.showSetup = true;
+    this.showTools = false;
+
+    this.selectedTool = this.selectedTool === 'preferences' ? null : 'preferences';
+    this.showReportsForm = false;
+    this.loadPreferences();
+  }
+
+  closePreferences(): void {
+    // Persist structured prefs (v1)
+    this.dataService.updatePreferences({
+      loadDev: { oalUnit: this.prefs.loadDevOalUnit },
+      onboarding: { completed: true },
     });
 
-    const uri = await Filesystem.getUri({ path: cachePath, directory: Directory.Cache });
-    const shareUrl = uri.uri;
+    // Collapse/close the preferences panel
+    this.selectedTool = null;
 
-    // 3) Try Share (lets user save to Files/Downloads). If Share fails, open directly.
+    // Preferences live under Setup now
+    this.showTools = false;
+    this.showSetup = true;
+  }
+
+  // ✅ Save button = "autosave + message + collapse"
+  savePreferences(): void {
     try {
+      localStorage.setItem(this.prefsKey, JSON.stringify(this.prefs));
+    } catch {
+      // ignore storage failure for UX
+    }
+    // Also save Load Dev COAL/Ogive unit into the structured prefs used by components
+    try {
+      this.dataService.updatePreferences({ loadDev: { oalUnit: this.prefs.loadDevOalUnit } });
+    } catch {
+      // ignore (keep UI save working even if storage blocked)
+    }
+
+    // Simple “Saved” feedback (no Capacitor Toast dependency)
+    this.preferencesSavedMsg = 'Saved';
+    setTimeout(() => (this.preferencesSavedMsg = ''), 1200);
+
+    // Collapse/close the preferences panel
+    this.closePreferences();
+  }
+
+  private loadPreferences(): void {
+    try {
+      const raw = localStorage.getItem(this.prefsKey);
+      if (!raw) return;
+
+      const parsed: any = JSON.parse(raw);
+
+      // Migration from old profile-style prefs
+      if (parsed && typeof parsed === 'object' && !parsed.distanceUnit) {
+        const units = (parsed.units ?? '').toString().toLowerCase();
+
+        if (units === 'imperial') {
+          parsed.distanceUnit = 'yd';
+          parsed.velocityUnit = 'fps';
+          parsed.temperatureUnit = 'f';
+          parsed.pressureUnit = 'inhg';
+          parsed.windSpeedUnit = 'mph';
+          parsed.angleDisplay = 'clock';
+          parsed.scopeAdjust = 'moa';
+        } else {
+          parsed.distanceUnit = 'm';
+          parsed.velocityUnit = 'mps';
+          parsed.temperatureUnit = 'c';
+          parsed.pressureUnit = 'hpa';
+          parsed.windSpeedUnit = 'kmh';
+          parsed.angleDisplay = 'clock';
+          parsed.scopeAdjust = 'mil';
+        }
+      }
+
+      this.prefs = {
+        distanceUnit: parsed.distanceUnit === 'yd' ? 'yd' : 'm',
+        velocityUnit: parsed.velocityUnit === 'fps' ? 'fps' : 'mps',
+        loadDevOalUnit:
+          String(
+            parsed.loadDevOalUnit ??
+              parsed.loadDev?.oalUnit ??
+              this.dataService.getDefaultLoadDevOalUnit?.(),
+          ).toLowerCase() === 'in'
+            ? 'in'
+            : 'mm',
+
+        temperatureUnit: parsed.temperatureUnit === 'f' ? 'f' : 'c',
+        pressureUnit: ['hpa', 'inhg', 'mmhg', 'kpa'].includes(parsed.pressureUnit)
+          ? parsed.pressureUnit
+          : 'hpa',
+        windSpeedUnit: ['kmh', 'mph', 'ms', 'kn'].includes(parsed.windSpeedUnit)
+          ? parsed.windSpeedUnit
+          : 'kmh',
+        angleDisplay: parsed.angleDisplay === 'degrees' ? 'degrees' : 'clock',
+        scopeAdjust: parsed.scopeAdjust === 'moa' ? 'moa' : 'mil',
+      };
+    } catch {
+      // ignore parse errors
+    }
+  }
+
+  async downloadTarget(type: 'ocw' | 'group' | 'dots'): Promise<void> {
+    try {
+      const files: Record<string, string> = {
+        ocw: 'assets/targets/ocw-ladder-a4.pdf',
+        group: 'assets/targets/group-zero-a4.pdf',
+        dots: 'assets/targets/dot-drill-a4.pdf',
+      };
+
+      const url = files[type];
+      if (!url) throw new Error(`Unknown target type: ${type}`);
+
+      // 1) fetch asset
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Target not found: ${url} (${response.status})`);
+
+      const blob = await response.blob();
+      const base64 = await this.blobToBase64(blob);
+
+      const filename = url.split('/').pop() ?? `target-${type}.pdf`;
+
+      // 2) Save to Cache (same method as working Documents) — avoids Android scoped-storage permission errors
+      await Filesystem.requestPermissions();
+
+      const safeName = this.sanitizeFileName(filename.replace(/\.pdf$/i, ''));
+      const cachePath = `gstargets/${safeName}.pdf`;
+
+      await Filesystem.writeFile({
+        path: cachePath,
+        data: base64,
+        directory: Directory.Cache,
+        recursive: true,
+      });
+
+      const uri = await Filesystem.getUri({ path: cachePath, directory: Directory.Cache });
+      const shareUrl = uri.uri;
+
+      // 3) Try Share (lets user save to Files/Downloads). If Share fails, open directly.
+      try {
+        await Share.share({
+          title: filename,
+          text: 'Save this target to Downloads / Files',
+          url: shareUrl,
+        });
+      } catch (shareErr) {
+        // Fallback: open the PDF directly
+        const filePath = shareUrl.startsWith('file://')
+          ? shareUrl.slice('file://'.length)
+          : shareUrl;
+        await FileOpener.open({ filePath, contentType: 'application/pdf' });
+      }
+
+      // 3) open share sheet so user can "Save to Downloads" or print
       await Share.share({
         title: filename,
         text: 'Save this target to Downloads / Files',
-        url: shareUrl,
+        url: uri.uri,
       });
-    } catch (shareErr) {
-      // Fallback: open the PDF directly
-      const filePath = shareUrl.startsWith('file://') ? shareUrl.slice('file://'.length) : shareUrl;
-      await FileOpener.open({ filePath, contentType: 'application/pdf' });
+    } catch (err) {
+      console.error('downloadTarget failed', err);
+      alert(`Download failed: ${(err as any)?.message ?? err}`);
     }
-
-    // 3) open share sheet so user can "Save to Downloads" or print
-    await Share.share({
-      title: filename,
-      text: 'Save this target to Downloads / Files',
-      url: uri.uri,
-    });
-
-  } catch (err) {
-    console.error('downloadTarget failed', err);
-    alert(`Download failed: ${(err as any)?.message ?? err}`);
   }
-}
 
-private blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Failed to read blob'));
-    reader.onload = () => {
-      const result = reader.result as string;
-      // result looks like: data:application/pdf;base64,JVBERi0x...
-      const base64 = result.split(',')[1];
-      resolve(base64);
-    };
-    reader.readAsDataURL(blob);
-  });
-}
+  private blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Failed to read blob'));
+      reader.onload = () => {
+        const result = reader.result as string;
+        // result looks like: data:application/pdf;base64,JVBERi0x...
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.readAsDataURL(blob);
+    });
+  }
 
-   get converterOutput(): number | null {
+  get converterOutput(): number | null {
     if (this.converterInput == null || Number.isNaN(this.converterInput)) {
       return null;
     }
@@ -2148,7 +2032,8 @@ private blobToBase64(blob: Blob): Promise<string> {
 
     // 1 MOA ≈ 1.047 inch at 100 yd
     if (this.converterMode === 'moaToInAt100yd') return Math.round(v * 1.0471975512 * 100) / 100;
-    if (this.converterMode === 'inToMoaAt100yd') return Math.round((v / 1.0471975512) * 1000) / 1000;
+    if (this.converterMode === 'inToMoaAt100yd')
+      return Math.round((v / 1.0471975512) * 1000) / 1000;
 
     return null;
   }
@@ -2160,7 +2045,7 @@ private blobToBase64(blob: Blob): Promise<string> {
 
   private buildMultiDistanceSummary(
     sessions: any[],
-    distances: number[]
+    distances: number[],
   ): MultiDistanceDopeSummary[] {
     const result: MultiDistanceDopeSummary[] = [];
 
@@ -2174,21 +2059,12 @@ private blobToBase64(blob: Blob): Promise<string> {
         if (!dope) continue;
 
         const rawDate =
-          s.sessionDate ||
-          s.date ||
-          s.startTime ||
-          s.startedAt ||
-          s.createdAt ||
-          s.timestamp;
+          s.sessionDate || s.date || s.startTime || s.startedAt || s.createdAt || s.timestamp;
 
-        const dateStr = rawDate
-          ? new Date(rawDate).toISOString().slice(0, 10)
-          : null;
+        const dateStr = rawDate ? new Date(rawDate).toISOString().slice(0, 10) : null;
 
-        const elevationMil =
-          dope.elevationMil ?? dope.elevation ?? null;
-        const windageMil =
-          dope.windageMil ?? dope.windage ?? null;
+        const elevationMil = dope.elevationMil ?? dope.elevation ?? null;
+        const windageMil = dope.windageMil ?? dope.windage ?? null;
 
         found = {
           distanceM: d,
@@ -2207,10 +2083,7 @@ private blobToBase64(blob: Blob): Promise<string> {
     return result;
   }
 
-  private buildWindTrendSummary(
-    sessions: any[],
-    distanceM: number
-  ): WindTrendSummary | null {
+  private buildWindTrendSummary(sessions: any[], distanceM: number): WindTrendSummary | null {
     let sum = 0;
     let count = 0;
 
@@ -2222,8 +2095,8 @@ private blobToBase64(blob: Blob): Promise<string> {
         typeof dope.windageMil === 'number'
           ? dope.windageMil
           : typeof dope.windage === 'number'
-          ? dope.windage
-          : null;
+            ? dope.windage
+            : null;
 
       if (typeof w === 'number' && !Number.isNaN(w)) {
         sum += w;
@@ -2271,34 +2144,28 @@ private blobToBase64(blob: Blob): Promise<string> {
     this.showExportImportModal = true;
     this.exportMode = 'root';
 
-
     // Ensure the Setup panel is visible
     this.showSetup = true;
     this.showTools = false;
     this.selectedTool = null;
   }
 
+  closeExportImportModal(): void {
+    this.exportMode = 'root';
+    this.showExportImportModal = false;
+  }
 
+  openExportSubmenu(): void {
+    this.exportMode = 'export';
+  }
+  openDataShareChooser(): void {
+    // Keep Utilities visible (chooser now lives under Utilities)
+    this.showTools = true;
+    this.showSetup = false;
+    this.selectedTool = null;
 
-
-closeExportImportModal(): void {
-  this.exportMode = 'root';
-  this.showExportImportModal = false;
-}
-
-openExportSubmenu(): void {
-  this.exportMode = 'export';
-}
-   openDataShareChooser(): void {
-  // Keep Utilities visible (chooser now lives under Utilities)
-  this.showTools = true;
-  this.showSetup = false;
-  this.selectedTool = null;
-
-  this.showDataShareChooserModal = true;
-}
-
-
+    this.showDataShareChooserModal = true;
+  }
 
   closeDataShareChooser(): void {
     this.showDataShareChooserModal = false;
@@ -2309,144 +2176,143 @@ openExportSubmenu(): void {
     this.selectedTool = null;
   }
 
-
   chooseDataShareMode(mode: 'export' | 'print'): void {
     this.dataShareActionMode = mode;
     this.showDataShareChooserModal = false;
     this.openExportImportDataModal();
   }
 
-openExportImportDataModal(): void {
-  this.showExportImportDataModal = true;
+  openExportImportDataModal(): void {
+    this.showExportImportDataModal = true;
+    this.loadCoreData(); // refresh riflesOptions/venuesOptions for the modal lists
 
-  // Keep Utilities visible (modals now live under Utilities)
-  this.showTools = true;
-  this.showSetup = false;
-  this.selectedTool = null;
+    // Keep Utilities visible (modals now live under Utilities)
+    this.showTools = true;
+    this.showSetup = false;
+    this.selectedTool = null;
 
-  // Default selections:
-  // - If user chooses "All", the ID sets are ignored.
-  // - If they untick "All", we start empty to force explicit selection.
-    // Reset the two top-level options so the modal always opens unselected
-  this.dataShareIncludeRifles = false;
-  this.dataShareIncludeVenues = false;
+    // Default selections:
+    // - If user chooses "All", the ID sets are ignored.
+    // - If they untick "All", we start empty to force explicit selection.
+    // Keep the user’s previous selections so the nested lists remain visible
+    // this.dataShareIncludeRifles = false;
+    // this.dataShareIncludeVenues = false;
 
-  if (this.dataShareAllRifles) this.dataShareRifleIds.clear();
-  if (this.dataShareAllVenues) this.dataShareVenueIds.clear();
-}
-
-
-closeExportImportDataModal(): void {
-  this.showExportImportDataModal = false;
-}
-
-isRifleSelectedForShare(id: number): boolean {
-  return this.dataShareRifleIds.has(Number(id));
-}
-
-toggleRifleShare(id: number): void {
-  const n = Number(id);
-  if (this.dataShareRifleIds.has(n)) this.dataShareRifleIds.delete(n);
-  else this.dataShareRifleIds.add(n);
-}
-
-isVenueSelectedForShare(id: number): boolean {
-  return this.dataShareVenueIds.has(Number(id));
-}
-
-toggleVenueShare(id: number): void {
-  const n = Number(id);
-  if (this.dataShareVenueIds.has(n)) this.dataShareVenueIds.delete(n);
-  else this.dataShareVenueIds.add(n);
-}
-
-
-async onChooseExport(): Promise<void> {
-  // Backward-compatible: old button now behaves like Share
-  await this.onExportShare();
-}
-async onExportSaveLocal(): Promise<void> {
-  this.showExportImportModal = false;
-  await this.exportLoadDevBackup(false); // save only
-}
-
-async onExportShare(): Promise<void> {
-  this.showExportImportModal = false;
-  await this.exportLoadDevBackup(true); // save + share sheet
-}
-
-
-onChooseImport(): void {
-  // Keep modal open until user picks (or cancel picker)
-  // Trigger the hidden input (more reliable on Android)
-  if (this.importFileInput?.nativeElement) {
-    this.importFileInput.nativeElement.value = ''; // allow re-import same file twice
-    this.importFileInput.nativeElement.click();
-  }
-}
-
-async onImportFileSelected(evt: Event): Promise<void> {
-  const input = evt.target as HTMLInputElement;
-  const file = input?.files?.[0] ?? null;
-
-  // If user cancelled file picker
-  if (!file) {
-    return;
+    if (this.dataShareAllRifles) this.dataShareRifleIds.clear();
+    if (this.dataShareAllVenues) this.dataShareVenueIds.clear();
   }
 
-  this.importBusy = true;
+  closeExportImportDataModal(): void {
+    this.showExportImportDataModal = false;
+  }
+  setAllRiflesForShare(checked: boolean): void {
+    this.dataShareAllRifles = !!checked;
 
-  try {
-    let text = '';
-    try {
-      text = await file.text();
-    } catch {
-      alert('Could not read the selected file.');
-      return;
-    }
+    // If switching back to "All rifles", ignore any prior specific picks
+    if (this.dataShareAllRifles) this.dataShareRifleIds.clear();
+  }
 
-    let parsed: any;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      alert('Invalid JSON file.');
-      return;
-    }
+  isRifleSelectedForShare(id: number): boolean {
+    return this.dataShareRifleIds.has(Number(id));
+  }
 
-   // Safety prompt (merge import)
-const ok = confirm(
-  'Import will MERGE into existing data (no overwrite).\n\nContinue?'
-);
-if (!ok) return;
+  toggleRifleShare(id: number): void {
+    const n = Number(id);
+    if (this.dataShareRifleIds.has(n)) this.dataShareRifleIds.delete(n);
+    else this.dataShareRifleIds.add(n);
+  }
 
-const result = this.dataService.importFromBackupMerge(parsed);
+  isVenueSelectedForShare(id: number): boolean {
+    return this.dataShareVenueIds.has(Number(id));
+  }
 
+  toggleVenueShare(id: number): void {
+    const n = Number(id);
+    if (this.dataShareVenueIds.has(n)) this.dataShareVenueIds.delete(n);
+    else this.dataShareVenueIds.add(n);
+  }
 
-        // Refresh menus/counts
-    this.loadCoreData();
-
+  async onChooseExport(): Promise<void> {
+    // Backward-compatible: old button now behaves like Share
+    await this.onExportShare();
+  }
+  async onExportSaveLocal(): Promise<void> {
     this.showExportImportModal = false;
-    alert(`Import complete.\n\n${result.message}`);
-
-    // IMPORTANT: force UI + DataService to rehydrate from persisted store
-    // (Fixes: import succeeded but data not visible until restart)
-    setTimeout(() => {
-      try {
-        window.location.reload();
-      } catch {
-        // ignore
-      }
-    }, 50);
-
-  } finally {
-    this.importBusy = false;
+    await this.exportLoadDevBackup(false); // save only
   }
-}
+
+  async onExportShare(): Promise<void> {
+    this.showExportImportModal = false;
+    await this.exportLoadDevBackup(true); // save + share sheet
+  }
+
+  onChooseImport(): void {
+    // Keep modal open until user picks (or cancel picker)
+    // Trigger the hidden input (more reliable on Android)
+    if (this.importFileInput?.nativeElement) {
+      this.importFileInput.nativeElement.value = ''; // allow re-import same file twice
+      this.importFileInput.nativeElement.click();
+    }
+  }
+
+  async onImportFileSelected(evt: Event): Promise<void> {
+    const input = evt.target as HTMLInputElement;
+    const file = input?.files?.[0] ?? null;
+
+    // If user cancelled file picker
+    if (!file) {
+      return;
+    }
+
+    this.importBusy = true;
+
+    try {
+      let text = '';
+      try {
+        text = await file.text();
+      } catch {
+        alert('Could not read the selected file.');
+        return;
+      }
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        alert('Invalid JSON file.');
+        return;
+      }
+
+      // Safety prompt (merge import)
+      const ok = confirm('Import will MERGE into existing data (no overwrite).\n\nContinue?');
+      if (!ok) return;
+
+      const result = this.dataService.importFromBackupMerge(parsed);
+
+      // Refresh menus/counts
+      this.loadCoreData();
+
+      this.showExportImportModal = false;
+      alert(`Import complete.\n\n${result.message}`);
+
+      // IMPORTANT: force UI + DataService to rehydrate from persisted store
+      // (Fixes: import succeeded but data not visible until restart)
+      setTimeout(() => {
+        try {
+          window.location.reload();
+        } catch {
+          // ignore
+        }
+      }, 50);
+    } finally {
+      this.importBusy = false;
+    }
+  }
 
   async openExportImport(): Promise<void> {
     // OK = Export, Cancel = Import
     const doExport = confirm(
-      'Export / Import\n\nOK = Export current data to a JSON file\nCancel = Import a JSON backup from another device'
+      'Export / Import\n\nOK = Export current data to a JSON file\nCancel = Import a JSON backup from another device',
     );
 
     if (doExport) {
@@ -2482,8 +2348,7 @@ const result = this.dataService.importFromBackupMerge(parsed);
 
     // Safety prompt (import overwrites local data)
     const ok = confirm(
-      'Import will ADD/merge data into this device (it will not delete existing data).\n\nContinue?'
-
+      'Import will ADD/merge data into this device (it will not delete existing data).\n\nContinue?',
     );
     if (!ok) return;
 
@@ -2500,11 +2365,7 @@ const result = this.dataService.importFromBackupMerge(parsed);
     alert(`Import complete.\n\n${result.message}`);
   }
 
-  
   async exportPdfFromSelectedData(): Promise<void> {
-    // Close modal immediately for clean UX
-    this.showExportImportDataModal = false;
-
     const selectedRifleIds = this.dataShareAllRifles
       ? null
       : Array.from(this.dataShareRifleIds.values());
@@ -2532,43 +2393,52 @@ const result = this.dataService.importFromBackupMerge(parsed);
       return;
     }
 
-      const opts = {
-    rifles: this.dataShareIncludeRifles
-      ? {
-          all: this.dataShareAllRifles,
-          ids: selectedRifleIds,
-          includeRifleData: this.dataShareRifleData,
-          includeLoadDev: this.dataShareRifleLoadDev,
-          includeSessions: this.dataShareRifleSessions,
-          includeShots: this.dataShareRifleShots,
-        }
-      : null,
-    venues: this.dataShareIncludeVenues
-      ? {
-          all: this.dataShareAllVenues,
-          ids: selectedVenueIds,
-          includeVenueData: this.dataShareVenueData,
-          includeSessions: this.dataShareVenueSessions,
-          includeShots: this.dataShareVenueShots,
-        }
-      : null,
-  };
+    const opts = {
+      rifles: this.dataShareIncludeRifles
+        ? {
+            all: this.dataShareAllRifles,
+            ids: selectedRifleIds,
+            includeRifleData: this.dataShareRifleData,
+            includeLoadDev: this.dataShareRifleLoadDev,
+            includeSessions: this.dataShareRifleSessions,
+            includeShots: this.dataShareRifleShots,
+          }
+        : null,
+      venues: this.dataShareIncludeVenues
+        ? {
+            all: this.dataShareAllVenues,
+            ids: selectedVenueIds,
+            includeVenueData: this.dataShareVenueData,
+            includeSessions: this.dataShareVenueSessions,
+            includeShots: this.dataShareVenueShots,
+          }
+        : null,
+    };
 
-  // IMPORTANT:
-  // - File share must be merge-import compatible => prefer exportSelectiveShareForMerge()
-  // - Fallback to exportSelectiveShare() if older builds don’t have it
-  const payload =
-    (this.dataService as any).exportSelectiveShareForMerge?.(opts) ??
-    (this.dataService as any).exportSelectiveShare?.(opts);
+    // IMPORTANT:
+    // - File share must be merge-import compatible => prefer exportSelectiveShareForMerge()
+    // - Fallback to exportSelectiveShare() if older builds don’t have it
+    const payload =
+      (this.dataService as any).exportSelectiveShareForMerge?.(opts) ??
+      (this.dataService as any).exportSelectiveShare?.(opts);
 
     if (!payload) {
       alert('Export failed: no data selected.');
       return;
     }
 
-       // Build a proper PDF report (Rifles-tab style) instead of embedding JSON text
-    const jspdfMod: any = await import('jspdf');
-    const autoTableMod: any = await import('jspdf-autotable');
+    // Build a proper PDF report (Rifles-tab style) instead of embedding JSON text
+    let jspdfMod: any;
+    let autoTableMod: any;
+
+    try {
+      jspdfMod = await import('jspdf');
+      autoTableMod = await import('jspdf-autotable');
+    } catch (err) {
+      console.error('Print PDF modules failed to load:', err);
+      alert('Print (PDF) is not available in this build (PDF modules missing).');
+      return;
+    }
 
     const jsPDF = jspdfMod?.jsPDF ?? jspdfMod?.default;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -2584,18 +2454,18 @@ const result = this.dataService.importFromBackupMerge(parsed);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 10, y);
     y += 8;
 
-   const data: any = (payload as any)?.data ?? (payload as any)?.store ?? {};
+    const data: any = (payload as any)?.data ?? (payload as any)?.store ?? {};
     const rifles: any[] = Array.isArray(data?.rifles) ? data.rifles : [];
     const venues: any[] = Array.isArray(data?.venues) ? data.venues : [];
-    
-        const sessions: any[] = Array.isArray(data?.sessions) ? data.sessions : [];
+
+    const sessions: any[] = Array.isArray(data?.sessions) ? data.sessions : [];
     const loadDevProjects: any[] = Array.isArray(data?.loadDevProjects) ? data.loadDevProjects : [];
 
     const rifleNameById = new Map<number, string>(
-      (rifles ?? []).map((r: any) => [Number(r?.id), String(r?.name ?? '')])
+      (rifles ?? []).map((r: any) => [Number(r?.id), String(r?.name ?? '')]),
     );
     const venueNameById = new Map<number, string>(
-      (venues ?? []).map((v: any) => [Number(v?.id), String(v?.name ?? '')])
+      (venues ?? []).map((v: any) => [Number(v?.id), String(v?.name ?? '')]),
     );
 
     // ---------- Rifles ----------
@@ -2655,16 +2525,18 @@ const result = this.dataService.importFromBackupMerge(parsed);
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2 },
             headStyles: { fontSize: 8 },
-            head: [[
-              'Powder',
-              'Charge (gr)',
-              'Vel (fps)',
-              'COAL',
-              'Primer',
-              'Bullet',
-              'Weight (gr)',
-              'BC',
-            ]],
+            head: [
+              [
+                'Powder',
+                'Charge (gr)',
+                'Vel (fps)',
+                'COAL',
+                'Primer',
+                'Bullet',
+                'Weight (gr)',
+                'BC',
+              ],
+            ],
             body,
           });
 
@@ -2692,7 +2564,7 @@ const result = this.dataService.importFromBackupMerge(parsed);
       doc.text(`Venues (${venues.length})`, 10, y);
       y += 4;
 
-         // Export venues with a cleaner display (subranges grouped + readable distances)
+      // Export venues with a cleaner display (subranges grouped + readable distances)
       const fmt = (val: any) => {
         if (val == null) return '';
         if (typeof val === 'string') return val;
@@ -2706,15 +2578,17 @@ const result = this.dataService.importFromBackupMerge(parsed);
 
       // Summary table (one row per venue)
       const venueSummaryRows = venues.map((v: any) => {
-        const distances =
-          Array.isArray(v?.distances) ? v.distances :
-          Array.isArray(v?.distancesM) ? v.distancesM :
-          [];
+        const distances = Array.isArray(v?.distances)
+          ? v.distances
+          : Array.isArray(v?.distancesM)
+            ? v.distancesM
+            : [];
 
-        const subRanges =
-          Array.isArray(v?.subRanges) ? v.subRanges :
-          Array.isArray(v?.subranges) ? v.subranges :
-          [];
+        const subRanges = Array.isArray(v?.subRanges)
+          ? v.subRanges
+          : Array.isArray(v?.subranges)
+            ? v.subranges
+            : [];
 
         return [
           `${v?.name ?? ''}`,
@@ -2738,15 +2612,17 @@ const result = this.dataService.importFromBackupMerge(parsed);
 
       // Detailed distances grouped by subrange for each venue
       for (const v of venues as any[]) {
-        const distancesRaw =
-          Array.isArray(v?.distances) ? v.distances :
-          Array.isArray(v?.distancesM) ? v.distancesM :
-          [];
+        const distancesRaw = Array.isArray(v?.distances)
+          ? v.distances
+          : Array.isArray(v?.distancesM)
+            ? v.distancesM
+            : [];
 
-        const subRangesArr =
-          Array.isArray(v?.subRanges) ? v.subRanges :
-          Array.isArray(v?.subranges) ? v.subranges :
-          [];
+        const subRangesArr = Array.isArray(v?.subRanges)
+          ? v.subRanges
+          : Array.isArray(v?.subranges)
+            ? v.subranges
+            : [];
 
         const srNameById = new Map<number, string>();
         for (const sr of subRangesArr) {
@@ -2830,155 +2706,32 @@ const result = this.dataService.importFromBackupMerge(parsed);
         y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
       }
 
-   
-   
-    // ---------- Sessions ----------
-    if (sessions.length) {
-      const pageHeight = doc.internal.pageSize.getHeight();
-      if (y > pageHeight - 40) {
-        doc.addPage();
-        y = 12;
-      }
-
-      doc.setFontSize(12);
-      doc.text(`Sessions (${sessions.length})`, 10, y);
-      y += 4;
-
-      const sessionBody = sessions.map((s: any) => {
-        const rifleName = rifleNameById.get(Number(s?.rifleId)) || `#${s?.rifleId ?? ''}`;
-        const venueName = venueNameById.get(Number(s?.venueId)) || `#${s?.venueId ?? ''}`;
-                const allShots = this.extractAllDopeEntries(s);
-        const shotsCount = allShots.length;
-
-
-        return [
-          `${s?.date ?? ''}`,
-          `${s?.title ?? ''}`,
-          `${rifleName}`,
-          `${venueName}`,
-          `${shotsCount}`,
-          `${s?.completed ? 'Yes' : 'No'}`,
-          `${s?.notes ?? ''}`,
-        ];
-      });
-
-      autoTableMod.default(doc, {
-        startY: y,
-        theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fontSize: 8 },
-        head: [['Date', 'Title', 'Rifle', 'Venue', 'Shots', 'Done', 'Notes']],
-        body: sessionBody,
-      });
-
-      y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
-
-      // ---------- Shots (per session) ----------
-      for (const s of sessions) {
-        const shotsArr = Array.isArray(s?.dope) ? s.dope : [];
-        if (!shotsArr.length) continue;
-
-        const pageHeight2 = doc.internal.pageSize.getHeight();
-        if (y > pageHeight2 - 40) {
+      // ---------- Sessions ----------
+      if (sessions.length) {
+        const pageHeight = doc.internal.pageSize.getHeight();
+        if (y > pageHeight - 40) {
           doc.addPage();
           y = 12;
         }
 
-        const rifleName = rifleNameById.get(Number(s?.rifleId)) || `#${s?.rifleId ?? ''}`;
-        const venueName = venueNameById.get(Number(s?.venueId)) || `#${s?.venueId ?? ''}`;
-
-        doc.setFontSize(11);
-        doc.text(`Shots (${shotsArr.length}) — ${rifleName} @ ${venueName}`, 10, y);
+        doc.setFontSize(12);
+        doc.text(`Sessions (${sessions.length})`, 10, y);
         y += 4;
 
-                const shotRows: Array<{ subRange: string; sh: any }> = [];
-        const seen = new Set<string>();
-
-        const safeKey = (v: any) => {
-          try {
-            return JSON.stringify(v);
-          } catch {
-            return String(v);
-          }
-        };
-
-        const pushDope = (arr: any, srName: string) => {
-          if (!Array.isArray(arr)) return;
-          for (const sh of arr) {
-            if (!sh) continue;
-            const k = safeKey(sh);
-            if (seen.has(k)) continue;
-            seen.add(k);
-            shotRows.push({ subRange: srName, sh });
-          }
-        };
-
-        const fmt = (v: any) => {
-          if (v == null) return '';
-          if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '';
-          if (typeof v === 'string') return v;
-          try {
-            return JSON.stringify(v);
-          } catch {
-            return String(v);
-          }
-        };
-
-        // ---- Top-level dope sources (match extractAllDopeEntries logic) ----
-        pushDope((s as any).distanceDopes, '');
-        pushDope((s as any).distances, '');
-        pushDope((s as any).distanceDope, '');
-        pushDope((s as any).dopes, '');
-        pushDope((s as any).dope, '');
-        if ((s as any).dopeMap && typeof (s as any).dopeMap === 'object') {
-          pushDope(Object.values((s as any).dopeMap), '');
-        }
-
-        // ---- SubRanges dope sources ----
-        if (Array.isArray((s as any).subRanges)) {
-          for (let sri = 0; sri < (s as any).subRanges.length; sri++) {
-            const sr = (s as any).subRanges[sri];
-            const srName = sr?.name ?? sr?.title ?? `Subrange ${sri + 1}`;
-
-            pushDope(sr?.distanceDopes, srName);
-            pushDope(sr?.distances, srName);
-            pushDope(sr?.distanceDope, srName);
-            pushDope(sr?.dope, srName);
-            if (sr?.dopeMap && typeof sr.dopeMap === 'object') {
-              pushDope(Object.values(sr.dopeMap), srName);
-            }
-          }
-        }
-
-        const shotBody = shotRows.map((row: any, idx: number) => {
-          const sh = row?.sh ?? {};
-
-          const dist =
-            typeof sh?.distanceM === 'number'
-              ? sh.distanceM
-              : typeof sh?.distance === 'number'
-                ? sh.distance
-                : (sh?.rangeM ?? sh?.range ?? '');
-
-          const elev =
-            sh?.elevationMil ?? sh?.elevation ?? sh?.drop ?? sh?.elev ?? '';
-
-          const wind =
-            sh?.windageMil ?? sh?.windage ?? sh?.wind ?? sh?.drift ?? sh?.windHold ?? '';
-
-          const impact =
-            sh?.impactsDescription ?? sh?.impact ?? sh?.poi ?? sh?.hit ?? '';
-
-          const note = sh?.notes ?? sh?.comment ?? '';
+        const sessionBody = sessions.map((s: any) => {
+          const rifleName = rifleNameById.get(Number(s?.rifleId)) || `#${s?.rifleId ?? ''}`;
+          const venueName = venueNameById.get(Number(s?.venueId)) || `#${s?.venueId ?? ''}`;
+          const allShots = this.extractAllDopeEntries(s);
+          const shotsCount = allShots.length;
 
           return [
-            `${idx + 1}`,
-            `${row.subRange ?? ''}`,
-            fmt(dist),
-            fmt(elev),
-            fmt(wind),
-            fmt(impact),
-            fmt(note),
+            `${s?.date ?? ''}`,
+            `${s?.title ?? ''}`,
+            `${rifleName}`,
+            `${venueName}`,
+            `${shotsCount}`,
+            `${s?.completed ? 'Yes' : 'No'}`,
+            `${s?.notes ?? ''}`,
           ];
         });
 
@@ -2987,95 +2740,117 @@ const result = this.dataService.importFromBackupMerge(parsed);
           theme: 'grid',
           styles: { fontSize: 8, cellPadding: 2 },
           headStyles: { fontSize: 8 },
-          head: [['#', 'SubRange', 'Dist', 'Elev', 'Wind', 'Impact', 'Notes']],
-          body: shotBody,
+          head: [['Date', 'Title', 'Rifle', 'Venue', 'Shots', 'Done', 'Notes']],
+          body: sessionBody,
         });
 
         y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
 
+        // ---------- Shots (per session) ----------
+        for (const s of sessions) {
+          const shotsArr = Array.isArray(s?.dope) ? s.dope : [];
+          if (!shotsArr.length) continue;
 
-        autoTableMod.default(doc, {
-          startY: y,
-          theme: 'grid',
-          styles: { fontSize: 8, cellPadding: 2 },
-          headStyles: { fontSize: 8 },
-                    head: [['#', 'SubRange', 'Dist', 'Elev', 'Wind', 'Impact', 'Notes']],
+          const pageHeight2 = doc.internal.pageSize.getHeight();
+          if (y > pageHeight2 - 40) {
+            doc.addPage();
+            y = 12;
+          }
 
-          body: shotBody,
-        });
+          const rifleName = rifleNameById.get(Number(s?.rifleId)) || `#${s?.rifleId ?? ''}`;
+          const venueName = venueNameById.get(Number(s?.venueId)) || `#${s?.venueId ?? ''}`;
 
-        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
-      }
-    }
+          doc.setFontSize(11);
+          doc.text(`Shots (${shotsArr.length}) — ${rifleName} @ ${venueName}`, 10, y);
+          y += 4;
 
-    // ---------- Load Development ----------
-    if (loadDevProjects.length) {
-      const pageHeight = doc.internal.pageSize.getHeight();
-      if (y > pageHeight - 40) {
-        doc.addPage();
-        y = 12;
-      }
+          const shotRows: Array<{ subRange: string; sh: any }> = [];
+          const seen = new Set<string>();
 
-      doc.setFontSize(12);
-      doc.text(`Load Development (${loadDevProjects.length})`, 10, y);
-      y += 4;
+          const safeKey = (v: any) => {
+            try {
+              return JSON.stringify(v);
+            } catch {
+              return String(v);
+            }
+          };
 
-      for (const p of loadDevProjects) {
-        const pageHeight2 = doc.internal.pageSize.getHeight();
-        if (y > pageHeight2 - 40) {
-          doc.addPage();
-          y = 12;
-        }
+          const pushDope = (arr: any, srName: string) => {
+            if (!Array.isArray(arr)) return;
+            for (const sh of arr) {
+              if (!sh) continue;
+              const k = safeKey(sh);
+              if (seen.has(k)) continue;
+              seen.add(k);
+              shotRows.push({ subRange: srName, sh });
+            }
+          };
 
-        const rifleName = rifleNameById.get(Number(p?.rifleId)) || `#${p?.rifleId ?? ''}`;
-        const title = `${p?.name ?? 'Project'} — ${rifleName}`;
+          const fmt = (v: any) => {
+            if (v == null) return '';
+            if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '';
+            if (typeof v === 'string') return v;
+            try {
+              return JSON.stringify(v);
+            } catch {
+              return String(v);
+            }
+          };
 
-        doc.setFontSize(11);
-        doc.text(title, 10, y);
-        y += 3;
+          // ---- Top-level dope sources (match extractAllDopeEntries logic) ----
+          pushDope((s as any).distanceDopes, '');
+          pushDope((s as any).distances, '');
+          pushDope((s as any).distanceDope, '');
+          pushDope((s as any).dopes, '');
+          pushDope((s as any).dope, '');
+          if ((s as any).dopeMap && typeof (s as any).dopeMap === 'object') {
+            pushDope(Object.values((s as any).dopeMap), '');
+          }
 
-        const projRows: Array<[string, string]> = [
-          ['Type', `${p?.type ?? '-'}`],
-          ['Date started', `${p?.dateStarted ?? '-'}`],
-          ['Notes', `${p?.notes ?? '-'}`],
-        ];
+          // ---- SubRanges dope sources ----
+          if (Array.isArray((s as any).subRanges)) {
+            for (let sri = 0; sri < (s as any).subRanges.length; sri++) {
+              const sr = (s as any).subRanges[sri];
+              const srName = sr?.name ?? sr?.title ?? `Subrange ${sri + 1}`;
 
-        autoTableMod.default(doc, {
-          startY: y,
-          theme: 'grid',
-          styles: { fontSize: 9, cellPadding: 2 },
-          headStyles: { fontSize: 9 },
-          columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: pageWidth - 20 - 45 } },
-          body: projRows.map(([k, v]) => [k, v]),
-        });
-
-        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 5 : y + 25;
-
-                const entries: any[] = Array.isArray(p?.entries) ? p.entries : [];
-        if (entries.length) {
-          const entryBody = entries.map((e: any) => {
-            const charge = e?.chargeGr ?? e?.charge ?? '';
-            const shotsFired = e?.shotsFired ?? '';
-
-            const velocitiesArr = Array.isArray(e?.velocities) ? e.velocities : [];
-            const velocityInput =
-              e?.velocityInput ??
-              (velocitiesArr.length ? velocitiesArr.join(', ') : '');
-
-            // Prefer stored average/velocity; else compute from velocities if present
-            let velocity =
-              e?.velocity ?? e?.aveVelocityFps ?? '';
-
-            if ((velocity === '' || velocity == null) && velocitiesArr.length) {
-              const nums = velocitiesArr.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n));
-              if (nums.length) {
-                const avg = nums.reduce((a: number, b: number) => a + b, 0) / nums.length;
-                velocity = Math.round(avg);
+              pushDope(sr?.distanceDopes, srName);
+              pushDope(sr?.distances, srName);
+              pushDope(sr?.distanceDope, srName);
+              pushDope(sr?.dope, srName);
+              if (sr?.dopeMap && typeof sr.dopeMap === 'object') {
+                pushDope(Object.values(sr.dopeMap), srName);
               }
             }
+          }
 
-            const notes = e?.notes ?? '';
-            return [`${charge}`, `${shotsFired}`, `${velocity}`, `${velocityInput}`, `${notes}`];
+          const shotBody = shotRows.map((row: any, idx: number) => {
+            const sh = row?.sh ?? {};
+
+            const dist =
+              typeof sh?.distanceM === 'number'
+                ? sh.distanceM
+                : typeof sh?.distance === 'number'
+                  ? sh.distance
+                  : (sh?.rangeM ?? sh?.range ?? '');
+
+            const elev = sh?.elevationMil ?? sh?.elevation ?? sh?.drop ?? sh?.elev ?? '';
+
+            const wind =
+              sh?.windageMil ?? sh?.windage ?? sh?.wind ?? sh?.drift ?? sh?.windHold ?? '';
+
+            const impact = sh?.impactsDescription ?? sh?.impact ?? sh?.poi ?? sh?.hit ?? '';
+
+            const note = sh?.notes ?? sh?.comment ?? '';
+
+            return [
+              `${idx + 1}`,
+              `${row.subRange ?? ''}`,
+              fmt(dist),
+              fmt(elev),
+              fmt(wind),
+              fmt(impact),
+              fmt(note),
+            ];
           });
 
           autoTableMod.default(doc, {
@@ -3083,85 +2858,159 @@ const result = this.dataService.importFromBackupMerge(parsed);
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2 },
             headStyles: { fontSize: 8 },
-            head: [['Charge', 'Shots', 'Velocity', 'Velocity Input', 'Notes']],
-            body: entryBody,
+            head: [['#', 'SubRange', 'Dist', 'Elev', 'Wind', 'Impact', 'Notes']],
+            body: shotBody,
           });
 
           y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
-        } else {
-          doc.setFontSize(9);
-          doc.text('No entries', 10, y);
-          y += 6;
+
+          autoTableMod.default(doc, {
+            startY: y,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fontSize: 8 },
+            head: [['#', 'SubRange', 'Dist', 'Elev', 'Wind', 'Impact', 'Notes']],
+
+            body: shotBody,
+          });
+
+          y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+        }
+      }
+
+      // ---------- Load Development ----------
+      if (loadDevProjects.length) {
+        const pageHeight = doc.internal.pageSize.getHeight();
+        if (y > pageHeight - 40) {
+          doc.addPage();
+          y = 12;
         }
 
-      }
-    }
+        doc.setFontSize(12);
+        doc.text(`Load Development (${loadDevProjects.length})`, 10, y);
+        y += 4;
 
-    const filename =
-      'gunstuff-export-' + new Date().toISOString().slice(0, 10) + '.pdf';
+        for (const p of loadDevProjects) {
+          const pageHeight2 = doc.internal.pageSize.getHeight();
+          if (y > pageHeight2 - 40) {
+            doc.addPage();
+            y = 12;
+          }
 
-    const pdfBlob = doc.output('blob');
+          const rifleName = rifleNameById.get(Number(p?.rifleId)) || `#${p?.rifleId ?? ''}`;
+          const title = `${p?.name ?? 'Project'} — ${rifleName}`;
 
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await Filesystem.requestPermissions();
+          doc.setFontSize(11);
+          doc.text(title, 10, y);
+          y += 3;
 
-        const base64 = await this.blobToBase64(pdfBlob);
-        const cachePath = `gs-exports/${filename}`;
+          const projRows: Array<[string, string]> = [
+            ['Type', `${p?.type ?? '-'}`],
+            ['Date started', `${p?.dateStarted ?? '-'}`],
+            ['Notes', `${p?.notes ?? '-'}`],
+          ];
 
-        await Filesystem.writeFile({
-          path: cachePath,
-          data: base64,
-          directory: Directory.Cache,
-          recursive: true,
-        });
-
-        const uriObj = await Filesystem.getUri({
-          path: cachePath,
-          directory: Directory.Cache,
-        });
-
-        const shareUrl = uriObj.uri;
-
-        // Prefer open (print flow), fallback share
-        try {
-          const filePath = shareUrl.startsWith('file://')
-            ? shareUrl.slice('file://'.length)
-            : shareUrl;
-
-          await FileOpener.open({
-            filePath,
-            contentType: 'application/pdf',
+          autoTableMod.default(doc, {
+            startY: y,
+            theme: 'grid',
+            styles: { fontSize: 9, cellPadding: 2 },
+            headStyles: { fontSize: 9 },
+            columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: pageWidth - 20 - 45 } },
+            body: projRows.map(([k, v]) => [k, v]),
           });
-        } catch {
+
+          y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 5 : y + 25;
+
+          const entries: any[] = Array.isArray(p?.entries) ? p.entries : [];
+          if (entries.length) {
+            const entryBody = entries.map((e: any) => {
+              const charge = e?.chargeGr ?? e?.charge ?? '';
+              const shotsFired = e?.shotsFired ?? '';
+
+              const velocitiesArr = Array.isArray(e?.velocities) ? e.velocities : [];
+              const velocityInput =
+                e?.velocityInput ?? (velocitiesArr.length ? velocitiesArr.join(', ') : '');
+
+              // Prefer stored average/velocity; else compute from velocities if present
+              let velocity = e?.velocity ?? e?.aveVelocityFps ?? '';
+
+              if ((velocity === '' || velocity == null) && velocitiesArr.length) {
+                const nums = velocitiesArr
+                  .map((x: any) => Number(x))
+                  .filter((n: number) => Number.isFinite(n));
+                if (nums.length) {
+                  const avg = nums.reduce((a: number, b: number) => a + b, 0) / nums.length;
+                  velocity = Math.round(avg);
+                }
+              }
+
+              const notes = e?.notes ?? '';
+              return [`${charge}`, `${shotsFired}`, `${velocity}`, `${velocityInput}`, `${notes}`];
+            });
+
+            autoTableMod.default(doc, {
+              startY: y,
+              theme: 'grid',
+              styles: { fontSize: 8, cellPadding: 2 },
+              headStyles: { fontSize: 8 },
+              head: [['Charge', 'Shots', 'Velocity', 'Velocity Input', 'Notes']],
+              body: entryBody,
+            });
+
+            y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+          } else {
+            doc.setFontSize(9);
+            doc.text('No entries', 10, y);
+            y += 6;
+          }
+        }
+      }
+
+      const filename = 'gunstuff-export-' + new Date().toISOString().slice(0, 10) + '.pdf';
+
+      const pdfBlob = doc.output('blob');
+
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const base64 = await this.blobToBase64(pdfBlob);
+
+          const writeRes = await Filesystem.writeFile({
+            path: `gs-exports/${filename}`,
+            data: base64,
+            directory: Directory.Cache,
+            recursive: true,
+          });
+
           await Share.share({
             title: 'GS Export PDF',
             text: 'GS Ballistics export PDF',
-            url: shareUrl,
+            url: writeRes.uri,
+            dialogTitle: 'Share / Print PDF',
           });
+        } catch (err) {
+          console.error('PDF export failed:', err);
+          alert('PDF export failed on this device.');
         }
-      } catch (err) {
-        console.error('PDF export failed:', err);
-        alert('PDF export failed on this device.');
-      }
-    } else {
-      try {
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error('Browser PDF export failed:', err);
-        alert('Browser PDF export failed.');
+      } else {
+        try {
+          const url = URL.createObjectURL(pdfBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.error('Browser PDF export failed:', err);
+          alert('Browser PDF export failed.');
+        }
       }
     }
+    this.showExportImportDataModal = false;
   }
 
-    private buildSimplePdfBase64FromText(text: string): string {
+  private buildSimplePdfBase64FromText(text: string): string {
     // Text-only multipage PDF generator (Courier).
     // Fixes the previous single-page truncation that caused missing subranges / load-dev entries.
     const maxLineLen = 92;
@@ -3280,8 +3129,7 @@ const result = this.dataService.importFromBackupMerge(parsed);
     }
 
     pdf +=
-      `trailer\n<< /Size ${maxObjNum + 1} /Root 1 0 R >>\n` +
-      `startxref\n${xrefStart}\n%%EOF\n`;
+      `trailer\n<< /Size ${maxObjNum + 1} /Root 1 0 R >>\n` + `startxref\n${xrefStart}\n%%EOF\n`;
 
     // base64 encode
     const bytes = new TextEncoder().encode(pdf);
@@ -3293,7 +3141,6 @@ const result = this.dataService.importFromBackupMerge(parsed);
     return btoa(binary);
   }
 
-
   private base64ToUint8Array(base64: string): Uint8Array {
     const bin = atob(base64);
     const len = bin.length;
@@ -3303,191 +3150,188 @@ const result = this.dataService.importFromBackupMerge(parsed);
   }
 
   async onExportImportDataShare(): Promise<void> {
-  // Close modal immediately for clean UX
-  this.showExportImportDataModal = false;
+    // Close modal immediately for clean UX
+    this.showExportImportDataModal = false;
 
-  const selectedRifleIds = this.dataShareAllRifles
-    ? null
-    : Array.from(this.dataShareRifleIds.values());
+    const selectedRifleIds = this.dataShareAllRifles
+      ? null
+      : Array.from(this.dataShareRifleIds.values());
 
-  const selectedVenueIds = this.dataShareAllVenues
-    ? null
-    : Array.from(this.dataShareVenueIds.values());
+    const selectedVenueIds = this.dataShareAllVenues
+      ? null
+      : Array.from(this.dataShareVenueIds.values());
 
-  // Basic validation: if "Select" mode but nothing selected
-  if (this.dataShareIncludeRifles && !this.dataShareAllRifles && (selectedRifleIds?.length ?? 0) === 0) {
-    alert('Select at least one rifle, or tick "All rifles".');
-    return;
-  }
-  if (this.dataShareIncludeVenues && !this.dataShareAllVenues && (selectedVenueIds?.length ?? 0) === 0) {
-    alert('Select at least one venue, or tick "All venues".');
-    return;
-  }
-
-  const payload = (this.dataService as any).exportSelectiveShare?.({
-    rifles: this.dataShareIncludeRifles
-      ? {
-          all: this.dataShareAllRifles,
-          ids: selectedRifleIds,
-          includeRifleData: this.dataShareRifleData,
-          includeLoadDev: this.dataShareRifleLoadDev,
-          includeSessions: this.dataShareRifleSessions,
-          includeShots: this.dataShareRifleShots,
-        }
-      : null,
-    venues: this.dataShareIncludeVenues
-      ? {
-          all: this.dataShareAllVenues,
-          ids: selectedVenueIds,
-          includeVenueData: this.dataShareVenueData,
-          includeSessions: this.dataShareVenueSessions,
-          includeShots: this.dataShareVenueShots,
-        }
-      : null,
-  });
-
-  if (!payload) {
-    alert('Export failed: no data selected.');
-    return;
-  }
-
-  const json = JSON.stringify(payload, null, 2);
-  const filename =
-    'gunstuff-share-data-' + new Date().toISOString().slice(0, 10) + '.json';
-
-  if (Capacitor.isNativePlatform()) {
-    try {
-            await Filesystem.requestPermissions();
-       const path = filename;
-
-      await Filesystem.writeFile({
-        path,
-        data: json,
-        directory: Directory.Documents,
-        encoding: Encoding.UTF8,
-      });
-
-      const { uri } = await Filesystem.getUri({
-        path,
-        directory: Directory.Documents,
-      });
-
-      await Share.share({
-        title: 'GS Export Data',
-        text: 'GS Ballistics selective export (share this file)',
-        url: uri,
-      });
-
-
-
-      alert('Data export created. Share or save it using the app you chose.');
-    } catch (err) {
-      console.error('Selective export failed:', err);
-      alert('Data export failed on this device.');
+    // Basic validation: if "Select" mode but nothing selected
+    if (
+      this.dataShareIncludeRifles &&
+      !this.dataShareAllRifles &&
+      (selectedRifleIds?.length ?? 0) === 0
+    ) {
+      alert('Select at least one rifle, or tick "All rifles".');
+      return;
     }
-  } else {
-    try {
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Browser selective export failed:', err);
-      alert('Browser export failed.');
+    if (
+      this.dataShareIncludeVenues &&
+      !this.dataShareAllVenues &&
+      (selectedVenueIds?.length ?? 0) === 0
+    ) {
+      alert('Select at least one venue, or tick "All venues".');
+      return;
+    }
+
+    const payload = (this.dataService as any).exportSelectiveShare?.({
+      rifles: this.dataShareIncludeRifles
+        ? {
+            all: this.dataShareAllRifles,
+            ids: selectedRifleIds,
+            includeRifleData: this.dataShareRifleData,
+            includeLoadDev: this.dataShareRifleLoadDev,
+            includeSessions: this.dataShareRifleSessions,
+            includeShots: this.dataShareRifleShots,
+          }
+        : null,
+      venues: this.dataShareIncludeVenues
+        ? {
+            all: this.dataShareAllVenues,
+            ids: selectedVenueIds,
+            includeVenueData: this.dataShareVenueData,
+            includeSessions: this.dataShareVenueSessions,
+            includeShots: this.dataShareVenueShots,
+          }
+        : null,
+    });
+
+    if (!payload) {
+      alert('Export failed: no data selected.');
+      return;
+    }
+
+    const json = JSON.stringify(payload, null, 2);
+    const filename = 'gunstuff-share-data-' + new Date().toISOString().slice(0, 10) + '.json';
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const directory = Directory.Cache; // Android share-friendly (FileProvider)
+        const path = filename;
+
+        await Filesystem.writeFile({
+          path,
+          data: json,
+          directory,
+          encoding: Encoding.UTF8,
+        });
+
+        const { uri } = await Filesystem.getUri({
+          path,
+          directory,
+        });
+
+        await Share.share({
+          title: 'GS Export Data',
+          text: 'GS Ballistics selective export (share this file)',
+          url: uri,
+        });
+
+        alert('Data export created. Share or save it using the app you chose.');
+      } catch (err) {
+        console.error('Selective export failed:', err);
+        alert('Data export failed on this device.\n\n' + ((err as any)?.message ?? String(err)));
+      }
+    } else {
+      try {
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Browser selective export failed:', err);
+        alert('Browser export failed.');
+      }
     }
   }
-}
 
   // ---------- JSON load-dev backup (backup / export icon) ----------
 
-async exportLoadDevBackup(shareAfterSave: boolean = true): Promise<void> {
-
+  async exportLoadDevBackup(shareAfterSave: boolean = true): Promise<void> {
     // Export the REAL persisted store (includes nested data under every section)
-  const payload = this.dataService.exportFullBackup?.();
+    const payload = this.dataService.exportFullBackup?.();
 
-  if (!payload?.store) {
-    alert('Export failed: no store data found.');
-    return;
-  }
-
-  const hasAnyData =
-    (payload.store.rifles?.length ?? 0) +
-      (payload.store.venues?.length ?? 0) +
-      (payload.store.sessions?.length ?? 0) +
-      (payload.store.loadDevProjects?.length ?? 0) >
-    0;
-
-  if (!hasAnyData) {
-    alert('No data found – nothing to backup yet.');
-    return;
-  }
-
-
-  const json = JSON.stringify(payload, null, 2);
-  const filename =
-  'gunstuff-full-backup-' +
-  new Date().toISOString().slice(0, 10) +
-  '.json';
-
-
-  if (Capacitor.isNativePlatform()) {
-    try {
-            await Filesystem.requestPermissions();
-
-      const path = filename;
-
-      await Filesystem.writeFile({
-        path,
-        data: json,
-        directory: Directory.Documents,
-        encoding: Encoding.UTF8,
-      });
-
-      const { uri } = await Filesystem.getUri({
-        path,
-        directory: Directory.Documents,
-      });
-
-     if (shareAfterSave) {
-  await Share.share({
-    title: 'GS Backup',
-    text: 'GS Ballistics backup file',
-    url: uri,
-  });
-
-  alert('Backup saved. Choose an app (e.g. Files) to store or send it.');
-} else {
-  alert('Backup saved to app Documents on this device.');
-}
-
-    } catch (err) {
-      console.error('Native backup export failed:', err);
-      alert('Backup export failed on this device.');
+    if (!payload?.store) {
+      alert('Export failed: no store data found.');
+      return;
     }
-  } else {
-    // Browser – download as a JSON file
-    try {
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Browser backup export failed:', err);
-      alert('Browser backup export failed.');
+
+    const hasAnyData =
+      (payload.store.rifles?.length ?? 0) +
+        (payload.store.venues?.length ?? 0) +
+        (payload.store.sessions?.length ?? 0) +
+        (payload.store.loadDevProjects?.length ?? 0) >
+      0;
+
+    if (!hasAnyData) {
+      alert('No data found – nothing to backup yet.');
+      return;
+    }
+
+    const json = JSON.stringify(payload, null, 2);
+    const filename = 'gunstuff-full-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await Filesystem.requestPermissions();
+
+        const path = filename;
+
+        await Filesystem.writeFile({
+          path,
+          data: json,
+          directory: Directory.Documents,
+          encoding: Encoding.UTF8,
+        });
+
+        const { uri } = await Filesystem.getUri({
+          path,
+          directory: Directory.Documents,
+        });
+
+        if (shareAfterSave) {
+          await Share.share({
+            title: 'GS Backup',
+            text: 'GS Ballistics backup file',
+            url: uri,
+          });
+
+          alert('Backup saved. Choose an app (e.g. Files) to store or send it.');
+        } else {
+          alert('Backup saved to app Documents on this device.');
+        }
+      } catch (err) {
+        console.error('Native backup export failed:', err);
+        alert('Backup export failed on this device.');
+      }
+    } else {
+      // Browser – download as a JSON file
+      try {
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Browser backup export failed:', err);
+        alert('Browser backup export failed.');
+      }
     }
   }
-}
-
 
   // ---------- Kestrel button ----------
 

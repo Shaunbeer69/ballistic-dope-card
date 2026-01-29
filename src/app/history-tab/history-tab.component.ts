@@ -3,12 +3,13 @@ import { Component, OnInit, EventEmitter, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../data.service';
 import { CapacitorVoiceRecorder } from '@lgicc/capacitor-voice-recorder';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 @Component({
   selector: 'app-history-tab',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './history-tab.component.html'
+  templateUrl: './history-tab.component.html',
 })
 export class HistoryTabComponent implements OnInit {
   sessions: any[] = [];
@@ -20,37 +21,38 @@ export class HistoryTabComponent implements OnInit {
   editSession: any | null = null;
 
   validationError: string | null = null;
+  toastKind: 'ok' | 'error' = 'ok';
   saveMessage: string | null = null;
   private saveMessageTimeout: any = null;
 
   searchTerm: string = '';
-    // PERF: precomputed lists (avoid template getters that filter/sort/group every CD tick)
+  // PERF: precomputed lists (avoid template getters that filter/sort/group every CD tick)
   filteredSessionsList: any[] = [];
   venueGroupsList: { venueId: number | null; venueName: string; sessions: any[] }[] = [];
 
   expandedVenueId: number | null = null;
-    // PERF: avoid rebuilding massive data: URLs on every change detection tick
+  // PERF: avoid rebuilding massive data: URLs on every change detection tick
   private rowVoiceUrlCache = new WeakMap<any, { b64: string; url: string }>();
+  private rowPhotoUrlCache = new WeakMap<any, { b64: string; url: string }>();
 
-onAveVelEnter(ev: Event): void {
-  ev.preventDefault();
+  onAveVelEnter(ev: Event): void {
+    ev.preventDefault();
 
-  // First Elev input in the table (your file already marks it with #elevFirst)
-  const el = document.querySelector('#elevFirst') as HTMLInputElement | null;
-
-  el?.focus();
-}
-
-
-focusNotes(row: any): void {
-  setTimeout(() => {
-    const el = document.querySelector(
-      'textarea[placeholder="Notes (optional)"]'
-    ) as HTMLTextAreaElement | null;
+    // First Elev input in the table (your file already marks it with #elevFirst)
+    const el = document.querySelector('#elevFirst') as HTMLInputElement | null;
 
     el?.focus();
-  }, 0);
-}
+  }
+
+  focusNotes(row: any): void {
+    setTimeout(() => {
+      const el = document.querySelector(
+        'textarea[placeholder="Notes (optional)"]',
+      ) as HTMLTextAreaElement | null;
+
+      el?.focus();
+    }, 0);
+  }
   private focusById(id: string | null | undefined): void {
     if (!id) return;
     setTimeout(() => {
@@ -62,8 +64,30 @@ focusNotes(row: any): void {
   private toNumber(val: any): number {
     if (val === null || val === undefined) return NaN;
     if (typeof val === 'number') return val;
-    const n = Number(String(val).trim());
-    return n;
+
+    let s = String(val).trim();
+    if (!s) return NaN;
+    // tolerate unit suffixes like "fps", "mph", etc.
+    s = s.replace(/[^0-9.,\-]/g, '').trim();
+    if (!s) return NaN;
+
+    // Allow "2,700" (thousands) and "3,5" (decimal comma)
+    if (s.includes(',')) {
+      if (s.includes('.')) {
+        s = s.replace(/,/g, ''); // "2,700.5"
+      } else {
+        const parts = s.split(',');
+        const last = parts[parts.length - 1] ?? '';
+        if (last.length === 3 && parts.length > 1) {
+          s = parts.join(''); // "2,700" => "2700"
+        } else {
+          s = parts.slice(0, -1).join('') + '.' + last; // "3,5" => "3.5"
+        }
+      }
+    }
+
+    s = s.replace(/\s+/g, '');
+    return Number(s);
   }
 
   /**
@@ -86,13 +110,21 @@ focusNotes(row: any): void {
       if (!row) continue;
 
       // Default wind direction = 3 o'clock
-      if (row.windDirection === null || row.windDirection === undefined || String(row.windDirection).trim() === '') {
+      if (
+        row.windDirection === null ||
+        row.windDirection === undefined ||
+        String(row.windDirection).trim() === ''
+      ) {
         row.windDirection = '3';
         row._windDirectionAuto = true;
       }
 
       // Autofill wind speed in MPH from environment if empty
-      if (row.windSpeed === null || row.windSpeed === undefined || String(row.windSpeed).trim() === '') {
+      if (
+        row.windSpeed === null ||
+        row.windSpeed === undefined ||
+        String(row.windSpeed).trim() === ''
+      ) {
         if (Number.isFinite(mphFromEnv)) {
           row.windSpeed = Math.round(mphFromEnv * 10) / 10; // 1 decimal
           row._windSpeedAuto = true;
@@ -101,7 +133,11 @@ focusNotes(row: any): void {
     }
   }
 
-  private validateRequiredFields(session: any | null): { ok: boolean; message?: string; focusId?: string } {
+  private validateRequiredFields(session: any | null): {
+    ok: boolean;
+    message?: string;
+    focusId?: string;
+  } {
     if (!session) return { ok: false, message: 'No session selected.' };
 
     // Ave Vel required
@@ -122,18 +158,36 @@ focusNotes(row: any): void {
       const wspd = this.toNumber(row?.windSpeed);
       const wdir = row?.windDirection;
 
-      if (!Number.isFinite(elev)) return { ok: false, message: 'Required: Elev (mil).', focusId: 'elevFirst' };
-      if (!Number.isFinite(wind)) return { ok: false, message: 'Required: Wind (mil).', focusId: 'windFirst' };
-      if (!Number.isFinite(wspd)) return { ok: false, message: 'Required: W Speed (mph).', focusId: 'wspdFirst' };
+      if (!Number.isFinite(elev))
+        return { ok: false, message: 'Required: Elev (mil).', focusId: 'elevFirst' };
+      if (!Number.isFinite(wind))
+        return { ok: false, message: 'Required: Wind (mil).', focusId: 'windFirst' };
+      if (!Number.isFinite(wspd))
+        return { ok: false, message: 'Required: W Speed (mph).', focusId: 'wspdFirst' };
       if (wdir === null || wdir === undefined || String(wdir).trim() === '') {
         return { ok: false, message: 'Required: Wind Dir (clock).', focusId: 'wdirFirst' };
+      }
+
+      // REQUIRED: notes per row (focus + expand the notes UI)
+      const rowNote = (row?.impactsDescription ?? '').toString().trim();
+      if (!rowNote) {
+        row.notesExpanded = true;
+        this.focusNotes(row);
+        return {
+          ok: false,
+          message: `Required: Notes for ${row?.distanceM ?? ''}m row.`,
+        };
       }
     }
 
     // Global notes required
     const notes = (session.notes ?? '').toString().trim();
     if (!notes) {
-      return { ok: false, message: 'Required: Notes (Global Session notes).', focusId: 'sessionNotesInput' };
+      return {
+        ok: false,
+        message: 'Required: Notes (Global Session notes).',
+        focusId: 'sessionNotesInput',
+      };
     }
 
     return { ok: true };
@@ -175,7 +229,6 @@ focusNotes(row: any): void {
 
     this.rebuildPendingSessions();
     this.rebuildHistoryLists();
-
   }
 
   // --------------------------------------------------
@@ -239,9 +292,14 @@ focusNotes(row: any): void {
       });
     }
 
-    this.filteredSessionsList = [...filtered].sort((a, b) => this.getSessionTime(b) - this.getSessionTime(a));
+    this.filteredSessionsList = [...filtered].sort(
+      (a, b) => this.getSessionTime(b) - this.getSessionTime(a),
+    );
 
-    const map = new Map<number | null, { venueId: number | null; venueName: string; sessions: any[] }>();
+    const map = new Map<
+      number | null,
+      { venueId: number | null; venueName: string; sessions: any[] }
+    >();
     for (const s of this.filteredSessionsList) {
       const vid = (s.venueId ?? null) as number | null;
       const vname = this.getVenueName(s.venueId) || 'Unknown venue';
@@ -268,28 +326,26 @@ focusNotes(row: any): void {
   // --------------------------------------------------
   // Search & grouping (read-only history list)
   // --------------------------------------------------
-  
- 
+
   private getSessionTime(s: any): number {
     if (!s || !s.date) return 0;
     return new Date(s.date).getTime();
   }
 
- clearSearch(): void {
-  this.searchTerm = '';
-  this.rebuildHistoryLists();
-}
-onSearchTermChange(v: string): void {
-  this.searchTerm = (v ?? '').toString();
-  this.rebuildHistoryLists();
-}
-
+  clearSearch(): void {
+    this.searchTerm = '';
+    this.rebuildHistoryLists();
+  }
+  onSearchTermChange(v: string): void {
+    this.searchTerm = (v ?? '').toString();
+    this.rebuildHistoryLists();
+  }
 
   toggleVenue(venueId: number | null): void {
     this.expandedVenueId = this.expandedVenueId === venueId ? null : venueId;
   }
-trackByVenueId = (_: number, g: { venueId: number | null }) => g.venueId;
-trackBySessionId = (_: number, s: any) => s?.id ?? _;
+  trackByVenueId = (_: number, g: { venueId: number | null }) => g.venueId;
+  trackBySessionId = (_: number, s: any) => s?.id ?? _;
 
   summarizeDateRange(sessions: any[]): string {
     if (!sessions || sessions.length === 0) return '';
@@ -318,105 +374,100 @@ trackBySessionId = (_: number, s: any) => s?.id ?? _;
   // --------------------------------------------------
   // Selecting / deleting sessions
   // --------------------------------------------------
-selectSession(s: any): void {
-  const idStr = (s?.id ?? '').toString();
-  this.selectedSessionId = idStr;
+  selectSession(s: any): void {
+    const idStr = (s?.id ?? '').toString();
+    this.selectedSessionId = idStr;
 
-  // Keep a copy for editing
-  this.editSession = JSON.parse(JSON.stringify(s));
+    // Keep a copy for editing
+    this.editSession = JSON.parse(JSON.stringify(s));
 
-  // Apply History defaults (Wind Dir=3, W Speed MPH autofill)
-  this.applyHistoryDefaults(this.editSession);
+    // Apply History defaults (Wind Dir=3, W Speed MPH autofill)
+    this.applyHistoryDefaults(this.editSession);
 
-  this.validationError = null;
-  this.clearSaveMessage();
-}
-
-
-deleteSession(s: any): void {
-  const idNum = Number(s?.id);
-
-  if (!Number.isFinite(idNum)) {
-    console.error('deleteSession: invalid session id:', s?.id);
-    return;
+    this.validationError = null;
+    this.clearSaveMessage();
   }
 
-  const ok = confirm('Delete this session from history? This cannot be undone.');
-  if (!ok) return;
+  deleteSession(s: any): void {
+    const idNum = Number(s?.id);
 
-  try {
-    // 1) Delete from persistent store
-    this.dataService.deleteSession(idNum);
-
-    // 2) Delete from in-memory list (so UI updates immediately)
-    this.sessions = (this.sessions || []).filter((x: any) => Number(x?.id) !== idNum);
-
-    // 3) Collapse detail screen back to list
-    this.editSession = null;
-    this.selectedSessionId = null;
-
-    // 4) Rebuild any derived lists you use
-    this.rebuildPendingSessions?.();
-    this.rebuildHistoryLists();
-
-  } catch (err) {
-    console.error('Error deleting session from DataService:', err);
-  }
-}
-
-
-private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void {
-  if (typeof window === 'undefined' || !window.localStorage) return;
-
-  const keys: string[] = [];
-  for (let i = 0; i < window.localStorage.length; i++) {
-    const k = window.localStorage.key(i);
-    if (k) keys.push(k);
-  }
-
-  for (const key of keys) {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) continue;
-
-    // Only consider JSON arrays
-    let parsed: any;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      continue;
+    if (!Number.isFinite(idNum)) {
+      console.error('deleteSession: invalid session id:', s?.id);
+      return;
     }
 
-    if (!Array.isArray(parsed) || parsed.length === 0) continue;
+    const ok = confirm('Delete this session from history? This cannot be undone.');
+    if (!ok) return;
 
-    // Only touch arrays of objects that look like sessions (have id)
-    const looksLikeArrayOfIdObjects =
-      parsed.every((x: any) => x && typeof x === 'object' && ('id' in x));
+    try {
+      // 1) Delete from persistent store
+      this.dataService.deleteSession(idNum);
 
-    if (!looksLikeArrayOfIdObjects) continue;
+      // 2) Delete from in-memory list (so UI updates immediately)
+      this.sessions = (this.sessions || []).filter((x: any) => Number(x?.id) !== idNum);
 
-    const beforeLen = parsed.length;
+      // 3) Collapse detail screen back to list
+      this.editSession = null;
+      this.selectedSessionId = null;
 
-    const filtered = parsed.filter((x: any) => {
-      const xIdStr = String(x?.id);
-      if (xIdStr === idStr) return false;
+      // 4) Rebuild any derived lists you use
+      this.rebuildPendingSessions?.();
+      this.rebuildHistoryLists();
+    } catch (err) {
+      console.error('Error deleting session from DataService:', err);
+    }
+  }
 
-      // Also remove numeric-equal if idNum is valid (covers "1" vs 1 mismatches)
-      if (idNum != null) {
-        const xIdNum = Number(x?.id);
-        if (Number.isFinite(xIdNum) && xIdNum === idNum) return false;
+  private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+
+    const keys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k) keys.push(k);
+    }
+
+    for (const key of keys) {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+
+      // Only consider JSON arrays
+      let parsed: any;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        continue;
       }
 
-      return true;
-    });
+      if (!Array.isArray(parsed) || parsed.length === 0) continue;
 
-    if (filtered.length !== beforeLen) {
-      window.localStorage.setItem(key, JSON.stringify(filtered));
+      // Only touch arrays of objects that look like sessions (have id)
+      const looksLikeArrayOfIdObjects = parsed.every(
+        (x: any) => x && typeof x === 'object' && 'id' in x,
+      );
+
+      if (!looksLikeArrayOfIdObjects) continue;
+
+      const beforeLen = parsed.length;
+
+      const filtered = parsed.filter((x: any) => {
+        const xIdStr = String(x?.id);
+        if (xIdStr === idStr) return false;
+
+        // Also remove numeric-equal if idNum is valid (covers "1" vs 1 mismatches)
+        if (idNum != null) {
+          const xIdNum = Number(x?.id);
+          if (Number.isFinite(xIdNum) && xIdNum === idNum) return false;
+        }
+
+        return true;
+      });
+
+      if (filtered.length !== beforeLen) {
+        window.localStorage.setItem(key, JSON.stringify(filtered));
+      }
     }
   }
-}
-
-
-
 
   // --------------------------------------------------
   // Editable rules (In progress only)
@@ -430,7 +481,7 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
     );
   }
 
-    isSessionFullyCompleted(session: any | null): boolean {
+  isSessionFullyCompleted(session: any | null): boolean {
     if (!session || !Array.isArray(session.dope) || session.dope.length === 0) return false;
 
     const av = this.toNumber(session.averageVelocity);
@@ -441,7 +492,6 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
 
     return !session.dope.some((row: any) => !this.isRowComplete(row));
   }
-
   private isRowComplete(row: any): boolean {
     if (!row) return false;
     if (row.distanceM == null) return false;
@@ -456,9 +506,12 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
     if (!Number.isFinite(wspd)) return false;
     if (wdir === null || wdir === undefined || String(wdir).trim() === '') return false;
 
+    // REQUIRED: per-row notes/impacts must be filled before session can be "completed"
+    const rowNote = (row.impactsDescription ?? '').toString().trim();
+    if (!rowNote) return false;
+
     return true;
   }
-
 
   // --------------------------------------------------
   // Wind helpers
@@ -489,6 +542,7 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
 
   getWindArrow(row: any): string {
     if (!row) return '•';
+    if (Number(row.windSpeed) === 0) return '';
 
     let dirRaw: any = row.windDirection;
     if (dirRaw == null && this.editSession?.environment) {
@@ -510,6 +564,77 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
     }
 
     return '•';
+  }
+  // --------------------------------------------------
+  // Photo helpers (used by HTML)
+  // --------------------------------------------------
+  hasRowPhoto(row: any): boolean {
+    const b64 = (row?.photoBase64 ?? '').toString().trim();
+    return b64.length > 0;
+  }
+
+  rowPhotoDataUrl(row: any): string | null {
+    const base64 = (row?.photoBase64 ?? '').toString().trim();
+    const fmt = (row?.photoFormat ?? 'jpeg').toString().trim() || 'jpeg';
+
+    if (!base64) {
+      this.rowPhotoUrlCache.delete(row);
+      return null;
+    }
+
+    const cached = this.rowPhotoUrlCache.get(row);
+    if (cached && cached.b64 === base64) return cached.url;
+
+    const url = `data:image/${fmt};base64,${base64}`;
+    this.rowPhotoUrlCache.set(row, { b64: base64, url });
+    return url;
+  }
+
+  async onRowCameraClick(row: any, ev?: Event): Promise<void> {
+    ev?.stopPropagation?.();
+    ev?.preventDefault?.();
+
+    if (!row) return;
+
+    try {
+      const photo = await Camera.getPhoto({
+        quality: 70,
+        allowEditing: false,
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Camera,
+      });
+
+      const base64 = (photo?.base64String ?? '').toString().trim();
+      if (!base64) {
+        this.showSaveMessage('No photo captured');
+        return;
+      }
+
+      row.photoBase64 = base64;
+      row.photoFormat = photo?.format || 'jpeg';
+
+      // Drop any cached URL so UI refreshes immediately
+      this.rowPhotoUrlCache.delete(row);
+
+      this.showSaveMessage('Photo saved (tap Save)');
+    } catch (err) {
+      console.error('History row photo error:', err);
+      this.showSaveMessage('Camera permission denied or not available.');
+    }
+  }
+
+  deleteRowPhoto(row: any, ev?: Event): void {
+    ev?.stopPropagation?.();
+    ev?.preventDefault?.();
+
+    if (!row) return;
+
+    row.photoBase64 = null;
+    row.photoFormat = null;
+
+    this.rowPhotoUrlCache.delete(row);
+
+    this.showSaveMessage('Photo removed (tap Save)');
   }
 
   // --------------------------------------------------
@@ -622,7 +747,7 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
   // --------------------------------------------------
   // Save logic (THIS IS THE IMPORTANT FIX)
   // --------------------------------------------------
-    onPrimarySaveClick(): void {
+  onPrimarySaveClick(): void {
     if (!this.editSession) return;
     if (!this.isSessionEditable(this.editSession)) return;
 
@@ -633,6 +758,7 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
     const v = this.validateRequiredFields(this.editSession);
     if (!v.ok) {
       this.validationError = v.message || 'Please fill all required fields.';
+      this.showSaveMessage(this.validationError, 'error');
       this.focusById(v.focusId || null);
       return;
     }
@@ -648,24 +774,23 @@ private purgeSessionFromLocalStorage(idStr: string, idNum: number | null): void 
     }
   }
 
-
   private saveInProgress(): void {
     if (!this.editSession) return;
 
     this.validationError = null;
 
     const targetId = String(this.editSession.id);
-    const idx = this.sessions.findIndex(s => String(s.id) === targetId);
+    const idx = this.sessions.findIndex((s) => String(s.id) === targetId);
     if (idx < 0) return;
 
     const updated = { ...this.editSession, completed: false };
     this.sessions[idx] = updated;
 
     this.persistEditedSession(updated);
-this.rebuildHistoryLists();
+    this.rebuildHistoryLists();
 
     this.rebuildPendingSessions();
-    this.showSaveMessage('Session saved (In progress).');
+    this.showSaveMessage('Session saved (In progress).', 'ok');
   }
 
   private saveAndComplete(): void {
@@ -677,11 +802,10 @@ this.rebuildHistoryLists();
       return;
     }
 
-
     this.validationError = null;
 
     const targetId = String(this.editSession.id);
-    const idx = this.sessions.findIndex(s => String(s.id) === targetId);
+    const idx = this.sessions.findIndex((s) => String(s.id) === targetId);
     if (idx < 0) return;
 
     const updated = { ...this.editSession, completed: true };
@@ -690,8 +814,9 @@ this.rebuildHistoryLists();
     this.persistEditedSession(updated);
 
     this.rebuildHistoryLists();
+    this.rebuildPendingSessions();
 
-    this.showSaveMessage('Session saved & marked as completed.');
+    this.showSaveMessage('Session saved & marked as completed.', 'ok');
 
     // close detail view after completion (as before)
     this.editSession = null;
@@ -732,7 +857,9 @@ this.rebuildHistoryLists();
         return;
       }
 
-      console.warn('No known persist method found on DataService (updateSession/saveSession/setSessions/saveSessions).');
+      console.warn(
+        'No known persist method found on DataService (updateSession/saveSession/setSessions/saveSessions).',
+      );
     } catch (err) {
       console.error('Error persisting edited session from HistoryTab:', err);
     }
@@ -741,13 +868,15 @@ this.rebuildHistoryLists();
   // --------------------------------------------------
   // UI messages / navigation
   // --------------------------------------------------
-  private showSaveMessage(msg: string): void {
+  private showSaveMessage(msg: string, kind: 'ok' | 'error' = 'ok'): void {
+    this.toastKind = kind;
     this.saveMessage = msg;
     if (this.saveMessageTimeout) clearTimeout(this.saveMessageTimeout);
 
     this.saveMessageTimeout = setTimeout(() => {
       this.saveMessage = null;
       this.saveMessageTimeout = null;
+      this.toastKind = 'ok';
     }, 2500);
   }
 
@@ -757,6 +886,7 @@ this.rebuildHistoryLists();
       this.saveMessageTimeout = null;
     }
     this.saveMessage = null;
+    this.toastKind = 'ok';
   }
 
   onBackFromHistory(): void {

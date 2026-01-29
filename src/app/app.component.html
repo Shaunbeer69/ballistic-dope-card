@@ -1022,7 +1022,12 @@
 
                           <div *ngIf="dataShareIncludeRifles" class="mt-2 space-y-2">
                             <label class="flex items-center gap-2 text-slate-300">
-                              <input type="checkbox" [(ngModel)]="dataShareAllRifles" />
+                              <input
+                                type="checkbox"
+                                [(ngModel)]="dataShareAllRifles"
+                                (ngModelChange)="setAllRiflesForShare($event)"
+                              />
+
                               <span>All rifles</span>
                             </label>
 
