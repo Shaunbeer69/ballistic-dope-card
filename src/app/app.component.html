@@ -1522,6 +1522,23 @@
                       <span class="mt-1 text-[10px] text-gray-300">Support</span>
                       <span class="text-[9px] text-gray-500 italic mt-0.5">WhatsApp help</span>
                     </div>
+                    <!-- Maintenance -->
+                    <div class="flex flex-col items-center">
+                      <button
+                        class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-orange-500 via-amber-600 to-slate-900 hover:scale-105 active:scale-95 transition"
+                        (click)="openMaintenanceModal()"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+                          <path
+                            class="fill-white/85"
+                            d="M19.14 12.94a7.96 7.96 0 000-1.88l2.03-1.58-2-3.46-2.45 1a7.8 7.8 0 00-1.62-.94L14.7 2h-4l-.4 3.08c-.56.22-1.1.52-1.62.94l-2.45-1-2 3.46 2.03 1.58a7.96 7.96 0 000 1.88L2.23 14.5l2 3.46 2.45-1c.52.42 1.06.72 1.62.94L10.7 22h4l.4-3.08c.56-.22 1.1-.52 1.62-.94l2.45 1 2-3.46-2.03-1.56ZM12.7 15.5a3.5 3.5 0 113.5-3.5 3.5 3.5 0 01-3.5 3.5Z"
+                          />
+                        </svg>
+                      </button>
+
+                      <span class="mt-1 text-[10px] text-gray-300">Maintenance</span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5">Repair store</span>
+                    </div>
                   </div>
                   <!-- Export / Import modal -->
                   <div
@@ -1775,6 +1792,67 @@
                       </div>
                     </div>
                   </div>
+                  <!-- Maintenance modal -->
+                  <div
+                    *ngIf="showMaintenanceModal"
+                    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+                    (click)="closeMaintenanceModal()"
+                  >
+                    <div
+                      class="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
+                      (click)="$event.stopPropagation()"
+                    >
+                      <div class="text-sm font-semibold">Maintenance</div>
+                      <div class="text-[11px] text-slate-300 mt-1 leading-snug">
+                        Scan / repair stored data (fixes export/import issues).
+                      </div>
+
+                      <div class="mt-4 space-y-2 text-[11px]">
+                        <button
+                          type="button"
+                          class="w-full py-2 rounded-xl bg-sky-600/90 hover:bg-sky-600 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                          (click)="runMaintenanceScan()"
+                          [disabled]="maintenanceBusy"
+                        >
+                          {{ maintenanceBusy ? 'Working…' : 'Scan data (no changes)' }}
+                        </button>
+
+                        <button
+                          type="button"
+                          class="w-full py-2 rounded-xl bg-orange-600/90 hover:bg-orange-600 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                          (click)="runMaintenanceRepair()"
+                          [disabled]="maintenanceBusy"
+                        >
+                          {{ maintenanceBusy ? 'Working…' : 'Repair + rebuild store' }}
+                        </button>
+
+                        <button
+                          type="button"
+                          class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                          (click)="shareMaintenanceReport()"
+                          [disabled]="maintenanceBusy || !maintenanceReport"
+                        >
+                          Share report
+                        </button>
+
+                        <div
+                          class="rounded-xl border border-slate-700 bg-black/20 p-3 max-h-[260px] overflow-auto whitespace-pre-wrap font-mono text-[10px] text-slate-100"
+                        >
+                          {{ maintenanceReport || 'Run Scan to see results…' }}
+                        </div>
+
+                        <button
+                          type="button"
+                          class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                          (click)="closeMaintenanceModal()"
+                          [disabled]="maintenanceBusy"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   <!-- Support modal -->
                   <div
                     *ngIf="showSupportModal"

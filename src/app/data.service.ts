@@ -1,11 +1,5 @@
 import { Injectable } from '@angular/core';
-import {
-  Rifle,
-  Venue,
-  Session,
-  LoadDevProject,
-  LoadDevEntry
-} from './models';
+import { Rifle, Venue, Session, LoadDevProject, LoadDevEntry } from './models';
 
 interface AppStore {
   nextRifleId: number;
@@ -33,16 +27,15 @@ export interface AppPreferencesV1 {
   };
 }
 
-
 const DEFAULT_PREFS_V1: AppPreferencesV1 = {
   loadDev: { oalUnit: 'mm' },
-  wind: { speedUnit: 'mph' }
+  wind: { speedUnit: 'mph' },
 };
 
 const STORAGE_KEY = 'ballistic-dope-card-v1';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class DataService {
   private store: AppStore;
@@ -59,43 +52,42 @@ export class DataService {
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<AppStore>;
 
-      const store: AppStore = {
-  nextRifleId: parsed.nextRifleId ?? 1,
-  nextVenueId: parsed.nextVenueId ?? 1,
-  nextSessionId: parsed.nextSessionId ?? 1,
-  nextLoadDevProjectId: parsed.nextLoadDevProjectId ?? 1,
-  nextLoadDevEntryId: parsed.nextLoadDevEntryId ?? 1,
-  rifles: parsed.rifles ?? [],
-  venues: parsed.venues ?? [],
-  sessions: parsed.sessions ?? [],
-  loadDevProjects: parsed.loadDevProjects ?? []
-};
+        const store: AppStore = {
+          nextRifleId: parsed.nextRifleId ?? 1,
+          nextVenueId: parsed.nextVenueId ?? 1,
+          nextSessionId: parsed.nextSessionId ?? 1,
+          nextLoadDevProjectId: parsed.nextLoadDevProjectId ?? 1,
+          nextLoadDevEntryId: parsed.nextLoadDevEntryId ?? 1,
+          rifles: parsed.rifles ?? [],
+          venues: parsed.venues ?? [],
+          sessions: parsed.sessions ?? [],
+          loadDevProjects: parsed.loadDevProjects ?? [],
+        };
 
-this.normalizeStore(store);
-return store;
-
+        this.normalizeStore(store);
+        return store;
       }
     } catch {
       // ignore parse errors
     }
 
     const store: AppStore = {
-  nextRifleId: 1,
-  nextVenueId: 1,
-  nextSessionId: 1,
-  nextLoadDevProjectId: 1,
-  nextLoadDevEntryId: 1,
-  rifles: [],
-  venues: [],
-  sessions: [],
-  loadDevProjects: []
-};
+      nextRifleId: 1,
+      nextVenueId: 1,
+      nextSessionId: 1,
+      nextLoadDevProjectId: 1,
+      nextLoadDevEntryId: 1,
+      rifles: [],
+      venues: [],
+      sessions: [],
+      loadDevProjects: [],
+    };
 
-this.normalizeStore(store);
-return store;
+    this.normalizeStore(store);
+    return store;
   }
 
-   private normalizeStore(store: AppStore): void {
+  private normalizeStore(store: AppStore): void {
     // Fix known bad “inch” inputs that were entered as thousandths.
     // Example from your backup: coalUnit="in" but coal=3820, ogive=3456.
     // Those should be 3.820 and 3.456.
@@ -142,7 +134,7 @@ return store;
 
     const before = store.loadDevProjects.length;
 
-    store.loadDevProjects = (store.loadDevProjects ?? []).filter(p => {
+    store.loadDevProjects = (store.loadDevProjects ?? []).filter((p) => {
       const entries = (p as any)?.entries;
       if (!Array.isArray(entries) || entries.length === 0) return false; // empty project -> prune
       // entries exist, but if ALL are blank shells -> prune
@@ -162,8 +154,7 @@ return store;
     }
   }
 
-
-   // ---------- Import / Export helpers ----------
+  // ---------- Import / Export helpers ----------
 
   /** Full backup of the entire persisted app store (includes all nested data). */
   exportFullBackup(): any {
@@ -177,150 +168,156 @@ return store;
     };
   }
   /**
- * Selective share export (for sending to other users).
- * Produces a smaller payload than full backup, and is meant for merge-import.
- */
-exportSelectiveShare(opts: any): any | null {
-  const storeCopy: any = JSON.parse(JSON.stringify(this.store));
+   * Selective share export (for sending to other users).
+   * Produces a smaller payload than full backup, and is meant for merge-import.
+   */
+  exportSelectiveShare(opts: any): any | null {
+    const storeCopy: any = JSON.parse(JSON.stringify(this.store));
 
-  const out: any = {
-    schema: 'ballistic-dope-card-share-v1',
-    exportedAt: new Date().toISOString(),
-    data: {
-      rifles: [] as any[],
-      venues: [] as any[],
-      sessions: [] as any[],
-      loadDevProjects: [] as any[],
-    },
-  };
+    const out: any = {
+      schema: 'ballistic-dope-card-share-v1',
+      exportedAt: new Date().toISOString(),
+      data: {
+        rifles: [] as any[],
+        venues: [] as any[],
+        sessions: [] as any[],
+        loadDevProjects: [] as any[],
+      },
+    };
 
-  const riflesOpt = opts?.rifles ?? null;
-  const venuesOpt = opts?.venues ?? null;
+    const riflesOpt = opts?.rifles ?? null;
+    const venuesOpt = opts?.venues ?? null;
 
-  const selectedRifleIds: number[] | null =
-    riflesOpt && riflesOpt.all ? null : Array.isArray(riflesOpt?.ids) ? riflesOpt.ids.map((x: any) => Number(x)) : null;
+    const selectedRifleIds: number[] | null =
+      riflesOpt && riflesOpt.all
+        ? null
+        : Array.isArray(riflesOpt?.ids)
+          ? riflesOpt.ids.map((x: any) => Number(x))
+          : null;
 
-  const selectedVenueIds: number[] | null =
-    venuesOpt && venuesOpt.all ? null : Array.isArray(venuesOpt?.ids) ? venuesOpt.ids.map((x: any) => Number(x)) : null;
+    const selectedVenueIds: number[] | null =
+      venuesOpt && venuesOpt.all
+        ? null
+        : Array.isArray(venuesOpt?.ids)
+          ? venuesOpt.ids.map((x: any) => Number(x))
+          : null;
 
-  // --- Rifles ---
-  if (riflesOpt) {
-    const includeRifleData = !!riflesOpt.includeRifleData;
-    const includeLoadDev = !!riflesOpt.includeLoadDev;
-    const includeSessions = !!riflesOpt.includeSessions;
-    const includeShots = !!riflesOpt.includeShots;
+    // --- Rifles ---
+    if (riflesOpt) {
+      const includeRifleData = !!riflesOpt.includeRifleData;
+      const includeLoadDev = !!riflesOpt.includeLoadDev;
+      const includeSessions = !!riflesOpt.includeSessions;
+      const includeShots = !!riflesOpt.includeShots;
 
-    const rifleFilter = (r: any) =>
-      !selectedRifleIds || selectedRifleIds.includes(Number(r?.id));
+      const rifleFilter = (r: any) => !selectedRifleIds || selectedRifleIds.includes(Number(r?.id));
 
-    if (includeRifleData) {
-      out.data.rifles = (storeCopy.rifles ?? []).filter(rifleFilter);
-    }
-
-    if (includeLoadDev) {
-      out.data.loadDevProjects = (storeCopy.loadDevProjects ?? []).filter((p: any) =>
-        selectedRifleIds ? selectedRifleIds.includes(Number(p?.rifleId)) : true
-      );
-    }
-
-    if (includeSessions || includeShots) {
-      const sessions = (storeCopy.sessions ?? []).filter((s: any) =>
-        selectedRifleIds ? selectedRifleIds.includes(Number(s?.rifleId)) : true
-      );
-
-      // If shots not included, strip dope array (shot rows)
-      if (!includeShots) {
-        for (const s of sessions) {
-          if (Array.isArray(s?.dope)) s.dope = [];
-        }
+      if (includeRifleData) {
+        out.data.rifles = (storeCopy.rifles ?? []).filter(rifleFilter);
       }
 
-      out.data.sessions = out.data.sessions.concat(sessions);
-    }
-  }
-
-  // --- Venues ---
-  if (venuesOpt) {
-    const includeVenueData = !!venuesOpt.includeVenueData;
-    const includeSessions = !!venuesOpt.includeSessions;
-    const includeShots = !!venuesOpt.includeShots;
-
-    const venueFilter = (v: any) =>
-      !selectedVenueIds || selectedVenueIds.includes(Number(v?.id));
-
-    if (includeVenueData) {
-      out.data.venues = (storeCopy.venues ?? []).filter(venueFilter);
-    }
-
-    if (includeSessions || includeShots) {
-      const sessions = (storeCopy.sessions ?? []).filter((s: any) =>
-        selectedVenueIds ? selectedVenueIds.includes(Number(s?.venueId)) : true
-      );
-
-      if (!includeShots) {
-        for (const s of sessions) {
-          if (Array.isArray(s?.dope)) s.dope = [];
-        }
+      if (includeLoadDev) {
+        out.data.loadDevProjects = (storeCopy.loadDevProjects ?? []).filter((p: any) =>
+          selectedRifleIds ? selectedRifleIds.includes(Number(p?.rifleId)) : true,
+        );
       }
 
-      out.data.sessions = out.data.sessions.concat(sessions);
+      if (includeSessions || includeShots) {
+        const sessions = (storeCopy.sessions ?? []).filter((s: any) =>
+          selectedRifleIds ? selectedRifleIds.includes(Number(s?.rifleId)) : true,
+        );
+
+        // If shots not included, strip dope array (shot rows)
+        if (!includeShots) {
+          for (const s of sessions) {
+            if (Array.isArray(s?.dope)) s.dope = [];
+          }
+        }
+
+        out.data.sessions = out.data.sessions.concat(sessions);
+      }
     }
-  }
+
+    // --- Venues ---
+    if (venuesOpt) {
+      const includeVenueData = !!venuesOpt.includeVenueData;
+      const includeSessions = !!venuesOpt.includeSessions;
+      const includeShots = !!venuesOpt.includeShots;
+
+      const venueFilter = (v: any) => !selectedVenueIds || selectedVenueIds.includes(Number(v?.id));
+
+      if (includeVenueData) {
+        out.data.venues = (storeCopy.venues ?? []).filter(venueFilter);
+      }
+
+      if (includeSessions || includeShots) {
+        const sessions = (storeCopy.sessions ?? []).filter((s: any) =>
+          selectedVenueIds ? selectedVenueIds.includes(Number(s?.venueId)) : true,
+        );
+
+        if (!includeShots) {
+          for (const s of sessions) {
+            if (Array.isArray(s?.dope)) s.dope = [];
+          }
+        }
+
+        out.data.sessions = out.data.sessions.concat(sessions);
+      }
+    }
 
     // De-dupe sessions by id (rifle+venue selections can overlap)
-  // IMPORTANT: Prefer the "richer" version when duplicates exist (keep dope if present).
-  if (Array.isArray(out.data.sessions)) {
-    const byId = new Map<number, any>();
-    const ordered: any[] = [];
+    // IMPORTANT: Prefer the "richer" version when duplicates exist (keep dope if present).
+    if (Array.isArray(out.data.sessions)) {
+      const byId = new Map<number, any>();
+      const ordered: any[] = [];
 
-    for (const s of out.data.sessions) {
-      const id = Number(s?.id);
+      for (const s of out.data.sessions) {
+        const id = Number(s?.id);
 
-      // If id is not numeric, just keep as-is (can't dedupe reliably)
-      if (!Number.isFinite(id)) {
-        ordered.push(s);
-        continue;
+        // If id is not numeric, just keep as-is (can't dedupe reliably)
+        if (!Number.isFinite(id)) {
+          ordered.push(s);
+          continue;
+        }
+
+        const existing = byId.get(id);
+
+        if (!existing) {
+          byId.set(id, s);
+          ordered.push(s);
+          continue;
+        }
+
+        const existingDopeLen = Array.isArray(existing?.dope) ? existing.dope.length : 0;
+        const incomingDopeLen = Array.isArray(s?.dope) ? s.dope.length : 0;
+
+        // If the existing one has no shots but the incoming one does, replace it in-place.
+        if (existingDopeLen === 0 && incomingDopeLen > 0) {
+          byId.set(id, s);
+          const idx = ordered.findIndex((x) => Number(x?.id) === id);
+          if (idx >= 0) ordered[idx] = s;
+        }
       }
 
-      const existing = byId.get(id);
-
-      if (!existing) {
-        byId.set(id, s);
-        ordered.push(s);
-        continue;
-      }
-
-      const existingDopeLen = Array.isArray(existing?.dope) ? existing.dope.length : 0;
-      const incomingDopeLen = Array.isArray(s?.dope) ? s.dope.length : 0;
-
-      // If the existing one has no shots but the incoming one does, replace it in-place.
-      if (existingDopeLen === 0 && incomingDopeLen > 0) {
-        byId.set(id, s);
-        const idx = ordered.findIndex(x => Number(x?.id) === id);
-        if (idx >= 0) ordered[idx] = s;
-      }
+      out.data.sessions = ordered;
     }
 
-    out.data.sessions = ordered;
+    // Make the share payload compatible with importFromBackupMerge (expects store.* or flat arrays)
+    out.store = {
+      rifles: out.data.rifles ?? [],
+      venues: out.data.venues ?? [],
+      sessions: out.data.sessions ?? [],
+      loadDevProjects: out.data.loadDevProjects ?? [],
+    };
+
+    const hasAny =
+      (out.data.rifles?.length ?? 0) +
+        (out.data.venues?.length ?? 0) +
+        (out.data.sessions?.length ?? 0) +
+        (out.data.loadDevProjects?.length ?? 0) >
+      0;
+
+    return hasAny ? out : null;
   }
-
-  // Make the share payload compatible with importFromBackupMerge (expects store.* or flat arrays)
-  out.store = {
-    rifles: out.data.rifles ?? [],
-    venues: out.data.venues ?? [],
-    sessions: out.data.sessions ?? [],
-    loadDevProjects: out.data.loadDevProjects ?? [],
-  };
-
-  const hasAny =
-    (out.data.rifles?.length ?? 0) +
-      (out.data.venues?.length ?? 0) +
-      (out.data.sessions?.length ?? 0) +
-      (out.data.loadDevProjects?.length ?? 0) >
-    0;
-
-  return hasAny ? out : null;
-}
   /**
    * Selective share export but shaped exactly like importFromBackupMerge expects:
    * { schema, exportedAt, store: { rifles, venues, sessions, loadDevProjects } }
@@ -341,7 +338,7 @@ exportSelectiveShare(opts: any): any | null {
     };
   }
 
-    /**
+  /**
    * Merge-import (append) a backup into existing data.
    * - DOES NOT overwrite existing store
    * - Uses existing add* methods only (so IDs are regenerated safely)
@@ -354,30 +351,30 @@ exportSelectiveShare(opts: any): any | null {
       }
 
       // Accept either wrapper { schema, exportedAt, store } or legacy flat object
-      const src: any =
-        payload.store && typeof payload.store === 'object' ? payload.store : payload;
+      const src: any = payload.store && typeof payload.store === 'object' ? payload.store : payload;
 
       const riflesIn = Array.isArray(src.rifles) ? src.rifles : [];
       const venuesIn = Array.isArray(src.venues) ? src.venues : [];
       const sessionsIn = Array.isArray(src.sessions) ? src.sessions : [];
       const projectsIn = Array.isArray(src.loadDevProjects) ? src.loadDevProjects : [];
 
-      const norm = (s: any) => (String(s ?? '').trim().toLowerCase());
+      const norm = (s: any) =>
+        String(s ?? '')
+          .trim()
+          .toLowerCase();
 
       // ----- Build ID maps (old -> new/existing) -----
       const rifleIdMap = new Map<number, number>();
       const venueIdMap = new Map<number, number>();
-            let addedRifles = 0;
+      let addedRifles = 0;
       let addedVenues = 0;
-
 
       // ----- Rifles: match by name, else add -----
       for (const r of riflesIn) {
         const oldId = Number(r?.id);
         const nameKey = norm(r?.name);
-        
 
-               const existing = this.getRifles().find(x => norm(x.name) === nameKey && nameKey);
+        const existing = this.getRifles().find((x) => norm(x.name) === nameKey && nameKey);
 
         let newId: number;
         if (existing) {
@@ -401,8 +398,6 @@ exportSelectiveShare(opts: any): any | null {
           addedRifles++;
         }
 
-
-
         if (Number.isFinite(oldId)) rifleIdMap.set(oldId, newId);
       }
 
@@ -411,7 +406,7 @@ exportSelectiveShare(opts: any): any | null {
         const oldId = Number(v?.id);
         const nameKey = norm(v?.name);
 
-        const existing = this.getVenues().find(x => norm(x.name) === nameKey && nameKey);
+        const existing = this.getVenues().find((x) => norm(x.name) === nameKey && nameKey);
 
         const venuePayload: any = {
           name: v?.name ?? '',
@@ -422,12 +417,12 @@ exportSelectiveShare(opts: any): any | null {
         const dist = Array.isArray(v?.distances)
           ? v.distances
           : Array.isArray(v?.distancesM)
-          ? v.distancesM
-          : null;
+            ? v.distancesM
+            : null;
 
         if (dist) venuePayload.distances = dist;
 
-                let newId: number;
+        let newId: number;
         if (existing) {
           newId = existing.id;
         } else {
@@ -451,11 +446,12 @@ exportSelectiveShare(opts: any): any | null {
         const dateKey = norm(s?.date);
         const titleKey = norm(s?.title);
 
-        const dup = this.getSessions().some(x =>
-          norm(x.date) === dateKey &&
-          norm(x.title) === titleKey &&
-          Number(x.rifleId) === Number(newRifleId) &&
-          Number(x.venueId) === Number(newVenueId)
+        const dup = this.getSessions().some(
+          (x) =>
+            norm(x.date) === dateKey &&
+            norm(x.title) === titleKey &&
+            Number(x.rifleId) === Number(newRifleId) &&
+            Number(x.venueId) === Number(newVenueId),
         );
 
         if (dup) continue;
@@ -468,7 +464,7 @@ exportSelectiveShare(opts: any): any | null {
           environment: s?.environment ?? {},
           dope: Array.isArray(s?.dope) ? s.dope : [],
           notes: s?.notes ?? '',
-          completed: !!s?.completed
+          completed: !!s?.completed,
         });
 
         addedSessions++;
@@ -486,10 +482,8 @@ exportSelectiveShare(opts: any): any | null {
         const nameKey = norm(p?.name);
         const dateKey = norm(p?.dateStarted);
 
-        const existingProject = this.getLoadDevProjectsForRifle(newRifleId).find(x =>
-          norm(x.name) === nameKey &&
-          norm(x.dateStarted) === dateKey &&
-          nameKey && dateKey
+        const existingProject = this.getLoadDevProjectsForRifle(newRifleId).find(
+          (x) => norm(x.name) === nameKey && norm(x.dateStarted) === dateKey && nameKey && dateKey,
         );
 
         const targetProject = existingProject
@@ -499,7 +493,7 @@ exportSelectiveShare(opts: any): any | null {
               name: p?.name ?? '',
               type: p?.type,
               dateStarted: p?.dateStarted,
-              notes: p?.notes
+              notes: p?.notes,
             });
 
         if (!existingProject) addedProjects++;
@@ -508,11 +502,11 @@ exportSelectiveShare(opts: any): any | null {
         const incomingEntries = Array.isArray(p?.entries) ? p.entries : [];
         for (const e of incomingEntries) {
           const charge = Number(e?.chargeGr);
-          const already = (targetProject.entries ?? []).some(x => Number(x.chargeGr) === charge);
+          const already = (targetProject.entries ?? []).some((x) => Number(x.chargeGr) === charge);
 
           if (already) continue;
 
-                     const created = this.addLoadDevEntry(targetProject.id, {
+          const created = this.addLoadDevEntry(targetProject.id, {
             chargeGr: e?.chargeGr,
             velocity: (e as any)?.velocity,
             velocities: Array.isArray((e as any)?.velocities) ? (e as any).velocities : undefined,
@@ -528,12 +522,12 @@ exportSelectiveShare(opts: any): any | null {
             entryPhotoDataUrl: (e as any)?.entryPhotoDataUrl,
 
             // keep any extra fields safely
-            ...( (e as any)?.groupSizeCm !== undefined ? { groupSizeCm: (e as any).groupSizeCm } : {} ),
-            ...( (e as any)?.createdAt ? { createdAt: (e as any).createdAt } : {} ),
-            ...( (e as any)?.updatedAt ? { updatedAt: (e as any).updatedAt } : {} ),
+            ...((e as any)?.groupSizeCm !== undefined
+              ? { groupSizeCm: (e as any).groupSizeCm }
+              : {}),
+            ...((e as any)?.createdAt ? { createdAt: (e as any).createdAt } : {}),
+            ...((e as any)?.updatedAt ? { updatedAt: (e as any).updatedAt } : {}),
           } as any);
-
-
 
           if (created) addedEntries++;
         }
@@ -542,18 +536,14 @@ exportSelectiveShare(opts: any): any | null {
       return {
         ok: true,
         message:
-                  `Merge import complete. Added ${addedRifles} rifles, ` +
+          `Merge import complete. Added ${addedRifles} rifles, ` +
           `${addedVenues} venues, ${addedSessions} sessions, ` +
-          `${addedProjects} load-dev projects, ${addedEntries} load-dev entries.`
-
+          `${addedProjects} load-dev projects, ${addedEntries} load-dev entries.`,
       };
     } catch (e: any) {
       return { ok: false, message: e?.message ?? 'Unknown error.' };
     }
   }
-
-
- 
 
   private nextId(items: any[]): number {
     const maxId = (items || []).reduce((max, item) => {
@@ -570,13 +560,13 @@ exportSelectiveShare(opts: any): any | null {
   }
 
   getRifleById(id: number): Rifle | undefined {
-    return this.store.rifles.find(r => r.id === id);
+    return this.store.rifles.find((r) => r.id === id);
   }
 
   addRifle(rifle: Omit<Rifle, 'id'>): Rifle {
     const newRifle: Rifle = {
       ...rifle,
-      id: this.store.nextRifleId++
+      id: this.store.nextRifleId++,
     };
     this.store.rifles.push(newRifle);
     this.saveStore();
@@ -584,25 +574,24 @@ exportSelectiveShare(opts: any): any | null {
   }
 
   updateRifle(rifle: Rifle): void {
-    const idx = this.store.rifles.findIndex(r => r.id === rifle.id);
+    const idx = this.store.rifles.findIndex((r) => r.id === rifle.id);
     if (idx >= 0) {
       this.store.rifles[idx] = rifle;
       this.saveStore();
     }
   }
 
- deleteRifle(id: number): void {
-  const idNum = Number(id);
-  this.store.rifles = this.store.rifles.filter(r => Number(r.id) !== idNum);
-  // NOTE: we do not automatically delete load dev projects or sessions.
-  this.saveStore();
-}
-
+  deleteRifle(id: number): void {
+    const idNum = Number(id);
+    this.store.rifles = this.store.rifles.filter((r) => Number(r.id) !== idNum);
+    // NOTE: we do not automatically delete load dev projects or sessions.
+    this.saveStore();
+  }
 
   // Increment round count, never decreases
   incrementRifleRoundCount(rifleId: number, delta: number): void {
     if (!delta || delta <= 0) return;
-    const rifle = this.store.rifles.find(r => r.id === rifleId);
+    const rifle = this.store.rifles.find((r) => r.id === rifleId);
     if (!rifle) return;
     rifle.roundCount = (rifle.roundCount || 0) + delta;
     this.saveStore();
@@ -615,13 +604,13 @@ exportSelectiveShare(opts: any): any | null {
   }
 
   getVenueById(id: number): Venue | undefined {
-    return this.store.venues.find(v => v.id === id);
+    return this.store.venues.find((v) => v.id === id);
   }
 
   addVenue(venue: Omit<Venue, 'id'>): Venue {
     const newVenue: Venue = {
       ...venue,
-      id: this.store.nextVenueId++
+      id: this.store.nextVenueId++,
     };
     this.store.venues.push(newVenue);
     this.saveStore();
@@ -629,7 +618,7 @@ exportSelectiveShare(opts: any): any | null {
   }
 
   updateVenue(venue: Venue): void {
-    const idx = this.store.venues.findIndex(v => v.id === venue.id);
+    const idx = this.store.venues.findIndex((v) => v.id === venue.id);
     if (idx >= 0) {
       this.store.venues[idx] = venue;
       this.saveStore();
@@ -637,7 +626,7 @@ exportSelectiveShare(opts: any): any | null {
   }
 
   deleteVenue(id: number): void {
-    this.store.venues = this.store.venues.filter(v => v.id !== id);
+    this.store.venues = this.store.venues.filter((v) => v.id !== id);
     this.saveStore();
   }
 
@@ -648,13 +637,13 @@ exportSelectiveShare(opts: any): any | null {
   }
 
   getSessionById(id: number): Session | undefined {
-    return this.store.sessions.find(s => s.id === id);
+    return this.store.sessions.find((s) => s.id === id);
   }
 
   addSession(session: Omit<Session, 'id'>): Session {
     const newSession: Session = {
       ...session,
-      id: this.store.nextSessionId++
+      id: this.store.nextSessionId++,
     };
     this.store.sessions.push(newSession);
     this.saveStore();
@@ -662,7 +651,7 @@ exportSelectiveShare(opts: any): any | null {
   }
 
   updateSession(session: Session): void {
-    const idx = this.store.sessions.findIndex(s => s.id === session.id);
+    const idx = this.store.sessions.findIndex((s) => s.id === session.id);
     if (idx >= 0) {
       this.store.sessions[idx] = session;
       this.saveStore();
@@ -670,7 +659,7 @@ exportSelectiveShare(opts: any): any | null {
   }
 
   deleteSession(id: number): void {
-    this.store.sessions = this.store.sessions.filter(s => s.id !== id);
+    this.store.sessions = this.store.sessions.filter((s) => s.id !== id);
     this.saveStore();
   }
 
@@ -685,9 +674,7 @@ exportSelectiveShare(opts: any): any | null {
    * If you don't need the return value anywhere, you can safely ignore it.
    */
   createSessionForLoadDevProject(project: LoadDevProject): Session {
-    const title = project.name?.trim()
-      ? `Load dev: ${project.name.trim()}`
-      : 'Load development';
+    const title = project.name?.trim() ? `Load dev: ${project.name.trim()}` : 'Load development';
 
     // IMPORTANT: do NOT add to this.store.sessions
     const session: Session = {
@@ -700,7 +687,7 @@ exportSelectiveShare(opts: any): any | null {
       dope: [],
       notes:
         'Load development – planned here. Results are captured in Load Development (not History).',
-      completed: false
+      completed: false,
     } as Session;
 
     return session;
@@ -709,18 +696,18 @@ exportSelectiveShare(opts: any): any | null {
   // ---------- Load Development Projects ----------
 
   getLoadDevProjectsForRifle(rifleId: number): LoadDevProject[] {
-    return this.store.loadDevProjects.filter(p => p.rifleId === rifleId);
+    return this.store.loadDevProjects.filter((p) => p.rifleId === rifleId);
   }
 
   getLoadDevProjectById(id: number): LoadDevProject | undefined {
-    return this.store.loadDevProjects.find(p => p.id === id);
+    return this.store.loadDevProjects.find((p) => p.id === id);
   }
 
   addLoadDevProject(
     project: Omit<LoadDevProject, 'id' | 'dateStarted' | 'entries'> & {
       dateStarted?: string;
       entries?: LoadDevEntry[];
-    }
+    },
   ): LoadDevProject {
     const newProject: LoadDevProject = {
       id: this.store.nextLoadDevProjectId++,
@@ -729,7 +716,7 @@ exportSelectiveShare(opts: any): any | null {
       type: project.type,
       dateStarted: project.dateStarted ?? new Date().toISOString(),
       notes: project.notes,
-      entries: project.entries ?? []
+      entries: project.entries ?? [],
     };
     this.store.loadDevProjects.push(newProject);
     this.saveStore();
@@ -743,7 +730,7 @@ exportSelectiveShare(opts: any): any | null {
    * and then passed straight into updateLoadDevProject.
    */
   updateLoadDevProject(project: LoadDevProject): void {
-    const idx = this.store.loadDevProjects.findIndex(p => p.id === project.id);
+    const idx = this.store.loadDevProjects.findIndex((p) => p.id === project.id);
     if (idx >= 0) {
       this.store.loadDevProjects[idx] = project;
     } else {
@@ -753,9 +740,7 @@ exportSelectiveShare(opts: any): any | null {
   }
 
   deleteLoadDevProject(id: number): void {
-    this.store.loadDevProjects = this.store.loadDevProjects.filter(
-      p => p.id !== id
-    );
+    this.store.loadDevProjects = this.store.loadDevProjects.filter((p) => p.id !== id);
     this.saveStore();
   }
 
@@ -771,21 +756,18 @@ exportSelectiveShare(opts: any): any | null {
 
   // ---------- Load Development Entries (inside projects) ----------
 
-  addLoadDevEntry(
-    projectId: number,
-    entry: Omit<LoadDevEntry, 'id'>
-  ): LoadDevEntry | null {
+  addLoadDevEntry(projectId: number, entry: Omit<LoadDevEntry, 'id'>): LoadDevEntry | null {
     const project = this.getLoadDevProjectById(projectId);
     if (!project) return null;
 
-   const nowIso = new Date().toISOString();
+    const nowIso = new Date().toISOString();
 
-const newEntry: LoadDevEntry = {
-  id: this.store.nextLoadDevEntryId++,
-  createdAt: (entry as any)?.createdAt ?? nowIso,
-  updatedAt: (entry as any)?.updatedAt ?? nowIso,
-  ...entry
-};
+    const newEntry: LoadDevEntry = {
+      id: this.store.nextLoadDevEntryId++,
+      createdAt: (entry as any)?.createdAt ?? nowIso,
+      updatedAt: (entry as any)?.updatedAt ?? nowIso,
+      ...entry,
+    };
 
     project.entries = [...(project.entries ?? []), newEntry];
     this.updateLoadDevProject(project);
@@ -806,28 +788,28 @@ const newEntry: LoadDevEntry = {
       project.entries = [];
     }
 
-    const idx = project.entries.findIndex(e => e.id === entry.id);
+    const idx = project.entries.findIndex((e) => e.id === entry.id);
 
-  const nowIso = new Date().toISOString();
+    const nowIso = new Date().toISOString();
 
-if (idx >= 0) {
-  const prev = project.entries[idx];
+    if (idx >= 0) {
+      const prev = project.entries[idx];
 
-  project.entries[idx] = {
-    ...prev,
-    ...entry,
-    // never lose original createdAt
-    createdAt: (prev as any)?.createdAt ?? (entry as any)?.createdAt ?? nowIso,
-    // always bump updatedAt on edit
-    updatedAt: nowIso,
-  };
-} else {
-  project.entries.push({
-    ...entry,
-    createdAt: (entry as any)?.createdAt ?? nowIso,
-    updatedAt: (entry as any)?.updatedAt ?? nowIso,
-  });
-}
+      project.entries[idx] = {
+        ...prev,
+        ...entry,
+        // never lose original createdAt
+        createdAt: (prev as any)?.createdAt ?? (entry as any)?.createdAt ?? nowIso,
+        // always bump updatedAt on edit
+        updatedAt: nowIso,
+      };
+    } else {
+      project.entries.push({
+        ...entry,
+        createdAt: (entry as any)?.createdAt ?? nowIso,
+        updatedAt: (entry as any)?.updatedAt ?? nowIso,
+      });
+    }
 
     this.updateLoadDevProject(project);
   }
@@ -836,16 +818,15 @@ if (idx >= 0) {
     const project = this.getLoadDevProjectById(projectId);
     if (!project) return;
 
-    project.entries = (project.entries ?? []).filter(e => e.id !== entryId);
+    project.entries = (project.entries ?? []).filter((e) => e.id !== entryId);
     this.updateLoadDevProject(project);
   }
-     // -------- Preferences (Units & Display v1) --------
+  // -------- Preferences (Units & Display v1) --------
   // -------- Preference defaults used as "goto" (only where Rifle/Project does not override) --------
-
 
   getDefaultWindUnit(): 'mph' | 'kmh' | 'mps' {
     const p: any = this.getPreferences() ?? {};
-       const raw =
+    const raw =
       p?.wind?.speedUnit ??
       p?.wind?.unit ??
       p?.windUnit ??
@@ -860,13 +841,12 @@ if (idx >= 0) {
   }
 
   private readonly PREFS_KEY = 'ballistic-dope-card-prefs-v1';
-    private readonly LEGACY_PREFS_KEY = 'gs_preferences_v1';
-
+  private readonly LEGACY_PREFS_KEY = 'gs_preferences_v1';
 
   private sanitizePrefs(p: any): AppPreferencesV1 {
     const out: AppPreferencesV1 = {
       loadDev: { ...(DEFAULT_PREFS_V1.loadDev ?? {}) },
-      wind: { ...(DEFAULT_PREFS_V1.wind ?? {}) }
+      wind: { ...(DEFAULT_PREFS_V1.wind ?? {}) },
     };
 
     // LoadDev oalUnit
@@ -875,36 +855,257 @@ if (idx >= 0) {
       out.loadDev = { ...(out.loadDev ?? {}), oalUnit: oalUnit as any };
     }
 
-       // Wind speedUnit
+    // Wind speedUnit
     const speedUnitRaw = String(
       p?.wind?.speedUnit ??
-      p?.windSpeedUnit ??       // legacy flat prefs
-      p?.wind?.unit ??
-      p?.windUnit ??
-      p?.units?.windUnit ??
-      p?.units?.windSpeedUnit ??
-      ''
+        p?.windSpeedUnit ?? // legacy flat prefs
+        p?.wind?.unit ??
+        p?.windUnit ??
+        p?.units?.windUnit ??
+        p?.units?.windSpeedUnit ??
+        '',
     ).toLowerCase();
 
     // normalize UI/legacy values into internal codes used by the wind tool
     const speedUnit =
-      speedUnitRaw === 'km/h' ? 'kmh' :
-      speedUnitRaw === 'm/s' ? 'mps' :
-      speedUnitRaw === 'ms' ? 'mps' :
-      speedUnitRaw === 'kn' ? 'mph' :  // legacy supports knots; wind tool doesn't, so fall back safely
-      speedUnitRaw;
+      speedUnitRaw === 'km/h'
+        ? 'kmh'
+        : speedUnitRaw === 'm/s'
+          ? 'mps'
+          : speedUnitRaw === 'ms'
+            ? 'mps'
+            : speedUnitRaw === 'kn'
+              ? 'mph' // legacy supports knots; wind tool doesn't, so fall back safely
+              : speedUnitRaw;
 
     if (speedUnit === 'mph' || speedUnit === 'kmh' || speedUnit === 'mps') {
       out.wind = { ...(out.wind ?? {}), speedUnit: speedUnit as any };
     }
 
-
-
     return out;
+  }
+  // ---------- Maintenance / Repair ----------
+  /**
+   * Quick health check: scan store for common issues that break export/import,
+   * missing references, invalid IDs, NaN/Infinity numbers, and legacy garbage fields.
+   * Does NOT modify data.
+   */
+  maintenanceScan(): { ok: boolean; issues: number; report: string } {
+    return this.auditAndMaybeRepairStore(false);
+  }
+
+  /**
+   * Repair mode: performs safe repairs + sanitization and saves store.
+   * - fixes next*Id counters
+   * - removes items with invalid IDs
+   * - removes sessions/projects referencing missing rifles/venues
+   * - sanitizes NaN/Infinity to null
+   * - normalizes store + prunes empty ghost load-dev projects
+   */
+  maintenanceRepair(): { ok: boolean; issues: number; fixed: number; report: string } {
+    const res = this.auditAndMaybeRepairStore(true) as any;
+    return {
+      ok: res.ok,
+      issues: res.issues,
+      fixed: res.fixed ?? 0,
+      report: res.report,
+    };
+  }
+
+  private auditAndMaybeRepairStore(applyFixes: boolean): {
+    ok: boolean;
+    issues: number;
+    fixed?: number;
+    report: string;
+  } {
+    const lines: string[] = [];
+    let issues = 0;
+    let fixed = 0;
+
+    const store: any = applyFixes ? this.store : JSON.parse(JSON.stringify(this.store));
+
+    const isFiniteNum = (n: any) => typeof n === 'number' && Number.isFinite(n);
+    const toNum = (v: any) => Number(v);
+
+    const sanitizeValueDeep = (v: any): any => {
+      // Convert NaN/Infinity to null
+      if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+
+      // Remove unusable types
+      if (typeof v === 'function' || typeof v === 'symbol' || typeof v === 'bigint') return null;
+
+      if (Array.isArray(v)) {
+        const out = v.map(sanitizeValueDeep).filter((x) => x !== undefined);
+        return out;
+      }
+
+      if (v && typeof v === 'object') {
+        const out: any = {};
+        for (const k of Object.keys(v)) {
+          const sv = sanitizeValueDeep(v[k]);
+          // Drop undefined (JSON would drop it anyway) and drop null functions/etc already mapped to null
+          if (sv === undefined) continue;
+          out[k] = sv;
+        }
+        return out;
+      }
+
+      return v;
+    };
+
+    const sanitizeStoreInPlace = (): void => {
+      const clean = sanitizeValueDeep(store);
+      if (applyFixes) this.store = clean;
+    };
+
+    const rifles: any[] = Array.isArray(store?.rifles) ? store.rifles : [];
+    const venues: any[] = Array.isArray(store?.venues) ? store.venues : [];
+    const sessions: any[] = Array.isArray(store?.sessions) ? store.sessions : [];
+    const projects: any[] = Array.isArray(store?.loadDevProjects) ? store.loadDevProjects : [];
+
+    lines.push('GS Ballistics — Maintenance Report');
+    lines.push(`When: ${new Date().toISOString()}`);
+    lines.push(`Mode: ${applyFixes ? 'REPAIR (mutates + saves)' : 'SCAN (read-only)'}`);
+    lines.push('');
+    lines.push(
+      `Counts: rifles=${rifles.length}, venues=${venues.length}, sessions=${sessions.length}, loadDevProjects=${projects.length}`,
+    );
+    lines.push('');
+
+    // --- Validate IDs + rebuild next counters ---
+    const maxId = (arr: any[]) =>
+      Math.max(0, ...arr.map((x) => toNum(x?.id)).filter((n) => Number.isFinite(n)));
+
+    const maxRifleId = maxId(rifles);
+    const maxVenueId = maxId(venues);
+    const maxSessionId = maxId(sessions);
+    const maxProjectId = maxId(projects);
+
+    const bumpCounterIfNeeded = (key: string, max: number) => {
+      const cur = toNum(store?.[key]);
+      if (!Number.isFinite(cur) || cur < max + 1) {
+        issues++;
+        lines.push(
+          `• Counter ${key} is invalid/too low (${store?.[key]}). Expected >= ${max + 1}.`,
+        );
+        if (applyFixes) {
+          store[key] = max + 1;
+          fixed++;
+          lines.push(`  ↳ FIXED: set ${key}=${max + 1}`);
+        }
+      }
+    };
+
+    bumpCounterIfNeeded('nextRifleId', maxRifleId);
+    bumpCounterIfNeeded('nextVenueId', maxVenueId);
+    bumpCounterIfNeeded('nextSessionId', maxSessionId);
+    bumpCounterIfNeeded('nextLoadDevProjectId', maxProjectId);
+
+    // --- Remove invalid-ID objects ---
+    const filterValidId = (arr: any[], label: string): any[] => {
+      const before = arr.length;
+      const kept = arr.filter((x) => Number.isFinite(toNum(x?.id)));
+      const removed = before - kept.length;
+      if (removed > 0) {
+        issues++;
+        lines.push(`• ${label}: removed ${removed} item(s) with invalid id.`);
+        if (applyFixes) fixed += removed;
+      }
+      return kept;
+    };
+
+    const riflesClean = filterValidId(rifles, 'Rifles');
+    const venuesClean = filterValidId(venues, 'Venues');
+    const sessionsClean = filterValidId(sessions, 'Sessions');
+    const projectsClean = filterValidId(projects, 'LoadDevProjects');
+
+    const rifleIdSet = new Set<number>(riflesClean.map((r) => toNum(r.id)));
+    const venueIdSet = new Set<number>(venuesClean.map((v) => toNum(v.id)));
+
+    // --- Remove sessions that reference missing rifle/venue ---
+    const sessionsBefore = sessionsClean.length;
+    const sessionsKept = sessionsClean.filter((s) => {
+      const rid = toNum(s?.rifleId);
+      const vid = toNum(s?.venueId);
+      const okR = Number.isFinite(rid) ? rifleIdSet.has(rid) : true;
+      const okV = Number.isFinite(vid) ? venueIdSet.has(vid) : true;
+      return okR && okV;
+    });
+    const sessionsRemoved = sessionsBefore - sessionsKept.length;
+    if (sessionsRemoved > 0) {
+      issues++;
+      lines.push(`• Sessions: removed ${sessionsRemoved} item(s) referencing missing rifle/venue.`);
+      if (applyFixes) fixed += sessionsRemoved;
+    }
+
+    // --- Remove load dev projects that reference missing rifles ---
+    const projectsBefore = projectsClean.length;
+    const projectsKept = projectsClean.filter((p) => {
+      const rid = toNum(p?.rifleId);
+      if (!Number.isFinite(rid)) return true;
+      return rifleIdSet.has(rid);
+    });
+    const projectsRemoved = projectsBefore - projectsKept.length;
+    if (projectsRemoved > 0) {
+      issues++;
+      lines.push(
+        `• LoadDevProjects: removed ${projectsRemoved} item(s) referencing missing rifle.`,
+      );
+      if (applyFixes) fixed += projectsRemoved;
+    }
+
+    // --- Ensure arrays exist + sanitize numeric garbage ---
+    const sanitizeEntries = (p: any) => {
+      if (!Array.isArray(p?.entries)) {
+        issues++;
+        lines.push(`• LoadDevProject id=${p?.id}: entries was not an array.`);
+        if (applyFixes) {
+          p.entries = [];
+          fixed++;
+          lines.push(`  ↳ FIXED: set entries=[]`);
+        }
+      }
+    };
+
+    for (const p of projectsKept) sanitizeEntries(p);
+
+    // Apply sanitized arrays back
+    store.rifles = riflesClean;
+    store.venues = venuesClean;
+    store.sessions = sessionsKept;
+    store.loadDevProjects = projectsKept;
+
+    // Global deep sanitize (NaN/Infinity/functions/etc)
+    sanitizeStoreInPlace();
+
+    if (applyFixes) {
+      // Re-run known normalizations/prunes that already exist in your DataService
+      try {
+        this.normalizeStore(this.store);
+        // normalizeStore already calls pruneEmptyLoadDevProjectsInStore(store)
+      } catch (e) {
+        issues++;
+        lines.push(`• normalizeStore threw: ${(e as any)?.message ?? String(e)}`);
+      }
+
+      this.saveStore();
+      lines.push('');
+      lines.push(`✅ Repair completed. Fixed=${fixed}, Issues found=${issues}`);
+    } else {
+      lines.push('');
+      lines.push(`✅ Scan completed. Issues found=${issues}`);
+    }
+
+    return {
+      ok: true,
+      issues,
+      ...(applyFixes ? { fixed } : {}),
+      report: lines.join('\n'),
+    };
   }
 
   /** Always returns valid prefs with defaults applied. */
-    getPreferences(): AppPreferencesV1 {
+  getPreferences(): AppPreferencesV1 {
     try {
       // Primary (new) prefs key
       const raw = localStorage.getItem(this.PREFS_KEY);
@@ -927,11 +1128,11 @@ if (idx >= 0) {
       // Bridge: legacy LoadDev OAL unit (Preferences UI historically stored this separately)
       const legacyOalRaw = String(
         legacy?.loadDevOalUnit ??
-        legacy?.loadDev?.oalUnit ??
-        legacy?.oalUnit ??
-        legacy?.units?.oalUnit ??
-        legacy?.units?.loadDevOalUnit ??
-        ''
+          legacy?.loadDev?.oalUnit ??
+          legacy?.oalUnit ??
+          legacy?.units?.oalUnit ??
+          legacy?.units?.loadDevOalUnit ??
+          '',
       ).toLowerCase();
 
       const bridgedOal =
@@ -941,28 +1142,26 @@ if (idx >= 0) {
             ? 'mm'
             : '';
 
-           const parsedOal = String(parsed?.loadDev?.oalUnit ?? '').toLowerCase();
+      const parsedOal = String(parsed?.loadDev?.oalUnit ?? '').toLowerCase();
       const hasParsedOal = parsedOal === 'mm' || parsedOal === 'in';
 
       const bridged = {
         ...(parsed ?? {}),
         wind: {
           ...((parsed ?? {})?.wind ?? {}),
-          ...(bridgedWind ? { speedUnit: bridgedWind } : {})
+          ...(bridgedWind ? { speedUnit: bridgedWind } : {}),
         },
         loadDev: {
           ...((parsed ?? {})?.loadDev ?? {}),
-          ...(!hasParsedOal && bridgedOal ? { oalUnit: bridgedOal } : {})
-        }
+          ...(!hasParsedOal && bridgedOal ? { oalUnit: bridgedOal } : {}),
+        },
       };
-
 
       return this.sanitizePrefs(bridged ?? {});
     } catch {
       return this.sanitizePrefs({});
     }
   }
-
 
   /** Overwrite all prefs (defaults still enforced/sanitized). */
   savePreferences(prefs: AppPreferencesV1): void {
@@ -979,7 +1178,7 @@ if (idx >= 0) {
     const cur = this.getPreferences();
     const merged: AppPreferencesV1 = {
       loadDev: { ...(cur.loadDev ?? {}), ...(patch.loadDev ?? {}) },
-      wind: { ...(cur.wind ?? {}), ...(patch.wind ?? {}) }
+      wind: { ...(cur.wind ?? {}), ...(patch.wind ?? {}) },
     };
 
     this.savePreferences(merged);
@@ -994,5 +1193,4 @@ if (idx >= 0) {
   getDefaultWindSpeedUnit(): WindSpeedUnit {
     return (this.getPreferences().wind?.speedUnit ?? 'mph') as WindSpeedUnit;
   }
-
 }

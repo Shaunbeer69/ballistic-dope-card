@@ -3358,6 +3358,73 @@ export class AppComponent implements OnInit {
     await this.kestrel.connectKestrelBluetooth();
     this.kestrelData = this.kestrel.kestrelData$.getValue();
   }
+  // ---------- Maintenance (data health / repair) ----------
+
+  showMaintenanceModal = false;
+  maintenanceBusy = false;
+  maintenanceReport = '';
+
+  openMaintenanceModal(): void {
+    this.showMaintenanceModal = true;
+
+    // Keep Setup panel visible
+    this.showSetup = true;
+    this.showTools = false;
+    this.selectedTool = null;
+  }
+
+  closeMaintenanceModal(): void {
+    this.showMaintenanceModal = false;
+    this.maintenanceBusy = false;
+    this.maintenanceReport = '';
+  }
+
+  runMaintenanceScan(): void {
+    this.maintenanceBusy = true;
+    try {
+      const res = (this.dataService as any).maintenanceScan?.();
+      this.maintenanceReport = res?.report ?? 'No report returned.';
+    } catch (err) {
+      console.error('Maintenance scan failed:', err);
+      this.maintenanceReport =
+        'Maintenance scan failed:\n' + ((err as any)?.message ?? String(err));
+    } finally {
+      this.maintenanceBusy = false;
+    }
+  }
+
+  runMaintenanceRepair(): void {
+    this.maintenanceBusy = true;
+    try {
+      const res = (this.dataService as any).maintenanceRepair?.();
+      this.maintenanceReport = res?.report ?? 'No report returned.';
+    } catch (err) {
+      console.error('Maintenance repair failed:', err);
+      this.maintenanceReport =
+        'Maintenance repair failed:\n' + ((err as any)?.message ?? String(err));
+    } finally {
+      this.maintenanceBusy = false;
+    }
+  }
+
+  async shareMaintenanceReport(): Promise<void> {
+    const text = String(this.maintenanceReport ?? '').trim();
+    if (!text) {
+      alert('No maintenance report to share yet.');
+      return;
+    }
+
+    try {
+      await Share.share({
+        title: 'GS Maintenance Report',
+        text,
+      });
+    } catch (err) {
+      console.error('Share maintenance report failed:', err);
+      alert('Share failed.\n\n' + ((err as any)?.message ?? String(err)));
+    }
+  }
+
   // ---------- Support (WhatsApp share) ----------
 
   showSupportModal = false;

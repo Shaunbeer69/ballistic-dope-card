@@ -7,9 +7,8 @@ import {
   NgZone,
   OnInit,
   Output,
-  ViewChild
+  ViewChild,
 } from '@angular/core';
-
 
 import { FormsModule } from '@angular/forms';
 import jsPDF from 'jspdf';
@@ -18,19 +17,12 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 
 import { Share } from '@capacitor/share';
-import {
-  Rifle,
-  LoadDevProject,
-  LoadDevEntry,
-  LoadDevType,
-  GroupSizeUnit
-} from '../models';
+import { Rifle, LoadDevProject, LoadDevEntry, LoadDevType, GroupSizeUnit } from '../models';
 
 import { DataService } from '../data.service';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { registerPlugin } from '@capacitor/core';
 import { RiflePickerComponent } from '../shared/rifle-picker/rifle-picker.component';
-
 
 interface AudioRoutePlugin {
   forceSpeaker(): Promise<void>;
@@ -39,8 +31,6 @@ interface AudioRoutePlugin {
 const AudioRoute = Capacitor.isNativePlatform()
   ? registerPlugin<AudioRoutePlugin>('AudioRoute')
   : null;
-
-
 
 interface ProjectForm {
   rifleId: number | null;
@@ -52,8 +42,8 @@ interface ProjectForm {
   bullet: string;
   bulletWeightGr: number | null;
   brass: string;
-	  // Lands (reference length for seating depth)
-	  lands: number | null;
+  // Lands (reference length for seating depth)
+  lands: number | null;
 
   oal: number | null;
   oalOgive: number | null;
@@ -94,7 +84,6 @@ interface PlannerForm {
   shotsPerGroup: number | null;
 }
 
-
 interface VelocityStats {
   avg: number;
   es: number;
@@ -109,12 +98,12 @@ interface NodeEntry {
 
 // ---- OCW graph data (screen) ----
 interface OcwShotPoint {
-  x: number;          // svg coords (0..100)
-  y: number;          // svg coords (0..60)
+  x: number; // svg coords (0..100)
+  y: number; // svg coords (0..60)
   charge: number;
   v: number;
   entryId: number;
-  shotIndex: number;  // 0..n-1
+  shotIndex: number; // 0..n-1
 }
 
 interface OcwGroupEllipse {
@@ -129,36 +118,35 @@ interface OcwGroupEllipse {
 @Component({
   selector: 'app-load-dev-tab',
   standalone: true,
-imports: [CommonModule, FormsModule, RiflePickerComponent],
-  templateUrl: './load-dev-tab.component.html'
+  imports: [CommonModule, FormsModule, RiflePickerComponent],
+  templateUrl: './load-dev-tab.component.html',
 })
 export class LoadDevTabComponent implements OnInit {
   @ViewChild('velocityInputEl') velocityInputEl?: ElementRef<HTMLInputElement>;
   @ViewChild('pdfContent') pdfContent?: ElementRef<HTMLElement>;
-@ViewChild('targetFileInput') targetFileInput?: ElementRef<HTMLInputElement>;
-@ViewChild('entryFileInput') entryFileInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('targetFileInput') targetFileInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('entryFileInput') entryFileInput?: ElementRef<HTMLInputElement>;
   @ViewChild('projectSelectEl') projectSelectEl?: ElementRef<HTMLSelectElement>;
   @ViewChild('shotsPerGroupEl') shotsPerGroupEl?: ElementRef<HTMLInputElement>;
 
-photoViewerEntry: LoadDevEntry | null = null;
-photoViewerImgUrl: string | null = null;
+  photoViewerEntry: LoadDevEntry | null = null;
+  photoViewerImgUrl: string | null = null;
 
-private pendingEntryForPhoto: LoadDevEntry | null = null;
+  private pendingEntryForPhoto: LoadDevEntry | null = null;
 
-isAnnotatingPhoto = false;
-// ==========================
-// OCW per-entry notes + voice
-// ==========================
-entryNotesOpenId: number | null = null;
-entryNotesDraft: string = '';
-entryNotesInlineMessage: string | null = null;
+  isAnnotatingPhoto = false;
+  // ==========================
+  // OCW per-entry notes + voice
+  // ==========================
+  entryNotesOpenId: number | null = null;
+  entryNotesDraft: string = '';
+  entryNotesInlineMessage: string | null = null;
 
-entryVoiceRecordingId: number | null = null;
-entryVoicePlayingId: number | null = null;
+  entryVoiceRecordingId: number | null = null;
+  entryVoicePlayingId: number | null = null;
 
-private entryAudioCtx: AudioContext | null = null;
-private entryVoiceSource: AudioBufferSourceNode | null = null;
-
+  private entryAudioCtx: AudioContext | null = null;
+  private entryVoiceSource: AudioBufferSourceNode | null = null;
 
   @Output() backToMenu = new EventEmitter<void>();
 
@@ -190,8 +178,8 @@ private entryVoiceSource: AudioBufferSourceNode | null = null;
     }, 0);
   }
 
-   // ---- navigation back from history/footer button ----
-   onBackFromHistory(): void {
+  // ---- navigation back from history/footer button ----
+  onBackFromHistory(): void {
     // If we are already at the "project list" level, this Back must still work → go to main menu
     if (!this.selectedProjectId && !this.selectedProject) {
       this.projectPickerOpen = false;
@@ -229,7 +217,6 @@ private entryVoiceSource: AudioBufferSourceNode | null = null;
     this.onProjectSelectChange();
   }
 
-
   openProjectPicker(ev?: Event): void {
     try {
       ev?.preventDefault();
@@ -252,439 +239,443 @@ private entryVoiceSource: AudioBufferSourceNode | null = null;
   }
 
   // ==========================
-// MIC (VOICE NOTE - ACTIVE)
-// ==========================
-micInlineMessage: string | null = null;
+  // MIC (VOICE NOTE - ACTIVE)
+  // ==========================
+  micInlineMessage: string | null = null;
 
-isVoiceRecording = false;
-voiceNoteDataUrl: string | null = null;
-voiceNoteDurationMs: number | null = null;
-isVoicePlaying = false;
-private audioRoute: AudioRoutePlugin | null = AudioRoute;
+  isVoiceRecording = false;
+  voiceNoteDataUrl: string | null = null;
+  voiceNoteDurationMs: number | null = null;
+  isVoicePlaying = false;
+  private audioRoute: AudioRoutePlugin | null = AudioRoute;
 
+  private voiceAudioCtx: AudioContext | null = null;
+  private voiceSource: AudioBufferSourceNode | null = null;
 
-private voiceAudioCtx: AudioContext | null = null;
-private voiceSource: AudioBufferSourceNode | null = null;
-
-private syncVoiceNoteFromProject(): void {
-  try {
-    const any = this.selectedProject as any;
-    const base64 = (any?.voiceNoteBase64 ?? '').toString().trim();
-    const ms = Number(any?.voiceNoteDurationMs ?? 0);
-
-    this.voiceNoteDurationMs = Number.isFinite(ms) && ms > 0 ? ms : null;
-    this.voiceNoteDataUrl = base64 ? `data:audio/wav;base64,${base64}` : null;
-  } catch {
-    this.voiceNoteDurationMs = null;
-    this.voiceNoteDataUrl = null;
-  }
-}
-async toggleVoicePlayback(): Promise<void> {
-  if (this.isVoicePlaying) {
-    this.stopVoicePlayback();
-    return;
-  }
-  await this.playVoicePlayback();
-}
-async forceSpeakerForPlayback(): Promise<void> {
-  try {
-    if (this.audioRoute) {
-      await this.audioRoute.forceSpeaker();
-    }
-  } catch {
-    // ignore
-  }
-}
-
-
-private async playVoicePlayback(): Promise<void> {
-  if (!this.voiceNoteDataUrl) return;
-
-
-  this.stopVoicePlayback();
-
-// ✅ Force loudspeaker BEFORE starting audio
-await this.forceSpeakerForPlayback();
-
-
-  // WebAudio tends to route as "media" -> speaker on Android WebView
-  const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-  this.voiceAudioCtx = ctx;
-
-  const resp = await fetch(this.voiceNoteDataUrl);
-  const arr = await resp.arrayBuffer();
-  const buf = await ctx.decodeAudioData(arr.slice(0));
-
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  src.connect(ctx.destination);
-
- src.onended = () => {
-  this.zone.run(() => {
-    this.isVoicePlaying = false;
+  private syncVoiceNoteFromProject(): void {
     try {
-      src.disconnect();
+      const any = this.selectedProject as any;
+      const base64 = (any?.voiceNoteBase64 ?? '').toString().trim();
+      const ms = Number(any?.voiceNoteDurationMs ?? 0);
+
+      this.voiceNoteDurationMs = Number.isFinite(ms) && ms > 0 ? ms : null;
+      this.voiceNoteDataUrl = base64 ? `data:audio/wav;base64,${base64}` : null;
+    } catch {
+      this.voiceNoteDurationMs = null;
+      this.voiceNoteDataUrl = null;
+    }
+  }
+  async toggleVoicePlayback(): Promise<void> {
+    if (this.isVoicePlaying) {
+      this.stopVoicePlayback();
+      return;
+    }
+    await this.playVoicePlayback();
+  }
+  async forceSpeakerForPlayback(): Promise<void> {
+    try {
+      if (this.audioRoute) {
+        await this.audioRoute.forceSpeaker();
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  private async playVoicePlayback(): Promise<void> {
+    if (!this.voiceNoteDataUrl) return;
+
+    this.stopVoicePlayback();
+
+    // ✅ Force loudspeaker BEFORE starting audio
+    await this.forceSpeakerForPlayback();
+
+    // WebAudio tends to route as "media" -> speaker on Android WebView
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    this.voiceAudioCtx = ctx;
+
+    const resp = await fetch(this.voiceNoteDataUrl);
+    const arr = await resp.arrayBuffer();
+    const buf = await ctx.decodeAudioData(arr.slice(0));
+
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+
+    src.onended = () => {
+      this.zone.run(() => {
+        this.isVoicePlaying = false;
+        try {
+          src.disconnect();
+        } catch {}
+        this.voiceSource = null;
+        if (this.voiceAudioCtx && typeof this.voiceAudioCtx.close === 'function') {
+          try {
+            this.voiceAudioCtx.close();
+          } catch {}
+          this.voiceAudioCtx = null;
+        }
+        try {
+          this.cdr.detectChanges();
+        } catch {}
+      });
+    };
+
+    this.voiceSource = src;
+    this.isVoicePlaying = true;
+
+    try {
+      await ctx.resume();
     } catch {}
-    this.voiceSource = null;
-    if (this.voiceAudioCtx && typeof this.voiceAudioCtx.close === 'function') {
+
+    src.start(0);
+    setTimeout(() => {
+      void this.forceSpeakerForPlayback();
+    }, 500);
+
+    setTimeout(() => {
+      void this.forceSpeakerForPlayback();
+    }, 1200);
+
+    // 🔊 Android sometimes flips back to earpiece AFTER start.
+    // Force speaker again a moment later.
+    setTimeout(() => {
+      void this.forceSpeakerForPlayback();
+    }, 150);
+  }
+
+  private stopVoicePlayback(): void {
+    this.isVoicePlaying = false;
+
+    if (this.voiceSource) {
+      try {
+        this.voiceSource.stop();
+      } catch {}
+      try {
+        this.voiceSource.disconnect();
+      } catch {}
+      this.voiceSource = null;
+    }
+
+    if (this.voiceAudioCtx) {
       try {
         this.voiceAudioCtx.close();
       } catch {}
       this.voiceAudioCtx = null;
     }
+  }
+
+  async onMicToggle(event?: Event): Promise<void> {
     try {
-      this.cdr.detectChanges();
-    } catch {}
-  });
-};
+      event?.preventDefault();
+      event?.stopPropagation();
+    } catch {
+      // ignore
+    }
 
-
-  this.voiceSource = src;
-  this.isVoicePlaying = true;
-
-  try {
-    await ctx.resume();
-  } catch {}
-
-  src.start(0);
-  setTimeout(() => {
-  void this.forceSpeakerForPlayback();
-}, 500);
-
-setTimeout(() => {
-  void this.forceSpeakerForPlayback();
-}, 1200);
-
-  // 🔊 Android sometimes flips back to earpiece AFTER start.
-// Force speaker again a moment later.
-setTimeout(() => {
-  void this.forceSpeakerForPlayback();
-}, 150);
-
-}
-
-private stopVoicePlayback(): void {
-  this.isVoicePlaying = false;
-
-  if (this.voiceSource) {
-    try {
-      this.voiceSource.stop();
-    } catch {}
-    try {
-      this.voiceSource.disconnect();
-    } catch {}
-    this.voiceSource = null;
-  }
-
-  if (this.voiceAudioCtx) {
-    try {
-      this.voiceAudioCtx.close();
-    } catch {}
-    this.voiceAudioCtx = null;
-  }
-}
-
-async onMicToggle(event?: Event): Promise<void> {
-  try {
-    event?.preventDefault();
-    event?.stopPropagation();
-  } catch {
-    // ignore
-  }
-
-  if (!this.selectedProject) {
-    this.micInlineMessage = 'Select a project first';
-    setTimeout(() => (this.micInlineMessage = null), 1500);
-    return;
-  }
-
-  try {
-    if (!this.isVoiceRecording) {
-      // Ensure permission
-      const { status } = await CapacitorVoiceRecorder.canRecord();
-if (status !== 'GRANTED') {
-  const perm = await CapacitorVoiceRecorder.requestPermission();
- if (!perm.isGranted) {
-    this.micInlineMessage = 'Mic permission denied';
-    setTimeout(() => (this.micInlineMessage = null), 1800);
-    return;
-  }
-  
-}
-
-      await CapacitorVoiceRecorder.startRecording();
-      this.isVoiceRecording = true;
-      this.micInlineMessage = 'Recording… tap ⏹ to stop';
+    if (!this.selectedProject) {
+      this.micInlineMessage = 'Select a project first';
+      setTimeout(() => (this.micInlineMessage = null), 1500);
       return;
     }
 
-    // Stop + save
-    const result = await CapacitorVoiceRecorder.stopRecording();
-    await this.forceSpeakerForPlayback();
-
-    this.isVoiceRecording = false;
-
-    const base64 = (result?.base64 ?? '').toString().trim();
-    const msDuration = Number(result?.msDuration ?? 0);
-
-    if (!base64) {
-      this.micInlineMessage = 'No audio captured';
-      setTimeout(() => (this.micInlineMessage = null), 1800);
-      return;
-    }
-
-    const updated: any = {
-      ...(this.selectedProject as any),
-      voiceNoteBase64: base64,
-      voiceNoteDurationMs: Number.isFinite(msDuration) && msDuration > 0 ? msDuration : undefined
-    };
-
-    this.data.updateLoadDevProject(updated);
-this.data.updateLoadDevProject(updated);
-
-// 🔥 IMPORTANT: reload selectedProject from DataService, then rebuild preview
-this.refreshSelectedProject();
-this.syncVoiceNoteFromProject();
-
-    // Refresh UI preview
-    this.syncVoiceNoteFromProject();
-
-    this.micInlineMessage = '✅ Voice note saved';
-    setTimeout(() => (this.micInlineMessage = null), 1600);
-  } catch (err) {
-    this.isVoiceRecording = false;
-    this.micInlineMessage = 'Mic error (check permission / mic in use)';
-    setTimeout(() => (this.micInlineMessage = null), 2200);
-  }
-}
-
-deleteVoiceNote(): void {
-  if (!this.selectedProject) return;
-  this.stopVoicePlayback();
-
-
-  const updated: any = { ...(this.selectedProject as any) };
-  delete updated.voiceNoteBase64;
-  delete updated.voiceNoteDurationMs;
-
-  this.data.updateLoadDevProject(updated);
-  //this.syncVoiceNoteFromProject();
-
-  this.micInlineMessage = 'Voice note removed';
-  setTimeout(() => (this.micInlineMessage = null), 1200);
- // this.data.updateLoadDevProject(updated);
-
-// 🔥 IMPORTANT: reload selectedProject from DataService, then rebuild preview
-this.refreshSelectedProject();
-this.syncVoiceNoteFromProject();
-
-}
-// ==========================
-// OCW ENTRY NOTES
-// ==========================
-entryHasNotes(entry: LoadDevEntry): boolean {
-  const any = entry as any;
-  return !!(any?.notes ?? '').toString().trim();
-}
-getVisibleEntryById(id: number | null): LoadDevEntry | null {
-  if (id == null) return null;
-  return (this.visibleEntries ?? []).find((e) => e.id === id) ?? null;
-}
-
-openEntryNotes(entry: LoadDevEntry, event?: Event): void {
-  try {
-    event?.preventDefault();
-    event?.stopPropagation();
-  } catch {}
-
-  const any = entry as any;
-  this.entryNotesOpenId = entry.id ?? null;
-  this.entryNotesDraft = (any?.notes ?? '').toString();
-}
-
-closeEntryNotes(): void {
-  this.entryNotesOpenId = null;
-  this.entryNotesDraft = '';
-  this.entryNotesInlineMessage = null;
-}
-
-saveEntryNotes(entry: LoadDevEntry): void {
-  if (!this.selectedProject) return;
-
-  const trimmed = (this.entryNotesDraft ?? '').toString().trim();
-  const any: any = { ...(entry as any) };
-
-  if (trimmed) any.notes = trimmed;
-  else delete any.notes;
-
-  this.data.updateLoadDevEntry(this.selectedProject.id, any as LoadDevEntry);
-  this.refreshSelectedProject();
-
-   this.entryNotesInlineMessage = '✅ Notes saved';
-  setTimeout(() => (this.entryNotesInlineMessage = null), 2000);
-
-  // Toast/banner message (your app uses postSaveMessage as the toast-style banner)
-  this.postSaveMessage = 'Notes saved ✅';
-  setTimeout(() => (this.postSaveMessage = null), 2000);
-
-  // Collapse the notes overlay AFTER the message has appeared
-  setTimeout(() => this.closeEntryNotes(), 250);
-
-}
-
-// ==========================
-// OCW ENTRY VOICE (app-only)
-// ==========================
-entryHasVoice(entry: LoadDevEntry): boolean {
-  const any = entry as any;
-  return !!(any?.voiceNoteBase64 ?? '').toString().trim();
-}
-
-private stopEntryVoicePlayback(): void {
-  if (this.entryVoiceSource) {
-    try { this.entryVoiceSource.stop(); } catch {}
-    try { this.entryVoiceSource.disconnect(); } catch {}
-    this.entryVoiceSource = null;
-  }
-  if (this.entryAudioCtx) {
-    try { this.entryAudioCtx.close(); } catch {}
-    this.entryAudioCtx = null;
-  }
-  this.entryVoicePlayingId = null;
-}
-
-async toggleEntryVoicePlayback(entry: LoadDevEntry): Promise<void> {
-  const any = entry as any;
-  const base64 = (any?.voiceNoteBase64 ?? '').toString().trim();
-  if (!base64) return;
-
-  if (this.entryVoicePlayingId === entry.id) {
-    this.stopEntryVoicePlayback();
-    return;
-  }
-
-  this.stopEntryVoicePlayback();
-
-  const dataUrl = `data:audio/wav;base64,${base64}`;
-
-  await this.forceSpeakerForPlayback();
-
-  const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-  this.entryAudioCtx = ctx;
-
-  const resp = await fetch(dataUrl);
-  const arr = await resp.arrayBuffer();
-  const buf = await ctx.decodeAudioData(arr.slice(0));
-
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  src.connect(ctx.destination);
-
-  src.onended = () => {
-    this.zone.run(() => {
-      this.stopEntryVoicePlayback();
-      try { this.cdr.detectChanges(); } catch {}
-    });
-  };
-
-  this.entryVoiceSource = src;
-  this.entryVoicePlayingId = entry.id ?? null;
-
-  try { await ctx.resume(); } catch {}
-  src.start(0);
-
-  setTimeout(() => { void this.forceSpeakerForPlayback(); }, 500);
-  setTimeout(() => { void this.forceSpeakerForPlayback(); }, 1200);
-}
-
-async onEntryMicToggle(entry: LoadDevEntry, event?: Event): Promise<void> {
-  try {
-    event?.preventDefault();
-    event?.stopPropagation();
-  } catch {}
-
-  if (!this.selectedProject) {
-    this.entryNotesInlineMessage = 'Select a project first';
-    setTimeout(() => (this.entryNotesInlineMessage = null), 1500);
-    return;
-  }
-
-  try {
-    // Start recording for this entry
-    if (this.entryVoiceRecordingId !== entry.id) {
-      const { status } = await CapacitorVoiceRecorder.canRecord();
-      if (status !== 'GRANTED') {
-        const perm = await CapacitorVoiceRecorder.requestPermission();
-        if (!perm.isGranted) {
-          this.entryNotesInlineMessage = 'Mic permission denied';
-          setTimeout(() => (this.entryNotesInlineMessage = null), 1800);
-          return;
+    try {
+      if (!this.isVoiceRecording) {
+        // Ensure permission
+        const { status } = await CapacitorVoiceRecorder.canRecord();
+        if (status !== 'GRANTED') {
+          const perm = await CapacitorVoiceRecorder.requestPermission();
+          if (!perm.isGranted) {
+            this.micInlineMessage = 'Mic permission denied';
+            setTimeout(() => (this.micInlineMessage = null), 1800);
+            return;
+          }
         }
+
+        await CapacitorVoiceRecorder.startRecording();
+        this.isVoiceRecording = true;
+        this.micInlineMessage = 'Recording… tap ⏹ to stop';
+        return;
       }
 
-      await CapacitorVoiceRecorder.startRecording();
-      this.entryVoiceRecordingId = entry.id ?? null;
-      this.entryNotesInlineMessage = 'Recording… tap ⏹ to stop';
+      // Stop + save
+      const result = await CapacitorVoiceRecorder.stopRecording();
+      await this.forceSpeakerForPlayback();
+
+      this.isVoiceRecording = false;
+
+      const base64 = (result?.base64 ?? '').toString().trim();
+      const msDuration = Number(result?.msDuration ?? 0);
+
+      if (!base64) {
+        this.micInlineMessage = 'No audio captured';
+        setTimeout(() => (this.micInlineMessage = null), 1800);
+        return;
+      }
+
+      const updated: any = {
+        ...(this.selectedProject as any),
+        voiceNoteBase64: base64,
+        voiceNoteDurationMs: Number.isFinite(msDuration) && msDuration > 0 ? msDuration : undefined,
+      };
+
+      this.data.updateLoadDevProject(updated);
+      this.data.updateLoadDevProject(updated);
+
+      // 🔥 IMPORTANT: reload selectedProject from DataService, then rebuild preview
+      this.refreshSelectedProject();
+      this.syncVoiceNoteFromProject();
+
+      // Refresh UI preview
+      this.syncVoiceNoteFromProject();
+
+      this.micInlineMessage = '✅ Voice note saved';
+      setTimeout(() => (this.micInlineMessage = null), 1600);
+    } catch (err) {
+      this.isVoiceRecording = false;
+      this.micInlineMessage = 'Mic error (check permission / mic in use)';
+      setTimeout(() => (this.micInlineMessage = null), 2200);
+    }
+  }
+
+  deleteVoiceNote(): void {
+    if (!this.selectedProject) return;
+    this.stopVoicePlayback();
+
+    const updated: any = { ...(this.selectedProject as any) };
+    delete updated.voiceNoteBase64;
+    delete updated.voiceNoteDurationMs;
+
+    this.data.updateLoadDevProject(updated);
+    //this.syncVoiceNoteFromProject();
+
+    this.micInlineMessage = 'Voice note removed';
+    setTimeout(() => (this.micInlineMessage = null), 1200);
+    // this.data.updateLoadDevProject(updated);
+
+    // 🔥 IMPORTANT: reload selectedProject from DataService, then rebuild preview
+    this.refreshSelectedProject();
+    this.syncVoiceNoteFromProject();
+  }
+  // ==========================
+  // OCW ENTRY NOTES
+  // ==========================
+  entryHasNotes(entry: LoadDevEntry): boolean {
+    const any = entry as any;
+    return !!(any?.notes ?? '').toString().trim();
+  }
+  getVisibleEntryById(id: number | null): LoadDevEntry | null {
+    if (id == null) return null;
+    return (this.visibleEntries ?? []).find((e) => e.id === id) ?? null;
+  }
+
+  openEntryNotes(entry: LoadDevEntry, event?: Event): void {
+    try {
+      event?.preventDefault();
+      event?.stopPropagation();
+    } catch {}
+
+    const any = entry as any;
+    this.entryNotesOpenId = entry.id ?? null;
+    this.entryNotesDraft = (any?.notes ?? '').toString();
+  }
+
+  closeEntryNotes(): void {
+    this.entryNotesOpenId = null;
+    this.entryNotesDraft = '';
+    this.entryNotesInlineMessage = null;
+  }
+
+  saveEntryNotes(entry: LoadDevEntry): void {
+    if (!this.selectedProject) return;
+
+    const trimmed = (this.entryNotesDraft ?? '').toString().trim();
+    const any: any = { ...(entry as any) };
+
+    if (trimmed) any.notes = trimmed;
+    else delete any.notes;
+
+    this.data.updateLoadDevEntry(this.selectedProject.id, any as LoadDevEntry);
+    this.refreshSelectedProject();
+
+    this.entryNotesInlineMessage = '✅ Notes saved';
+    setTimeout(() => (this.entryNotesInlineMessage = null), 2000);
+
+    // Toast/banner message (your app uses postSaveMessage as the toast-style banner)
+    this.postSaveMessage = 'Notes saved ✅';
+    setTimeout(() => (this.postSaveMessage = null), 2000);
+
+    // Collapse the notes overlay AFTER the message has appeared
+    setTimeout(() => this.closeEntryNotes(), 250);
+  }
+
+  // ==========================
+  // OCW ENTRY VOICE (app-only)
+  // ==========================
+  entryHasVoice(entry: LoadDevEntry): boolean {
+    const any = entry as any;
+    return !!(any?.voiceNoteBase64 ?? '').toString().trim();
+  }
+
+  private stopEntryVoicePlayback(): void {
+    if (this.entryVoiceSource) {
+      try {
+        this.entryVoiceSource.stop();
+      } catch {}
+      try {
+        this.entryVoiceSource.disconnect();
+      } catch {}
+      this.entryVoiceSource = null;
+    }
+    if (this.entryAudioCtx) {
+      try {
+        this.entryAudioCtx.close();
+      } catch {}
+      this.entryAudioCtx = null;
+    }
+    this.entryVoicePlayingId = null;
+  }
+
+  async toggleEntryVoicePlayback(entry: LoadDevEntry): Promise<void> {
+    const any = entry as any;
+    const base64 = (any?.voiceNoteBase64 ?? '').toString().trim();
+    if (!base64) return;
+
+    if (this.entryVoicePlayingId === entry.id) {
+      this.stopEntryVoicePlayback();
       return;
     }
 
-    // Stop + save recording to entry
-    const result = await CapacitorVoiceRecorder.stopRecording();
+    this.stopEntryVoicePlayback();
+
+    const dataUrl = `data:audio/wav;base64,${base64}`;
+
     await this.forceSpeakerForPlayback();
 
-    const base64 = (result?.base64 ?? '').toString().trim();
-    const msDuration = Number(result?.msDuration ?? 0);
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    this.entryAudioCtx = ctx;
 
-    this.entryVoiceRecordingId = null;
+    const resp = await fetch(dataUrl);
+    const arr = await resp.arrayBuffer();
+    const buf = await ctx.decodeAudioData(arr.slice(0));
 
-    if (!base64) {
-      this.entryNotesInlineMessage = 'No audio captured';
-      setTimeout(() => (this.entryNotesInlineMessage = null), 1800);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+
+    src.onended = () => {
+      this.zone.run(() => {
+        this.stopEntryVoicePlayback();
+        try {
+          this.cdr.detectChanges();
+        } catch {}
+      });
+    };
+
+    this.entryVoiceSource = src;
+    this.entryVoicePlayingId = entry.id ?? null;
+
+    try {
+      await ctx.resume();
+    } catch {}
+    src.start(0);
+
+    setTimeout(() => {
+      void this.forceSpeakerForPlayback();
+    }, 500);
+    setTimeout(() => {
+      void this.forceSpeakerForPlayback();
+    }, 1200);
+  }
+
+  async onEntryMicToggle(entry: LoadDevEntry, event?: Event): Promise<void> {
+    try {
+      event?.preventDefault();
+      event?.stopPropagation();
+    } catch {}
+
+    if (!this.selectedProject) {
+      this.entryNotesInlineMessage = 'Select a project first';
+      setTimeout(() => (this.entryNotesInlineMessage = null), 1500);
       return;
     }
 
+    try {
+      // Start recording for this entry
+      if (this.entryVoiceRecordingId !== entry.id) {
+        const { status } = await CapacitorVoiceRecorder.canRecord();
+        if (status !== 'GRANTED') {
+          const perm = await CapacitorVoiceRecorder.requestPermission();
+          if (!perm.isGranted) {
+            this.entryNotesInlineMessage = 'Mic permission denied';
+            setTimeout(() => (this.entryNotesInlineMessage = null), 1800);
+            return;
+          }
+        }
+
+        await CapacitorVoiceRecorder.startRecording();
+        this.entryVoiceRecordingId = entry.id ?? null;
+        this.entryNotesInlineMessage = 'Recording… tap ⏹ to stop';
+        return;
+      }
+
+      // Stop + save recording to entry
+      const result = await CapacitorVoiceRecorder.stopRecording();
+      await this.forceSpeakerForPlayback();
+
+      const base64 = (result?.base64 ?? '').toString().trim();
+      const msDuration = Number(result?.msDuration ?? 0);
+
+      this.entryVoiceRecordingId = null;
+
+      if (!base64) {
+        this.entryNotesInlineMessage = 'No audio captured';
+        setTimeout(() => (this.entryNotesInlineMessage = null), 1800);
+        return;
+      }
+
+      const updated: any = { ...(entry as any) };
+      updated.voiceNoteBase64 = base64;
+      updated.voiceNoteDurationMs =
+        Number.isFinite(msDuration) && msDuration > 0 ? msDuration : undefined;
+
+      this.data.updateLoadDevEntry(this.selectedProject.id, updated as LoadDevEntry);
+      this.refreshSelectedProject();
+
+      this.entryNotesInlineMessage = '✅ Voice saved (app only)';
+      setTimeout(() => (this.entryNotesInlineMessage = null), 1600);
+    } catch {
+      this.entryVoiceRecordingId = null;
+      this.entryNotesInlineMessage = 'Mic error (permission / mic in use)';
+      setTimeout(() => (this.entryNotesInlineMessage = null), 2200);
+    }
+  }
+
+  deleteEntryVoiceNote(entry: LoadDevEntry): void {
+    if (!this.selectedProject) return;
+
+    this.stopEntryVoicePlayback();
+
     const updated: any = { ...(entry as any) };
-    updated.voiceNoteBase64 = base64;
-    updated.voiceNoteDurationMs =
-      Number.isFinite(msDuration) && msDuration > 0 ? msDuration : undefined;
+    delete updated.voiceNoteBase64;
+    delete updated.voiceNoteDurationMs;
 
     this.data.updateLoadDevEntry(this.selectedProject.id, updated as LoadDevEntry);
     this.refreshSelectedProject();
 
-    this.entryNotesInlineMessage = '✅ Voice saved (app only)';
-    setTimeout(() => (this.entryNotesInlineMessage = null), 1600);
-  } catch {
-    this.entryVoiceRecordingId = null;
-    this.entryNotesInlineMessage = 'Mic error (permission / mic in use)';
-    setTimeout(() => (this.entryNotesInlineMessage = null), 2200);
+    this.entryNotesInlineMessage = 'Voice removed';
+    setTimeout(() => (this.entryNotesInlineMessage = null), 1200);
   }
-}
 
-deleteEntryVoiceNote(entry: LoadDevEntry): void {
-  if (!this.selectedProject) return;
+  // ==========================
+  // TARGET PHOTO (camera)
+  // ==========================
+  // Thumbnail shown in UI
+  targetPhotoDataUrl: string | null = null;
+  // Inline status next to camera button (like MIC)
+  targetPhotoInlineMessage: string | null = null;
 
-  this.stopEntryVoicePlayback();
-
-  const updated: any = { ...(entry as any) };
-  delete updated.voiceNoteBase64;
-  delete updated.voiceNoteDurationMs;
-
-  this.data.updateLoadDevEntry(this.selectedProject.id, updated as LoadDevEntry);
-  this.refreshSelectedProject();
-
-  this.entryNotesInlineMessage = 'Voice removed';
-  setTimeout(() => (this.entryNotesInlineMessage = null), 1200);
-}
-
-// ==========================
-// TARGET PHOTO (camera)
-// ==========================
-// Thumbnail shown in UI
-targetPhotoDataUrl: string | null = null;
-// Inline status next to camera button (like MIC)
-targetPhotoInlineMessage: string | null = null;
-
-/** Pulls any previously-saved target photo from the selected project into the UI preview. */
+  /** Pulls any previously-saved target photo from the selected project into the UI preview. */
   private async syncTargetPhotoFromProject(): Promise<void> {
     try {
       const any: any = this.selectedProject as any;
@@ -720,577 +711,572 @@ targetPhotoInlineMessage: string | null = null;
     }
   }
 
-
-
-async onTargetPhotoClick(event?: Event): Promise<void> {
-  try {
-    event?.preventDefault();
-    event?.stopPropagation();
-  } catch {
-    // ignore
-  }
-
-  // Must have a project selected (so we can attach the image)
-  if (!this.selectedProject) {
-    this.targetPhotoInlineMessage = 'Select a load development first';
-    setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
-    return;
-  }
-
-  // Ensure preview reflects currently selected project
-  this.syncTargetPhotoFromProject();
-
-  // Web fallback: open file picker
-  if (!Capacitor.isNativePlatform()) {
-    this.targetPhotoInlineMessage = 'Choose a photo (web)';
-    setTimeout(() => (this.targetPhotoInlineMessage = null), 1600);
+  async onTargetPhotoClick(event?: Event): Promise<void> {
     try {
-      this.targetFileInput?.nativeElement?.click();
+      event?.preventDefault();
+      event?.stopPropagation();
     } catch {
       // ignore
     }
-    return;
-  }
 
-  // Native: open camera
-  try {
-    const photo = await Camera.getPhoto({
-      quality: 85,
-      allowEditing: false,
-      resultType: CameraResultType.Base64,
-      source: CameraSource.Camera
-    });
-
-    const base64 = photo?.base64String;
-    if (!base64) {
-      this.targetPhotoInlineMessage = 'No photo captured';
+    // Must have a project selected (so we can attach the image)
+    if (!this.selectedProject) {
+      this.targetPhotoInlineMessage = 'Select a load development first';
       setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
       return;
     }
 
-    // Show thumbnail in UI
-    this.targetPhotoDataUrl = `data:image/jpeg;base64,${base64}`;
+    // Ensure preview reflects currently selected project
+    this.syncTargetPhotoFromProject();
 
-    // Attach to project (stored as base64 so it works offline)
-    (this.selectedProject as any).targetPhotoBase64 = base64;
-    (this.selectedProject as any).targetPhotoCapturedAt = new Date().toISOString();
+    // Web fallback: open file picker
+    if (!Capacitor.isNativePlatform()) {
+      this.targetPhotoInlineMessage = 'Choose a photo (web)';
+      setTimeout(() => (this.targetPhotoInlineMessage = null), 1600);
+      try {
+        this.targetFileInput?.nativeElement?.click();
+      } catch {
+        // ignore
+      }
+      return;
+    }
 
-    // Persist using your existing project update path
+    // Native: open camera
     try {
-      this.data.updateLoadDevProject({ ...(this.selectedProject as any) });
-      this.refreshSelectedProject();
+      const photo = await Camera.getPhoto({
+        quality: 85,
+        allowEditing: false,
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Camera,
+      });
+
+      const base64 = photo?.base64String;
+      if (!base64) {
+        this.targetPhotoInlineMessage = 'No photo captured';
+        setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
+        return;
+      }
+
+      // Show thumbnail in UI
+      this.targetPhotoDataUrl = `data:image/jpeg;base64,${base64}`;
+
+      // Attach to project (stored as base64 so it works offline)
+      (this.selectedProject as any).targetPhotoBase64 = base64;
+      (this.selectedProject as any).targetPhotoCapturedAt = new Date().toISOString();
+
+      // Persist using your existing project update path
+      try {
+        this.data.updateLoadDevProject({ ...(this.selectedProject as any) });
+        this.refreshSelectedProject();
+      } catch {
+        // ignore
+      }
+
+      // Keep preview in sync
+      this.syncTargetPhotoFromProject();
+
+      this.targetPhotoInlineMessage = '📷 Target photo saved';
+      setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
+    } catch (err: any) {
+      // Common: user cancelled
+      const msg = (err?.message ?? '').toString().toLowerCase();
+      if (msg.includes('cancel')) {
+        this.targetPhotoInlineMessage = 'Cancelled';
+      } else {
+        this.targetPhotoInlineMessage = 'Camera error';
+        console.error(err);
+      }
+      setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
+    }
+  }
+
+  // Web-only: accept chosen image file
+  async onTargetFileChosen(event: Event): Promise<void> {
+    try {
+      const input = event.target as HTMLInputElement;
+      const file = input.files?.[0];
+
+      if (!file) return;
+
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result ?? ''));
+        reader.onerror = () => reject(new Error('File read failed'));
+        reader.readAsDataURL(file);
+      });
+
+      // Save to Filesystem and store only a path on the project
+      const pid = Number((this.selectedProject as any)?.id ?? 0);
+      if (pid) {
+        const path = this.makeProjectPhotoPath(pid);
+        await this.writeJpegDataUrlToFs(path, dataUrl);
+
+        (this.selectedProject as any).targetPhotoPath = path;
+        (this.selectedProject as any).targetPhotoCapturedAt = new Date().toISOString();
+
+        // Remove large legacy fields so localStorage stays small
+        try {
+          delete (this.selectedProject as any).targetPhotoBase64;
+        } catch {}
+        try {
+          delete (this.selectedProject as any).targetPhotoDataUrl;
+        } catch {}
+        try {
+          delete (this.selectedProject as any).targetPhoto;
+        } catch {}
+
+        // Cache for instant UI preview
+        this.photoDataUrlCache.set(path, dataUrl);
+
+        try {
+          this.data.updateLoadDevProject({ ...(this.selectedProject as any) });
+          this.refreshSelectedProject();
+        } catch {}
+      }
+
+      // Keep preview in sync
+      void this.syncTargetPhotoFromProject();
+
+      // reset input so selecting same file again still triggers change
+      input.value = '';
     } catch {
       // ignore
     }
-
-    // Keep preview in sync
-    this.syncTargetPhotoFromProject();
-
-    this.targetPhotoInlineMessage = '📷 Target photo saved';
-    setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
-  } catch (err: any) {
-    // Common: user cancelled
-    const msg = (err?.message ?? '').toString().toLowerCase();
-    if (msg.includes('cancel')) {
-      this.targetPhotoInlineMessage = 'Cancelled';
-    } else {
-      this.targetPhotoInlineMessage = 'Camera error';
-      console.error(err);
-    }
-    setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
   }
-}
+  async onEntryTargetPhotoClick(entry: LoadDevEntry, event?: Event): Promise<void> {
+    try {
+      event?.preventDefault();
+      event?.stopPropagation();
+    } catch {}
 
-// Web-only: accept chosen image file
-async onTargetFileChosen(event: Event): Promise<void> {
-  try {
-    const input = event.target as HTMLInputElement;
+    if (!this.selectedProject) {
+      this.targetPhotoInlineMessage = 'Select a load development first';
+      setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
+      return;
+    }
+    // IMPORTANT:
+    // Do NOT overwrite entry.targetPhoto here.
+    // The correct photo is written after capture in attachPhotoToEntry(...)
+    // which saves to Filesystem and stores targetPhoto.path.
+
+    // Web fallback (file picker)
+    //if (!Capacitor.isNativePlatform()) {
+    // this.pendingEntryForPhoto = entryId;
+    // this.entryPhotoInlineMessage = 'Choose an image…';
+    // setTimeout(() => inputEl?.nativeElement?.click(), 0);
+    //return;
+    //  }
+
+    try {
+      const photo = await Camera.getPhoto({
+        quality: 85,
+        allowEditing: false,
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Camera,
+      });
+
+      const base64 = photo?.base64String;
+      if (!base64) {
+        this.targetPhotoInlineMessage = 'No photo captured';
+        setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
+        return;
+      }
+
+      const rawDataUrl = `data:image/jpeg;base64,${base64}`;
+      const stampedDataUrl = await this.stampTimestampOnDataUrl(rawDataUrl);
+
+      await this.attachPhotoToEntry(entry, stampedDataUrl);
+
+      this.targetPhotoInlineMessage = 'Photo saved';
+      setTimeout(() => (this.targetPhotoInlineMessage = null), 1800);
+    } catch (err) {
+      console.error(err);
+      this.targetPhotoInlineMessage = 'Camera failed';
+      setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
+    }
+  }
+  async onEntryFileChosen(ev: Event): Promise<void> {
+    const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];
 
     if (!file) return;
 
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result ?? ''));
-      reader.onerror = () => reject(new Error('File read failed'));
-      reader.readAsDataURL(file);
-    });
+    const entry = this.pendingEntryForPhoto;
+    this.pendingEntryForPhoto = null;
 
-        // Save to Filesystem and store only a path on the project
-    const pid = Number((this.selectedProject as any)?.id ?? 0);
-    if (pid) {
-      const path = this.makeProjectPhotoPath(pid);
-      await this.writeJpegDataUrlToFs(path, dataUrl);
-
-      (this.selectedProject as any).targetPhotoPath = path;
-      (this.selectedProject as any).targetPhotoCapturedAt = new Date().toISOString();
-
-      // Remove large legacy fields so localStorage stays small
-      try { delete (this.selectedProject as any).targetPhotoBase64; } catch {}
-      try { delete (this.selectedProject as any).targetPhotoDataUrl; } catch {}
-      try { delete (this.selectedProject as any).targetPhoto; } catch {}
-
-      // Cache for instant UI preview
-      this.photoDataUrlCache.set(path, dataUrl);
-
-      try {
-        this.data.updateLoadDevProject({ ...(this.selectedProject as any) });
-        this.refreshSelectedProject();
-      } catch {}
-    }
-
-    // Keep preview in sync
-    void this.syncTargetPhotoFromProject();
-
-
-    // reset input so selecting same file again still triggers change
+    // reset input so same file can be chosen again
     input.value = '';
-  } catch {
-    // ignore
-  }
-}
-async onEntryTargetPhotoClick(entry: LoadDevEntry, event?: Event): Promise<void> {
-  try {
-    event?.preventDefault();
-    event?.stopPropagation();
-  } catch {}
 
-  if (!this.selectedProject) {
-    this.targetPhotoInlineMessage = 'Select a load development first';
-    setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
-    return;
-  }
- // IMPORTANT:
-  // Do NOT overwrite entry.targetPhoto here.
-  // The correct photo is written after capture in attachPhotoToEntry(...)
-  // which saves to Filesystem and stores targetPhoto.path.
+    if (!entry) return;
 
-
-  // Web fallback (file picker)
-  //if (!Capacitor.isNativePlatform()) {
-  // this.pendingEntryForPhoto = entryId;
-   // this.entryPhotoInlineMessage = 'Choose an image…';
-   // setTimeout(() => inputEl?.nativeElement?.click(), 0);
- //return;
-  //  }
-
-  try {
-    const photo = await Camera.getPhoto({
-      quality: 85,
-      allowEditing: false,
-      resultType: CameraResultType.Base64,
-      source: CameraSource.Camera
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result || ''));
+      r.onerror = reject;
+      r.readAsDataURL(file);
     });
 
-    const base64 = photo?.base64String;
-    if (!base64) {
-      this.targetPhotoInlineMessage = 'No photo captured';
-      setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
-      return;
-    }
-
-    const rawDataUrl = `data:image/jpeg;base64,${base64}`;
-    const stampedDataUrl = await this.stampTimestampOnDataUrl(rawDataUrl);
-
+    const stampedDataUrl = await this.stampTimestampOnDataUrl(dataUrl);
     await this.attachPhotoToEntry(entry, stampedDataUrl);
 
     this.targetPhotoInlineMessage = 'Photo saved';
     setTimeout(() => (this.targetPhotoInlineMessage = null), 1800);
-  } catch (err) {
-    console.error(err);
-    this.targetPhotoInlineMessage = 'Camera failed';
-    setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
   }
-}
-async onEntryFileChosen(ev: Event): Promise<void> {
-  const input = ev.target as HTMLInputElement;
-  const file = input.files?.[0];
-
-  if (!file) return;
-
-  const entry = this.pendingEntryForPhoto;
-  this.pendingEntryForPhoto = null;
-
-  // reset input so same file can be chosen again
-  input.value = '';
-
-  if (!entry) return;
-
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result || ''));
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-
-  const stampedDataUrl = await this.stampTimestampOnDataUrl(dataUrl);
-  await this.attachPhotoToEntry(entry, stampedDataUrl);
-
-  this.targetPhotoInlineMessage = 'Photo saved';
-  setTimeout(() => (this.targetPhotoInlineMessage = null), 1800);
-}
-private async attachPhotoToEntry(entry: LoadDevEntry, stampedDataUrl: string): Promise<void> {
-  const takenAt = new Date().toISOString();
+  private async attachPhotoToEntry(entry: LoadDevEntry, stampedDataUrl: string): Promise<void> {
+    const takenAt = new Date().toISOString();
 
     // Group size prompt removed — we calculate automatically from grid overlay later
-  let groupSize: number | undefined = undefined;
-  let unit: GroupSizeUnit | undefined = undefined;
-
-
+    let groupSize: number | undefined = undefined;
+    let unit: GroupSizeUnit | undefined = undefined;
 
     // Store on the entry: save to Filesystem and persist only path (not big dataUrl)
-  if (!this.selectedProject) return;
+    if (!this.selectedProject) return;
 
-  const pid = Number((this.selectedProject as any)?.id ?? 0);
-  const eid = Number((entry as any)?.id ?? 0);
+    const pid = Number((this.selectedProject as any)?.id ?? 0);
+    const eid = Number((entry as any)?.id ?? 0);
 
-  const savedPath = (pid && eid)
-    ? this.makeEntryPhotoPath(pid, eid)
-    : null;
+    const savedPath = pid && eid ? this.makeEntryPhotoPath(pid, eid) : null;
 
-  if (!savedPath) return;
+    if (!savedPath) return;
 
-  await this.writeJpegDataUrlToFs(savedPath, stampedDataUrl);
+    await this.writeJpegDataUrlToFs(savedPath, stampedDataUrl);
 
-  // Cache for instant UI preview
-  this.photoDataUrlCache.set(savedPath, stampedDataUrl);
+    // Cache for instant UI preview
+    this.photoDataUrlCache.set(savedPath, stampedDataUrl);
 
-  const updatedEntry: LoadDevEntry = {
-    ...(entry as any),
-    targetPhoto: {
-      path: savedPath,
-      takenAt,
-      groupSize,
-      groupUnit: unit
+    const updatedEntry: LoadDevEntry = {
+      ...(entry as any),
+      targetPhoto: {
+        path: savedPath,
+        takenAt,
+        groupSize,
+        groupUnit: unit,
+      },
+    } as any;
+
+    // ✅ Persist using your REAL, existing persistence method
+    if (this.selectedProject) {
+      this.data.updateLoadDevEntry(this.selectedProject.id, updatedEntry);
+      this.refreshSelectedProject(); // reloads selectedProjectEntries etc
     }
-  } as any;
-
-
-  // ✅ Persist using your REAL, existing persistence method
-  if (this.selectedProject) {
-    this.data.updateLoadDevEntry(this.selectedProject.id, updatedEntry);
-    this.refreshSelectedProject(); // reloads selectedProjectEntries etc
   }
-}
 
-private async stampTimestampOnDataUrl(dataUrl: string): Promise<string> {
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
+  private async stampTimestampOnDataUrl(dataUrl: string): Promise<string> {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
 
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = () => reject(new Error('Image load failed'));
-    img.src = dataUrl;
-  });
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Image load failed'));
+      img.src = dataUrl;
+    });
 
     const canvas = document.createElement('canvas');
 
-  // ✅ Downscale before saving (prevents localStorage quota loss)
-  const srcW = img.naturalWidth || img.width;
-  const srcH = img.naturalHeight || img.height;
-  const maxDim = 1600; // keep quality, much smaller base64
+    // ✅ Downscale before saving (prevents localStorage quota loss)
+    const srcW = img.naturalWidth || img.width;
+    const srcH = img.naturalHeight || img.height;
+    const maxDim = 1600; // keep quality, much smaller base64
 
-  let outW = srcW;
-  let outH = srcH;
+    let outW = srcW;
+    let outH = srcH;
 
-  if (outW > maxDim || outH > maxDim) {
-    const scale = maxDim / Math.max(outW, outH);
-    outW = Math.max(1, Math.round(outW * scale));
-    outH = Math.max(1, Math.round(outH * scale));
-  }
+    if (outW > maxDim || outH > maxDim) {
+      const scale = maxDim / Math.max(outW, outH);
+      outW = Math.max(1, Math.round(outW * scale));
+      outH = Math.max(1, Math.round(outH * scale));
+    }
 
-  canvas.width = outW;
-  canvas.height = outH;
+    canvas.width = outW;
+    canvas.height = outH;
 
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return dataUrl;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return dataUrl;
 
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
+    // Timestamp text (bottom-left)
+    const stamp = new Date().toLocaleString();
+    const pad = Math.max(18, Math.floor(canvas.width * 0.015));
+    const fontSize = Math.max(28, Math.floor(canvas.width * 0.03));
 
-  // Timestamp text (bottom-left)
-  const stamp = new Date().toLocaleString();
-  const pad = Math.max(18, Math.floor(canvas.width * 0.015));
-  const fontSize = Math.max(28, Math.floor(canvas.width * 0.03));
+    ctx.font = `bold ${fontSize}px Arial`;
+    ctx.textBaseline = 'bottom';
 
-  ctx.font = `bold ${fontSize}px Arial`;
-  ctx.textBaseline = 'bottom';
+    // dark bg behind text
+    const metrics = ctx.measureText(stamp);
+    const boxW = Math.ceil(metrics.width + pad);
+    const boxH = Math.ceil(fontSize + pad * 0.6);
 
-  // dark bg behind text
-  const metrics = ctx.measureText(stamp);
-  const boxW = Math.ceil(metrics.width + pad);
-  const boxH = Math.ceil(fontSize + pad * 0.6);
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(pad * 0.6, canvas.height - pad * 0.6 - boxH, boxW, boxH);
 
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(pad * 0.6, canvas.height - pad * 0.6 - boxH, boxW, boxH);
-
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  ctx.fillText(stamp, pad, canvas.height - pad);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.fillText(stamp, pad, canvas.height - pad);
 
     // ✅ smaller file = survives app exit/restart
-  return canvas.toDataURL('image/jpeg', 0.78);
-}
-openProjectPhotoViewer(url: string | null, event?: Event): void {
-  try {
-    event?.preventDefault();
-    event?.stopPropagation();
-  } catch {}
-
-  if (!url) return;
-
-  this.photoViewerEntry = null;
-  this.photoViewerImgUrl = url;
-  this.photoViewerOpen = true;
-  this.isAnnotatingPhoto = false;
-
-  // Step 1: auto-scale for 1cm blocks
-  void this.runAutoScaleForPhoto(url);
-}
-
-openEntryPhotoViewer(entry: LoadDevEntry, event?: Event): void {
-  try {
-    event?.preventDefault();
-    event?.stopPropagation();
-  } catch {}
-
-  const url = this.getEntryPhotoDataUrl(entry);
-  if (!url) return;
-
-  this.photoViewerEntry = entry;
-  this.photoViewerImgUrl = url;
-  this.photoViewerOpen = true;
-  this.isAnnotatingPhoto = false;
-
-  // Step 1: auto-scale for 1cm blocks
-  void this.runAutoScaleForPhoto(url);
-}
-
-closePhotoViewer(): void {
-  this.photoViewerOpen = false;
-  this.photoViewerEntry = null;
-  this.photoViewerImgUrl = null;
-  this.isAnnotatingPhoto = false;
-
-  // Step 1: reset overlay state
-  this.gridPxPerCm = null;
-}
-
-/** Step 1: estimate pixels-per-1cm grid spacing and store for overlay. */
-private async runAutoScaleForPhoto(dataUrl: string): Promise<void> {
-  this.gridPxPerCm = null;
-
-  // Only run if viewer is still open and image unchanged
-  const guardUrl = this.photoViewerImgUrl;
-
-  try {
-    const px = await this.estimateGridPxPerCm(dataUrl);
-
-    if (!this.photoViewerOpen) return;
-    if (this.photoViewerImgUrl !== guardUrl) return;
-
-    if (px && Number.isFinite(px) && px > 2) {
-      this.gridPxPerCm = px;
-    }
-  } catch {
-    // Silent fail (overlay just won't show)
+    return canvas.toDataURL('image/jpeg', 0.78);
   }
-}
+  openProjectPhotoViewer(url: string | null, event?: Event): void {
+    try {
+      event?.preventDefault();
+      event?.stopPropagation();
+    } catch {}
 
-/**
- * Attempts to detect the repeating 1cm block grid spacing in pixels.
- * Best-effort: works best with top-down photo and visible grid lines.
- */
-private async estimateGridPxPerCm(dataUrl: string): Promise<number | null> {
-  const img = new Image();
-  img.decoding = 'async';
+    if (!url) return;
 
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = () => reject(new Error('Image load failed'));
-    img.src = dataUrl;
-  });
+    this.photoViewerEntry = null;
+    this.photoViewerImgUrl = url;
+    this.photoViewerOpen = true;
+    this.isAnnotatingPhoto = false;
 
-  const maxW = 700; // keep it lightweight on mobile
-  const scale = img.width > maxW ? maxW / img.width : 1;
-  const w = Math.max(1, Math.floor(img.width * scale));
-  const h = Math.max(1, Math.floor(img.height * scale));
-
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return null;
-
-  ctx.drawImage(img, 0, 0, w, h);
-  const id = ctx.getImageData(0, 0, w, h);
-  const d = id.data;
-
-  // grayscale
-  const gray = new Float32Array(w * h);
-  for (let i = 0, p = 0; p < gray.length; p++, i += 4) {
-    gray[p] = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114);
+    // Step 1: auto-scale for 1cm blocks
+    void this.runAutoScaleForPhoto(url);
   }
 
-  // vertical edge strength per X (for vertical grid lines)
-  const vx = new Float32Array(w);
-  for (let y = 0; y < h; y++) {
-    const row = y * w;
-    for (let x = 1; x < w; x++) {
-      const a = gray[row + x];
-      const b = gray[row + x - 1];
-      vx[x] += Math.abs(a - b);
+  openEntryPhotoViewer(entry: LoadDevEntry, event?: Event): void {
+    try {
+      event?.preventDefault();
+      event?.stopPropagation();
+    } catch {}
+
+    const url = this.getEntryPhotoDataUrl(entry);
+    if (!url) return;
+
+    this.photoViewerEntry = entry;
+    this.photoViewerImgUrl = url;
+    this.photoViewerOpen = true;
+    this.isAnnotatingPhoto = false;
+
+    // Step 1: auto-scale for 1cm blocks
+    void this.runAutoScaleForPhoto(url);
+  }
+
+  closePhotoViewer(): void {
+    this.photoViewerOpen = false;
+    this.photoViewerEntry = null;
+    this.photoViewerImgUrl = null;
+    this.isAnnotatingPhoto = false;
+
+    // Step 1: reset overlay state
+    this.gridPxPerCm = null;
+  }
+
+  /** Step 1: estimate pixels-per-1cm grid spacing and store for overlay. */
+  private async runAutoScaleForPhoto(dataUrl: string): Promise<void> {
+    this.gridPxPerCm = null;
+
+    // Only run if viewer is still open and image unchanged
+    const guardUrl = this.photoViewerImgUrl;
+
+    try {
+      const px = await this.estimateGridPxPerCm(dataUrl);
+
+      if (!this.photoViewerOpen) return;
+      if (this.photoViewerImgUrl !== guardUrl) return;
+
+      if (px && Number.isFinite(px) && px > 2) {
+        this.gridPxPerCm = px;
+      }
+    } catch {
+      // Silent fail (overlay just won't show)
     }
   }
 
-  // horizontal edge strength per Y (for horizontal grid lines)
-  const hy = new Float32Array(h);
-  for (let y = 1; y < h; y++) {
-    const row = y * w;
-    const prev = (y - 1) * w;
-    for (let x = 0; x < w; x++) {
-      const a = gray[row + x];
-      const b = gray[prev + x];
-      hy[y] += Math.abs(a - b);
+  /**
+   * Attempts to detect the repeating 1cm block grid spacing in pixels.
+   * Best-effort: works best with top-down photo and visible grid lines.
+   */
+  private async estimateGridPxPerCm(dataUrl: string): Promise<number | null> {
+    const img = new Image();
+    img.decoding = 'async';
+
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Image load failed'));
+      img.src = dataUrl;
+    });
+
+    const maxW = 700; // keep it lightweight on mobile
+    const scale = img.width > maxW ? maxW / img.width : 1;
+    const w = Math.max(1, Math.floor(img.width * scale));
+    const h = Math.max(1, Math.floor(img.height * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+
+    ctx.drawImage(img, 0, 0, w, h);
+    const id = ctx.getImageData(0, 0, w, h);
+    const d = id.data;
+
+    // grayscale
+    const gray = new Float32Array(w * h);
+    for (let i = 0, p = 0; p < gray.length; p++, i += 4) {
+      gray[p] = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
     }
+
+    // vertical edge strength per X (for vertical grid lines)
+    const vx = new Float32Array(w);
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      for (let x = 1; x < w; x++) {
+        const a = gray[row + x];
+        const b = gray[row + x - 1];
+        vx[x] += Math.abs(a - b);
+      }
+    }
+
+    // horizontal edge strength per Y (for horizontal grid lines)
+    const hy = new Float32Array(h);
+    for (let y = 1; y < h; y++) {
+      const row = y * w;
+      const prev = (y - 1) * w;
+      for (let x = 0; x < w; x++) {
+        const a = gray[row + x];
+        const b = gray[prev + x];
+        hy[y] += Math.abs(a - b);
+      }
+    }
+
+    const vxS = this.smooth1D(vx, 5);
+    const hyS = this.smooth1D(hy, 5);
+
+    const pxX = this.findDominantPeriod(vxS, 6, Math.min(140, Math.floor(w / 2)));
+    const pxY = this.findDominantPeriod(hyS, 6, Math.min(140, Math.floor(h / 2)));
+
+    const candidates = [pxX, pxY].filter((n): n is number => typeof n === 'number' && n > 0);
+    if (!candidates.length) return null;
+
+    // average of best axes (they should be similar)
+    const avg = candidates.reduce((a, b) => a + b, 0) / candidates.length;
+
+    // adjust back to original scale
+    const pxPerCm = avg / scale;
+    return pxPerCm;
   }
 
-  const vxS = this.smooth1D(vx, 5);
-  const hyS = this.smooth1D(hy, 5);
-
-  const pxX = this.findDominantPeriod(vxS, 6, Math.min(140, Math.floor(w / 2)));
-  const pxY = this.findDominantPeriod(hyS, 6, Math.min(140, Math.floor(h / 2)));
-
-  const candidates = [pxX, pxY].filter((n): n is number => typeof n === 'number' && n > 0);
-  if (!candidates.length) return null;
-
-  // average of best axes (they should be similar)
-  const avg = candidates.reduce((a, b) => a + b, 0) / candidates.length;
-
-  // adjust back to original scale
-  const pxPerCm = avg / scale;
-  return pxPerCm;
-}
-
-private smooth1D(arr: Float32Array, win: number): Float32Array {
-  const out = new Float32Array(arr.length);
-  const half = Math.max(1, Math.floor(win / 2));
-  for (let i = 0; i < arr.length; i++) {
-    let s = 0;
-    let c = 0;
-    const a = Math.max(0, i - half);
-    const b = Math.min(arr.length - 1, i + half);
-    for (let j = a; j <= b; j++) {
-      s += arr[j];
-      c++;
+  private smooth1D(arr: Float32Array, win: number): Float32Array {
+    const out = new Float32Array(arr.length);
+    const half = Math.max(1, Math.floor(win / 2));
+    for (let i = 0; i < arr.length; i++) {
+      let s = 0;
+      let c = 0;
+      const a = Math.max(0, i - half);
+      const b = Math.min(arr.length - 1, i + half);
+      for (let j = a; j <= b; j++) {
+        s += arr[j];
+        c++;
+      }
+      out[i] = c ? s / c : arr[i];
     }
-    out[i] = c ? s / c : arr[i];
-  }
-  return out;
-}
-
-/**
- * Autocorrelation peak finder: returns the lag (period) with strongest repetition.
- */
-private findDominantPeriod(arr: Float32Array, minLag: number, maxLag: number): number | null {
-  if (arr.length < maxLag + 2) return null;
-
-  // remove mean
-  let mean = 0;
-  for (let i = 0; i < arr.length; i++) mean += arr[i];
-  mean /= arr.length;
-
-  const centered = new Float32Array(arr.length);
-  for (let i = 0; i < arr.length; i++) centered[i] = arr[i] - mean;
-
-  let bestLag: number | null = null;
-  let bestScore = -Infinity;
-
-  // correlation score per lag
-  for (let lag = minLag; lag <= maxLag; lag++) {
-    let score = 0;
-    for (let i = 0; i < centered.length - lag; i++) {
-      score += centered[i] * centered[i + lag];
-    }
-    if (score > bestScore) {
-      bestScore = score;
-      bestLag = lag;
-    }
+    return out;
   }
 
-  return bestLag;
-}
+  /**
+   * Autocorrelation peak finder: returns the lag (period) with strongest repetition.
+   */
+  private findDominantPeriod(arr: Float32Array, minLag: number, maxLag: number): number | null {
+    if (arr.length < maxLag + 2) return null;
 
-deleteEntryPhoto(): void {
-  // 1) If we are viewing an ENTRY photo (OCW row photo)
-  const e = this.photoViewerEntry;
-  if (e) {
-    delete (e as any).targetPhoto;
+    // remove mean
+    let mean = 0;
+    for (let i = 0; i < arr.length; i++) mean += arr[i];
+    mean /= arr.length;
 
-    if (this.selectedProject) {
-      this.data.updateLoadDevEntry(this.selectedProject.id, e as any);
-      this.refreshSelectedProject();
+    const centered = new Float32Array(arr.length);
+    for (let i = 0; i < arr.length; i++) centered[i] = arr[i] - mean;
+
+    let bestLag: number | null = null;
+    let bestScore = -Infinity;
+
+    // correlation score per lag
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      let score = 0;
+      for (let i = 0; i < centered.length - lag; i++) {
+        score += centered[i] * centered[i + lag];
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestLag = lag;
+      }
     }
 
+    return bestLag;
+  }
+
+  deleteEntryPhoto(): void {
+    // 1) If we are viewing an ENTRY photo (OCW row photo)
+    const e = this.photoViewerEntry;
+    if (e) {
+      delete (e as any).targetPhoto;
+
+      if (this.selectedProject) {
+        this.data.updateLoadDevEntry(this.selectedProject.id, e as any);
+        this.refreshSelectedProject();
+      }
+
+      this.closePhotoViewer();
+      return;
+    }
+
+    // 2) Otherwise we are viewing the PROJECT "Target photo" from Notes panel
+    if (!this.selectedProject) return;
+    // remove filesystem-backed photo too (this is the real "Overall photo" source now)
+    const anyP: any = this.selectedProject as any;
+    const path = anyP?.targetPhotoPath ? String(anyP.targetPhotoPath) : null;
+
+    if (path) {
+      this.photoDataUrlCache.delete(path);
+      // best effort: remove the actual file
+      void Filesystem.deleteFile({ path, directory: Directory.Data }).catch(() => {});
+    }
+
+    try {
+      delete anyP.targetPhotoPath;
+    } catch {}
+
+    // clear stored photo on the project (covers both legacy keys)
+    delete (this.selectedProject as any).targetPhotoBase64;
+    delete (this.selectedProject as any).targetPhotoDataUrl;
+    delete (this.selectedProject as any).targetPhotoCapturedAt;
+
+    // clear UI preview
+    this.targetPhotoDataUrl = null;
+
+    // persist
+    this.data.updateLoadDevProject({ ...this.selectedProject });
+
+    this.postSaveMessage = 'Photo deleted ✅';
+    setTimeout(() => (this.postSaveMessage = null), 2000);
+
+    this.refreshSelectedProject();
     this.closePhotoViewer();
-    return;
   }
+  private buildLoadSummaryLine(): string {
+    if (!this.selectedProject) return '';
 
-  // 2) Otherwise we are viewing the PROJECT "Target photo" from Notes panel
-  if (!this.selectedProject) return;
-  // remove filesystem-backed photo too (this is the real "Overall photo" source now)
-const anyP: any = this.selectedProject as any;
-const path = anyP?.targetPhotoPath ? String(anyP.targetPhotoPath) : null;
+    const p = this.selectedProject as any;
 
-if (path) {
-  this.photoDataUrlCache.delete(path);
-  // best effort: remove the actual file
-  void Filesystem.deleteFile({ path, directory: Directory.Data }).catch(() => {});
-}
+    const parts: string[] = [];
 
-try { delete anyP.targetPhotoPath; } catch {}
+    if (p.powder) parts.push(`Powder: ${p.powder}`);
+    if (p.bullet) parts.push(`Bullet: ${p.bullet}`);
+    if (p.bulletWeightGr != null) parts.push(`Wt: ${p.bulletWeightGr}gr`);
+    if (p.oal != null) parts.push(`COAL: ${p.oal}mm`);
+    if (p.oalOgive != null) parts.push(`Ogive: ${p.oalOgive}mm`);
 
+    const range = this.selectedProjectChargeRangeText();
+    if (range && range !== '—') parts.push(`Charge: ${range}`);
 
-  // clear stored photo on the project (covers both legacy keys)
-  delete (this.selectedProject as any).targetPhotoBase64;
-  delete (this.selectedProject as any).targetPhotoDataUrl;
-  delete (this.selectedProject as any).targetPhotoCapturedAt;
-
-  // clear UI preview
-  this.targetPhotoDataUrl = null;
-
-  // persist
-  this.data.updateLoadDevProject({ ...this.selectedProject });
-
-  this.postSaveMessage = 'Photo deleted ✅';
-  setTimeout(() => (this.postSaveMessage = null), 2000);
-
-  this.refreshSelectedProject();
-  this.closePhotoViewer();
-}
-private buildLoadSummaryLine(): string {
-  if (!this.selectedProject) return '';
-
-  const p = this.selectedProject as any;
-
-  const parts: string[] = [];
-
-  if (p.powder) parts.push(`Powder: ${p.powder}`);
-  if (p.bullet) parts.push(`Bullet: ${p.bullet}`);
-  if (p.bulletWeightGr != null) parts.push(`Wt: ${p.bulletWeightGr}gr`);
-  if (p.oal != null) parts.push(`COAL: ${p.oal}mm`);
-  if (p.oalOgive != null) parts.push(`Ogive: ${p.oalOgive}mm`);
-
-  const range = this.selectedProjectChargeRangeText();
-  if (range && range !== '—') parts.push(`Charge: ${range}`);
-
-  return parts.join(' | ');
-}
-
+    return parts.join(' | ');
+  }
 
   // ---------- PDF export (Graph + table inside #pdfContent) ----------
-   // ---------- PDF export (Graph + table inside #pdfContent) ----------
+  // ---------- PDF export (Graph + table inside #pdfContent) ----------
   async exportPdf(): Promise<void> {
     try {
       if (!this.selectedProject) {
@@ -1304,42 +1290,49 @@ private buildLoadSummaryLine(): string {
       const doc = new jsPDF({
         orientation: 'p',
         unit: 'pt',
-        format: 'a4'
+        format: 'a4',
       });
 
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
 
-      const leftMargin = 55;     // ✅ punch-hole space (increase/decrease as you like)
-const rightMargin = 28;    // normal right margin
-const topMargin = 40;      // normal top margin
-let y = topMargin;
+      const leftMargin = 55; // ✅ punch-hole space (increase/decrease as you like)
+      const rightMargin = 28; // normal right margin
+      const topMargin = 40; // normal top margin
+      let y = topMargin;
 
-
-          // Header
+      // Header
       const rifleName =
-        this.rifles?.find(r => r.id === this.selectedRifleId)?.name ??
+        this.rifles?.find((r) => r.id === this.selectedRifleId)?.name ??
         `Rifle ${this.selectedRifleId ?? ''}`;
       const projectName = this.selectedProject.name ?? 'Load development';
 
-     doc.setFontSize(20);
-doc.text(`${projectName}`, leftMargin, y);
-y += 15;
+      doc.setFontSize(20);
+      doc.text(`${projectName}`, leftMargin, y);
+      y += 15;
 
-doc.setLineWidth(0.4);
-doc.line(leftMargin, y, pageW - rightMargin, y);
-y += 15;
+      doc.setLineWidth(0.4);
+      doc.line(leftMargin, y, pageW - rightMargin, y);
+      y += 15;
 
-doc.setFontSize(16);
-doc.text(`Rifle: ${rifleName}`, leftMargin, y);
-y += 15;
+      doc.setFontSize(16);
+      doc.text(`Rifle: ${rifleName}`, leftMargin, y);
+      y += 15;
       // Planned / Shot dates (export header)
       const fmtDateTime = (v: any): string => {
         if (!v) return '';
         const d = v instanceof Date ? v : new Date(v);
         if (Number.isNaN(d.getTime())) return '';
-        const ds = d.toLocaleDateString(undefined, { year: '2-digit', month: '2-digit', day: '2-digit' });
-        const ts = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+        const ds = d.toLocaleDateString(undefined, {
+          year: '2-digit',
+          month: '2-digit',
+          day: '2-digit',
+        });
+        const ts = d.toLocaleTimeString(undefined, {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        });
         return `${ds}, ${ts}`;
       };
 
@@ -1355,7 +1348,7 @@ y += 15;
         null;
 
       if (!shotIso) {
-      const entries = this.entriesForSelectedProject();
+        const entries = this.entriesForSelectedProject();
 
         let best: string | null = null;
 
@@ -1386,19 +1379,16 @@ y += 15;
       doc.text(`Shot: ${shotIso ? fmtDateTime(shotIso) : '—'}`, leftMargin, y);
       y += 15;
 
-
-
-
       // Project notes (exported)
       const projectNotes = (this.selectedProject as any)?.notes?.toString?.() ?? '';
       const projectNotesTrim = projectNotes.trim();
       if (projectNotesTrim) {
         doc.setFontSize(10);
-       const noteLines = doc.splitTextToSize(
-  `Notes: ${projectNotesTrim}`,
-  pageW - leftMargin - rightMargin
-);
-doc.text(noteLines, leftMargin, y);
+        const noteLines = doc.splitTextToSize(
+          `Notes: ${projectNotesTrim}`,
+          pageW - leftMargin - rightMargin,
+        );
+        doc.text(noteLines, leftMargin, y);
 
         y += noteLines.length * 12 + 6;
       }
@@ -1410,7 +1400,7 @@ doc.text(noteLines, leftMargin, y);
       const includeLadderGraph = (this.graphCoords?.length ?? 0) >= 2;
       const includeAnyGraph = isOcwProject ? hasOcwShots : includeLadderGraph;
 
-           // Always reserve the same graph area so exports look identical (with or without shot data)
+      // Always reserve the same graph area so exports look identical (with or without shot data)
       const chartX = leftMargin;
       const chartY = y;
       const chartW = pageW - leftMargin - rightMargin;
@@ -1433,8 +1423,8 @@ doc.text(noteLines, leftMargin, y);
         let maxYv = 0;
 
         if (isOcwProject && hasOcwShots) {
-          const xs = this.ocwShotPoints.map(p => p.charge);
-          const ys = this.ocwShotPoints.map(p => p.v);
+          const xs = this.ocwShotPoints.map((p) => p.charge);
+          const ys = this.ocwShotPoints.map((p) => p.v);
 
           minXv = Math.min(...xs);
           maxXv = Math.max(...xs);
@@ -1446,8 +1436,8 @@ doc.text(noteLines, leftMargin, y);
           minYv -= padY;
           maxYv += padY;
         } else {
-          const xs = this.graphCoords.map(p => p.charge);
-          const ys = this.graphCoords.map(p => p.avg);
+          const xs = this.graphCoords.map((p) => p.charge);
+          const ys = this.graphCoords.map((p) => p.avg);
 
           minXv = Math.min(...xs);
           maxXv = Math.max(...xs);
@@ -1460,8 +1450,7 @@ doc.text(noteLines, leftMargin, y);
           maxYv += padY;
         }
 
-        const sx = (charge: number) =>
-          chartX + ((charge - minXv) / (maxXv - minXv || 1)) * chartW;
+        const sx = (charge: number) => chartX + ((charge - minXv) / (maxXv - minXv || 1)) * chartW;
 
         const sy = (vel: number) =>
           chartY + chartH - ((vel - minYv) / (maxYv - minYv || 1)) * chartH;
@@ -1473,8 +1462,8 @@ doc.text(noteLines, leftMargin, y);
             const charge = e.chargeGr;
             if (charge == null) continue;
 
-            const points = (this.ocwShotPoints || []).filter(p => p.charge === charge);
-            const cleaned = points.map(p => p.v).filter(v => Number.isFinite(v));
+            const points = (this.ocwShotPoints || []).filter((p) => p.charge === charge);
+            const cleaned = points.map((p) => p.v).filter((v) => Number.isFinite(v));
             if (!cleaned.length) continue;
 
             const x = Math.max(xMin, Math.min(xMax, sx(charge)));
@@ -1493,15 +1482,14 @@ doc.text(noteLines, leftMargin, y);
             doc.setDrawColor(170);
             doc.setLineWidth(0.6);
             (doc as any).ellipse(x, cy, rx, ry);
-                      
           }
-                  // ✅ OCW: draw shot dots + velocity labels (no connecting lines)
+          // ✅ OCW: draw shot dots + velocity labels (no connecting lines)
           try {
             const pts = [...(this.ocwShotPoints || [])]
-              .filter(p => Number.isFinite(p.charge) && Number.isFinite(p.v))
-              .sort((a, b) => (a.charge - b.charge) || (a.shotIndex - b.shotIndex));
+              .filter((p) => Number.isFinite(p.charge) && Number.isFinite(p.v))
+              .sort((a, b) => a.charge - b.charge || a.shotIndex - b.shotIndex);
 
-                        doc.setDrawColor(0);
+            doc.setDrawColor(0);
             doc.setTextColor(0);
             doc.setFontSize(7);
 
@@ -1553,7 +1541,7 @@ doc.text(noteLines, leftMargin, y);
                     continue;
                   }
 
-                  const hit = placedLabels.some(b => overlaps(box, b));
+                  const hit = placedLabels.some((b) => overlaps(box, b));
                   if (!hit) {
                     chosenTy = tyTry;
                     placedLabels.push(box);
@@ -1568,7 +1556,6 @@ doc.text(noteLines, leftMargin, y);
               const finalTy = chosenTy ?? Math.max(topLimit, Math.min(botLimit, baseTy));
               doc.text(vTxt, tx, finalTy);
             }
-
           } catch {
             // ignore
           }
@@ -1578,10 +1565,10 @@ doc.text(noteLines, leftMargin, y);
             const charges = Array.from(
               new Set(
                 (entries || [])
-                  .map(e => e.chargeGr)
+                  .map((e) => e.chargeGr)
                   .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
-                  .map(v => Number(v.toFixed(2)))
-              )
+                  .map((v) => Number(v.toFixed(2))),
+              ),
             ).sort((a, b) => a - b);
 
             doc.setFontSize(8);
@@ -1601,7 +1588,6 @@ doc.text(noteLines, leftMargin, y);
           } catch {
             // ignore
           }
-
 
           y += chartH + 26;
         } else {
@@ -1625,8 +1611,6 @@ doc.text(noteLines, leftMargin, y);
 
             // label (charge)
             doc.text(`${Math.round(p.avg)} fps`, x + 4, yv - 2);
-
-
           }
           // LADDER: charge labels BELOW the chart frame (under the graph)
           try {
@@ -1646,14 +1630,12 @@ doc.text(noteLines, leftMargin, y);
             // ignore
           }
 
-                    // Axis hints (min/max) - disabled for Ladder because we print ALL charges below the graph
+          // Axis hints (min/max) - disabled for Ladder because we print ALL charges below the graph
           if (!includeLadderGraph) {
             doc.setFontSize(9);
             doc.text(`${minXv.toFixed(2)} gr`, chartX, chartY + chartH + 12);
             doc.text(`${maxXv.toFixed(2)} gr`, chartX + chartW - 45, chartY + chartH + 12);
           }
-
-         
 
           y += chartH + 26;
         }
@@ -1666,7 +1648,7 @@ doc.text(noteLines, leftMargin, y);
         doc.text(
           isOcwProject ? 'No OCW shot data yet.' : 'No ladder shot data yet.',
           chartX + 10,
-          chartY + 32
+          chartY + 32,
         );
         doc.text('Add shot velocities to render the graph.', chartX + 10, chartY + 46);
 
@@ -1674,7 +1656,7 @@ doc.text(noteLines, leftMargin, y);
       }
 
       // ----- Table (real data) -----
-            const entriesUnsorted = this.entriesForSelectedProject();
+      const entriesUnsorted = this.entriesForSelectedProject();
 
       // ✅ Export must always be first-to-last (charge ascending) for OCW,
       // regardless of how the UI is currently sorted.
@@ -1702,20 +1684,26 @@ doc.text(noteLines, leftMargin, y);
         : entriesUnsorted;
 
       doc.setFontSize(11);
-     doc.text('Data', leftMargin, y);
+      doc.text('Data', leftMargin, y);
       y += 12;
 
       doc.setFontSize(9);
 
-           const cols = isOcwProject
+      const cols = isOcwProject
         ? ['Charge', 'Avg', 'SD', 'ES', 'Group', 'Notes']
         : ['Charge', 'Velocity', 'Shot', 'Node', 'Notes'];
 
       // Column anchors (tuned for A4 portrait)
       const colX = isOcwProject
-        ? [leftMargin, leftMargin + 70, leftMargin + 120, leftMargin + 160, leftMargin + 205, leftMargin + 255]
+        ? [
+            leftMargin,
+            leftMargin + 70,
+            leftMargin + 120,
+            leftMargin + 160,
+            leftMargin + 205,
+            leftMargin + 255,
+          ]
         : [leftMargin, leftMargin + 80, leftMargin + 140, leftMargin + 190, leftMargin + 240];
-
 
       cols.forEach((c, i) => doc.text(c, colX[i], y));
       y += 10;
@@ -1730,27 +1718,22 @@ doc.text(noteLines, leftMargin, y);
       for (const e of entries) {
         const notesTxt = this.buildExportNotesForEntry(e);
 
-                const notesX = isOcwProject ? colX[5] : colX[4];
-        const notesW = (pageW - rightMargin) - notesX;
+        const notesX = isOcwProject ? colX[5] : colX[4];
+        const notesW = pageW - rightMargin - notesX;
 
-
-        const notesLines = notesTxt
-          ? doc.splitTextToSize(notesTxt, Math.max(50, notesW))
-          : [];
+        const notesLines = notesTxt ? doc.splitTextToSize(notesTxt, Math.max(50, notesW)) : [];
 
         const neededLines = Math.max(1, notesLines.length || 1);
         const neededHeight = neededLines * lineH;
 
-// ONE-PAGER: stop table early so Comments + bottom boxes stay on page 1
-const pageBottom = doc.internal.pageSize.getHeight() - 40;
+        // ONE-PAGER: stop table early so Comments + bottom boxes stay on page 1
+        const pageBottom = doc.internal.pageSize.getHeight() - 40;
 
-// Reserve MIN space for:
-// - spacer before comments (10)
-// - Comments title (~12) + pad after comments block (~10)
-// - FIXED bottom boxes (keep target image/photo from ever shrinking) + pad after
-const reserveForBottom = 10 + 12 + 10 + 220 + 10;
-
-
+        // Reserve MIN space for:
+        // - spacer before comments (10)
+        // - Comments title (~12) + pad after comments block (~10)
+        // - FIXED bottom boxes (keep target image/photo from ever shrinking) + pad after
+        const reserveForBottom = 10 + 12 + 10 + 220 + 10;
 
         if (y + neededHeight + reserveForBottom > pageBottom) {
           const remaining = entries.length - shownRows;
@@ -1762,14 +1745,12 @@ const reserveForBottom = 10 + 12 + 10 + 220 + 10;
           break;
         }
 
-
         const s = this.statsForEntry(e);
-               const isNode = !isOcwProject && this.ladderIsInNodeBand(e);
+        const isNode = !isOcwProject && this.ladderIsInNodeBand(e);
 
         const chargeTxt = `${e.chargeGr ?? ''}`;
 
-
-                doc.text(chargeTxt, colX[0], y);
+        doc.text(chargeTxt, colX[0], y);
 
         doc.text(s ? `${Math.round(s.avg)}` : '—', colX[1], y);
 
@@ -1777,7 +1758,7 @@ const reserveForBottom = 10 + 12 + 10 + 220 + 10;
           doc.text(s ? `${s.sd.toFixed(1)}` : '—', colX[2], y);
           doc.text(s ? `${Math.round(s.es)}` : '—', colX[3], y);
           doc.text(this.formatGroupSize(e), colX[4], y);
-             } else {
+        } else {
           // Match the UI: 1/Total ... N/Total
           // (shownRows is 0-based count already printed so far)
           const shotLabel = `${shownRows + 1}/${entries.length}`;
@@ -1787,428 +1768,408 @@ const reserveForBottom = 10 + 12 + 10 + 220 + 10;
           doc.text(isNode ? 'NODE' : '', colX[3], y);
         }
 
-
-
-                if (notesLines.length) {
+        if (notesLines.length) {
           doc.text(notesLines[0], notesX, y);
         }
 
-           shownRows++;
+        shownRows++;
 
         y += neededHeight;
       }
-  // ----- Comments + bottom boxes (ONE-PAGER, auto-fit) -----
-// We do NOT add pages here. Instead, we adapt:
-// 1) reduce comment lines if needed
-// 2) keep a bottom box area (left blank placeholder + right photo)
+      // ----- Comments + bottom boxes (ONE-PAGER, auto-fit) -----
+      // We do NOT add pages here. Instead, we adapt:
+      // 1) reduce comment lines if needed
+      // 2) keep a bottom box area (left blank placeholder + right photo)
 
-const pageBottom = doc.internal.pageSize.getHeight() - 40;
+      const pageBottom = doc.internal.pageSize.getHeight() - 40;
 
-// Layout knobs
-const commentLineGap = 14;
-const commentTitleH = 22; // title (bigger) + 1 blank line gap
-const commentPadAfter = 10;
+      // Layout knobs
+      const commentLineGap = 14;
+      const commentTitleH = 22; // title (bigger) + 1 blank line gap
+      const commentPadAfter = 10;
 
-const boxPadAfter = 10;
+      const boxPadAfter = 10;
 
-const boxH = 220; // FIXED: never shrink target image/photo box to make content fit
+      const boxH = 220; // FIXED: never shrink target image/photo box to make content fit
 
-// Space before comments title (small breathing room)
-y += 10;
+      // Space before comments title (small breathing room)
+      y += 10;
 
-// How many comment lines can we afford while still keeping the bottom boxes?
-const commentsHeight = (n: number) => commentTitleH + n * commentLineGap + commentPadAfter;
-const boxesReservedAbs = boxH + boxPadAfter;
+      // How many comment lines can we afford while still keeping the bottom boxes?
+      const commentsHeight = (n: number) => commentTitleH + n * commentLineGap + commentPadAfter;
+      const boxesReservedAbs = boxH + boxPadAfter;
 
-let commentLines = 15;
+      let commentLines = 15;
 
-// ✅ Build / fetch summary line for export (must be a single-line string)
-const summaryLine = (typeof this.buildLoadSummaryLine === 'function')
-  ? (this.buildLoadSummaryLine() || '')
-  : '';
+      // ✅ Build / fetch summary line for export (must be a single-line string)
+      const summaryLine =
+        typeof this.buildLoadSummaryLine === 'function' ? this.buildLoadSummaryLine() || '' : '';
 
-// ✅ If we have a summary line, reserve 1 comment row for it
-const summaryConsumesOneLine = !!summaryLine;
+      // ✅ If we have a summary line, reserve 1 comment row for it
+      const summaryConsumesOneLine = !!summaryLine;
 
-// Ensure we have room for at least absolute-min boxes.
-// If not, reduce comment lines until it fits (down to 0 if required).
-while (
-  commentLines > 0 &&
-  y + commentsHeight(commentLines) + boxesReservedAbs > pageBottom
-) {
-  commentLines--;
-}
+      // Ensure we have room for at least absolute-min boxes.
+      // If not, reduce comment lines until it fits (down to 0 if required).
+      while (commentLines > 0 && y + commentsHeight(commentLines) + boxesReservedAbs > pageBottom) {
+        commentLines--;
+      }
 
-// Draw Comments title (bold + 50% larger) + one-line gap below
-(doc as any).setFont(undefined, 'bold');
-doc.setFontSize(17); // 11 * 1.5 ≈ 16.5
-doc.setTextColor(0);
-doc.text('Comments', leftMargin, y);
+      // Draw Comments title (bold + 50% larger) + one-line gap below
+      (doc as any).setFont(undefined, 'bold');
+      doc.setFontSize(17); // 11 * 1.5 ≈ 16.5
+      doc.setTextColor(0);
+      doc.text('Comments', leftMargin, y);
 
-(doc as any).setFont(undefined, 'normal');
-doc.setFontSize(10);
+      (doc as any).setFont(undefined, 'normal');
+      doc.setFontSize(10);
 
-// use the reserved title height (includes blank line)
-y += commentTitleH;
+      // use the reserved title height (includes blank line)
+      y += commentTitleH;
 
+      // ✅ Draw summary as FIRST comment line (bold), then move y down one line
+      if (summaryConsumesOneLine && commentLines > 0) {
+        // Fit summary on one line (truncate if needed)
+        const maxW = pageW - rightMargin - leftMargin;
+        const oneLine = doc.splitTextToSize(summaryLine, maxW)?.[0] ?? summaryLine;
 
-
-// ✅ Draw summary as FIRST comment line (bold), then move y down one line
-if (summaryConsumesOneLine && commentLines > 0) {
-  // Fit summary on one line (truncate if needed)
-  const maxW = (pageW - rightMargin) - leftMargin;
-  const oneLine = doc.splitTextToSize(summaryLine, maxW)?.[0] ?? summaryLine;
-
-  // Make sure it truly stays one line with an ellipsis if splitText would wrap
-  let summaryOut = oneLine;
-  if (doc.getTextWidth(summaryOut) > maxW) {
-    while (summaryOut.length > 0 && doc.getTextWidth(summaryOut + '…') > maxW) {
-      summaryOut = summaryOut.slice(0, -1);
-    }
-    summaryOut = summaryOut + '…';
-  }
-
-  // Bold summary
-  (doc as any).setFont(undefined, 'bold');
-  doc.setFontSize(10);
-  doc.text(summaryOut, leftMargin, y - 3); // slight baseline tweak
-
-  // Back to normal for lines
-  (doc as any).setFont(undefined, 'normal');
-
-  // Consume one ruled line for summary
-  y += commentLineGap;
-  commentLines = Math.max(0, commentLines - 1);
-}
-
-// Draw comment lines (lighter grey for printing, but still visible)
-doc.setLineWidth(0.7);
-doc.setDrawColor(120, 120, 120);
-
-for (let i = 0; i < commentLines; i++) {
-  doc.line(
-    leftMargin,
-    y + i * commentLineGap,
-    pageW - rightMargin,
-    y + i * commentLineGap
-  );
-}
-
-y += commentLines * commentLineGap + 10;
-
-// ----- Bottom boxes: LEFT blank placeholder + RIGHT photo -----
-const remainingForBoxes = pageBottom - (y + boxPadAfter);
-
-
-if (remainingForBoxes < boxH) { /* should not happen; comments/table are trimmed first to keep one page */ }
-
-// Split area into 2 equal boxes
-const gap = 10;
-const halfW = (pageW - leftMargin - rightMargin - gap) / 2;
-
-const leftX = leftMargin;
-const leftW = halfW;
-const leftY = y;
-
-const photoX = leftMargin + halfW + gap;
-const photoW = halfW;
-const photoY = y;
-
-// LEFT: placeholder box (NO title, NO hit indicator)
-doc.setLineWidth(0.8);
-doc.setDrawColor(120, 120, 120);
-doc.rect(leftX, leftY, leftW, boxH);
-
-await this.drawAssetImageInBox(
-  doc,
-  'assets/LoadDevExport.png',
-  leftX,
-  leftY,
-  leftW,
-  boxH,
-  6
-);
-
-
-
-// RIGHT: photo box (keep photo behavior the same, but render only once)
-doc.setLineWidth(0.8);
-doc.setDrawColor(120, 120, 120);
-doc.rect(photoX, photoY, photoW, boxH);
-
-// Project-level only (single-page target photo area is reserved for the Notes/Project photo)
-const projectAny = this.selectedProject as any;
-
-const photoDataUrl =
-  projectAny?.targetPhotoPath
-    ? (this.photoDataUrlCache.get(String(projectAny.targetPhotoPath)) ?? await this.readJpegDataUrlFromFs(String(projectAny.targetPhotoPath)))
-    : (projectAny?.targetPhotoBase64 ? `data:image/jpeg;base64,${projectAny.targetPhotoBase64}` : (projectAny?.targetPhotoDataUrl ?? null));
-
-
-
-if (photoDataUrl && typeof photoDataUrl === 'string' && photoDataUrl.startsWith('data:image/')) {
-  try {
-    const imgType = photoDataUrl.includes('data:image/png') ? 'PNG' : 'JPEG';
-    const base64 = photoDataUrl.split(',')[1];
-
-    // Fit inside photo box with padding (NO STRETCH)
-const pad = 6;
-
-const boxX = photoX + pad;
-const boxY = photoY + pad;
-const boxW = Math.max(1, photoW - pad * 2);
-const boxHInner = Math.max(1, boxH - pad * 2);
-
-let drawX = boxX;
-let drawY = boxY;
-let drawW = boxW;
-let drawH = boxHInner;
-
-try {
-  const props = (doc as any).getImageProperties?.(photoDataUrl);
-  const iw = props?.width ?? props?.w;
-  const ih = props?.height ?? props?.h;
-
-  if (iw && ih) {
-    const scale = Math.min(boxW / iw, boxHInner / ih);
-    drawW = iw * scale;
-    drawH = ih * scale;
-    drawX = boxX + (boxW - drawW) / 2;
-    drawY = boxY + (boxHInner - drawH) / 2;
-  }
-} catch {
-  // fallback: keep fill behavior
-}
-
-doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH);
-
-
-    // Optional tiny label (same as before)
-    doc.setFontSize(8);
-    doc.setTextColor(60);
-    doc.text('Target photo', photoX + 6, photoY + 12);
-    doc.setTextColor(0);
-  } catch {
-    doc.setFontSize(9);
-    doc.setTextColor(80);
-    doc.text('Photo load failed', photoX + 10, photoY + 18);
-    doc.setTextColor(0);
-  }
-} else {
-  doc.setFontSize(9);
-  doc.setTextColor(80);
-  doc.text('No target photo', photoX + 10, photoY + 18);
-  doc.setTextColor(0);
-}
-
-y += boxH + boxPadAfter;
-  // ----- OCW line photos: Page 2+ (two columns, max 4 photos per page, charge under + note lines) -----
-  if (isOcwProject) {
-    const photoItems = this.ocwPhotoNotesItems(); // sorted by charge, only entries with photos
-
-    if (photoItems.length) {
-      const innerW = pageW - leftMargin - rightMargin;
-      const colGap = 12;
-      const colW = (innerW - colGap) / 2;
-
-      const imgH = 250;        // keep your existing tile size
-      const captionGap = 12;   // caption baseline distance under image
-      const pad = 6;
-
-      const noteLineCount = 5;
-      const noteLineGap = 10;  // spacing between note lines
-      const noteTopGap = 16;   // gap after caption before first note line
-      const afterNotesGap = 18;
-
-      let col = 0; // 0 left, 1 right
-      let photosOnPage = 0;
-      let yStart = topMargin;
-
-           const drawChargesHeader = () => {
-        // Page 2+ header: repeat the same OCW charge table header + rows (like page 1)
-        y = topMargin;
-
-        // Optional title (kept)
-        doc.setFontSize(14);
-        doc.setTextColor(0);
-        doc.text('Charges', leftMargin, y);
-
-        y += 10;
-
-        // Table header (same columns as page 1 for OCW)
-        doc.setFontSize(9);
-        doc.setTextColor(0);
-        cols.forEach((c, i) => doc.text(c, colX[i], y));
-        y += 8;
-
-        doc.setLineWidth(0.4);
-        doc.setDrawColor(0);
-        doc.line(leftMargin, y, pageW - rightMargin, y);
-        y += 10;
-
-        // Table rows (same data as page 1)
-        doc.setFontSize(8);
-
-        for (const e of entries) {
-          const s = this.statsForEntry(e);
-          const notesTxt = this.buildExportNotesForEntry(e);
-          const notesX = colX[5];
-          const notesW = (pageW - rightMargin) - notesX;
-          const notesLine = notesTxt ? (doc.splitTextToSize(notesTxt, Math.max(50, notesW))[0] ?? '') : '';
-
-          doc.text(`${e.chargeGr ?? ''}`, colX[0], y);
-          doc.text(s ? `${Math.round(s.avg)}` : '—', colX[1], y);
-          doc.text(s ? `${s.sd.toFixed(1)}` : '—', colX[2], y);
-          doc.text(s ? `${Math.round(s.es)}` : '—', colX[3], y);
-          doc.text(this.formatGroupSize(e), colX[4], y);
-          if (notesLine) doc.text(notesLine, notesX, y);
-
-          y += 10;
+        // Make sure it truly stays one line with an ellipsis if splitText would wrap
+        let summaryOut = oneLine;
+        if (doc.getTextWidth(summaryOut) > maxW) {
+          while (summaryOut.length > 0 && doc.getTextWidth(summaryOut + '…') > maxW) {
+            summaryOut = summaryOut.slice(0, -1);
+          }
+          summaryOut = summaryOut + '…';
         }
 
-        // Separator line before photos
-        y += 2;
-        doc.setLineWidth(0.4);
-        doc.line(leftMargin, y, pageW - rightMargin, y);
-        y += 10;
+        // Bold summary
+        (doc as any).setFont(undefined, 'bold');
+        doc.setFontSize(10);
+        doc.text(summaryOut, leftMargin, y - 3); // slight baseline tweak
 
-        yStart = y;
-      };
+        // Back to normal for lines
+        (doc as any).setFont(undefined, 'normal');
 
+        // Consume one ruled line for summary
+        y += commentLineGap;
+        commentLines = Math.max(0, commentLines - 1);
+      }
 
-      const drawNoteLines = (startY: number) => {
-        doc.setLineWidth(0.3);
-        doc.setDrawColor(160);
+      // Draw comment lines (lighter grey for printing, but still visible)
+      doc.setLineWidth(0.7);
+      doc.setDrawColor(120, 120, 120);
 
-        for (let i = 0; i < noteLineCount; i++) {
-          const ly = startY + i * noteLineGap;
-          doc.line(leftMargin, ly, pageW - rightMargin, ly);
-        }
+      for (let i = 0; i < commentLines; i++) {
+        doc.line(leftMargin, y + i * commentLineGap, pageW - rightMargin, y + i * commentLineGap);
+      }
 
-        doc.setDrawColor(0);
-      };
+      y += commentLines * commentLineGap + 10;
 
-      const startNewPhotosPage = () => {
-        doc.addPage();
-        drawChargesHeader();
-        col = 0;
-        photosOnPage = 0;
-        y = yStart;
-      };
+      // ----- Bottom boxes: LEFT blank placeholder + RIGHT photo -----
+      const remainingForBoxes = pageBottom - (y + boxPadAfter);
 
-      // Start Page 2 (or next pages)
-      startNewPhotosPage();
+      if (remainingForBoxes < boxH) {
+        /* should not happen; comments/table are trimmed first to keep one page */
+      }
 
-      for (const it of photoItems) {
-        // Max 4 photos per page
-        if (photosOnPage >= 4) {
-          startNewPhotosPage();
-        }
+      // Split area into 2 equal boxes
+      const gap = 10;
+      const halfW = (pageW - leftMargin - rightMargin - gap) / 2;
 
-        const x = leftMargin + (col === 0 ? 0 : (colW + colGap));
+      const leftX = leftMargin;
+      const leftW = halfW;
+      const leftY = y;
 
-        // Draw the image fitted into a tile area (no stretch)
-        const url = it.url;
+      const photoX = leftMargin + halfW + gap;
+      const photoW = halfW;
+      const photoY = y;
 
+      // LEFT: placeholder box (NO title, NO hit indicator)
+      doc.setLineWidth(0.8);
+      doc.setDrawColor(120, 120, 120);
+      doc.rect(leftX, leftY, leftW, boxH);
+
+      await this.drawAssetImageInBox(doc, 'assets/LoadDevExport.png', leftX, leftY, leftW, boxH, 6);
+
+      // RIGHT: photo box (keep photo behavior the same, but render only once)
+      doc.setLineWidth(0.8);
+      doc.setDrawColor(120, 120, 120);
+      doc.rect(photoX, photoY, photoW, boxH);
+
+      // Project-level only (single-page target photo area is reserved for the Notes/Project photo)
+      const projectAny = this.selectedProject as any;
+
+      const photoDataUrl = projectAny?.targetPhotoPath
+        ? (this.photoDataUrlCache.get(String(projectAny.targetPhotoPath)) ??
+          (await this.readJpegDataUrlFromFs(String(projectAny.targetPhotoPath))))
+        : projectAny?.targetPhotoBase64
+          ? `data:image/jpeg;base64,${projectAny.targetPhotoBase64}`
+          : (projectAny?.targetPhotoDataUrl ?? null);
+
+      if (
+        photoDataUrl &&
+        typeof photoDataUrl === 'string' &&
+        photoDataUrl.startsWith('data:image/')
+      ) {
         try {
-          const imgType = url.includes('data:image/png') ? 'PNG' : 'JPEG';
-          const base64 = url.split(',')[1];
+          const imgType = photoDataUrl.includes('data:image/png') ? 'PNG' : 'JPEG';
+          const base64 = photoDataUrl.split(',')[1];
 
-          const boxX = x;
-          const boxY = y;
-          const boxW = colW;
-          const boxH = imgH;
+          // Fit inside photo box with padding (NO STRETCH)
+          const pad = 6;
 
-          // optional light frame
-          doc.setLineWidth(0.6);
-          doc.setDrawColor(160);
-          doc.rect(boxX, boxY, boxW, boxH);
+          const boxX = photoX + pad;
+          const boxY = photoY + pad;
+          const boxW = Math.max(1, photoW - pad * 2);
+          const boxHInner = Math.max(1, boxH - pad * 2);
 
-          let drawX = boxX + pad;
-          let drawY = boxY + pad;
-          let drawW = Math.max(1, boxW - pad * 2);
-          let drawH = Math.max(1, boxH - pad * 2);
+          let drawX = boxX;
+          let drawY = boxY;
+          let drawW = boxW;
+          let drawH = boxHInner;
 
           try {
-            const props = (doc as any).getImageProperties?.(url);
+            const props = (doc as any).getImageProperties?.(photoDataUrl);
             const iw = props?.width ?? props?.w;
             const ih = props?.height ?? props?.h;
 
             if (iw && ih) {
-              const scale = Math.min(drawW / iw, drawH / ih);
-              const w = iw * scale;
-              const h = ih * scale;
-
-              drawX = boxX + (boxW - w) / 2;
-              drawY = boxY + (boxH - h) / 2;
-              drawW = w;
-              drawH = h;
+              const scale = Math.min(boxW / iw, boxHInner / ih);
+              drawW = iw * scale;
+              drawH = ih * scale;
+              drawX = boxX + (boxW - drawW) / 2;
+              drawY = boxY + (boxHInner - drawH) / 2;
             }
           } catch {
-            // keep default
+            // fallback: keep fill behavior
           }
 
           doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH);
+
+          // Optional tiny label (same as before)
+          doc.setFontSize(8);
+          doc.setTextColor(60);
+          doc.text('Target photo', photoX + 6, photoY + 12);
+          doc.setTextColor(0);
         } catch {
-          doc.setFontSize(10);
+          doc.setFontSize(9);
           doc.setTextColor(80);
-          doc.text('Photo load failed', x + 10, y + 18);
+          doc.text('Photo load failed', photoX + 10, photoY + 18);
           doc.setTextColor(0);
         }
-// ✅ OCW per-group notes under the matching photo (app-only voice notes are NOT exported)
-const entryNotesTxt = this.buildExportNotesForEntry(it.entry);
-doc.setFontSize(8);
-doc.setTextColor(40);
-
-const notesMaxW = Math.max(40, colW - 4);
-const wrappedNotes = entryNotesTxt
-  ? doc.splitTextToSize(entryNotesTxt, notesMaxW)
-  : [];
-
-const notesStartY = y + imgH + captionGap + 10; // under charge caption
-const maxLines = 5;
-
-for (let i = 0; i < Math.min(maxLines, wrappedNotes.length); i++) {
-  doc.text(String(wrappedNotes[i]), x + 2, notesStartY + i * 10);
-}
-
-doc.setTextColor(0);
-
-        // Charge caption BELOW the photo (centered)
-        const chargeTxt = `${Number(it.charge).toFixed(2)} gr`;
-        doc.setFontSize(10);
+      } else {
+        doc.setFontSize(9);
+        doc.setTextColor(80);
+        doc.text('No target photo', photoX + 10, photoY + 18);
         doc.setTextColor(0);
+      }
 
-        const tw = doc.getTextWidth(chargeTxt);
-        doc.text(chargeTxt, x + (colW - tw) / 2, y + imgH + captionGap);
+      y += boxH + boxPadAfter;
+      // ----- OCW line photos: Page 2+ (two columns, max 4 photos per page, charge under + note lines) -----
+      if (isOcwProject) {
+        const photoItems = this.ocwPhotoNotesItems(); // sorted by charge, only entries with photos
 
-        // advance column/row
-        photosOnPage++;
+        if (photoItems.length) {
+          const innerW = pageW - leftMargin - rightMargin;
+          const colGap = 12;
+          const colW = (innerW - colGap) / 2;
 
-        if (col === 0) {
-          col = 1;
-        } else {
-          // row complete (2 photos): add 5 note lines across the page
-          col = 0;
+          const imgH = 250; // keep your existing tile size
+          const captionGap = 12; // caption baseline distance under image
+          const pad = 6;
 
-          const linesStartY = y + imgH + captionGap + noteTopGap;
-          drawNoteLines(linesStartY);
+          const noteLineCount = 5;
+          const noteLineGap = 10; // spacing between note lines
+          const noteTopGap = 16; // gap after caption before first note line
+          const afterNotesGap = 18;
 
-          // move to next row start
-          y = linesStartY + (noteLineCount * noteLineGap) + afterNotesGap;
+          let col = 0; // 0 left, 1 right
+          let photosOnPage = 0;
+          let yStart = topMargin;
+
+          const drawChargesHeader = () => {
+            // Page 2+ header: repeat the same OCW charge table header + rows (like page 1)
+            y = topMargin;
+
+            // Optional title (kept)
+            doc.setFontSize(14);
+            doc.setTextColor(0);
+            doc.text('Charges', leftMargin, y);
+
+            y += 10;
+
+            // Table header (same columns as page 1 for OCW)
+            doc.setFontSize(9);
+            doc.setTextColor(0);
+            cols.forEach((c, i) => doc.text(c, colX[i], y));
+            y += 8;
+
+            doc.setLineWidth(0.4);
+            doc.setDrawColor(0);
+            doc.line(leftMargin, y, pageW - rightMargin, y);
+            y += 10;
+
+            // Table rows (same data as page 1)
+            doc.setFontSize(8);
+
+            for (const e of entries) {
+              const s = this.statsForEntry(e);
+              const notesTxt = this.buildExportNotesForEntry(e);
+              const notesX = colX[5];
+              const notesW = pageW - rightMargin - notesX;
+              const notesLine = notesTxt
+                ? (doc.splitTextToSize(notesTxt, Math.max(50, notesW))[0] ?? '')
+                : '';
+
+              doc.text(`${e.chargeGr ?? ''}`, colX[0], y);
+              doc.text(s ? `${Math.round(s.avg)}` : '—', colX[1], y);
+              doc.text(s ? `${s.sd.toFixed(1)}` : '—', colX[2], y);
+              doc.text(s ? `${Math.round(s.es)}` : '—', colX[3], y);
+              doc.text(this.formatGroupSize(e), colX[4], y);
+              if (notesLine) doc.text(notesLine, notesX, y);
+
+              y += 10;
+            }
+
+            // Separator line before photos
+            y += 2;
+            doc.setLineWidth(0.4);
+            doc.line(leftMargin, y, pageW - rightMargin, y);
+            y += 10;
+
+            yStart = y;
+          };
+
+          const drawNoteLines = (startY: number) => {
+            doc.setLineWidth(0.3);
+            doc.setDrawColor(160);
+
+            for (let i = 0; i < noteLineCount; i++) {
+              const ly = startY + i * noteLineGap;
+              doc.line(leftMargin, ly, pageW - rightMargin, ly);
+            }
+
+            doc.setDrawColor(0);
+          };
+
+          const startNewPhotosPage = () => {
+            doc.addPage();
+            drawChargesHeader();
+            col = 0;
+            photosOnPage = 0;
+            y = yStart;
+          };
+
+          // Start Page 2 (or next pages)
+          startNewPhotosPage();
+
+          for (const it of photoItems) {
+            // Max 4 photos per page
+            if (photosOnPage >= 4) {
+              startNewPhotosPage();
+            }
+
+            const x = leftMargin + (col === 0 ? 0 : colW + colGap);
+
+            // Draw the image fitted into a tile area (no stretch)
+            const url = it.url;
+
+            try {
+              const imgType = url.includes('data:image/png') ? 'PNG' : 'JPEG';
+              const base64 = url.split(',')[1];
+
+              const boxX = x;
+              const boxY = y;
+              const boxW = colW;
+              const boxH = imgH;
+
+              // optional light frame
+              doc.setLineWidth(0.6);
+              doc.setDrawColor(160);
+              doc.rect(boxX, boxY, boxW, boxH);
+
+              let drawX = boxX + pad;
+              let drawY = boxY + pad;
+              let drawW = Math.max(1, boxW - pad * 2);
+              let drawH = Math.max(1, boxH - pad * 2);
+
+              try {
+                const props = (doc as any).getImageProperties?.(url);
+                const iw = props?.width ?? props?.w;
+                const ih = props?.height ?? props?.h;
+
+                if (iw && ih) {
+                  const scale = Math.min(drawW / iw, drawH / ih);
+                  const w = iw * scale;
+                  const h = ih * scale;
+
+                  drawX = boxX + (boxW - w) / 2;
+                  drawY = boxY + (boxH - h) / 2;
+                  drawW = w;
+                  drawH = h;
+                }
+              } catch {
+                // keep default
+              }
+
+              doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH);
+            } catch {
+              doc.setFontSize(10);
+              doc.setTextColor(80);
+              doc.text('Photo load failed', x + 10, y + 18);
+              doc.setTextColor(0);
+            }
+            // ✅ OCW per-group notes under the matching photo (app-only voice notes are NOT exported)
+            const entryNotesTxt = this.buildExportNotesForEntry(it.entry);
+            doc.setFontSize(8);
+            doc.setTextColor(40);
+
+            const notesMaxW = Math.max(40, colW - 4);
+            const wrappedNotes = entryNotesTxt ? doc.splitTextToSize(entryNotesTxt, notesMaxW) : [];
+
+            const notesStartY = y + imgH + captionGap + 10; // under charge caption
+            const maxLines = 5;
+
+            for (let i = 0; i < Math.min(maxLines, wrappedNotes.length); i++) {
+              doc.text(String(wrappedNotes[i]), x + 2, notesStartY + i * 10);
+            }
+
+            doc.setTextColor(0);
+
+            // Charge caption BELOW the photo (centered)
+            const chargeTxt = `${Number(it.charge).toFixed(2)} gr`;
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+
+            const tw = doc.getTextWidth(chargeTxt);
+            doc.text(chargeTxt, x + (colW - tw) / 2, y + imgH + captionGap);
+
+            // advance column/row
+            photosOnPage++;
+
+            if (col === 0) {
+              col = 1;
+            } else {
+              // row complete (2 photos): add 5 note lines across the page
+              col = 0;
+
+              const linesStartY = y + imgH + captionGap + noteTopGap;
+              drawNoteLines(linesStartY);
+
+              // move to next row start
+              y = linesStartY + noteLineCount * noteLineGap + afterNotesGap;
+            }
+          }
+
+          // If we ended on left column (odd count), still add note lines after that single photo row
+          if (col === 1) {
+            const linesStartY = y + imgH + captionGap + noteTopGap;
+            drawNoteLines(linesStartY);
+            y = linesStartY + noteLineCount * noteLineGap + afterNotesGap;
+          }
         }
       }
 
-      // If we ended on left column (odd count), still add note lines after that single photo row
-      if (col === 1) {
-        const linesStartY = y + imgH + captionGap + noteTopGap;
-        drawNoteLines(linesStartY);
-        y = linesStartY + (noteLineCount * noteLineGap) + afterNotesGap;
-      }
-    }
-  }
-
-            // -------------------------------
+      // -------------------------------
       // PAGE 2+: (Disabled)
       // OCW line photos are rendered by the OCW block above:
       // - Header only on Page 1
@@ -2216,8 +2177,6 @@ doc.setTextColor(0);
       // - 2 columns, max 4 photos per page
       // - Charge under each photo + 5 note lines after each row
       // -------------------------------
-
-
 
       // ----- Save / Share -----
       const safeName = (projectName || 'load-dev')
@@ -2234,16 +2193,16 @@ doc.setTextColor(0);
         const res = await Filesystem.writeFile({
           path: fileName,
           data: pdfBase64,
-          directory: Directory.Documents
+          directory: Directory.Documents,
         });
 
-               // Share (Print is also a share-target on Android). Some print targets can reject
+        // Share (Print is also a share-target on Android). Some print targets can reject
         // the share promise even after the print job is created — do NOT treat that as export failure.
         try {
           await Share.share({
             title: 'Load development PDF',
             text: fileName,
-            url: res.uri
+            url: res.uri,
           });
 
           this.postSaveMessage = 'Sent to printer / shared ✅';
@@ -2255,7 +2214,6 @@ doc.setTextColor(0);
           this.postSaveMessage = 'Saved ✅';
           setTimeout(() => (this.postSaveMessage = null), 2000);
         }
-
       } else {
         const blob = doc.output('blob');
         const url = URL.createObjectURL(blob);
@@ -2282,21 +2240,20 @@ doc.setTextColor(0);
 
   projects: LoadDevProject[] = [];
   selectedProjectId: number | null = null;
-    projectPickerOpen = false;
+  projectPickerOpen = false;
 
- selectedProject:
-  | (LoadDevProject & {
-      powder?: string;
-      bullet?: string;
-      bulletWeightGr?: number | null;
-      oal?: number | null;
-      oalOgive?: number | null;
-            oalUnit?: 'mm' | 'in';
+  selectedProject:
+    | (LoadDevProject & {
+        powder?: string;
+        bullet?: string;
+        bulletWeightGr?: number | null;
+        oal?: number | null;
+        oalOgive?: number | null;
+        oalUnit?: 'mm' | 'in';
 
-      distanceM?: number | null;
-    })
-  | null = null;
-
+        distanceM?: number | null;
+      })
+    | null = null;
 
   // Project form
   projectFormVisible = false;
@@ -2304,16 +2261,13 @@ doc.setTextColor(0);
   projectForm: ProjectForm = this.createEmptyProjectForm();
   showNotesPanel = false;
 
-  
-
   // Planner + validation
   planner: PlannerForm = this.createEmptyPlannerForm();
   plannerStepText: string = '.';
 
   plannerError: string | null = null;
 
-
-    private buildExportNotesForEntry(e: LoadDevEntry): string {
+  private buildExportNotesForEntry(e: LoadDevEntry): string {
     const any = e as any;
 
     const parts: string[] = [];
@@ -2324,7 +2278,6 @@ doc.setTextColor(0);
     const n2 = (any.poiNote ?? '').toString().trim();
     if (n2) parts.push(n2);
 
-   
     return parts.join(' | ');
   }
 
@@ -2343,7 +2296,7 @@ doc.setTextColor(0);
   editingEntry: LoadDevEntry | null = null;
   entryForm: EntryForm = this.createEmptyEntryForm();
   entrySortMode: 'default' | 'chargeAsc' | 'groupAsc' | 'groupDesc' = 'default';
-   visibleEntries: LoadDevEntry[] = [];
+  visibleEntries: LoadDevEntry[] = [];
   // ----------------------------
   // PERF CACHES (avoid hangs)
   // ----------------------------
@@ -2382,8 +2335,8 @@ doc.setTextColor(0);
   private rebuildOcwRankCache(entries: LoadDevEntry[]): void {
     // rank only entries with numeric SD
     const ranked = [...entries]
-      .map(e => ({ e, sd: this.statsForEntry(e)?.sd }))
-      .filter(x => typeof x.sd === 'number' && isFinite(x.sd as number))
+      .map((e) => ({ e, sd: this.statsForEntry(e)?.sd }))
+      .filter((x) => typeof x.sd === 'number' && isFinite(x.sd as number))
       .sort((a, b) => (a.sd as number) - (b.sd as number));
 
     // reset
@@ -2412,7 +2365,7 @@ doc.setTextColor(0);
     const sorted = [...entries].sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
     const k = this.ladderNodeWindowSize(sorted);
 
-    const vels = sorted.map(e => {
+    const vels = sorted.map((e) => {
       const s = this.statsForEntry(e);
       const v = s?.avg;
       return typeof v === 'number' && isFinite(v) ? v : null;
@@ -2422,13 +2375,13 @@ doc.setTextColor(0);
 
     for (let i = 0; i <= sorted.length - k; i++) {
       const window = vels.slice(i, i + k);
-      if (window.some(v => v == null)) continue;
+      if (window.some((v) => v == null)) continue;
 
       const nums = window as number[];
       const vMin = Math.min(...nums);
       const vMax = Math.max(...nums);
 
-            if ((vMax - vMin) <= this.LADDER_NODE_MAX_VEL_RANGE_FPS) {
+      if (vMax - vMin <= this.LADDER_NODE_MAX_VEL_RANGE_FPS) {
         for (let j = i; j < i + k; j++) inBand[j] = true;
       }
     }
@@ -2449,7 +2402,7 @@ doc.setTextColor(0);
   // Cache for OCW photo list so template doesn't rebuild arrays every change detection tick
   ocwPhotoNotesCache: { charge: number; entry: LoadDevEntry; url: string; label: string }[] = [];
 
-   private rebuildVisibleEntries(): void {
+  private rebuildVisibleEntries(): void {
     const entries = this.entriesForSelectedProject();
     this.visibleEntries = entries;
 
@@ -2459,7 +2412,6 @@ doc.setTextColor(0);
     // Keep OCW photo list cache in sync (cheap when not OCW)
     this.ocwPhotoNotesCache = this.ocwPhotoNotesItems();
   }
-
 
   // Results visibility
   resultsCollapsed = false;
@@ -2481,7 +2433,7 @@ doc.setTextColor(0);
 
   // Graph (existing ladder/avg line)
   showGraph = false;
-     graphCoords: {
+  graphCoords: {
     x: number;
     y: number;
     charge: number;
@@ -2492,9 +2444,8 @@ doc.setTextColor(0);
     labelFontSize?: number;
   }[] = [];
 
-
   graphSvgPoints = '';
-    graphChargeLabels: { x: number; charge: number }[] = [];
+  graphChargeLabels: { x: number; charge: number }[] = [];
   graphMinVel = 0;
   graphMaxVel = 0;
 
@@ -2502,46 +2453,42 @@ doc.setTextColor(0);
   ocwShotPoints: OcwShotPoint[] = [];
   ocwGroupEllipses: OcwGroupEllipse[] = [];
 
- constructor(private data: DataService, private zone: NgZone, private cdr: ChangeDetectorRef) {}
-
+  constructor(
+    private data: DataService,
+    private zone: NgZone,
+    private cdr: ChangeDetectorRef,
+  ) {}
 
   // ---------- lifecycle ----------
   ngOnInit(): void {
-    
     this.rifles = this.data.getRifles();
-        // Apply preference defaults once DI is ready (prevents blank-screen crash from early init)
-       this.rifles = this.data.getRifles() ?? [];
+    // Apply preference defaults once DI is ready (prevents blank-screen crash from early init)
+    this.rifles = this.data.getRifles() ?? [];
 
     // On open: do NOT auto-select a rifle
     this.selectedRifleId = null;
     this.loadProjects(); // clears projects/UI state when no rifle selected
-
- 
-
   }
 
   // ---------- helpers ----------
-   private createEmptyProjectForm(): ProjectForm {
- return {
-  rifleId: null,
-  name: '',
-  type: 'ladder',
-  notes: '',
+  private createEmptyProjectForm(): ProjectForm {
+    return {
+      rifleId: null,
+      name: '',
+      type: 'ladder',
+      notes: '',
 
-  powder: '',
-  bullet: '',
-  bulletWeightGr: null,
-  brass: '',
-	  lands: null,
-  oal: null,
-  oalOgive: null,
-    oalUnit: (this as any).data?.getDefaultLoadDevOalUnit?.() ?? 'mm',
+      powder: '',
+      bullet: '',
+      bulletWeightGr: null,
+      brass: '',
+      lands: null,
+      oal: null,
+      oalOgive: null,
+      oalUnit: (this as any).data?.getDefaultLoadDevOalUnit?.() ?? 'mm',
 
-
-
-  distanceM: null,
-};
-
+      distanceM: null,
+    };
   }
 
   private createEmptyEntryForm(): EntryForm {
@@ -2560,12 +2507,12 @@ doc.setTextColor(0);
       groupUnit: 'MOA',
       velocityInput: '',
       poiNote: '',
-      notes: ''
+      notes: '',
     };
   }
-private getEntryPhotoObj(entry: LoadDevEntry): any | null {
-  return (entry as any)?.targetPhoto ?? null;
-}
+  private getEntryPhotoObj(entry: LoadDevEntry): any | null {
+    return (entry as any)?.targetPhoto ?? null;
+  }
   hasEntryPhoto(entry: LoadDevEntry): boolean {
     const p: any = this.getEntryPhotoObj(entry);
     return !!(p?.path || p?.annotatedDataUrl || p?.dataUrl || (entry as any)?.targetPhotoBase64);
@@ -2601,22 +2548,21 @@ private getEntryPhotoObj(entry: LoadDevEntry): any | null {
     if (p?.dataUrl) return p.dataUrl;
 
     // Very old legacy
-    if (anyE?.targetPhotoBase64) return `data:image/jpeg;base64,${String(anyE.targetPhotoBase64).trim()}`;
+    if (anyE?.targetPhotoBase64)
+      return `data:image/jpeg;base64,${String(anyE.targetPhotoBase64).trim()}`;
 
     return null;
   }
 
-
-getEntryPhotoLabel(entry: LoadDevEntry): string {
-  const p = this.getEntryPhotoObj(entry);
-  const ts = p?.takenAt ? this.shortDate(p.takenAt) : '';
-  return ts ? `Photo • ${ts}` : 'Photo';
-  
-}
+  getEntryPhotoLabel(entry: LoadDevEntry): string {
+    const p = this.getEntryPhotoObj(entry);
+    const ts = p?.takenAt ? this.shortDate(p.takenAt) : '';
+    return ts ? `Photo • ${ts}` : 'Photo';
+  }
   // ===============================
   // NOTES: OCW entry photos (by charge)
   // ===============================
-   ocwPhotoNotesItems(): { charge: number; entry: LoadDevEntry; url: string; label: string }[] {
+  ocwPhotoNotesItems(): { charge: number; entry: LoadDevEntry; url: string; label: string }[] {
     const p: any = this.selectedProject as any;
     if (!p || p.type !== 'ocw') return [];
 
@@ -2646,144 +2592,145 @@ getEntryPhotoLabel(entry: LoadDevEntry): string {
         void this.ensureEntryPhotoOnFs(e, pid);
       }
 
-            // Add even if URL is not ready yet (cache will fill it in)
+      // Add even if URL is not ready yet (cache will fill it in)
       const finalUrl =
         url || (tp?.path ? (this.photoDataUrlCache.get(String(tp.path)) ?? null) : null);
 
-      const charge = Number((e.chargeGr ?? 0));
+      const charge = Number(e.chargeGr ?? 0);
       out.push({ charge, entry: e, url: finalUrl ?? '', label: this.getEntryPhotoLabel(e) });
-
     }
 
     return out;
   }
 
-
-private createEmptyPlannerForm(): PlannerForm {
-  this.plannerStepText = '.';
-
-  return {
-    distanceUnit: 'm',
-    distanceM: null,
-    startChargeGr: null,
-    endChargeGr: null,
-    stepGr: null,
-    shotsPerGroup: null
-  };
-}
-onStepFocus(ev: FocusEvent): void {
-  const el = ev.target as HTMLInputElement | null;
-  if (!el) return;
-
-  if (!el.value) {
-    el.value = '.';
+  private createEmptyPlannerForm(): PlannerForm {
     this.plannerStepText = '.';
+
+    return {
+      distanceUnit: 'm',
+      distanceM: null,
+      startChargeGr: null,
+      endChargeGr: null,
+      stepGr: null,
+      shotsPerGroup: null,
+    };
+  }
+  onStepFocus(ev: FocusEvent): void {
+    const el = ev.target as HTMLInputElement | null;
+    if (!el) return;
+
+    if (!el.value) {
+      el.value = '.';
+      this.plannerStepText = '.';
+    }
+
+    // Cursor must start after the fullstop
+    if (el.value === '.') {
+      setTimeout(() => {
+        try {
+          el.setSelectionRange(1, 1);
+        } catch {}
+      }, 0);
+    }
   }
 
-  // Cursor must start after the fullstop
-  if (el.value === '.') {
-    setTimeout(() => {
-      try {
-        el.setSelectionRange(1, 1);
-      } catch {}
-    }, 0);
+  onStepChange(raw: any): void {
+    let s = (raw ?? '').toString();
+
+    // keep only digits and dots, and allow only ONE dot
+    s = s.replace(/[^0-9.]/g, '');
+    const firstDot = s.indexOf('.');
+    if (firstDot !== -1) {
+      s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '');
+    }
+
+    // If user clears it, keep the dot placeholder
+    if (s === '') {
+      this.plannerStepText = '.';
+      this.planner.stepGr = null;
+      return;
+    }
+
+    // If it's only ".", don't set a number yet
+    if (s === '.') {
+      this.plannerStepText = '.';
+      this.planner.stepGr = null;
+      return;
+    }
+
+    // Auto-correct "1" => ".1"
+    if (s === '1') {
+      s = '.1';
+      this.postSaveMessage = 'Auto-corrected 1 → .1';
+      setTimeout(() => (this.postSaveMessage = null), 2000);
+    }
+
+    // Parse (".1" works in parseFloat)
+    let n = Number.parseFloat(s);
+
+    if (!Number.isFinite(n)) {
+      this.plannerStepText = '.';
+      this.planner.stepGr = null;
+      return;
+    }
+
+    // Hard block > 0.6 (cap) + toast
+    if (n > 0.6) {
+      n = 0.0;
+      s = '0.0';
+      this.postSaveMessage = 'Step max is 0.6 gr';
+      setTimeout(() => (this.postSaveMessage = null), 2000);
+    }
+
+    // Normalize display so user sees ".x" instead of "0.x"
+    if (s.startsWith('0.') && n < 1) s = s.slice(1);
+
+    this.plannerStepText = s;
+    this.planner.stepGr = n;
   }
-}
+  onPlannerRangeChange(): void {
+    if (this.projectForm.type !== 'ocw') return;
 
-onStepChange(raw: any): void {
-  let s = (raw ?? '').toString();
+    const s = this.planner.startChargeGr;
+    const e = this.planner.endChargeGr;
 
-  // keep only digits and dots, and allow only ONE dot
-  s = s.replace(/[^0-9.]/g, '');
-  const firstDot = s.indexOf('.');
-  if (firstDot !== -1) {
-    s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '');
+    if (s == null || e == null) return;
+
+    // Single-charge OCW (start === end) => force step = 0 and jump to shots input
+    if (Number(s) === Number(e)) {
+      this.planner.stepGr = 0;
+      this.plannerStepText = '0.0';
+
+      setTimeout(() => {
+        try {
+          this.shotsPerGroupEl?.nativeElement.focus();
+        } catch {}
+      }, 0);
+    }
   }
 
-  // If user clears it, keep the dot placeholder
-  if (s === '') {
-    this.plannerStepText = '.';
-    this.planner.stepGr = null;
-    return;
+  entryHasPhoto(entry: LoadDevEntry): boolean {
+    const any = entry as any;
+    const tp = any?.targetPhoto;
+    return !!tp?.path || !!tp?.annotatedDataUrl || !!tp?.dataUrl || !!any?.targetPhotoBase64;
   }
 
-  // If it's only ".", don't set a number yet
-  if (s === '.') {
-    this.plannerStepText = '.';
-    this.planner.stepGr = null;
-    return;
+  projectHasPhoto(): boolean {
+    const p: any = this.selectedProject as any;
+    return (
+      !!p?.targetPhotoPath ||
+      !!p?.targetPhoto?.path ||
+      !!p?.targetPhoto?.dataUrl ||
+      !!p?.targetPhotoBase64 ||
+      !!p?.targetPhotoDataUrl
+    );
   }
 
-  // Auto-correct "1" => ".1"
-  if (s === '1') {
-    s = '.1';
-    this.postSaveMessage = 'Auto-corrected 1 → .1';
-    setTimeout(() => (this.postSaveMessage = null), 2000);
+  hasAnyPhoto(): boolean {
+    if (this.projectHasPhoto()) return true;
+    const entries = this.entriesForSelectedProject?.() ?? [];
+    return entries.some((e) => this.entryHasPhoto(e));
   }
-
-  // Parse (".1" works in parseFloat)
-  let n = Number.parseFloat(s);
-
-  if (!Number.isFinite(n)) {
-    this.plannerStepText = '.';
-    this.planner.stepGr = null;
-    return;
-  }
-
-  // Hard block > 0.6 (cap) + toast
-  if (n > 0.6) {
-    n = 0.0;
-    s = '0.0';
-    this.postSaveMessage = 'Step max is 0.6 gr';
-    setTimeout(() => (this.postSaveMessage = null), 2000);
-  }
-
-  // Normalize display so user sees ".x" instead of "0.x"
-  if (s.startsWith('0.') && n < 1) s = s.slice(1);
-
-  this.plannerStepText = s;
-  this.planner.stepGr = n;
-
-}
-onPlannerRangeChange(): void {
-  if (this.projectForm.type !== 'ocw') return;
-
-  const s = this.planner.startChargeGr;
-  const e = this.planner.endChargeGr;
-
-  if (s == null || e == null) return;
-
-  // Single-charge OCW (start === end) => force step = 0 and jump to shots input
-  if (Number(s) === Number(e)) {
-    this.planner.stepGr = 0;
-    this.plannerStepText = '0.0';
-
-    setTimeout(() => {
-      try {
-        this.shotsPerGroupEl?.nativeElement.focus();
-      } catch {}
-    }, 0);
-  }
-}
-
-entryHasPhoto(entry: LoadDevEntry): boolean {
-  const any = entry as any;
-  const tp = any?.targetPhoto;
-  return !!tp?.path || !!tp?.annotatedDataUrl || !!tp?.dataUrl || !!any?.targetPhotoBase64;
-}
-
-projectHasPhoto(): boolean {
-  const p: any = this.selectedProject as any;
-  return !!p?.targetPhotoPath || !!p?.targetPhoto?.path || !!p?.targetPhoto?.dataUrl || !!p?.targetPhotoBase64 || !!p?.targetPhotoDataUrl;
-}
-
-
-
-hasAnyPhoto(): boolean {
-  if (this.projectHasPhoto()) return true;
-  const entries = this.entriesForSelectedProject?.() ?? [];
-  return entries.some(e => this.entryHasPhoto(e));
-}
 
   shortDate(value: string | Date | null | undefined): string {
     if (!value) return '';
@@ -2792,11 +2739,10 @@ hasAnyPhoto(): boolean {
     return d.toLocaleDateString(undefined, {
       year: '2-digit',
       month: '2-digit',
-      day: '2-digit'
+      day: '2-digit',
     });
-
-    }
-    shortDateTime(value: string | Date | null | undefined): string {
+  }
+  shortDateTime(value: string | Date | null | undefined): string {
     if (!value) return '';
     const d = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(d.getTime())) return '';
@@ -2805,80 +2751,79 @@ hasAnyPhoto(): boolean {
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   }
 
-// ===============================
-// PDF: load and draw placeholder image in a box
-// ===============================
-private async loadAssetAsDataUrl(assetPath: string): Promise<string | null> {
-  try {
-const res = await fetch(assetPath.startsWith('/') ? assetPath : `/${assetPath}`);
+  // ===============================
+  // PDF: load and draw placeholder image in a box
+  // ===============================
+  private async loadAssetAsDataUrl(assetPath: string): Promise<string | null> {
+    try {
+      const res = await fetch(assetPath.startsWith('/') ? assetPath : `/${assetPath}`);
 
-    if (!res.ok) return null;
-    const blob = await res.blob();
+      if (!res.ok) return null;
+      const blob = await res.blob();
 
-    return await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string) || '');
-      reader.onerror = () => resolve('');
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
-}
-
-private async drawAssetImageInBox(
-  doc: any,
-  assetPath: string,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  pad: number = 4
-): Promise<void> {
-  const dataUrl = await this.loadAssetAsDataUrl(assetPath);
-  if (!dataUrl || !dataUrl.startsWith('data:image/')) return;
-
-  // jsPDF wants base64 (no "data:image/png;base64,")
-  const imgType = dataUrl.includes('png') ? 'PNG' : 'JPEG';
-  const base64 = dataUrl.split(',')[1];
-
-  const boxX = x + pad;
-  const boxY = y + pad;
-  const boxW = Math.max(1, w - pad * 2);
-  const boxH = Math.max(1, h - pad * 2);
-
-  let drawX = boxX;
-  let drawY = boxY;
-  let drawW = boxW;
-  let drawH = boxH;
-
-  try {
-    const props = (doc as any).getImageProperties?.(dataUrl);
-    const iw = props?.width ?? props?.w;
-    const ih = props?.height ?? props?.h;
-
-    if (iw && ih) {
-      const scale = Math.min(boxW / iw, boxH / ih);
-      drawW = iw * scale;
-      drawH = ih * scale;
-      drawX = boxX + (boxW - drawW) / 2;
-      drawY = boxY + (boxH - drawH) / 2;
+      return await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string) || '');
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
     }
-  } catch {
-    // fallback: keep fill behavior
   }
 
-  try {
-    doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH, undefined, 'FAST');
-  } catch {
-    // silent fail (placeholder only)
-  }
-}
+  private async drawAssetImageInBox(
+    doc: any,
+    assetPath: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    pad: number = 4,
+  ): Promise<void> {
+    const dataUrl = await this.loadAssetAsDataUrl(assetPath);
+    if (!dataUrl || !dataUrl.startsWith('data:image/')) return;
 
+    // jsPDF wants base64 (no "data:image/png;base64,")
+    const imgType = dataUrl.includes('png') ? 'PNG' : 'JPEG';
+    const base64 = dataUrl.split(',')[1];
+
+    const boxX = x + pad;
+    const boxY = y + pad;
+    const boxW = Math.max(1, w - pad * 2);
+    const boxH = Math.max(1, h - pad * 2);
+
+    let drawX = boxX;
+    let drawY = boxY;
+    let drawW = boxW;
+    let drawH = boxH;
+
+    try {
+      const props = (doc as any).getImageProperties?.(dataUrl);
+      const iw = props?.width ?? props?.w;
+      const ih = props?.height ?? props?.h;
+
+      if (iw && ih) {
+        const scale = Math.min(boxW / iw, boxH / ih);
+        drawW = iw * scale;
+        drawH = ih * scale;
+        drawX = boxX + (boxW - drawW) / 2;
+        drawY = boxY + (boxH - drawH) / 2;
+      }
+    } catch {
+      // fallback: keep fill behavior
+    }
+
+    try {
+      doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH, undefined, 'FAST');
+    } catch {
+      // silent fail (placeholder only)
+    }
+  }
 
   projectTypeLabel(type: LoadDevType): string {
     switch (type) {
@@ -2905,15 +2850,14 @@ private async drawAssetImageInBox(
   }
 
   toggleNotesPanel(): void {
-  this.showNotesPanel = !this.showNotesPanel;
+    this.showNotesPanel = !this.showNotesPanel;
 
-  // When opening Notes, load the saved project photo into targetPhotoDataUrl
-  if (this.showNotesPanel) {
-        void this.syncTargetPhotoFromProject();
-     this.syncVoiceNoteFromProject();
+    // When opening Notes, load the saved project photo into targetPhotoDataUrl
+    if (this.showNotesPanel) {
+      void this.syncTargetPhotoFromProject();
+      this.syncVoiceNoteFromProject();
+    }
   }
-}
-
 
   // Save notes for the currently selected project (called by HTML)
   saveSelectedProjectNotes(): void {
@@ -2923,11 +2867,10 @@ private async drawAssetImageInBox(
 
     this.data.updateLoadDevProject({
       ...this.selectedProject,
-     notes: notes
+      notes: notes,
     });
 
-   this.postSaveMessage = 'Notes saved ✅';
-
+    this.postSaveMessage = 'Notes saved ✅';
 
     setTimeout(() => (this.postSaveMessage = null), 2000);
 
@@ -2936,9 +2879,9 @@ private async drawAssetImageInBox(
 
     this.refreshSelectedProject();
   }
- 
+
   // ---------- loading ----------
-    onRiflePicked(id: number | null): void {
+  onRiflePicked(id: number | null): void {
     this.selectedRifleId = id;
     this.onRifleChange();
   }
@@ -2996,10 +2939,61 @@ private async drawAssetImageInBox(
     // Cleanup legacy “ghost” load developments (empty projects with names left behind)
     this.data.pruneEmptyLoadDevProjects();
     this.projects = this.data.getLoadDevProjectsForRifle(this.selectedRifleId);
+    // ✅ Hydrate legacy projects: if summary fields are empty on the project,
+    // try to pull them from the first entry (older data stored these per-entry).
+    for (const p of this.projects) {
+      const ap: any = p as any;
+      const entries: any[] = (ap.entries || []) as any[];
+
+      if (!entries.length) continue;
+
+      const firstWithData =
+        entries.find(
+          (e) =>
+            e &&
+            (e.powder ||
+              e.bullet ||
+              e.bulletWeightGr != null ||
+              e.oal != null ||
+              e.oalOgive != null),
+        ) || entries[0];
+
+      if (!firstWithData) continue;
+
+      let changed = false;
+
+      if ((!ap.powder || ap.powder === '—') && firstWithData.powder) {
+        ap.powder = String(firstWithData.powder);
+        changed = true;
+      }
+      if ((!ap.bullet || ap.bullet === '—') && firstWithData.bullet) {
+        ap.bullet = String(firstWithData.bullet);
+        changed = true;
+      }
+      if (ap.bulletWeightGr == null && firstWithData.bulletWeightGr != null) {
+        ap.bulletWeightGr = Number(firstWithData.bulletWeightGr);
+        changed = true;
+      }
+      if (ap.oal == null && firstWithData.oal != null) {
+        ap.oal = Number(firstWithData.oal);
+        changed = true;
+      }
+      if (ap.oalOgive == null && firstWithData.oalOgive != null) {
+        ap.oalOgive = Number(firstWithData.oalOgive);
+        changed = true;
+      }
+      if ((!ap.oalUnit || ap.oalUnit === 'mm') && firstWithData.oalUnit) {
+        ap.oalUnit = String(firstWithData.oalUnit);
+        changed = true;
+      }
+
+      if (changed) {
+        this.data.updateLoadDevProject(p);
+      }
+    }
 
     if (this.selectedProjectId != null) {
-      this.selectedProject =
-        this.projects.find(p => p.id === this.selectedProjectId) ?? null;
+      this.selectedProject = this.projects.find((p) => p.id === this.selectedProjectId) ?? null;
       if (!this.selectedProject) {
         this.selectedProjectId = null;
       }
@@ -3028,8 +3022,7 @@ private async drawAssetImageInBox(
     if (!this.selectedRifleId || !this.selectedProjectId) return;
 
     this.projects = this.data.getLoadDevProjectsForRifle(this.selectedRifleId);
-    this.selectedProject =
-      this.projects.find(p => p.id === this.selectedProjectId) ?? null;
+    this.selectedProject = this.projects.find((p) => p.id === this.selectedProjectId) ?? null;
     // Always resync previews after refresh (prevents "photo disappeared" after navigation)
     if (this.selectedProject) {
       this.syncTargetPhotoFromProject();
@@ -3042,8 +3035,9 @@ private async drawAssetImageInBox(
     this.updateHasResultsFlag();
     this.rebuildGraphData();
     if (!this.graphCoords.length && !this.ocwShotPoints.length) this.showGraph = false;
-  }  onProjectSelectChange(): void {
-        this.projectPickerOpen = false;
+  }
+  onProjectSelectChange(): void {
+    this.projectPickerOpen = false;
 
     if (this.selectedProjectId == null) {
       this.selectedProject = null;
@@ -3059,13 +3053,11 @@ private async drawAssetImageInBox(
       return;
     }
 
-    this.selectedProject =
-      this.projects.find(p => p.id === this.selectedProjectId) ?? null;
+    this.selectedProject = this.projects.find((p) => p.id === this.selectedProjectId) ?? null;
 
     this.projectFormVisible = false;
     this.resultsCollapsed = false;
-        this.howToExpanded = false;
-
+    this.howToExpanded = false;
 
     this.syncTargetPhotoFromProject();
     this.syncVoiceNoteFromProject();
@@ -3078,8 +3070,6 @@ private async drawAssetImageInBox(
 
     this.resetWizard();
   }
-
-
 
   openSelectedProject(): void {
     if (!this.selectedProjectId) {
@@ -3102,8 +3092,8 @@ private async drawAssetImageInBox(
 
   toggleResultsCollapsed(): void {
     this.resultsCollapsed = !this.resultsCollapsed;
-      }
-      toggleHowToHint(): void {
+  }
+  toggleHowToHint(): void {
     this.howToExpanded = !this.howToExpanded;
   }
 
@@ -3116,10 +3106,8 @@ private async drawAssetImageInBox(
       if (!p.entries) continue;
       for (const e of p.entries) {
         const any = e as any;
-        if (typeof any.powder === 'string' && any.powder.trim())
-          powders.add(any.powder.trim());
-        if (typeof any.bullet === 'string' && any.bullet.trim())
-          bullets.add(any.bullet.trim());
+        if (typeof any.powder === 'string' && any.powder.trim()) powders.add(any.powder.trim());
+        if (typeof any.bullet === 'string' && any.bullet.trim()) bullets.add(any.bullet.trim());
       }
     }
 
@@ -3140,10 +3128,10 @@ private async drawAssetImageInBox(
       return;
     }
 
-    this.filteredProjects = this.projects.filter(p => {
+    this.filteredProjects = this.projects.filter((p) => {
       if (!p.entries || !p.entries.length) return false;
 
-      return p.entries.some(e => {
+      return p.entries.some((e) => {
         const any = e as any;
         const ePowder = any.powder?.toString().trim() || '';
         const eBullet = any.bullet?.toString().trim() || '';
@@ -3200,57 +3188,54 @@ private async drawAssetImageInBox(
 
     this.showNotesPanel = false;
   }
-// ---------- Media helpers (Photo / future Audio) ----------
-photoViewerOpen = false;
-photoViewerUrl: string | null = null;
+  // ---------- Media helpers (Photo / future Audio) ----------
+  photoViewerOpen = false;
+  photoViewerUrl: string | null = null;
 
-// Step 1: auto-scale pixels-per-1cm for grid overlay
-gridPxPerCm: number | null = null;
+  // Step 1: auto-scale pixels-per-1cm for grid overlay
+  gridPxPerCm: number | null = null;
 
-get gridOverlayStyle(): any {
-  if (!this.gridPxPerCm) return null;
+  get gridOverlayStyle(): any {
+    if (!this.gridPxPerCm) return null;
 
-  const p = this.gridPxPerCm;
-  const p5 = this.gridPxPerCm * 5;
+    const p = this.gridPxPerCm;
+    const p5 = this.gridPxPerCm * 5;
 
-  return {
-    'background-image':
-      'linear-gradient(to right, rgba(255,255,255,0.18) 1px, transparent 1px),' +
-      'linear-gradient(to bottom, rgba(255,255,255,0.18) 1px, transparent 1px),' +
-      'linear-gradient(to right, rgba(255,255,255,0.30) 1px, transparent 1px),' +
-      'linear-gradient(to bottom, rgba(255,255,255,0.30) 1px, transparent 1px)',
-    'background-size':
-      `${p}px ${p}px, ${p}px ${p}px, ${p5}px ${p5}px, ${p5}px ${p5}px`,
-    'background-position': 'center',
-    'opacity': '0.9'
-  };
-}
+    return {
+      'background-image':
+        'linear-gradient(to right, rgba(255,255,255,0.18) 1px, transparent 1px),' +
+        'linear-gradient(to bottom, rgba(255,255,255,0.18) 1px, transparent 1px),' +
+        'linear-gradient(to right, rgba(255,255,255,0.30) 1px, transparent 1px),' +
+        'linear-gradient(to bottom, rgba(255,255,255,0.30) 1px, transparent 1px)',
+      'background-size': `${p}px ${p}px, ${p}px ${p}px, ${p5}px ${p5}px, ${p5}px ${p5}px`,
+      'background-position': 'center',
+      opacity: '0.9',
+    };
+  }
 
+  getProjectPhotoUrl(): string | null {
+    const p: any = this.selectedProject;
+    if (!p) return null;
 
+    // Project-level possibilities
+    return (
+      p?.targetPhoto?.dataUrl ?? // preferred structured shape
+      p?.targetPhotoDataUrl ?? // older direct dataUrl
+      p?.targetPhoto ?? // older direct dataUrl
+      null
+    );
+  }
 
-getProjectPhotoUrl(): string | null {
-  const p: any = this.selectedProject;
-  if (!p) return null;
+  hasProjectPhoto(): boolean {
+    return !!this.getProjectPhotoUrl();
+  }
 
-  // Project-level possibilities
-  return (
-    p?.targetPhoto?.dataUrl ??   // preferred structured shape
-    p?.targetPhotoDataUrl ??     // older direct dataUrl
-    p?.targetPhoto ??            // older direct dataUrl
-    null
-  );
-}
-
-hasProjectPhoto(): boolean {
-  return !!this.getProjectPhotoUrl();
-}
-
-openProjectPhoto(): void {
-  const url = this.getProjectPhotoUrl();
-  if (!url) return;
-  this.photoViewerUrl = url;
-  this.photoViewerOpen = true;
-}
+  openProjectPhoto(): void {
+    const url = this.getProjectPhotoUrl();
+    if (!url) return;
+    this.photoViewerUrl = url;
+    this.photoViewerOpen = true;
+  }
 
   private createLadderEntriesFromPlanner(projectId: number): void {
     const type = this.projectForm.type;
@@ -3258,9 +3243,8 @@ openProjectPhoto(): void {
 
     this.plannerError = null;
 
-    const { distanceM, startChargeGr, endChargeGr, stepGr, shotsPerGroup } =
-          this.planner;
-              // ✅ OCW: allow single-charge plan (start === end) by forcing Step = 0.0
+    const { distanceM, startChargeGr, endChargeGr, stepGr, shotsPerGroup } = this.planner;
+    // ✅ OCW: allow single-charge plan (start === end) by forcing Step = 0.0
     if (
       type === 'ocw' &&
       startChargeGr != null &&
@@ -3289,25 +3273,18 @@ openProjectPhoto(): void {
         groupSize: undefined,
         groupUnit: 'MOA',
         poiNote: undefined,
-        notes: undefined
+        notes: undefined,
       } as LoadDevEntry;
 
       this.data.updateLoadDevEntry(projectId, entry);
       return;
     }
 
-
-    if (
-      startChargeGr == null ||
-      endChargeGr == null ||
-            stepGr == null ||
-      stepGr <= 0
-    ) {
-      this.plannerError =
-        'Enter start, end and a positive step size for the charge ladder.';
+    if (startChargeGr == null || endChargeGr == null || stepGr == null || stepGr <= 0) {
+      this.plannerError = 'Enter start, end and a positive step size for the charge ladder.';
       return;
     }
-       // ✅ OCW: enforce 3–5 shots per group
+    // ✅ OCW: enforce 3–5 shots per group
     if (type === 'ocw') {
       const n = Number(shotsPerGroup ?? 0);
       if (!Number.isFinite(n) || n < 3 || n > 5) {
@@ -3317,8 +3294,6 @@ openProjectPhoto(): void {
     }
 
     if (endChargeGr < startChargeGr) {
-     
-
       this.plannerError = 'End charge must be greater than start charge.';
       return;
     }
@@ -3332,8 +3307,7 @@ openProjectPhoto(): void {
     }
 
     const dist = distanceM ?? undefined;
-    const defaultShots: number | undefined =
-      type === 'ocw' ? shotsPerGroup ?? undefined : 1;
+    const defaultShots: number | undefined = type === 'ocw' ? (shotsPerGroup ?? undefined) : 1;
 
     let charge = startChargeGr;
     let localId = 1;
@@ -3356,7 +3330,7 @@ openProjectPhoto(): void {
         groupSize: undefined,
         groupUnit: 'MOA',
         poiNote: undefined,
-        notes: undefined
+        notes: undefined,
       } as LoadDevEntry;
 
       this.data.updateLoadDevEntry(projectId, entry);
@@ -3366,83 +3340,78 @@ openProjectPhoto(): void {
 
   saveProject(): void {
     if (!this.selectedRifleId || !this.projectForm.name.trim()) {
-  alert('Please select rifle and enter a name for the load development.');
-  
-  return;
-}
+      alert('Please select rifle and enter a name for the load development.');
 
-const type: LoadDevType = (this.projectForm.type as LoadDevType) || 'ladder';
-this.postSaveMessage = null;
-// ✅ OCW: allow single-charge plan (start === end) → force Step = 0.0
-if (type === 'ocw') {
-  const { startChargeGr, endChargeGr } = this.planner;
-  if (
-    startChargeGr != null &&
-    endChargeGr != null &&
-    startChargeGr === endChargeGr
-  ) {
-    this.planner.stepGr = 0;
-    this.plannerStepText = '0.0';
-  }
-}
+      return;
+    }
 
-
-if (type === 'ocw') {
-  const n = Number(this.planner.shotsPerGroup ?? 0);
-  if (!Number.isFinite(n) || n < 3 || n > 5) {
-    alert('OCW requires 3 to 5 shots per group.');
-    return;
-  }
-}
-
-// ✅ ADD THIS GUARD (prevents empty ladder/ocw projects)
-if (type === 'ladder' || type === 'ocw') {
-  const { startChargeGr, endChargeGr, stepGr } = this.planner;
-
-  const isOcwSingleCharge =
-    type === 'ocw' &&
-    startChargeGr != null &&
-    endChargeGr != null &&
-    startChargeGr === endChargeGr;
-
-  if (
-    startChargeGr == null ||
-    endChargeGr == null ||
-    stepGr == null ||
-    (stepGr <= 0 && !isOcwSingleCharge)
-  ) {
-    alert('Please enter Start, End and a positive Step to plan the ladder/OCW charges.');
-    return;
-  }
-}
-
-if (type === 'ladder' || type === 'ocw') {
-  const { startChargeGr, endChargeGr } = this.planner;
-  if (startChargeGr != null && endChargeGr != null && endChargeGr < startChargeGr) {
-    alert('End charge must be greater than start charge.');
-    return;
-  }
-}
- 
+    const type: LoadDevType = (this.projectForm.type as LoadDevType) || 'ladder';
     this.postSaveMessage = null;
-    
+    // ✅ OCW: allow single-charge plan (start === end) → force Step = 0.0
+    if (type === 'ocw') {
+      const { startChargeGr, endChargeGr } = this.planner;
+      if (startChargeGr != null && endChargeGr != null && startChargeGr === endChargeGr) {
+        this.planner.stepGr = 0;
+        this.plannerStepText = '0.0';
+      }
+    }
+
+    if (type === 'ocw') {
+      const n = Number(this.planner.shotsPerGroup ?? 0);
+      if (!Number.isFinite(n) || n < 3 || n > 5) {
+        alert('OCW requires 3 to 5 shots per group.');
+        return;
+      }
+    }
+
+    // ✅ ADD THIS GUARD (prevents empty ladder/ocw projects)
+    if (type === 'ladder' || type === 'ocw') {
+      const { startChargeGr, endChargeGr, stepGr } = this.planner;
+
+      const isOcwSingleCharge =
+        type === 'ocw' &&
+        startChargeGr != null &&
+        endChargeGr != null &&
+        startChargeGr === endChargeGr;
+
+      if (
+        startChargeGr == null ||
+        endChargeGr == null ||
+        stepGr == null ||
+        (stepGr <= 0 && !isOcwSingleCharge)
+      ) {
+        alert('Please enter Start, End and a positive Step to plan the ladder/OCW charges.');
+        return;
+      }
+    }
+
+    if (type === 'ladder' || type === 'ocw') {
+      const { startChargeGr, endChargeGr } = this.planner;
+      if (startChargeGr != null && endChargeGr != null && endChargeGr < startChargeGr) {
+        alert('End charge must be greater than start charge.');
+        return;
+      }
+    }
+
+    this.postSaveMessage = null;
+
     if (this.editingProject) {
-           const updatedAny: any = {
+      const updatedAny: any = {
         ...this.editingProject,
         rifleId: this.selectedRifleId,
         name: this.projectForm.name.trim(),
         type,
         notes: this.projectForm.notes.trim(),
-                powder: this.projectForm.powder?.trim?.() || undefined,
+        powder: this.projectForm.powder?.trim?.() || undefined,
         bullet: this.projectForm.bullet?.trim?.() || undefined,
         bulletWeightGr: this.projectForm.bulletWeightGr ?? null,
 
         lands: (this.projectForm as any).lands ?? null,
         oal: this.projectForm.oal ?? null,
         oalOgive: (this.projectForm as any).oalOgive ?? null,
-                oalUnit: this.projectForm.oalUnit ?? this.data.getDefaultLoadDevOalUnit(),
+        oalUnit: this.projectForm.oalUnit ?? this.data.getDefaultLoadDevOalUnit(),
 
-        distanceM: (type === 'ladder' || type === 'ocw') ? (this.planner.distanceM ?? null) : null
+        distanceM: type === 'ladder' || type === 'ocw' ? (this.planner.distanceM ?? null) : null,
       };
       this.data.updateLoadDevProject(updatedAny as LoadDevProject);
       this.selectedProjectId = updatedAny.id;
@@ -3450,30 +3419,28 @@ if (type === 'ladder' || type === 'ocw') {
       this.postSaveMessage =
         'Load development updated. Use the wizard to enter velocities, view the graph and see the highlighted nodes.';
     } else {
-           const newProjectAny: any = {
+      const newProjectAny: any = {
         id: Date.now(),
         rifleId: this.selectedRifleId,
         name: this.projectForm.name.trim(),
         type,
         notes: this.projectForm.notes.trim() || undefined,
-                      powder: this.projectForm.powder?.trim?.() || undefined,
+        powder: this.projectForm.powder?.trim?.() || undefined,
         bullet: this.projectForm.bullet?.trim?.() || undefined,
         bulletWeightGr: this.projectForm.bulletWeightGr ?? null,
 
-
         dateStarted: new Date().toISOString(),
         entries: [],
-                lands: (this.projectForm as any).lands ?? null,
+        lands: (this.projectForm as any).lands ?? null,
 
         oal: this.projectForm.oal ?? null,
         oalOgive: (this.projectForm as any).oalOgive ?? null,
-                oalUnit: this.projectForm.oalUnit ?? this.data.getDefaultLoadDevOalUnit(),
+        oalUnit: this.projectForm.oalUnit ?? this.data.getDefaultLoadDevOalUnit(),
 
-        distanceM: (type === 'ladder' || type === 'ocw') ? (this.planner.distanceM ?? null) : null
+        distanceM: type === 'ladder' || type === 'ocw' ? (this.planner.distanceM ?? null) : null,
       };
       this.data.updateLoadDevProject(newProjectAny as LoadDevProject);
       this.selectedProjectId = newProjectAny.id;
-
 
       this.createLadderEntriesFromPlanner(newProjectAny.id);
       this.data.createSessionForLoadDevProject(newProjectAny);
@@ -3502,9 +3469,8 @@ if (type === 'ladder' || type === 'ocw') {
     if (!confirm(`Delete project "${project.name}"?`)) return;
 
     this.data.deleteLoadDevProject(project.id);
-        // Safety: remove any legacy/ghost projects that are now empty
+    // Safety: remove any legacy/ghost projects that are now empty
     this.data.pruneEmptyLoadDevProjects();
-
 
     if (this.selectedProjectId === project.id) {
       this.selectedProject = null;
@@ -3520,7 +3486,6 @@ if (type === 'ladder' || type === 'ocw') {
     if (typeof any.groupSize !== 'number' || !isFinite(any.groupSize)) return '—';
     const unit = (any.groupUnit as string) || 'MOA';
     return `${any.groupSize.toFixed(2)} ${unit}`;
-    
   }
 
   // ---------- entry CRUD ----------
@@ -3554,7 +3519,7 @@ if (type === 'ladder' || type === 'ocw') {
       groupUnit: (any.groupUnit as GroupSizeUnit) ?? 'MOA',
       velocityInput: any.velocityInput ?? '',
       poiNote: any.poiNote ?? '',
-      notes: any.notes ?? ''
+      notes: any.notes ?? '',
     };
   }
 
@@ -3573,7 +3538,7 @@ if (type === 'ladder' || type === 'ocw') {
       return;
     }
 
-    const payload: (Partial<LoadDevEntry> & { velocityInput?: string }) = {
+    const payload: Partial<LoadDevEntry> & { velocityInput?: string } = {
       loadLabel: f.loadLabel.trim() || undefined,
       powder: f.powder.trim() || undefined,
       chargeGr: f.chargeGr,
@@ -3588,7 +3553,7 @@ if (type === 'ladder' || type === 'ocw') {
       groupUnit: f.groupUnit ?? 'MOA',
       poiNote: f.poiNote.trim() || undefined,
       notes: f.notes.trim() || undefined,
-      velocityInput: f.velocityInput.trim() || undefined
+      velocityInput: f.velocityInput.trim() || undefined,
     };
 
     if (this.editingEntry) {
@@ -3596,7 +3561,7 @@ if (type === 'ladder' || type === 'ocw') {
       this.data.updateLoadDevEntry(this.selectedProject.id, updated);
     } else {
       const existing = this.selectedProject.entries ?? [];
-      const newId = existing.length ? Math.max(...existing.map(x => x.id)) + 1 : 1;
+      const newId = existing.length ? Math.max(...existing.map((x) => x.id)) + 1 : 1;
       const newEntry: LoadDevEntry = { id: newId, ...payload } as LoadDevEntry;
       this.data.updateLoadDevEntry(this.selectedProject.id, newEntry);
     }
@@ -3615,7 +3580,6 @@ if (type === 'ladder' || type === 'ocw') {
   }
   // Removed duplicate implementation of rebuildVisibleEntries()
   entriesForSelectedProject(): LoadDevEntry[] {
-   
     if (!this.selectedProject) return [];
     const list = [...(this.selectedProject.entries ?? [])];
 
@@ -3651,8 +3615,8 @@ if (type === 'ladder' || type === 'ocw') {
     const fmt = (n: number) => (Number.isInteger(n) ? n.toFixed(0) : n.toFixed(1));
     return `${fmt(min)} – ${fmt(max)} gr`;
   }
-    
-    // ---------- Lands / Ogive helper (project form) ----------
+
+  // ---------- Lands / Ogive helper (project form) ----------
   landsMinusOgive(): number | null {
     const lands = (this.projectForm as any)?.lands as number | null | undefined;
     const ogive = (this.projectForm as any)?.oalOgive as number | null | undefined;
@@ -3675,24 +3639,23 @@ if (type === 'ladder' || type === 'ocw') {
   // 1) decimal space => dot (only when the fractional part is 1 digit)
 
   // ---------- velocity stats & parsing ----------
-    private parseVelocityInput(raw: string | undefined | null): number[] {
+  private parseVelocityInput(raw: string | undefined | null): number[] {
     if (!raw) return [];
-   
-        // Accept decimal comma (e.g. "2769,5") by converting it to decimal dot first.
+
+    // Accept decimal comma (e.g. "2769,5") by converting it to decimal dot first.
     // Accept decimal space (e.g. "2769 5" or "64 6") some Android keypads emit.
     // After that, remaining commas act as normal separators.
-   
+
     const normalized = raw
-    // 1) decimal space => dot (only when the fractional part is 1 digit)
+      // 1) decimal space => dot (only when the fractional part is 1 digit)
       .replace(/(\d)[\u00A0\s]+(\d)(?=\D|$)/g, '$1.$2')
       // 2) decimal comma => dot
       .replace(/(\d),(\d)/g, '$1.$2');
 
     return normalized
       .split(/[\s,;]+/)
-      .map(x => Number(x))
-      .filter(v => Number.isFinite(v));
-
+      .map((x) => Number(x))
+      .filter((v) => Number.isFinite(v));
   }
 
   // only fixes obvious paste duplication like "a b c a b c"
@@ -3723,7 +3686,7 @@ if (type === 'ladder' || type === 'ocw') {
     return values;
   }
 
-   statsForEntry(entry: LoadDevEntry): VelocityStats | null {
+  statsForEntry(entry: LoadDevEntry): VelocityStats | null {
     const id = this.entryIdOf(entry);
     if (id != null && this.statsCache.has(id)) return this.statsCache.get(id)!;
 
@@ -3734,7 +3697,6 @@ if (type === 'ladder' || type === 'ocw') {
     if (id != null) this.statsCache.set(id, stats);
     return stats;
   }
-
 
   private computeVelocityStats(values: number[]): VelocityStats | null {
     if (!values.length) return null;
@@ -3757,10 +3719,7 @@ if (type === 'ladder' || type === 'ocw') {
       if (sdCache.has(key)) return sdCache.get(key)!;
 
       const s = this.statsForEntry(e)?.sd;
-      const v =
-        typeof s === 'number' && isFinite(s)
-          ? s
-          : Number.POSITIVE_INFINITY;
+      const v = typeof s === 'number' && isFinite(s) ? s : Number.POSITIVE_INFINITY;
 
       sdCache.set(key, v);
       return v;
@@ -3781,20 +3740,19 @@ if (type === 'ladder' || type === 'ocw') {
     });
   }
 
-    ocwRankForEntry(entry: LoadDevEntry): 'best' | 'second' | 'third' | null {
-  if (!this.selectedProject || this.selectedProject.type !== 'ocw') return null;
+  ocwRankForEntry(entry: LoadDevEntry): 'best' | 'second' | 'third' | null {
+    if (!this.selectedProject || this.selectedProject.type !== 'ocw') return null;
 
-  const id = this.entryIdOf(entry);
-  if (id == null) return null;
+    const id = this.entryIdOf(entry);
+    if (id == null) return null;
 
-  return this.ocwRankCache.get(id) ?? null;
-}
+    return this.ocwRankCache.get(id) ?? null;
+  }
 
-
- ocwBestEntryId(): number | null {
-  if (!this.selectedProject || this.selectedProject.type !== 'ocw') return null;
-  return this.ocwBestIdCache ?? null;
-}
+  ocwBestEntryId(): number | null {
+    if (!this.selectedProject || this.selectedProject.type !== 'ocw') return null;
+    return this.ocwBestIdCache ?? null;
+  }
 
   isOcwBestEntryId(entryId: number): boolean {
     const best = this.ocwBestEntryId();
@@ -3802,141 +3760,136 @@ if (type === 'ladder' || type === 'ocw') {
   }
 
   ocwSdCssClass(entry: LoadDevEntry): string {
-
     const r = this.ocwRankForEntry(entry);
 
     if (r === 'best') return 'bg-emerald-900/30 ring-1 ring-emerald-500/50';
     if (r === 'second') return 'bg-amber-900/25 ring-1 ring-amber-500/40';
     if (r === 'third') return 'bg-rose-900/25 ring-1 ring-rose-500/40';
     return '';
-
   }
 
-// ===============================
-// LADDER: node band classification
+  // ===============================
+  // LADDER: node band classification
 
-// ===============================
+  // ===============================
 
-/**
- * Estimate the ladder step (charge increment) by looking at the smallest
- * non-zero delta between sorted charge weights.
- */
-private estimateLadderStepGr(entries: LoadDevEntry[]): number | null {
-  const sorted = [...entries]
-    .filter(e => typeof e.chargeGr === 'number')
-    .sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
+  /**
+   * Estimate the ladder step (charge increment) by looking at the smallest
+   * non-zero delta between sorted charge weights.
+   */
+  private estimateLadderStepGr(entries: LoadDevEntry[]): number | null {
+    const sorted = [...entries]
+      .filter((e) => typeof e.chargeGr === 'number')
+      .sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
 
-  if (sorted.length < 2) return null;
+    if (sorted.length < 2) return null;
 
-  const deltas: number[] = [];
-  for (let i = 1; i < sorted.length; i++) {
-    const prev = sorted[i - 1].chargeGr ?? 0;
-    const cur = sorted[i].chargeGr ?? 0;
-    const d = +(cur - prev).toFixed(3);
-    if (d > 0) deltas.push(d);
-  }
-
-  if (!deltas.length) return null;
-  return Math.min(...deltas);
-}
-
-/**
- * Node band rule:
- * - If step is about 0.2gr => need 3 consecutive charges in a "flat spot"
- * - If step is about 0.3gr (or larger) => need 2 consecutive
- *
- * "Flat spot" here = within-window velocity RANGE <= 10 fps (max - min <= 10).
- */
-private ladderNodeWindowSize(sorted: LoadDevEntry[]): number {
-  const step = this.estimateLadderStepGr(sorted);
-
-  // Default to 3 if we cannot estimate.
-  if (step == null) return 3;
-
-  // If step is around 0.30 or bigger -> 2-shot node; else -> 3-shot node
-  return step >= 0.29 ? 2 : 3;
-}
-
-private ladderIsInNodeBand(entry: LoadDevEntry): boolean {
-  const entries = this.entriesForSelectedProject?.() ?? [];
-  if (!entries.length) return false;
-
-  // Only applies to ladder projects
-  if (this.selectedProject?.type !== 'ladder') return false;
-
-  // Sort by charge low -> high
-  const sorted = [...entries].sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
-  const k = this.ladderNodeWindowSize(sorted);
-
-  // Collect velocities (avg) per entry
-  const vels = sorted.map(e => {
-    const s = this.statsForEntry(e);
-    const v = s?.avg;
-    return typeof v === 'number' && isFinite(v) ? v : null;
-  });
-
-  // Mark indices that belong to any qualifying window
-  const inBand = new Array(sorted.length).fill(false);
-
-  // Need at least k valid velocities in a window
-  for (let i = 0; i <= sorted.length - k; i++) {
-    const window = vels.slice(i, i + k);
-    if (window.some(v => v == null)) continue;
-
-    const nums = window as number[];
-    const vMin = Math.min(...nums);
-    const vMax = Math.max(...nums);
-
-       if ((vMax - vMin) <= this.LADDER_NODE_MAX_VEL_RANGE_FPS) {
-      for (let j = i; j < i + k; j++) inBand[j] = true;
+    const deltas: number[] = [];
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1].chargeGr ?? 0;
+      const cur = sorted[i].chargeGr ?? 0;
+      const d = +(cur - prev).toFixed(3);
+      if (d > 0) deltas.push(d);
     }
+
+    if (!deltas.length) return null;
+    return Math.min(...deltas);
   }
 
-  // Find current entry index (prefer id match if present)
-  const anyEntry = entry as any;
-  const entryId = anyEntry?.id ?? null;
+  /**
+   * Node band rule:
+   * - If step is about 0.2gr => need 3 consecutive charges in a "flat spot"
+   * - If step is about 0.3gr (or larger) => need 2 consecutive
+   *
+   * "Flat spot" here = within-window velocity RANGE <= 10 fps (max - min <= 10).
+   */
+  private ladderNodeWindowSize(sorted: LoadDevEntry[]): number {
+    const step = this.estimateLadderStepGr(sorted);
 
-  let idx = -1;
-  if (entryId != null) {
-    idx = sorted.findIndex(e => (e as any)?.id === entryId);
+    // Default to 3 if we cannot estimate.
+    if (step == null) return 3;
+
+    // If step is around 0.30 or bigger -> 2-shot node; else -> 3-shot node
+    return step >= 0.29 ? 2 : 3;
   }
-  if (idx < 0) {
-    // fallback match by charge
-    idx = sorted.findIndex(e => (e.chargeGr ?? null) === (entry.chargeGr ?? null));
+
+  private ladderIsInNodeBand(entry: LoadDevEntry): boolean {
+    const entries = this.entriesForSelectedProject?.() ?? [];
+    if (!entries.length) return false;
+
+    // Only applies to ladder projects
+    if (this.selectedProject?.type !== 'ladder') return false;
+
+    // Sort by charge low -> high
+    const sorted = [...entries].sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
+    const k = this.ladderNodeWindowSize(sorted);
+
+    // Collect velocities (avg) per entry
+    const vels = sorted.map((e) => {
+      const s = this.statsForEntry(e);
+      const v = s?.avg;
+      return typeof v === 'number' && isFinite(v) ? v : null;
+    });
+
+    // Mark indices that belong to any qualifying window
+    const inBand = new Array(sorted.length).fill(false);
+
+    // Need at least k valid velocities in a window
+    for (let i = 0; i <= sorted.length - k; i++) {
+      const window = vels.slice(i, i + k);
+      if (window.some((v) => v == null)) continue;
+
+      const nums = window as number[];
+      const vMin = Math.min(...nums);
+      const vMax = Math.max(...nums);
+
+      if (vMax - vMin <= this.LADDER_NODE_MAX_VEL_RANGE_FPS) {
+        for (let j = i; j < i + k; j++) inBand[j] = true;
+      }
+    }
+
+    // Find current entry index (prefer id match if present)
+    const anyEntry = entry as any;
+    const entryId = anyEntry?.id ?? null;
+
+    let idx = -1;
+    if (entryId != null) {
+      idx = sorted.findIndex((e) => (e as any)?.id === entryId);
+    }
+    if (idx < 0) {
+      // fallback match by charge
+      idx = sorted.findIndex((e) => (e.chargeGr ?? null) === (entry.chargeGr ?? null));
+    }
+
+    if (idx < 0) return false;
+    return inBand[idx] === true;
   }
 
-  if (idx < 0) return false;
-  return inBand[idx] === true;
-}
+  /** CSS class used by the ladder table row: called by the template. */
+  nodeCssClass(entry: LoadDevEntry): string {
+    if (this.selectedProject?.type !== 'ladder') return '';
 
-/** CSS class used by the ladder table row: called by the template. */
-nodeCssClass(entry: LoadDevEntry): string {
-  if (this.selectedProject?.type !== 'ladder') return '';
+    return this.isLadderNode(entry) ? 'bg-emerald-500/10 border-l-2 border-emerald-400' : '';
+  }
 
-  return this.isLadderNode(entry)
-    ? 'bg-emerald-500/10 border-l-2 border-emerald-400'
-    : '';
-}
+  /** Used by your wizard guard; returns true if every ladder step has a velocity. */
+  allEntriesHaveVelocity(): boolean {
+    const entries = this.entriesForSelectedProject?.() ?? [];
+    if (!entries.length) return false;
 
-/** Used by your wizard guard; returns true if every ladder step has a velocity. */
-allEntriesHaveVelocity(): boolean {
-  const entries = this.entriesForSelectedProject?.() ?? [];
-  if (!entries.length) return false;
+    return entries.every((e) => {
+      const s = this.statsForEntry(e);
+      return typeof s?.avg === 'number' && isFinite(s.avg);
+    });
+  }
 
-  return entries.every(e => {
-    const s = this.statsForEntry(e);
-    return typeof s?.avg === 'number' && isFinite(s.avg);
-  });
-}
-
-  
   // ---- OCW shot plotting + group ellipses (ALL SHOTS) ----
   private buildOcwShotAndGroupGeometry(entries: LoadDevEntry[]): void {
     this.ocwShotPoints = [];
     this.ocwGroupEllipses = [];
 
     const groups: { entryId: number; charge: number; velocities: number[] }[] = [];
-      let shownRows = 0;
+    let shownRows = 0;
 
     for (const e of entries) {
       const charge = e.chargeGr;
@@ -3951,13 +3904,13 @@ allEntriesHaveVelocity(): boolean {
       groups.push({
         entryId: (e as any).id ?? 0,
         charge,
-        velocities: cleaned
+        velocities: cleaned,
       });
     }
 
     if (!groups.length) return;
 
-    const charges = groups.map(g => g.charge);
+    const charges = groups.map((g) => g.charge);
     const minX = Math.min(...charges);
     const maxX = Math.max(...charges);
 
@@ -3976,11 +3929,9 @@ allEntriesHaveVelocity(): boolean {
     const yTop = 8;
     const yBot = 56;
 
-    const sx = (charge: number) =>
-      x0 + ((charge - minX) / (maxX - minX || 1)) * (x1 - x0);
+    const sx = (charge: number) => x0 + ((charge - minX) / (maxX - minX || 1)) * (x1 - x0);
 
-    const sy = (v: number) =>
-      yBot - ((v - minV) / (maxV - minV || 1)) * (yBot - yTop);
+    const sy = (v: number) => yBot - ((v - minV) / (maxV - minV || 1)) * (yBot - yTop);
 
     const pts: OcwShotPoint[] = [];
     for (const g of groups) {
@@ -3999,7 +3950,7 @@ allEntriesHaveVelocity(): boolean {
           charge: g.charge,
           v,
           entryId: g.entryId,
-          shotIndex: i
+          shotIndex: i,
         });
       }
     }
@@ -4008,10 +3959,13 @@ allEntriesHaveVelocity(): boolean {
 
     const ellipses: OcwGroupEllipse[] = [];
     for (const g of groups) {
-      const gPts = pts.filter(p => p.entryId === g.entryId);
+      const gPts = pts.filter((p) => p.entryId === g.entryId);
       if (!gPts.length) continue;
 
-      let minPx = gPts[0].x, maxPx = gPts[0].x, minPy = gPts[0].y, maxPy = gPts[0].y;
+      let minPx = gPts[0].x,
+        maxPx = gPts[0].x,
+        minPy = gPts[0].y,
+        maxPy = gPts[0].y;
       for (const p of gPts) {
         if (p.x < minPx) minPx = p.x;
         if (p.x > maxPx) maxPx = p.x;
@@ -4033,7 +3987,7 @@ allEntriesHaveVelocity(): boolean {
         rx,
         ry,
         charge: g.charge,
-        entryId: g.entryId
+        entryId: g.entryId,
       });
     }
 
@@ -4043,7 +3997,7 @@ allEntriesHaveVelocity(): boolean {
   private rebuildGraphData(): void {
     this.graphCoords = [];
     this.graphSvgPoints = '';
-        this.graphChargeLabels = [];
+    this.graphChargeLabels = [];
     this.graphMinVel = 0;
     this.graphMaxVel = 0;
 
@@ -4081,7 +4035,7 @@ allEntriesHaveVelocity(): boolean {
       const n = pts.length;
       const span = this.graphMaxVel - this.graphMinVel || 1;
 
-            const coords: {
+      const coords: {
         x: number;
         y: number;
         charge: number;
@@ -4096,7 +4050,7 @@ allEntriesHaveVelocity(): boolean {
         const p = pts[i];
         const x = n === 1 ? 50 : (i / (n - 1)) * 100;
         const y = 55 - ((p.avg - this.graphMinVel) / span) * 45;
-                const dx = n === 1 ? 100 : 100 / (n - 1);
+        const dx = n === 1 ? 100 : 100 / (n - 1);
         const compact = dx < 9;
         const tiny = dx < 6;
         const labelFontSize = tiny ? 2.4 : dx < 8 ? 2.6 : 3;
@@ -4125,15 +4079,13 @@ allEntriesHaveVelocity(): boolean {
           labelX,
           labelY,
           labelAnchor,
-          labelFontSize
+          labelFontSize,
         });
-
       }
 
       this.graphCoords = coords;
-      this.graphSvgPoints = coords.map(c => `${c.x},${c.y}`).join(' ');
-            this.graphChargeLabels = this.buildGraphChargeLabels(coords, 6);
-
+      this.graphSvgPoints = coords.map((c) => `${c.x},${c.y}`).join(' ');
+      this.graphChargeLabels = this.buildGraphChargeLabels(coords, 6);
     }
 
     if (this.selectedProject.type === 'ocw') {
@@ -4143,7 +4095,7 @@ allEntriesHaveVelocity(): boolean {
   }
   private buildGraphChargeLabels(
     coords: { x: number; charge: number }[],
-    minGap: number = 6
+    minGap: number = 6,
   ): { x: number; charge: number }[] {
     if (!coords || coords.length === 0) return [];
 
@@ -4208,7 +4160,7 @@ allEntriesHaveVelocity(): boolean {
     }
 
     const entries = [...(this.selectedProject.entries ?? [])].sort(
-      (a, b) => (a.chargeGr ?? 9999) - (b.chargeGr ?? 9999)
+      (a, b) => (a.chargeGr ?? 9999) - (b.chargeGr ?? 9999),
     );
 
     if (!entries.length) {
@@ -4217,13 +4169,13 @@ allEntriesHaveVelocity(): boolean {
     }
 
     this.ladderWizardEntries = entries;
-    const firstMissing = entries.findIndex(e => {
-  const any = e as any;
-  const vals = this.parseVelocityInput(any.velocityInput);
-  return !vals || vals.length === 0;
-});
+    const firstMissing = entries.findIndex((e) => {
+      const any = e as any;
+      const vals = this.parseVelocityInput(any.velocityInput);
+      return !vals || vals.length === 0;
+    });
 
-this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
+    this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
 
     this.ladderWizardActive = true;
 
@@ -4267,10 +4219,10 @@ this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
     }
 
     const sorted = [...(this.selectedProject.entries ?? [])].sort(
-      (a, b) => (a.chargeGr ?? 9999) - (b.chargeGr ?? 9999)
+      (a, b) => (a.chargeGr ?? 9999) - (b.chargeGr ?? 9999),
     );
 
-    const currentIndex = sorted.findIndex(e => e.id === this.velocityEditEntry!.id);
+    const currentIndex = sorted.findIndex((e) => e.id === this.velocityEditEntry!.id);
 
     if (currentIndex < 0 || currentIndex + 1 >= sorted.length) {
       this.finishLadderWizard(true);
@@ -4307,7 +4259,7 @@ this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
 
         if (plannedShots && values.length !== plannedShots) {
           alert(
-            `You planned ${plannedShots} shots for this charge. Enter exactly ${plannedShots} velocities, or leave the field blank and press Skip if you have not shot this group yet.`
+            `You planned ${plannedShots} shots for this charge. Enter exactly ${plannedShots} velocities, or leave the field blank and press Skip if you have not shot this group yet.`,
           );
           this.focusVelocityInput(true);
           return;
@@ -4370,7 +4322,7 @@ this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
     projectName: string,
     rifleName: string,
     plannedText: string,
-    shotText: string
+    shotText: string,
   ): number {
     let y = topMargin;
 
@@ -4491,7 +4443,7 @@ this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
       return;
     }
 
-    const entriesWithVel = project.entries.filter(e => {
+    const entriesWithVel = project.entries.filter((e) => {
       const any = e as any;
       const vals = this.parseVelocityInput(any.velocityInput);
       return vals.length > 0;
@@ -4519,7 +4471,7 @@ this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
   isProjectComplete(project: LoadDevProject): boolean {
     if (!project.entries || !project.entries.length) return false;
 
-    return project.entries.every(e => {
+    return project.entries.every((e) => {
       const any = e as any;
       const vals = this.parseVelocityInput(any.velocityInput);
       return vals.length > 0;
@@ -4558,7 +4510,7 @@ this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
 
     this.resetWizard();
   }
-    // ==========================================================
+  // ==========================================================
   // PHOTO STORAGE (Option A): Filesystem (Directory.Data)
   // - Persist photos to app folder so they never depend on localStorage quota
   // - Store only small "path" strings in the project/entry objects
@@ -4614,12 +4566,12 @@ this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
 
     // Legacy sources (what you had before)
     const legacyDataUrl =
-      (project?.targetPhotoDataUrl && String(project.targetPhotoDataUrl).startsWith('data:image/'))
+      project?.targetPhotoDataUrl && String(project.targetPhotoDataUrl).startsWith('data:image/')
         ? String(project.targetPhotoDataUrl)
         : null;
 
     const legacyBase64 =
-      (project?.targetPhotoBase64 && String(project.targetPhotoBase64).trim())
+      project?.targetPhotoBase64 && String(project.targetPhotoBase64).trim()
         ? `data:image/jpeg;base64,${String(project.targetPhotoBase64).trim()}`
         : null;
 
@@ -4636,9 +4588,15 @@ this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
     project.targetPhotoCapturedAt = project.targetPhotoCapturedAt ?? new Date().toISOString();
 
     // IMPORTANT: remove large legacy fields so localStorage stays tiny
-    try { delete project.targetPhotoBase64; } catch {}
-    try { delete project.targetPhotoDataUrl; } catch {}
-    try { delete project.targetPhoto; } catch {}
+    try {
+      delete project.targetPhotoBase64;
+    } catch {}
+    try {
+      delete project.targetPhotoDataUrl;
+    } catch {}
+    try {
+      delete project.targetPhoto;
+    } catch {}
 
     // Persist the updated project
     try {
@@ -4655,15 +4613,15 @@ this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
     if (tp.path) return;
 
     const legacyDataUrl =
-      (tp?.dataUrl && String(tp.dataUrl).startsWith('data:image/')) ? String(tp.dataUrl) : null;
+      tp?.dataUrl && String(tp.dataUrl).startsWith('data:image/') ? String(tp.dataUrl) : null;
 
     const legacyAnnotated =
-      (tp?.annotatedDataUrl && String(tp.annotatedDataUrl).startsWith('data:image/'))
+      tp?.annotatedDataUrl && String(tp.annotatedDataUrl).startsWith('data:image/')
         ? String(tp.annotatedDataUrl)
         : null;
 
     const legacyBase64 =
-      (anyE?.targetPhotoBase64 && String(anyE.targetPhotoBase64).trim())
+      anyE?.targetPhotoBase64 && String(anyE.targetPhotoBase64).trim()
         ? `data:image/jpeg;base64,${String(anyE.targetPhotoBase64).trim()}`
         : null;
 
@@ -4680,9 +4638,15 @@ this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
     tp.path = path;
 
     // Remove big legacy payloads
-    try { delete tp.dataUrl; } catch {}
-    try { delete tp.annotatedDataUrl; } catch {}
-    try { delete anyE.targetPhotoBase64; } catch {}
+    try {
+      delete tp.dataUrl;
+    } catch {}
+    try {
+      delete tp.annotatedDataUrl;
+    } catch {}
+    try {
+      delete anyE.targetPhotoBase64;
+    } catch {}
 
     // Persist entry
     try {
@@ -4697,7 +4661,7 @@ this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
     if (!p || !p.entries) return;
 
     const pid = Number(p.id ?? 0);
-    for (const e of (p.entries as LoadDevEntry[])) {
+    for (const e of p.entries as LoadDevEntry[]) {
       const anyE: any = e as any;
       const tp: any = anyE?.targetPhoto ?? null;
       if (tp?.path) {
@@ -4726,10 +4690,10 @@ this.ladderWizardIndex = firstMissing >= 0 ? firstMissing : 0;
     }
 
     // Legacy in-memory (should migrate away, but still supported)
-    if (tp.annotatedDataUrl && String(tp.annotatedDataUrl).startsWith('data:image/')) return String(tp.annotatedDataUrl);
+    if (tp.annotatedDataUrl && String(tp.annotatedDataUrl).startsWith('data:image/'))
+      return String(tp.annotatedDataUrl);
     if (tp.dataUrl && String(tp.dataUrl).startsWith('data:image/')) return String(tp.dataUrl);
 
     return null;
   }
-
 }
