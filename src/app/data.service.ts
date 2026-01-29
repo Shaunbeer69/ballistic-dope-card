@@ -153,6 +153,91 @@ export class DataService {
       console.error('saveStore failed:', err);
     }
   }
+  // ---------- Maintenance: Single rifle repair ----------
+  // Repairs only the chosen rifle record + its nested loads array (no global deletes).
+  maintenanceRepairSingleRifle(rifleId: number): { ok: boolean; report: string } {
+    const id = Number(rifleId);
+    const rifles: any[] = Array.isArray((this.store as any)?.rifles)
+      ? (this.store as any).rifles
+      : [];
+    const r = rifles.find((x: any) => Number(x?.id) === id);
+
+    if (!r) {
+      return { ok: false, report: `Repair failed: rifle id ${rifleId} not found.` };
+    }
+
+    const res = this.repairSingleRifleInPlace(r);
+
+    // Keep existing baseline behaviors stable:
+    // normalize + prune + save (this is already used elsewhere in your service).
+    try {
+      this.normalizeStore(this.store);
+    } catch (e) {
+      // normalize should never block repair; we still save what we fixed.
+      console.error('normalizeStore failed during maintenanceRepairSingleRifle:', e);
+    }
+
+    this.saveStore();
+
+    const lines: string[] = [];
+    lines.push('GS Dope Card — Single rifle repair');
+    lines.push('--------------------------------');
+    lines.push(`Rifle: ${String(r?.name ?? 'Unknown')} (id ${id})`);
+    lines.push(`Removed bad load entries: ${res.removedBadLoads}`);
+    lines.push(`Fixed inch COAL/Ogive values: ${res.fixedInchFields}`);
+    lines.push('Done.');
+
+    return { ok: true, report: lines.join('\n') };
+  }
+
+  private repairSingleRifleInPlace(rifle: any): {
+    fixedInchFields: number;
+    removedBadLoads: number;
+  } {
+    let fixedInchFields = 0;
+    let removedBadLoads = 0;
+
+    if (!rifle || typeof rifle !== 'object') {
+      return { fixedInchFields, removedBadLoads };
+    }
+
+    // Ensure loads is an array
+    if (rifle.loads == null) rifle.loads = [];
+    if (!Array.isArray(rifle.loads)) rifle.loads = [];
+
+    const loads: any[] = Array.isArray(rifle.loads) ? rifle.loads : [];
+
+    // Remove non-object load entries
+    const filtered: any[] = [];
+    for (const l of loads) {
+      if (!l || typeof l !== 'object') {
+        removedBadLoads++;
+        continue;
+      }
+      filtered.push(l);
+    }
+    if (filtered.length !== loads.length) rifle.loads = filtered;
+
+    // Fix inch values accidentally saved as thousandths (same idea as your existing inch normalizer)
+    for (const l of rifle.loads as any[]) {
+      const unit = String(l?.coalUnit ?? '').toLowerCase();
+      if (unit === 'in') {
+        const c = Number(l?.coal);
+        if (!Number.isNaN(c) && c > 50) {
+          l.coal = c / 1000;
+          fixedInchFields++;
+        }
+
+        const o = Number(l?.coalOgive);
+        if (!Number.isNaN(o) && o > 50) {
+          l.coalOgive = o / 1000;
+          fixedInchFields++;
+        }
+      }
+    }
+
+    return { fixedInchFields, removedBadLoads };
+  }
 
   // ---------- Import / Export helpers ----------
 
@@ -167,6 +252,7 @@ export class DataService {
       store: storeCopy,
     };
   }
+
   /**
    * Selective share export (for sending to other users).
    * Produces a smaller payload than full backup, and is meant for merge-import.

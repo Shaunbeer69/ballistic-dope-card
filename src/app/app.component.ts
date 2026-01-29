@@ -3363,6 +3363,20 @@ export class AppComponent implements OnInit {
   showMaintenanceModal = false;
   maintenanceBusy = false;
   maintenanceReport = '';
+  maintenanceSelectedRifleId: number | null = null;
+
+  // Maintenance: canonical rifle picker (repair single rifle)
+  maintenanceRiflePickerOpen = false;
+  maintenanceRiflePickerSearch = '';
+  maintenanceRiflePickerFiltered: any[] = [];
+
+  get maintenanceSelectedRifleName(): string | null {
+    const id =
+      this.maintenanceSelectedRifleId != null ? Number(this.maintenanceSelectedRifleId) : null;
+    if (id == null || Number.isNaN(id)) return null;
+    const r = (this.riflesOptions || []).find((x: any) => Number(x?.id) === id);
+    return r?.name ?? null;
+  }
 
   openMaintenanceModal(): void {
     this.showMaintenanceModal = true;
@@ -3377,6 +3391,74 @@ export class AppComponent implements OnInit {
     this.showMaintenanceModal = false;
     this.maintenanceBusy = false;
     this.maintenanceReport = '';
+
+    this.maintenanceRiflePickerOpen = false;
+    this.maintenanceRiflePickerSearch = '';
+    this.maintenanceRiflePickerFiltered = [];
+    this.maintenanceSelectedRifleId = null;
+  }
+
+  openMaintenanceRiflePicker(): void {
+    this.maintenanceRiflePickerOpen = true;
+    this.maintenanceRiflePickerSearch = '';
+    this.maintenanceRiflePickerFiltered = [...(this.riflesOptions || [])];
+  }
+
+  closeMaintenanceRiflePicker(): void {
+    this.maintenanceRiflePickerOpen = false;
+  }
+
+  clearMaintenanceRifleFromPicker(): void {
+    this.maintenanceSelectedRifleId = null;
+    this.maintenanceRiflePickerSearch = '';
+    this.maintenanceRiflePickerFiltered = [...(this.riflesOptions || [])];
+  }
+
+  onMaintenanceRiflePickerSearchChange(value: string): void {
+    const q = String(value ?? '')
+      .trim()
+      .toLowerCase();
+    const list = this.riflesOptions || [];
+    if (!q) {
+      this.maintenanceRiflePickerFiltered = [...list];
+      return;
+    }
+    this.maintenanceRiflePickerFiltered = list.filter((r: any) =>
+      String(r?.name ?? '')
+        .toLowerCase()
+        .includes(q),
+    );
+  }
+
+  selectMaintenanceRifleFromPicker(r: any): void {
+    const id = r?.id != null ? Number(r.id) : NaN;
+    if (Number.isNaN(id)) return;
+
+    this.maintenanceSelectedRifleId = id;
+    this.closeMaintenanceRiflePicker();
+
+    this.runMaintenanceRepairSelectedRifle();
+  }
+
+  runMaintenanceRepairSelectedRifle(): void {
+    const id =
+      this.maintenanceSelectedRifleId != null ? Number(this.maintenanceSelectedRifleId) : null;
+    if (id == null || Number.isNaN(id)) {
+      alert('Select a rifle first.');
+      return;
+    }
+
+    this.maintenanceBusy = true;
+    try {
+      const res = (this.dataService as any).maintenanceRepairSingleRifle?.(id);
+      this.maintenanceReport = res?.report ?? 'No report returned.';
+    } catch (err) {
+      console.error('Maintenance single rifle repair failed:', err);
+      this.maintenanceReport =
+        'Maintenance single rifle repair failed:\n' + ((err as any)?.message ?? String(err));
+    } finally {
+      this.maintenanceBusy = false;
+    }
   }
 
   runMaintenanceScan(): void {
