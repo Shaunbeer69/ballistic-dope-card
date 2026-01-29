@@ -8,8 +8,8 @@ android {
         applicationId "com.gunstuff.dopecard"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10725
-        versionName "1.0.725"
+        versionCode 10729
+        versionName "1.0.729"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

@@ -1510,9 +1510,11 @@
                   <div
                     *ngIf="showExportImportModal"
                     class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+                    (click)="closeExportImportModal()"
                   >
                     <div
                       class="w-full max-w-xs rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
+                      (click)="$event.stopPropagation()"
                     >
                       <div class="text-sm font-semibold">Backup and restore</div>
                       <div class="text-[11px] text-slate-300 mt-1 leading-snug">
@@ -1547,71 +1549,211 @@
                         <div class="text-[11px] leading-snug">Importing… please wait</div>
                       </div>
 
-                      <div class="mt-4 grid grid-cols-1 gap-2">
+                      <div class="mt-4 space-y-3 text-[11px]">
                         <!-- ROOT MENU -->
                         <ng-container *ngIf="exportMode === 'root'; else exportSubmenu">
+                          <!-- Backup -->
                           <button
                             type="button"
-                            class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
+                            class="w-full text-left rounded-xl border border-slate-700 bg-black/20 p-3 hover:bg-black/30 transition disabled:opacity-60 disabled:cursor-not-allowed"
                             (click)="openExportSubmenu()"
                             [disabled]="importBusy"
                           >
-                            Backup (Json)
+                            <div class="flex items-center justify-between gap-3">
+                              <div class="min-w-0">
+                                <div class="text-[12px] font-semibold text-emerald-200">
+                                  Backup (JSON)
+                                </div>
+                                <div class="text-[10px] text-slate-300 mt-0.5 leading-snug">
+                                  Save a full backup JSON file for safekeeping.
+                                </div>
+                              </div>
+
+                              <div
+                                class="shrink-0 h-9 w-9 rounded-lg border border-emerald-400/20 bg-emerald-500/10 flex items-center justify-center"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  class="w-5 h-5"
+                                >
+                                  <path
+                                    class="fill-emerald-300"
+                                    d="M12 3a1 1 0 011 1v8.59l2.3-2.3a1 1 0 111.4 1.42l-4.01 4a1 1 0 01-1.4 0l-4.01-4a1 1 0 111.4-1.42L11 12.59V4a1 1 0 011-1z"
+                                  />
+                                  <path
+                                    class="fill-emerald-300/70"
+                                    d="M5 19a1 1 0 011-1h12a1 1 0 110 2H6a1 1 0 01-1-1z"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
                           </button>
 
+                          <!-- Restore -->
                           <button
                             type="button"
-                            class="w-full py-2 rounded-xl bg-indigo-600/90 hover:bg-indigo-600 text-white text-sm"
+                            class="w-full text-left rounded-xl border border-slate-700 bg-black/20 p-3 hover:bg-black/30 transition disabled:opacity-60 disabled:cursor-not-allowed"
                             (click)="onChooseImport()"
                             [disabled]="importBusy"
                           >
-                            Restore (Json)
+                            <div class="flex items-center justify-between gap-3">
+                              <div class="min-w-0">
+                                <div class="text-[12px] font-semibold text-indigo-200">
+                                  Restore (JSON)
+                                </div>
+                                <div class="text-[10px] text-slate-300 mt-0.5 leading-snug">
+                                  Import a backup JSON file to restore your data.
+                                </div>
+                              </div>
+
+                              <div
+                                class="shrink-0 h-9 w-9 rounded-lg border border-indigo-400/20 bg-indigo-500/10 flex items-center justify-center"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  class="w-5 h-5"
+                                >
+                                  <path
+                                    class="fill-indigo-200"
+                                    d="M12 21a1 1 0 01-1-1v-8.59l-2.3 2.3a1 1 0 11-1.4-1.42l4.01-4a1 1 0 011.4 0l4.01 4a1 1 0 11-1.4 1.42L13 11.41V20a1 1 0 01-1 1z"
+                                  />
+                                  <path
+                                    class="fill-indigo-200/70"
+                                    d="M5 5a1 1 0 011-1h12a1 1 0 110 2H6a1 1 0 01-1-1z"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
                           </button>
 
+                          <!-- Import from another user (same handler for now) -->
                           <button
                             type="button"
-                            class="w-full py-2 rounded-xl bg-indigo-600/90 hover:bg-indigo-600 text-white text-sm"
+                            class="w-full text-left rounded-xl border border-slate-700 bg-black/20 p-3 hover:bg-black/30 transition disabled:opacity-60 disabled:cursor-not-allowed"
                             (click)="onChooseImport()"
                             [disabled]="importBusy"
                           >
-                            Import (File from another user)
+                            <div class="flex items-center justify-between gap-3">
+                              <div class="min-w-0">
+                                <div class="text-[12px] font-semibold text-slate-200">
+                                  Import (User file)
+                                </div>
+                                <div class="text-[10px] text-slate-300 mt-0.5 leading-snug">
+                                  Import a file shared by another user.
+                                </div>
+                              </div>
+
+                              <div
+                                class="shrink-0 h-9 w-9 rounded-lg border border-slate-400/20 bg-slate-500/10 flex items-center justify-center"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  class="w-5 h-5"
+                                >
+                                  <path
+                                    class="fill-slate-200"
+                                    d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h8l6 6v8a2 2 0 01-2 2ZM13 5v5h5"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
                           </button>
 
-                          <button
-                            type="button"
-                            class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
-                            (click)="closeExportImportModal()"
-                            [disabled]="importBusy"
-                          >
-                            Cancel
-                          </button>
+                          <!-- Cancel -->
+                          <div class="pt-1">
+                            <button
+                              type="button"
+                              class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                              (click)="closeExportImportModal()"
+                              [disabled]="importBusy"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </ng-container>
 
                         <!-- EXPORT SUBMENU -->
                         <ng-template #exportSubmenu>
                           <button
                             type="button"
-                            class="w-full py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-sm"
+                            class="w-full text-left rounded-xl border border-slate-700 bg-black/20 p-3 hover:bg-black/30 transition"
                             (click)="onExportSaveLocal()"
                           >
-                            Save to file (device)
+                            <div class="flex items-center justify-between gap-3">
+                              <div class="min-w-0">
+                                <div class="text-[12px] font-semibold text-emerald-200">
+                                  Save to file (device)
+                                </div>
+                                <div class="text-[10px] text-slate-300 mt-0.5 leading-snug">
+                                  Write a backup JSON file to your device storage.
+                                </div>
+                              </div>
+
+                              <div
+                                class="shrink-0 h-9 w-9 rounded-lg border border-emerald-400/20 bg-emerald-500/10 flex items-center justify-center"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  class="w-5 h-5"
+                                >
+                                  <path
+                                    class="fill-emerald-300"
+                                    d="M12 3a1 1 0 011 1v8.59l2.3-2.3a1 1 0 111.4 1.42l-4.01 4a1 1 0 01-1.4 0l-4.01-4a1 1 0 111.4-1.42L11 12.59V4a1 1 0 011-1z"
+                                  />
+                                  <path
+                                    class="fill-emerald-300/70"
+                                    d="M5 19a1 1 0 011-1h12a1 1 0 110 2H6a1 1 0 01-1-1z"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
                           </button>
 
                           <button
                             type="button"
-                            class="w-full py-2 rounded-xl bg-sky-600/90 hover:bg-sky-600 text-white text-sm"
+                            class="w-full text-left rounded-xl border border-slate-700 bg-black/20 p-3 hover:bg-black/30 transition"
                             (click)="onExportShare()"
                           >
-                            Share to app
+                            <div class="flex items-center justify-between gap-3">
+                              <div class="min-w-0">
+                                <div class="text-[12px] font-semibold text-sky-200">
+                                  Share to app
+                                </div>
+                                <div class="text-[10px] text-slate-300 mt-0.5 leading-snug">
+                                  Share the backup JSON to another app (WhatsApp/email/etc).
+                                </div>
+                              </div>
+
+                              <div
+                                class="shrink-0 h-9 w-9 rounded-lg border border-sky-400/20 bg-sky-500/10 flex items-center justify-center"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  class="w-5 h-5"
+                                >
+                                  <path
+                                    class="fill-sky-200"
+                                    d="M18 16a3 3 0 01-3 3H8l-4 3V6a3 3 0 013-3h8a3 3 0 013 3v10Z"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
                           </button>
 
-                          <button
-                            type="button"
-                            class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
-                            (click)="closeExportImportModal()"
-                          >
-                            Cancel
-                          </button>
+                          <div class="pt-1">
+                            <button
+                              type="button"
+                              class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
+                              (click)="closeExportImportModal()"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </ng-template>
                       </div>
                     </div>

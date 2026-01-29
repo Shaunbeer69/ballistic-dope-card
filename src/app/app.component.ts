@@ -2177,6 +2177,13 @@ export class AppComponent implements OnInit {
   }
 
   chooseDataShareMode(mode: 'export' | 'print'): void {
+    // ✅ For now: Print (PDF) is not implemented
+    if (mode === 'print') {
+      this.showDataShareChooserModal = false;
+      alert('Print (PDF) coming in next version.');
+      return;
+    }
+
     this.dataShareActionMode = mode;
     this.showDataShareChooserModal = false;
     this.openExportImportDataModal();
