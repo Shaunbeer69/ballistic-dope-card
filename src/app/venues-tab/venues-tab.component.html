@@ -361,6 +361,7 @@
   >
     <div class="flex items-center justify-between">
       <button
+        *ngIf="selectedVenue"
         type="button"
         class="px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold"
         (click)="exportSelectedVenuePdf()"
@@ -368,7 +369,7 @@
       >
         Export Venue Data
       </button>
-
+      <div *ngIf="!selectedVenue"></div>
       <button
         type="button"
         class="px-3 py-2 rounded-xl bg-orange-500 text-black text-xs"
