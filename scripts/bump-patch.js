@@ -5,15 +5,32 @@ const pkgPath = path.join(process.cwd(), "package.json");
 
 const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
 
-function bumpPatch(v) {
+function bumpVersion(v) {
   const parts = String(v || "0.0.0").split(".");
-  const a = parseInt(parts[0] || "0", 10);
-  const b = parseInt(parts[1] || "0", 10);
-  const c = parseInt(parts[2] || "0", 10) + 1;
-  return `${a}.${b}.${c}`;
+  let major = parseInt(parts[0] || "0", 10);
+  let minor = parseInt(parts[1] || "0", 10);
+  let patch = parseInt(parts[2] || "0", 10);
+
+  // increment patch
+  patch++;
+
+  // rollover patch → minor
+  if (patch >= 100) {
+    patch = 0;
+    minor++;
+  }
+
+  // rollover minor → major
+  if (minor >= 100) {
+    minor = 0;
+    major++;
+  }
+
+  return `${major}.${minor}.${patch}`;
 }
 
-pkg.version = bumpPatch(pkg.version);
+pkg.version = bumpVersion(pkg.version);
 
 fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf8");
+
 console.log("✅ package.json version bumped to:", pkg.version);
