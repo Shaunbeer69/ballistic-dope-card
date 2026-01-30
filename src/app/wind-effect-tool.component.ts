@@ -83,6 +83,7 @@ export class WindEffectToolComponent implements OnInit {
   kestrelData: KestrelDataSnapshot | null = null;
   shootingSolutionEnv: KestrelDataSnapshot | null = null;
   shootingSolutionAt: number | null = null;
+  shootingSolutionOpen = false;
 
   constructor(
     private data: DataService,
@@ -659,6 +660,7 @@ export class WindEffectToolComponent implements OnInit {
       // Store snapshot for future Shooting Solution
       this.shootingSolutionEnv = snap;
       this.shootingSolutionAt = Date.now();
+      this.shootingSolutionOpen = true;
 
       this.applyKestrelSnapshotToWind(snap as any);
     } catch (err) {
@@ -669,30 +671,33 @@ export class WindEffectToolComponent implements OnInit {
   private applyKestrelSnapshotToWind(snap: any): void {
     if (!snap) return;
 
-    // Wind speed (prefer m/s → km/h if that’s what your UI expects later; for now keep it simple + safe)
+    // Wind unit (best-effort mapping; keep existing if unknown)
+    const unit = (snap.windUnit ?? snap.wind_unit ?? '').toString().toLowerCase();
+    if (unit.includes('m/s') || unit.includes('mps')) this.windUnit = 'mps';
+    else if (unit.includes('km')) this.windUnit = 'kmh';
+    else if (unit.includes('mph')) this.windUnit = 'mph';
+
+    // Wind speed (set display + also update internal mph used by drift math)
     const ws = snap.windSpeed ?? snap.wind_speed ?? snap.wind ?? null;
     if (ws !== null && ws !== undefined && !Number.isNaN(Number(ws))) {
       this.windSpeedInput = Number(ws);
+      this.windSpeedMph = this.toMph(this.windSpeedInput, this.windUnit);
     }
 
-    // Wind unit (best-effort mapping; keep existing if unknown)
-    const unit = (snap.windUnit ?? snap.wind_unit ?? '').toString().toLowerCase();
-    if (unit.includes('m/s')) this.windUnit = 'm/s';
-    else if (unit.includes('km')) this.windUnit = 'km/h';
-    else if (unit.includes('mph')) this.windUnit = 'mph';
-
-    // Wind direction / “from” (best-effort)
+    // Wind direction (degrees) → drive the dial + clock label directly (no extra props/methods needed)
     const wd = snap.windDirection ?? snap.wind_direction ?? snap.direction ?? null;
     if (wd !== null && wd !== undefined && !Number.isNaN(Number(wd))) {
-      // your tool already uses windFromClock; keep it numeric-safe and let your existing
-      // logic convert to clock if you do that elsewhere.
-      this.windFromDeg = Number(wd);
-      this.updateWindFromClock();
+      const normalized = (Number(wd) + 360) % 360;
+
+      this.arrowAngleDeg = normalized;
+
+      const hourIndex = Math.round(normalized / 30) % 12;
+      const hour = hourIndex === 0 ? 12 : hourIndex;
+      this.windFromClock = `${hour} o'clock`;
     }
 
     // Recompute outputs below the dial
     this.updatePoiFromDrift();
-    this.updatePoiFromDrop();
   }
 
   // --------------------------------

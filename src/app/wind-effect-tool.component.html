@@ -258,52 +258,74 @@
   </div>
   <!-- Shooting Solution (Kestrel snapshot) -->
   <div
-    *ngIf="shootingSolutionOpen"
     class="w-full max-w-[820px] mx-auto rounded-2xl border border-slate-700 bg-slate-900/70 p-3 mt-1"
   >
-    <div class="flex items-center justify-between gap-2">
+    <button
+      type="button"
+      class="w-full flex items-center justify-between gap-2"
+      (click)="shootingSolutionOpen = !shootingSolutionOpen"
+    >
       <div class="text-[12px] font-semibold text-gray-100">Shooting Solution</div>
 
-      <button
-        type="button"
-        class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
-        (click)="shootingSolutionOpen = false"
-      >
-        Back to Wind effect
-      </button>
-    </div>
+      <div class="flex items-center gap-2">
+        <span *ngIf="shootingSolutionAt" class="text-[10px] text-gray-400">
+          {{ shootingSolutionAt | date: 'yyyy-MM-dd HH:mm' }}
+        </span>
 
-    <div class="mt-2 text-[11px] space-y-2">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          class="w-4 h-4 opacity-80 transition-transform"
+          [ngClass]="shootingSolutionOpen ? 'rotate-180' : ''"
+        >
+          <path class="fill-white" d="M7 10l5 5 5-5H7z" />
+        </svg>
+      </div>
+    </button>
+
+    <div *ngIf="shootingSolutionOpen" class="mt-2 text-[11px] space-y-2">
       <p [ngClass]="kestrel.kestrelError ? 'text-red-400' : 'text-gray-300'">
         {{ kestrel.kestrelStatus$ | async }}
       </p>
 
-      <div *ngIf="kestrelData" class="grid grid-cols-2 gap-1">
-        <div>
-          Temp:
-          <span class="font-semibold text-gray-100">{{ kestrelData.temperatureC }} °C</span>
+      <ng-container *ngIf="kestrelData; else noKestrelYet">
+        <div class="grid grid-cols-2 gap-1">
+          <div>
+            Temp:
+            <span class="font-semibold text-gray-100">{{ kestrelData.temperatureC }} °C</span>
+          </div>
+
+          <div>
+            Humidity:
+            <span class="font-semibold text-gray-100">{{ kestrelData.humidityPercent }} %</span>
+          </div>
+
+          <div>
+            Pressure:
+            <span class="font-semibold text-gray-100">
+              {{ kestrelData.pressureInHg | number: '1.2-2' }} inHg
+            </span>
+          </div>
+
+          <div>
+            Wind:
+            <span class="font-semibold text-gray-100">
+              {{ kestrelData.windSpeedMps | number: '1.1-1' }} m/s
+            </span>
+          </div>
+
+          <div class="col-span-2">
+            Wind dir (clock):
+            <span class="font-semibold text-gray-100">{{ kestrelData.windDirectionClock }}</span>
+          </div>
         </div>
-        <div>
-          Humidity:
-          <span class="font-semibold text-gray-100">{{ kestrelData.humidityPercent }} %</span>
+      </ng-container>
+
+      <ng-template #noKestrelYet>
+        <div class="text-[10px] text-gray-400">
+          No Kestrel snapshot yet — tap the green Kestrel button to capture.
         </div>
-        <div>
-          Pressure:
-          <span class="font-semibold text-gray-100">
-            {{ kestrelData.pressureInHg | number: '1.2-2' }} inHg
-          </span>
-        </div>
-        <div>
-          Wind:
-          <span class="font-semibold text-gray-100">
-            {{ kestrelData.windSpeedMps | number: '1.1-1' }} m/s
-          </span>
-        </div>
-        <div class="col-span-2">
-          Wind dir (clock):
-          <span class="font-semibold text-gray-100">{{ kestrelData.windDirectionClock }}</span>
-        </div>
-      </div>
+      </ng-template>
     </div>
   </div>
 
