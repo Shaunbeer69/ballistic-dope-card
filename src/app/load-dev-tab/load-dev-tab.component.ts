@@ -3020,16 +3020,26 @@ export class LoadDevTabComponent implements OnInit {
 
       if (!entries.length) continue;
 
+      // Prefer entries that contain COAL (this is the "newer/important" data)
+      const firstWithCoal =
+        entries.find(
+          (e) => e && (e as any).coal != null && String((e as any).coal).trim() !== '',
+        ) || null;
+
+      // Otherwise fallback to any entry that has summary-ish data
       const firstWithData =
+        firstWithCoal ||
         entries.find(
           (e) =>
             e &&
             (e.powder ||
               e.bullet ||
               e.bulletWeightGr != null ||
+              (e as any).coalUnit != null ||
               e.oal != null ||
               e.oalOgive != null),
-        ) || entries[0];
+        ) ||
+        entries[0];
 
       if (!firstWithData) continue;
 
@@ -3047,14 +3057,65 @@ export class LoadDevTabComponent implements OnInit {
         ap.bulletWeightGr = Number(firstWithData.bulletWeightGr);
         changed = true;
       }
+
+      // Legacy: older entries stored COAL as `coal` (string/number) instead of project-level `oal`
+      if (ap.oal == null && (firstWithData as any).coal != null) {
+        const raw = (firstWithData as any).coal;
+        const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
+        if (Number.isFinite(n)) {
+          // Heuristic: values like 2270 typically mean 2.270 inches (thousandths)
+          if ((!ap.oalUnit || ap.oalUnit === 'mm') && n >= 200) {
+            ap.oal = n / 1000;
+            ap.oalUnit = 'in';
+          } else {
+            ap.oal = n;
+          }
+          changed = true;
+        }
+      }
+
+      // Current: project-level OAL
       if (ap.oal == null && firstWithData.oal != null) {
         ap.oal = Number(firstWithData.oal);
         changed = true;
       }
+
+      // Current: project-level unit
+      if ((!ap.oalUnit || ap.oalUnit === 'mm') && firstWithData.oalUnit) {
+        ap.oalUnit = String(firstWithData.oalUnit);
+        changed = true;
+      }
+
+      // Current: project-level OAL
+      if (ap.oal == null && firstWithData.oal != null) {
+        ap.oal = Number(firstWithData.oal);
+        changed = true;
+      }
+
+      // Current: project-level OAL
+      if (ap.oal == null && firstWithData.oal != null) {
+        ap.oal = Number(firstWithData.oal);
+        changed = true;
+      }
+
+      // Current: project-level OAL
+      if (ap.oal == null && firstWithData.oal != null) {
+        ap.oal = Number(firstWithData.oal);
+        changed = true;
+      }
+
       if (ap.oalOgive == null && firstWithData.oalOgive != null) {
         ap.oalOgive = Number(firstWithData.oalOgive);
         changed = true;
       }
+
+      // Legacy: some older entries may store unit as `coalUnit`
+      if ((!ap.oalUnit || ap.oalUnit === 'mm') && (firstWithData as any).coalUnit) {
+        ap.oalUnit = String((firstWithData as any).coalUnit);
+        changed = true;
+      }
+
+      // Current: project-level unit
       if ((!ap.oalUnit || ap.oalUnit === 'mm') && firstWithData.oalUnit) {
         ap.oalUnit = String(firstWithData.oalUnit);
         changed = true;
@@ -3076,6 +3137,7 @@ export class LoadDevTabComponent implements OnInit {
       this.selectedProject = null;
     }
     // Always resync previews after reloading projects (prevents "photo disappeared" after re-entering)
+
     if (this.selectedProject) {
       this.syncTargetPhotoFromProject();
       this.syncVoiceNoteFromProject();
@@ -3707,6 +3769,92 @@ export class LoadDevTabComponent implements OnInit {
     // Readable precision (inches typically needs more)
     const decimals = this.projectForm?.oalUnit === 'in' ? 3 : 2;
     return d.toFixed(decimals);
+  }
+  // ---------- Summary helpers (fallback to entry-level data) ----------
+  private getSummarySourceEntry(): any | null {
+    const entries = (this.selectedProject as any)?.entries as any[] | undefined;
+    if (!entries || !entries.length) return null;
+
+    return (
+      entries.find(
+        (e: any) =>
+          e &&
+          (e.powder ||
+            e.bullet ||
+            e.bulletWeightGr != null ||
+            (e as any).coal != null ||
+            (e as any).coalUnit != null ||
+            e.oal != null ||
+            e.oalOgive != null),
+      ) ?? null
+    );
+  }
+
+  summaryPowderText(): string {
+    const sp: any = this.selectedProject as any;
+    if (!sp) return '—';
+    return (sp.powder || this.getSummarySourceEntry()?.powder || '—') as string;
+  }
+
+  summaryBulletText(): string {
+    const sp: any = this.selectedProject as any;
+    if (!sp) return '—';
+    return (sp.bullet || this.getSummarySourceEntry()?.bullet || '—') as string;
+  }
+
+  summaryBulletWeightGr(): number | null {
+    const sp: any = this.selectedProject as any;
+    if (!sp) return null;
+    const w = sp.bulletWeightGr ?? this.getSummarySourceEntry()?.bulletWeightGr;
+    return typeof w === 'number' && Number.isFinite(w) ? w : null;
+  }
+
+  summaryCoalValue(): number | null {
+    const sp: any = this.selectedProject as any;
+    if (!sp) return null;
+
+    // Prefer project-level (current)
+    if (sp.oal != null && typeof sp.oal === 'number' && Number.isFinite(sp.oal)) return sp.oal;
+
+    // Fallback to entry-level legacy: `coal` can be string/number
+    const e: any = this.getSummarySourceEntry();
+    const raw = e?.coal ?? e?.oal;
+    if (raw == null) return null;
+
+    const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  summaryCoalUnit(): string {
+    const sp: any = this.selectedProject as any;
+    if (!sp) return 'mm';
+
+    // Prefer project-level unit
+    if (sp.oalUnit) return String(sp.oalUnit);
+
+    // Fallback to entry-level legacy unit
+    const e: any = this.getSummarySourceEntry();
+    if (e?.coalUnit) return String(e.coalUnit);
+    if (e?.oalUnit) return String(e.oalUnit);
+
+    return 'mm';
+  }
+
+  summaryCoalOgiveValue(): number | null {
+    const sp: any = this.selectedProject as any;
+    if (!sp) return null;
+
+    // Prefer project-level
+    if (sp.oalOgive != null && typeof sp.oalOgive === 'number' && Number.isFinite(sp.oalOgive))
+      return sp.oalOgive;
+
+    // Fallback if any legacy entry stored ogive
+    const e: any = this.getSummarySourceEntry();
+    const raw = e?.oalOgive ?? e?.coalOgive;
+    if (raw == null) return null;
+
+    const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
   }
 
   // 1) decimal space => dot (only when the fractional part is 1 digit)

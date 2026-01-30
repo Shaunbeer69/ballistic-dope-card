@@ -1233,7 +1233,6 @@
                         notes, photos and voice notes.
                       </div>
                     </ng-template>
-
                     <!-- RIGHT: Summary -->
                     <div class="rounded-2xl border border-gray-700 bg-black/30 p-2">
                       <div class="text-[10px] text-gray-300 font-semibold mb-1">Summary</div>
@@ -1244,38 +1243,36 @@
                         <!-- Row 1 -->
                         <div class="text-gray-400">Powder:</div>
                         <div class="font-semibold truncate">
-                          {{ selectedProject.powder || '—' }}
+                          {{ summaryPowderText() }}
                         </div>
 
                         <div class="text-gray-400">Bullet:</div>
                         <div class="font-semibold truncate">
-                          {{ selectedProject.bullet || '—' }}
+                          {{ summaryBulletText() }}
                         </div>
 
                         <!-- Row 2 -->
                         <div class="text-gray-400">Bullet wt:</div>
                         <div class="font-semibold">
-                          {{ selectedProject.bulletWeightGr ?? '—' }}
+                          {{ summaryBulletWeightGr() ?? '—' }}
 
-                          <span *ngIf="selectedProject.bulletWeightGr != null"> gr</span>
+                          <span *ngIf="summaryBulletWeightGr() != null"> gr</span>
                         </div>
 
                         <div class="text-gray-400">COAL:</div>
                         <div class="font-semibold">
-                          {{ selectedProject.oal ?? '—' }}
+                          {{ summaryCoalValue() ?? '—' }}
 
-                          <span *ngIf="selectedProject.oal != null">
-                            {{ selectedProject.oalUnit || 'mm' }}</span
-                          >
+                          <span *ngIf="summaryCoalValue() != null"> {{ summaryCoalUnit() }}</span>
                         </div>
 
                         <!-- Row 3 -->
                         <div class="text-gray-400">COAL Ogive:</div>
                         <div class="font-semibold">
-                          {{ selectedProject.oalOgive ?? '—' }}
+                          {{ summaryCoalOgiveValue() ?? '—' }}
 
-                          <span *ngIf="selectedProject.oalOgive != null">
-                            {{ selectedProject.oalUnit || 'mm' }}</span
+                          <span *ngIf="summaryCoalOgiveValue() != null">
+                            {{ summaryCoalUnit() }}</span
                           >
                         </div>
 
@@ -1289,6 +1286,7 @@
                     </div>
                   </div>
                   <!-- Save button -->
+
                   <div *ngIf="showNotesPanel" class="flex justify-end">
                     <button
                       type="button"
