@@ -2371,6 +2371,175 @@ export class AppComponent implements OnInit {
 
     alert(`Import complete.\n\n${result.message}`);
   }
+  private buildSelectiveExportPayloadWithValidation(opts: any, contextLabel: string): any | null {
+    try {
+      const fn =
+        (this.dataService as any).exportSelectiveShareForMerge ??
+        (this.dataService as any).exportSelectiveShare;
+
+      if (!fn) throw new Error('exportSelectiveShare is not available in this build.');
+
+      return fn.call(this.dataService, opts);
+    } catch (err) {
+      const report = this.buildSelectiveExportValidationReport(opts, contextLabel, err);
+      this.maintenanceReport = report;
+
+      console.error('[EXPORT_VALIDATION]', contextLabel, err);
+      alert(
+        `Export failed (${contextLabel}).\n\nOpen Maintenance to view/share the detailed validation report.`,
+      );
+      return null;
+    }
+  }
+
+  private buildSelectiveExportValidationReport(opts: any, contextLabel: string, err: any): string {
+    const now = new Date();
+    const lines: string[] = [];
+
+    const errMsg = (err as any)?.message ?? String(err);
+
+    lines.push(`GS Export Validation Report`);
+    lines.push(`Context: ${contextLabel}`);
+    lines.push(`Time: ${now.toLocaleString()}`);
+    lines.push(`Error: ${errMsg}`);
+    lines.push('');
+
+    // Summarize options
+    const r = opts?.rifles ?? null;
+    const v = opts?.venues ?? null;
+
+    lines.push('Options:');
+    lines.push(
+      `  Rifles: ${r ? (r.all ? 'ALL' : 'Selected (' + ((r.ids?.length ?? 0) as any) + ')') : 'None'}`,
+    );
+    if (r) {
+      lines.push(
+        `    includeRifleData=${!!r.includeRifleData}, includeLoadDev=${!!r.includeLoadDev}, includeSessions=${!!r.includeSessions}, includeShots=${!!r.includeShots}`,
+      );
+    }
+    lines.push(
+      `  Venues: ${v ? (v.all ? 'ALL' : 'Selected (' + ((v.ids?.length ?? 0) as any) + ')') : 'None'}`,
+    );
+    if (v) {
+      lines.push(
+        `    includeVenueData=${!!v.includeVenueData}, includeSessions=${!!v.includeSessions}, includeShots=${!!v.includeShots}`,
+      );
+    }
+    lines.push('');
+
+    // Try to isolate failing rifle(s) / venue(s) without modifying any data.
+    const fn =
+      (this.dataService as any).exportSelectiveShareForMerge ??
+      (this.dataService as any).exportSelectiveShare;
+
+    const rifleNameById = new Map<number, string>(
+      (this.riflesOptions || []).map((x: any) => [Number(x?.id), String(x?.name ?? '')]),
+    );
+    const venueNameById = new Map<number, string>(
+      (this.venuesOptions || []).map((x: any) => [Number(x?.id), String(x?.name ?? '')]),
+    );
+
+    const failingRifles: Array<{ id: number; name: string; error: string }> = [];
+    const failingVenues: Array<{ id: number; name: string; error: string }> = [];
+
+    // Rifles isolation
+    if (r) {
+      const rifleIds: number[] = r.all
+        ? (this.riflesOptions || [])
+            .map((x: any) => Number(x?.id))
+            .filter((n: any) => Number.isFinite(n))
+        : (Array.isArray(r.ids) ? r.ids : [])
+            .map((n: any) => Number(n))
+            .filter((n: any) => Number.isFinite(n));
+
+      for (const id of rifleIds) {
+        try {
+          fn?.call(this.dataService, {
+            rifles: {
+              all: false,
+              ids: [id],
+              includeRifleData: !!r.includeRifleData,
+              includeLoadDev: !!r.includeLoadDev,
+              includeSessions: !!r.includeSessions,
+              includeShots: !!r.includeShots,
+            },
+            venues: null, // isolate rifles
+          });
+        } catch (e) {
+          failingRifles.push({
+            id,
+            name: rifleNameById.get(id) || `Rifle ${id}`,
+            error: (e as any)?.message ?? String(e),
+          });
+        }
+      }
+    }
+
+    // Venues isolation
+    if (v) {
+      const venueIds: number[] = v.all
+        ? (this.venuesOptions || [])
+            .map((x: any) => Number(x?.id))
+            .filter((n: any) => Number.isFinite(n))
+        : (Array.isArray(v.ids) ? v.ids : [])
+            .map((n: any) => Number(n))
+            .filter((n: any) => Number.isFinite(n));
+
+      for (const id of venueIds) {
+        try {
+          fn?.call(this.dataService, {
+            rifles: null, // isolate venues
+            venues: {
+              all: false,
+              ids: [id],
+              includeVenueData: !!v.includeVenueData,
+              includeSessions: !!v.includeSessions,
+              includeShots: !!v.includeShots,
+            },
+          });
+        } catch (e) {
+          failingVenues.push({
+            id,
+            name: venueNameById.get(id) || `Venue ${id}`,
+            error: (e as any)?.message ?? String(e),
+          });
+        }
+      }
+    }
+
+    if (!failingRifles.length && !failingVenues.length) {
+      lines.push(
+        'Isolation result: could not reproduce per-item failure (export still failed as a batch).',
+      );
+      lines.push('This usually means:');
+      lines.push('  - a cross-reference issue (e.g., session points to missing rifle/venue), or');
+      lines.push('  - a top-level store shape issue.');
+      lines.push('');
+      return lines.join('\n');
+    }
+
+    if (failingRifles.length) {
+      lines.push(`Failing rifles (${failingRifles.length}):`);
+      for (const f of failingRifles) {
+        lines.push(`  - [${f.id}] ${f.name}: ${f.error}`);
+      }
+      lines.push('');
+      lines.push(
+        'Next step (safe): run Maintenance → "Repair only a selected Rifle" for each failing rifle.',
+      );
+      lines.push('');
+    }
+
+    if (failingVenues.length) {
+      lines.push(`Failing venues (${failingVenues.length}):`);
+      for (const f of failingVenues) {
+        lines.push(`  - [${f.id}] ${f.name}: ${f.error}`);
+      }
+      lines.push('');
+    }
+
+    return lines.join('\n');
+  }
 
   async exportPdfFromSelectedData(): Promise<void> {
     const selectedRifleIds = this.dataShareAllRifles
@@ -2425,9 +2594,7 @@ export class AppComponent implements OnInit {
     // IMPORTANT:
     // - File share must be merge-import compatible => prefer exportSelectiveShareForMerge()
     // - Fallback to exportSelectiveShare() if older builds don’t have it
-    const payload =
-      (this.dataService as any).exportSelectiveShareForMerge?.(opts) ??
-      (this.dataService as any).exportSelectiveShare?.(opts);
+    const payload = this.buildSelectiveExportPayloadWithValidation(opts, 'Print PDF');
 
     if (!payload) {
       alert('Export failed: no data selected.');
@@ -3186,7 +3353,7 @@ export class AppComponent implements OnInit {
       return;
     }
 
-    const payload = (this.dataService as any).exportSelectiveShare?.({
+    const opts = {
       rifles: this.dataShareIncludeRifles
         ? {
             all: this.dataShareAllRifles,
@@ -3206,7 +3373,9 @@ export class AppComponent implements OnInit {
             includeShots: this.dataShareVenueShots,
           }
         : null,
-    });
+    };
+
+    const payload = this.buildSelectiveExportPayloadWithValidation(opts, 'Export (File)');
 
     if (!payload) {
       alert('Export failed: no data selected.');

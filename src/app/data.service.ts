@@ -977,7 +977,25 @@ export class DataService {
    * Does NOT modify data.
    */
   maintenanceScan(): { ok: boolean; issues: number; report: string } {
-    return this.auditAndMaybeRepairStore(false);
+    // Read-only scan: no deletes, no counter bumps, no normalize/save.
+    // We temporarily run auditAndMaybeRepairStore in "details-only" mode by
+    // forcing applyFixes=false AND preventing it from doing any "removed" wording.
+    // (The detailed listings are handled inside auditAndMaybeRepairStore below.)
+
+    const res = this.auditAndMaybeRepairStore(false) as any;
+
+    // If your internal report text still says "removed" in SCAN mode,
+    // this makes it explicit at the top that scan is read-only.
+    const header =
+      'MAINTENANCE SCAN (read-only)\n' +
+      '• No items were deleted.\n' +
+      '• Use “Repair + rebuild store” to remove orphans / fix counters.\n\n';
+
+    return {
+      ok: !!res?.ok,
+      issues: Number(res?.issues ?? 0),
+      report: header + String(res?.report ?? ''),
+    };
   }
 
   /**
@@ -1049,14 +1067,32 @@ export class DataService {
     const sessions: any[] = Array.isArray(store?.sessions) ? store.sessions : [];
     const projects: any[] = Array.isArray(store?.loadDevProjects) ? store.loadDevProjects : [];
 
-    lines.push('GS Ballistics — Maintenance Report');
-    lines.push(`When: ${new Date().toISOString()}`);
-    lines.push(`Mode: ${applyFixes ? 'REPAIR (mutates + saves)' : 'SCAN (read-only)'}`);
-    lines.push('');
-    lines.push(
-      `Counts: rifles=${rifles.length}, venues=${venues.length}, sessions=${sessions.length}, loadDevProjects=${projects.length}`,
-    );
-    lines.push('');
+    if (!applyFixes) {
+      // ---------- USER-FRIENDLY SCAN REPORT (wording only) ----------
+      lines.length = 0;
+
+      lines.push('🔧 Maintenance Scan – Action Required');
+      lines.push('');
+      lines.push('Nothing was deleted.');
+      lines.push('This scan only checks for missing or broken data.');
+      lines.push('');
+
+      // We keep counts but present them in plain language
+      lines.push(
+        `Current data: ${rifles.length} rifles, ${venues.length} venues, ${sessions.length} sessions, ${projects.length} load projects.`,
+      );
+      lines.push('');
+    } else {
+      // Repair mode keeps technical header
+      lines.push('GS Ballistics — Maintenance Report');
+      lines.push(`When: ${new Date().toISOString()}`);
+      lines.push('Mode: REPAIR (mutates + saves)');
+      lines.push('');
+      lines.push(
+        `Counts: rifles=${rifles.length}, venues=${venues.length}, sessions=${sessions.length}, loadDevProjects=${projects.length}`,
+      );
+      lines.push('');
+    }
 
     // --- Validate IDs + rebuild next counters ---
     const maxId = (arr: any[]) =>
@@ -1087,16 +1123,35 @@ export class DataService {
     bumpCounterIfNeeded('nextSessionId', maxSessionId);
     bumpCounterIfNeeded('nextLoadDevProjectId', maxProjectId);
 
-    // --- Remove invalid-ID objects ---
     const filterValidId = (arr: any[], label: string): any[] => {
       const before = arr.length;
-      const kept = arr.filter((x) => Number.isFinite(toNum(x?.id)));
+
+      const removedIds: any[] = [];
+      const kept = arr.filter((x) => {
+        const id = toNum(x?.id);
+        const ok = Number.isFinite(id);
+        if (!ok) removedIds.push(x?.id);
+        return ok;
+      });
+
       const removed = before - kept.length;
       if (removed > 0) {
         issues++;
-        lines.push(`• ${label}: removed ${removed} item(s) with invalid id.`);
+
+        const verb = applyFixes ? 'removed' : 'found';
+        lines.push(`• ${label}: ${verb} ${removed} item(s) with invalid id.`);
+
+        // detail (top 10)
+        removedIds.slice(0, 10).forEach((badId) => {
+          lines.push(`  ↳ invalid id=${String(badId)}`);
+        });
+        if (removedIds.length > 10) {
+          lines.push(`  ↳ ... +${removedIds.length - 10} more`);
+        }
+
         if (applyFixes) fixed += removed;
       }
+
       return kept;
     };
 
@@ -1107,9 +1162,25 @@ export class DataService {
 
     const rifleIdSet = new Set<number>(riflesClean.map((r) => toNum(r.id)));
     const venueIdSet = new Set<number>(venuesClean.map((v) => toNum(v.id)));
+    // --- Scan-only grouping buckets (wording only) ---
+    const scanOrphanSessionIds: number[] = [];
+    const scanOrphanProjectNames: string[] = [];
 
-    // --- Remove sessions that reference missing rifle/venue ---
+    // --- Remove/Report sessions that reference missing rifle/venue ---
     const sessionsBefore = sessionsClean.length;
+
+    const orphanSessions = sessionsClean
+      .map((s) => {
+        const rid = toNum(s?.rifleId);
+        const vid = toNum(s?.venueId);
+
+        const missingR = Number.isFinite(rid) ? !rifleIdSet.has(rid) : false;
+        const missingV = Number.isFinite(vid) ? !venueIdSet.has(vid) : false;
+
+        return { s, rid, vid, missingR, missingV, isOrphan: missingR || missingV };
+      })
+      .filter((x) => x.isOrphan);
+
     const sessionsKept = sessionsClean.filter((s) => {
       const rid = toNum(s?.rifleId);
       const vid = toNum(s?.venueId);
@@ -1117,27 +1188,137 @@ export class DataService {
       const okV = Number.isFinite(vid) ? venueIdSet.has(vid) : true;
       return okR && okV;
     });
+
     const sessionsRemoved = sessionsBefore - sessionsKept.length;
     if (sessionsRemoved > 0) {
       issues++;
-      lines.push(`• Sessions: removed ${sessionsRemoved} item(s) referencing missing rifle/venue.`);
-      if (applyFixes) fixed += sessionsRemoved;
+
+      if (applyFixes) {
+        const verb = 'removed';
+        lines.push(
+          `• Sessions: ${verb} ${sessionsRemoved} item(s) referencing missing rifle/venue.`,
+        );
+
+        // detail (top 10)
+        orphanSessions.slice(0, 10).forEach(({ s, rid, vid, missingR, missingV }) => {
+          const reasons: string[] = [];
+          if (missingR) reasons.push(`missing rifleId=${rid}`);
+          if (missingV) reasons.push(`missing venueId=${vid}`);
+          lines.push(`  ↳ session id=${s?.id} (${reasons.join(', ')})`);
+        });
+        if (orphanSessions.length > 10) {
+          lines.push(`  ↳ ... +${orphanSessions.length - 10} more`);
+        }
+
+        fixed += sessionsRemoved;
+      } else {
+        // SCAN (read-only): collect for friendly sections, hide technical wording
+        orphanSessions.forEach(({ s }) => {
+          const sid = toNum(s?.id);
+          if (Number.isFinite(sid)) scanOrphanSessionIds.push(sid);
+        });
+      }
     }
 
-    // --- Remove load dev projects that reference missing rifles ---
+    // --- Remove/Report load dev projects that reference missing rifles ---
     const projectsBefore = projectsClean.length;
+
+    const orphanProjects = projectsClean
+      .map((p) => {
+        const rid = toNum(p?.rifleId);
+        const isOrphan = Number.isFinite(rid) && !rifleIdSet.has(rid);
+        return { p, rid, isOrphan };
+      })
+      .filter((x) => x.isOrphan);
+
     const projectsKept = projectsClean.filter((p) => {
       const rid = toNum(p?.rifleId);
       if (!Number.isFinite(rid)) return true;
       return rifleIdSet.has(rid);
     });
+
     const projectsRemoved = projectsBefore - projectsKept.length;
     if (projectsRemoved > 0) {
       issues++;
-      lines.push(
-        `• LoadDevProjects: removed ${projectsRemoved} item(s) referencing missing rifle.`,
-      );
-      if (applyFixes) fixed += projectsRemoved;
+
+      if (applyFixes) {
+        const verb = 'removed';
+        lines.push(
+          `• LoadDevProjects: ${verb} ${projectsRemoved} item(s) referencing missing rifle.`,
+        );
+
+        // detail (top 10)
+        orphanProjects.slice(0, 10).forEach(({ p, rid }) => {
+          lines.push(
+            `  ↳ project id=${p?.id} name="${String(p?.name ?? '')}" missing rifleId=${rid}`,
+          );
+        });
+        if (orphanProjects.length > 10) {
+          lines.push(`  ↳ ... +${orphanProjects.length - 10} more`);
+        }
+
+        fixed += projectsRemoved;
+      } else {
+        // SCAN (read-only): collect for friendly sections, hide technical wording
+        orphanProjects.forEach(({ p }) => {
+          const nm = String(p?.name ?? '').trim();
+          scanOrphanProjectNames.push(nm || `Unnamed load project (id=${String(p?.id ?? '?')})`);
+        });
+      }
+    }
+    // ---------- SCAN (read-only): group into user-friendly sections ----------
+    if (!applyFixes) {
+      const hasLoadDev = scanOrphanProjectNames.length > 0;
+      const hasSessions = scanOrphanSessionIds.length > 0;
+
+      if (hasLoadDev || hasSessions) {
+        lines.push('❌ Missing Rifle Data');
+        lines.push('');
+        lines.push('Some data belongs to rifles that no longer exist in the app.');
+        lines.push('This usually happens when a rifle was deleted earlier.');
+        lines.push('');
+
+        if (hasLoadDev) {
+          lines.push(
+            `🧱 Load Development Data needs attention (${scanOrphanProjectNames.length} item(s))`,
+          );
+          lines.push('');
+          lines.push('These load projects belong to rifles that no longer exist:');
+          lines.push('');
+          scanOrphanProjectNames.forEach((n) => lines.push(`• ${n}`));
+          lines.push('');
+          lines.push('👉 What you need to do:');
+          lines.push('• Re-create the missing rifle(s), or');
+          lines.push('• Run Repair to permanently remove this old data');
+          lines.push('');
+        }
+
+        if (hasSessions) {
+          lines.push(
+            `🎯 Shooting Sessions need attention (${scanOrphanSessionIds.length} item(s))`,
+          );
+          lines.push('');
+          lines.push('These shooting sessions belong to rifles that no longer exist:');
+          lines.push('');
+          scanOrphanSessionIds.forEach((id) => lines.push(`• Session #${id}`));
+          lines.push('');
+          lines.push('👉 What you need to do:');
+          lines.push('• Re-assign these sessions to a new rifle (manual), or');
+          lines.push('• Run Repair to remove them');
+          lines.push('');
+        }
+
+        lines.push('✅ What happens if you press “Repair”');
+        lines.push('');
+        lines.push('• All data listed above will be removed');
+        lines.push('• Remaining data will be cleaned and export will work again');
+        lines.push('• Nothing else is affected');
+        lines.push('');
+      } else {
+        lines.push('✅ No missing or broken rifle-linked data was found.');
+        lines.push('Your data is structurally sound and safe to export.');
+        lines.push('');
+      }
     }
 
     // --- Ensure arrays exist + sanitize numeric garbage ---
@@ -1179,6 +1360,9 @@ export class DataService {
       lines.push(`✅ Repair completed. Fixed=${fixed}, Issues found=${issues}`);
     } else {
       lines.push('');
+
+      // Guidance is included earlier in scan mode (grouped sections).
+
       lines.push(`✅ Scan completed. Issues found=${issues}`);
     }
 
