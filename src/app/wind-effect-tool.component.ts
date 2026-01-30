@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DataService } from './data.service';
+import { BleClient } from '@capacitor-community/bluetooth-le';
+import { KestrelService, KestrelDataSnapshot } from './shared/services/kestrel-bluetooth.service';
 
 type WindUnit = 'mph' | 'kmh' | 'mps';
 
@@ -75,9 +77,17 @@ export class WindEffectToolComponent implements OnInit {
 
   private dragging = false;
 
+  // --------------------------------
+  // Kestrel → Shooting Solution (backbone)
+  // --------------------------------
+  kestrelData: KestrelDataSnapshot | null = null;
+  shootingSolutionEnv: KestrelDataSnapshot | null = null;
+  shootingSolutionAt: number | null = null;
+
   constructor(
     private data: DataService,
     private router: Router,
+    public kestrel: KestrelService,
   ) {}
 
   // --------------------------------
@@ -96,6 +106,7 @@ export class WindEffectToolComponent implements OnInit {
     this.updateWindSpeedInputFromMph();
     this.updatePoiFromDrift();
   }
+
   // --------------------------------
   // Rifle handling
   // --------------------------------
@@ -621,6 +632,35 @@ export class WindEffectToolComponent implements OnInit {
     // Keep inside viewbox-safe area (avoid touching frame)
     this.poiX = Math.max(14, Math.min(86, x));
     this.poiY = Math.max(14, Math.min(86, y));
+  }
+  // --------------------------------
+  // Kestrel → Shooting Solution (backbone)
+  // --------------------------------
+  private initKestrelSubscription(): void {
+    this.kestrel.kestrelData$.subscribe((snapshot) => {
+      this.kestrelData = snapshot;
+    });
+  }
+
+  async onKestrelButtonClick(): Promise<void> {
+    try {
+      await BleClient.initialize();
+    } catch {
+      // already initialised
+    }
+
+    try {
+      await this.kestrel.connectKestrelBluetooth();
+
+      const snap = this.kestrel.kestrelData$.getValue();
+      this.kestrelData = snap;
+
+      // Store snapshot for future Shooting Solution
+      this.shootingSolutionEnv = snap;
+      this.shootingSolutionAt = Date.now();
+    } catch (err) {
+      console.error('[WindEffect] Kestrel read failed:', err);
+    }
   }
 
   // --------------------------------
