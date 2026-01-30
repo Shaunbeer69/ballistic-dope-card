@@ -2302,9 +2302,12 @@ export class LoadDevTabComponent implements OnInit {
   // ----------------------------
   private statsCache = new Map<number, VelocityStats | null>();
   private ladderNodeBandIds = new Set<number>();
+  private ladderNodeBandSegmentById = new Map<number, number>();
+  private ladderNodeBandSegmentRankBySeg = new Map<number, 'best' | 'second' | 'third' | null>();
+
   private ocwRankCache = new Map<number, 'best' | 'second' | 'third' | null>();
   private ocwBestIdCache: number | null = null;
-  private readonly LADDER_NODE_MAX_VEL_RANGE_FPS = 10;
+  private readonly LADDER_NODE_MAX_VEL_RANGE_FPS: number = 10;
   private entryIdOf(e: LoadDevEntry): number | null {
     const id = Number((e as any)?.id);
     return Number.isFinite(id) ? id : null;
@@ -2313,6 +2316,9 @@ export class LoadDevTabComponent implements OnInit {
   private clearPerfCaches(): void {
     this.statsCache.clear();
     this.ladderNodeBandIds.clear();
+    this.ladderNodeBandSegmentById.clear();
+    this.ladderNodeBandSegmentRankBySeg.clear();
+
     this.ocwRankCache.clear();
     this.ocwBestIdCache = null;
   }
@@ -2363,6 +2369,9 @@ export class LoadDevTabComponent implements OnInit {
     if (this.selectedProject?.type !== 'ladder') return;
 
     const sorted = [...entries].sort((a, b) => (a.chargeGr ?? 0) - (b.chargeGr ?? 0));
+    this.ladderNodeBandIds.clear();
+    this.ladderNodeBandSegmentById.clear();
+    this.ladderNodeBandSegmentRankBySeg.clear();
     const k = this.ladderNodeWindowSize(sorted);
 
     const vels = sorted.map((e) => {
@@ -2386,11 +2395,75 @@ export class LoadDevTabComponent implements OnInit {
       }
     }
 
+    // Build band id set + segment map (alternate styling for separate node bands)
+    // NOTE: We keep the existing node detection (window range <= 10 fps). Segments split when adjacent node
+    // entries have an avg-velocity gap > 10 fps, so two distinct nodes don't look like one long band.
+    let seg = -1;
+    let prevNodeAvg: number | null = null;
+
+    for (let idx = 0; idx < sorted.length; idx++) {
+      if (!inBand[idx]) {
+        prevNodeAvg = null; // break contiguous node run
+        continue;
+      }
+
+      const id = this.entryIdOf(sorted[idx]);
+      if (id == null) continue;
+
+      this.ladderNodeBandIds.add(id);
+
+      const avg = vels[idx];
+      const avgNum = typeof avg === 'number' && isFinite(avg) ? avg : null;
+
+      const needsNewSeg =
+        prevNodeAvg == null ||
+        (avgNum != null && Math.abs(avgNum - prevNodeAvg) > this.LADDER_NODE_MAX_VEL_RANGE_FPS);
+
+      if (needsNewSeg) seg++;
+      this.ladderNodeBandSegmentById.set(id, Math.max(seg, 0));
+
+      prevNodeAvg = avgNum;
+    }
+
+    // Rank segments by their internal avg-velocity range (smallest range = best).
+    // This drives the Green / Orange / Red colouring (best → worst).
+    const segMin = new Map<number, number>();
+    const segMax = new Map<number, number>();
+
     for (let idx = 0; idx < sorted.length; idx++) {
       if (!inBand[idx]) continue;
       const id = this.entryIdOf(sorted[idx]);
-      if (id != null) this.ladderNodeBandIds.add(id);
+      if (id == null) continue;
+      const segId = this.ladderNodeBandSegmentById.get(id);
+      if (segId == null) continue;
+
+      const avg = vels[idx];
+      const avgNum = typeof avg === 'number' && isFinite(avg) ? avg : null;
+      if (avgNum == null) continue;
+
+      const curMin = segMin.get(segId);
+      const curMax = segMax.get(segId);
+      segMin.set(segId, curMin == null ? avgNum : Math.min(curMin, avgNum));
+      segMax.set(segId, curMax == null ? avgNum : Math.max(curMax, avgNum));
     }
+
+    const segRanges: { seg: number; range: number }[] = [];
+    for (const [segId, mn] of segMin.entries()) {
+      const mx = segMax.get(segId);
+      if (mx == null) continue;
+      segRanges.push({ seg: segId, range: Math.abs(mx - mn) });
+    }
+
+    // Smallest range = best (green), next = orange, next = red.
+    segRanges.sort((a, b) => a.range - b.range || a.seg - b.seg);
+
+    const bestSeg = segRanges[0]?.seg ?? null;
+    const secondSeg = segRanges[1]?.seg ?? null;
+    const thirdSeg = segRanges[2]?.seg ?? null;
+
+    if (bestSeg != null) this.ladderNodeBandSegmentRankBySeg.set(bestSeg, 'best');
+    if (secondSeg != null) this.ladderNodeBandSegmentRankBySeg.set(secondSeg, 'second');
+    if (thirdSeg != null) this.ladderNodeBandSegmentRankBySeg.set(thirdSeg, 'third');
   }
 
   isLadderNode(entry: LoadDevEntry): boolean {
@@ -3869,7 +3942,37 @@ export class LoadDevTabComponent implements OnInit {
   nodeCssClass(entry: LoadDevEntry): string {
     if (this.selectedProject?.type !== 'ladder') return '';
 
-    return this.isLadderNode(entry) ? 'bg-emerald-500/10 border-l-2 border-emerald-400' : '';
+    if (!this.isLadderNode(entry)) return '';
+
+    const id = this.entryIdOf(entry);
+    const seg = id != null ? (this.ladderNodeBandSegmentById.get(id) ?? 0) : 0;
+    const rank = this.ladderNodeBandSegmentRankBySeg.get(seg) ?? null;
+
+    // Colour by avg-velocity range rank (smallest = best).
+    if (rank === 'best') return 'bg-emerald-500/20 border-l-2 border-emerald-400';
+    if (rank === 'second') return 'bg-orange-500/15 border-l-2 border-orange-400';
+
+    if (rank === 'third') return 'bg-red-500/10 border-l-2 border-red-400';
+
+    // If there are more than 3 node segments, leave the rest uncoloured (still shows the badge).
+    return 'bg-emerald-500/15 border-l-2 border-emerald-400/60';
+  }
+
+  ladderNodeBadgeClass(entry: LoadDevEntry): string {
+    if (this.selectedProject?.type !== 'ladder') return '';
+    if (!this.isLadderNode(entry)) return '';
+
+    const id = this.entryIdOf(entry);
+    const seg = id != null ? (this.ladderNodeBandSegmentById.get(id) ?? 0) : 0;
+    const rank = this.ladderNodeBandSegmentRankBySeg.get(seg) ?? null;
+
+    if (rank === 'best') return 'bg-emerald-600 border-emerald-300 text-black';
+
+    if (rank === 'second') return 'bg-orange-500 border-orange-300 text-black';
+
+    if (rank === 'third') return 'bg-red-600 border-red-400 text-white';
+
+    return 'bg-emerald-500/20 border-emerald-400/60 text-emerald-200';
   }
 
   /** Used by your wizard guard; returns true if every ladder step has a velocity. */

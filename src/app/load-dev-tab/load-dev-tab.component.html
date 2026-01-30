@@ -842,9 +842,10 @@
                               <!-- ✅ Node indicator (shows in UI + PDF export) -->
                               <span
                                 *ngIf="isLadderNode(entry)"
-                                class="px-1.5 py-[1px] rounded-full bg-emerald-500/20 border border-emerald-400/60 text-emerald-200 text-[9px] font-semibold"
+                                [ngClass]="ladderNodeBadgeClass(entry)"
+                                class="px-1.5 py-[1px] rounded-full border text-[9px] font-semibold"
                               >
-                                Node
+                                Possible Node
                               </span>
                             </div>
                           </div>
