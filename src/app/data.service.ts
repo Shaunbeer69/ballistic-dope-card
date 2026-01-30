@@ -108,6 +108,25 @@ export class DataService {
 
     // Remove legacy/ghost load development projects (empty shells left behind by older versions)
     this.pruneEmptyLoadDevProjectsInStore(store);
+    // Keep next*Id counters in sync with existing items (prevents “counter too low” scan warnings)
+    const maxId = (arr: any[]) =>
+      Math.max(
+        0,
+        ...((arr ?? []) as any[])
+          .map((x) => Number((x as any)?.id))
+          .filter((n) => Number.isFinite(n)),
+      );
+
+    store.nextRifleId = Math.max(Number(store.nextRifleId) || 1, maxId(store.rifles as any) + 1);
+    store.nextVenueId = Math.max(Number(store.nextVenueId) || 1, maxId(store.venues as any) + 1);
+    store.nextSessionId = Math.max(
+      Number(store.nextSessionId) || 1,
+      maxId(store.sessions as any) + 1,
+    );
+    store.nextLoadDevProjectId = Math.max(
+      Number(store.nextLoadDevProjectId) || 1,
+      maxId(store.loadDevProjects as any) + 1,
+    );
   }
 
   private pruneEmptyLoadDevProjectsInStore(store: AppStore): number {
@@ -1111,17 +1130,37 @@ export class DataService {
     const maxSessionId = maxId(sessions);
     const maxProjectId = maxId(projects);
 
+    const counterLabel: Record<string, string> = {
+      nextRifleId: 'Rifles',
+      nextVenueId: 'Venues',
+      nextSessionId: 'Sessions',
+      nextLoadDevProjectId: 'Load Development projects',
+      nextLoadDevEntryId: 'Load Development entries',
+    };
+
     const bumpCounterIfNeeded = (key: string, max: number) => {
-      const cur = toNum(store?.[key]);
-      if (!Number.isFinite(cur) || cur < max + 1) {
+      const curRaw = store?.[key];
+      const cur = toNum(curRaw);
+      const expectedMin = max + 1;
+
+      if (!Number.isFinite(cur) || cur < expectedMin) {
         issues++;
-        lines.push(
-          `• Counter ${key} is invalid/too low (${store?.[key]}). Expected >= ${max + 1}.`,
-        );
+
+        const label = counterLabel[key] ?? key;
+
+        if (!applyFixes) {
+          lines.push(`• Internal counter out of sync: ${label}.`);
+          lines.push(`  ↳ Fix: run “Repair + rebuild store”.`);
+        } else {
+          lines.push(
+            `• Counter ${key} is invalid/too low (${curRaw}). Expected >= ${expectedMin}.`,
+          );
+        }
+
         if (applyFixes) {
-          store[key] = max + 1;
+          store[key] = expectedMin;
           fixed++;
-          lines.push(`  ↳ FIXED: set ${key}=${max + 1}`);
+          lines.push(`  ↳ FIXED: set ${key}=${expectedMin}`);
         }
       }
     };

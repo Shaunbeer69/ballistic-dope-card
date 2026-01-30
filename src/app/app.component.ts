@@ -88,7 +88,7 @@ interface WindTrendSummary {
   ],
 })
 export class AppComponent implements OnInit {
-  appTitle = 'GS Dope Card';
+  appTitle = 'GS Dope App';
   appSubtitle = 'Field log for rifles, venues & sessions';
   appVersion = APP_VERSION;
 
