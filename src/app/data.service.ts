@@ -669,8 +669,16 @@ export class DataService {
 
   deleteRifle(id: number): void {
     const idNum = Number(id);
+
+    // Remove rifle
     this.store.rifles = this.store.rifles.filter((r) => Number(r.id) !== idNum);
-    // NOTE: we do not automatically delete load dev projects or sessions.
+
+    // Remove all rifle-linked data (matches the UI warning)
+    this.store.sessions = (this.store.sessions || []).filter((s) => Number(s?.rifleId) !== idNum);
+    this.store.loadDevProjects = (this.store.loadDevProjects || []).filter(
+      (p) => Number(p?.rifleId) !== idNum,
+    );
+
     this.saveStore();
   }
 
@@ -1272,51 +1280,45 @@ export class DataService {
       const hasSessions = scanOrphanSessionIds.length > 0;
 
       if (hasLoadDev || hasSessions) {
-        lines.push('❌ Missing Rifle Data');
+        lines.push('❌ Deleted rifle cleanup incomplete');
         lines.push('');
-        lines.push('Some data belongs to rifles that no longer exist in the app.');
-        lines.push('This usually happens when a rifle was deleted earlier.');
+        lines.push('A rifle was removed, but some related data still exists that points to it.');
+        lines.push('Expected: zero leftover rifle-linked items after deletion.');
+        lines.push('');
+        lines.push('👉 Fix: Run “Repair + rebuild store” to permanently remove the leftover data.');
+        lines.push('This indicates the delete cleanup did not fully complete.');
         lines.push('');
 
         if (hasLoadDev) {
           lines.push(
-            `🧱 Load Development Data needs attention (${scanOrphanProjectNames.length} item(s))`,
+            `🧱 Leftover Load Development data (${scanOrphanProjectNames.length} item(s))`,
           );
           lines.push('');
-          lines.push('These load projects belong to rifles that no longer exist:');
+          lines.push('These load projects still point to a removed rifle:');
           lines.push('');
           scanOrphanProjectNames.forEach((n) => lines.push(`• ${n}`));
-          lines.push('');
-          lines.push('👉 What you need to do:');
-          lines.push('• Re-create the missing rifle(s), or');
-          lines.push('• Run Repair to permanently remove this old data');
           lines.push('');
         }
 
         if (hasSessions) {
-          lines.push(
-            `🎯 Shooting Sessions need attention (${scanOrphanSessionIds.length} item(s))`,
-          );
+          lines.push(`🎯 Leftover Shooting Sessions (${scanOrphanSessionIds.length} item(s))`);
           lines.push('');
-          lines.push('These shooting sessions belong to rifles that no longer exist:');
+          lines.push('These sessions still point to a removed rifle:');
           lines.push('');
           scanOrphanSessionIds.forEach((id) => lines.push(`• Session #${id}`));
           lines.push('');
-          lines.push('👉 What you need to do:');
-          lines.push('• Re-assign these sessions to a new rifle (manual), or');
-          lines.push('• Run Repair to remove them');
-          lines.push('');
         }
 
-        lines.push('✅ What happens if you press “Repair”');
+        lines.push('✅ What “Repair” will do');
         lines.push('');
-        lines.push('• All data listed above will be removed');
-        lines.push('• Remaining data will be cleaned and export will work again');
-        lines.push('• Nothing else is affected');
+        lines.push('• Remove the leftover items listed above');
+        lines.push('• Keep all remaining (valid) data intact');
+        lines.push('• Restore clean export-safe state');
         lines.push('');
       } else {
-        lines.push('✅ No missing or broken rifle-linked data was found.');
-        lines.push('Your data is structurally sound and safe to export.');
+        lines.push('✅ Deleted rifle cleanup check passed.');
+        lines.push('No leftover rifle-linked data was found.');
+        lines.push('Only current rifles and their valid data remain.');
         lines.push('');
       }
     }
