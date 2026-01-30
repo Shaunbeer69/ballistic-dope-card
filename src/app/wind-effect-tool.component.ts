@@ -96,6 +96,7 @@ export class WindEffectToolComponent implements OnInit {
   ngOnInit(): void {
     this.buildHourMarkers();
     this.loadRifles();
+    this.initKestrelSubscription();
 
     // Preferences default wind unit (mph/kmh/mps)
     const prefUnit = (this.data as any).getDefaultWindSpeedUnit?.();
@@ -658,9 +659,40 @@ export class WindEffectToolComponent implements OnInit {
       // Store snapshot for future Shooting Solution
       this.shootingSolutionEnv = snap;
       this.shootingSolutionAt = Date.now();
+
+      this.applyKestrelSnapshotToWind(snap as any);
     } catch (err) {
       console.error('[WindEffect] Kestrel read failed:', err);
     }
+  }
+  // Apply the last-read Kestrel snapshot to Wind Effect inputs (backbone for later “Shooting Solution”)
+  private applyKestrelSnapshotToWind(snap: any): void {
+    if (!snap) return;
+
+    // Wind speed (prefer m/s → km/h if that’s what your UI expects later; for now keep it simple + safe)
+    const ws = snap.windSpeed ?? snap.wind_speed ?? snap.wind ?? null;
+    if (ws !== null && ws !== undefined && !Number.isNaN(Number(ws))) {
+      this.windSpeedInput = Number(ws);
+    }
+
+    // Wind unit (best-effort mapping; keep existing if unknown)
+    const unit = (snap.windUnit ?? snap.wind_unit ?? '').toString().toLowerCase();
+    if (unit.includes('m/s')) this.windUnit = 'm/s';
+    else if (unit.includes('km')) this.windUnit = 'km/h';
+    else if (unit.includes('mph')) this.windUnit = 'mph';
+
+    // Wind direction / “from” (best-effort)
+    const wd = snap.windDirection ?? snap.wind_direction ?? snap.direction ?? null;
+    if (wd !== null && wd !== undefined && !Number.isNaN(Number(wd))) {
+      // your tool already uses windFromClock; keep it numeric-safe and let your existing
+      // logic convert to clock if you do that elsewhere.
+      this.windFromDeg = Number(wd);
+      this.updateWindFromClock();
+    }
+
+    // Recompute outputs below the dial
+    this.updatePoiFromDrift();
+    this.updatePoiFromDrop();
   }
 
   // --------------------------------

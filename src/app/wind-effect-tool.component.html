@@ -178,6 +178,21 @@
     (pointercancel)="endDrag($event)"
     (pointerleave)="endDrag($event)"
   >
+    <!-- Kestrel button (top-right above the dial) -->
+    <button
+      type="button"
+      class="absolute top-2 right-2 z-10 w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-800 hover:scale-105 active:scale-95 transition"
+      (click)="onKestrelButtonClick()"
+      title="Read Kestrel"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5">
+        <path
+          class="fill-white"
+          d="M12 2a8 8 0 00-8 8v4a3 3 0 003 3h1a2 2 0 002-2v-3a2 2 0 00-2-2H7v-.2A5 5 0 0112 5a5 5 0 015 4.8V10h-1a2 2 0 00-2 2v3a2 2 0 002 2h1a3 3 0 003-3v-4a8 8 0 00-8-8z"
+        />
+      </svg>
+    </button>
+
     <svg viewBox="0 0 100 100" class="w-full h-full">
       <!-- Outer & inner rings -->
       <circle
@@ -240,6 +255,56 @@
       <!-- POI dot (red) – position driven by drift -->
       <circle [attr.cx]="poiX" [attr.cy]="poiY" r="1.15" class="fill-red-500"></circle>
     </svg>
+  </div>
+  <!-- Shooting Solution (Kestrel snapshot) -->
+  <div
+    *ngIf="shootingSolutionOpen"
+    class="w-full max-w-[820px] mx-auto rounded-2xl border border-slate-700 bg-slate-900/70 p-3 mt-1"
+  >
+    <div class="flex items-center justify-between gap-2">
+      <div class="text-[12px] font-semibold text-gray-100">Shooting Solution</div>
+
+      <button
+        type="button"
+        class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100"
+        (click)="shootingSolutionOpen = false"
+      >
+        Back to Wind effect
+      </button>
+    </div>
+
+    <div class="mt-2 text-[11px] space-y-2">
+      <p [ngClass]="kestrel.kestrelError ? 'text-red-400' : 'text-gray-300'">
+        {{ kestrel.kestrelStatus$ | async }}
+      </p>
+
+      <div *ngIf="kestrelData" class="grid grid-cols-2 gap-1">
+        <div>
+          Temp:
+          <span class="font-semibold text-gray-100">{{ kestrelData.temperatureC }} °C</span>
+        </div>
+        <div>
+          Humidity:
+          <span class="font-semibold text-gray-100">{{ kestrelData.humidityPercent }} %</span>
+        </div>
+        <div>
+          Pressure:
+          <span class="font-semibold text-gray-100">
+            {{ kestrelData.pressureInHg | number: '1.2-2' }} inHg
+          </span>
+        </div>
+        <div>
+          Wind:
+          <span class="font-semibold text-gray-100">
+            {{ kestrelData.windSpeedMps | number: '1.1-1' }} m/s
+          </span>
+        </div>
+        <div class="col-span-2">
+          Wind dir (clock):
+          <span class="font-semibold text-gray-100">{{ kestrelData.windDirectionClock }}</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Drift result cards -->
