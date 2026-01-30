@@ -1,6 +1,6 @@
 {
   "name": "ballistic-dope-card",
-  "version": "1.0.751",
+  "version": "1.0.753",
   "scripts": {
     "ng": "ng",
     "start": "ng serve --port 5030",
