@@ -124,7 +124,35 @@ export class DataService {
     this.pruneEmptyLoadDevProjectsInStore(store);
     // One-time backfill for old projects missing planning fields (powder/bullet/COAL/etc.)
     this.hydrateLoadDevProjectPlanningFieldsFromRifleLoads(store);
+    // Ensure venues always have a valid subRanges array (older venues may omit it entirely)
+    for (const v of store.venues as any[]) {
+      if (!v || typeof v !== 'object') continue;
 
+      // Support possible legacy casing/key
+      if (!Array.isArray(v.subRanges) && Array.isArray(v.subranges)) {
+        v.subRanges = v.subranges;
+      }
+
+      if (!Array.isArray(v.subRanges)) {
+        v.subRanges = [];
+      }
+
+      // Clean/normalize each subrange
+      v.subRanges = (v.subRanges as any[]).filter((sr) => sr && typeof sr === 'object');
+
+      for (const sr of v.subRanges as any[]) {
+        // id is required by your UI logic; generate if missing
+        const idNum = Number(sr.id);
+        if (!Number.isFinite(idNum)) sr.id = Date.now() + Math.floor(Math.random() * 1000);
+
+        if (typeof sr.name !== 'string') sr.name = String(sr.name ?? '');
+
+        if (!Array.isArray(sr.distancesM)) sr.distancesM = [];
+        sr.distancesM = (sr.distancesM as any[])
+          .map((n: any) => Number(n))
+          .filter((n: number) => Number.isFinite(n));
+      }
+    }
     // Keep next*Id counters in sync with existing items (prevents “counter too low” scan warnings)
     const maxId = (arr: any[]) =>
       Math.max(

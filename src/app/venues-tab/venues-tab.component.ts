@@ -40,6 +40,8 @@ export class VenuesTabComponent implements OnInit {
 
   // subrange rows used in the form
   subRangeRows: SubRangeRow[] = [];
+  venueToastMessage: string | null = null;
+  private venueToastTimer: any = null;
 
   constructor(private data: DataService) {}
 
@@ -72,6 +74,27 @@ export class VenuesTabComponent implements OnInit {
 
     if (this.selectedVenueId != null && !this.venues.some((v) => v.id === this.selectedVenueId)) {
       this.selectedVenueId = null;
+    }
+  }
+  private showVenueToast(message: string): void {
+    this.venueToastMessage = message;
+
+    if (this.venueToastTimer) {
+      clearTimeout(this.venueToastTimer);
+      this.venueToastTimer = null;
+    }
+
+    this.venueToastTimer = setTimeout(() => {
+      this.venueToastMessage = null;
+      this.venueToastTimer = null;
+    }, 1800);
+  }
+
+  private clearVenueToast(): void {
+    this.venueToastMessage = null;
+    if (this.venueToastTimer) {
+      clearTimeout(this.venueToastTimer);
+      this.venueToastTimer = null;
     }
   }
 
@@ -329,9 +352,10 @@ export class VenuesTabComponent implements OnInit {
     this.formVisible = false;
   }
 
-  // Button labelled "Add subrange" – just adds another row
+  // Button labelled "Add subrange" – adds another row (saving happens only on Save venue)
   saveSubrangesOnly(): void {
     this.addSubRangeRow();
+    this.showVenueToast('Subrange added. Press "Save venue" to store it.');
   }
 
   private resetForm(): void {
@@ -390,6 +414,7 @@ export class VenuesTabComponent implements OnInit {
     this.loadVenues();
     this.selectedVenueId = venue.id as number;
     this.expandedVenueId = venue.id as number;
+    this.showVenueToast(normalizedSubRanges.length > 0 ? 'Subrange(s) saved.' : 'Venue saved.');
   }
 
   editVenue(v: Venue): void {

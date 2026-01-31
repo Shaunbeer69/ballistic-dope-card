@@ -339,6 +339,9 @@ export class SessionTabComponent implements OnInit {
   // ---------- Setup step ----------
 
   onVenueChange(): void {
+    // Always re-pull venues so subRanges are never stale after edits in Venues tab
+    this.venues = this.data.getVenues();
+
     // Default to "Whole venue / no sub-range" whenever the venue changes
     this.subRangeId = null;
 
@@ -640,6 +643,7 @@ export class SessionTabComponent implements OnInit {
   venuePickerFiltered: Venue[] = [];
 
   openVenuePicker(): void {
+    this.venues = this.data.getVenues();
     this.venuePickerOpen = true;
     this.venuePickerSearch = '';
     this.updateVenuePickerFilter();
@@ -686,6 +690,8 @@ export class SessionTabComponent implements OnInit {
 
   openSubRangePicker(): void {
     if (!this.venueId) return;
+    this.venues = this.data.getVenues();
+
     this.subRangePickerOpen = true;
     this.subRangePickerSearch = '';
     this.updateSubRangePickerFilter();
