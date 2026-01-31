@@ -646,7 +646,13 @@ export class WindEffectToolComponent implements OnInit {
     this.kestrel.kestrelStatus$.subscribe((status) => {
       // Keep showing the current status, but auto-hide RED errors after 3 seconds.
       this.kestrelStatusText = status || '';
-      this.kestrelStatusIsError = !!this.kestrel.kestrelError;
+      const t = (this.kestrelStatusText || '').toLowerCase();
+      const looksLikeError =
+        t.includes('no kestrel') ||
+        t.includes('not found') ||
+        t.includes('failed') ||
+        t.includes('error');
+      this.kestrelStatusIsError = !!this.kestrel.kestrelError || looksLikeError;
 
       // Clear any prior hide timer
       if (this.kestrelStatusHideTimer) {
