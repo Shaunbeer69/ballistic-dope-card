@@ -48,6 +48,7 @@ export interface Venue {
   location?: string;
   altitudeM?: number;
   notes?: string;
+  distancesM?: number[];
   subRanges: SubRange[];
 }
 

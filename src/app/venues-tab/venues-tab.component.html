@@ -63,6 +63,19 @@
         />
       </label>
     </div>
+    <!-- Whole venue distances (used when no sub-range is selected) -->
+    <label class="flex flex-col mt-2">
+      Whole venue distances (m)
+      <input
+        [(ngModel)]="venueDistancesText"
+        name="venueDistancesText"
+        placeholder="e.g. 100, 200, 300"
+        class="mt-1 px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-white outline-none ring-1 ring-white/5"
+      />
+      <span class="text-[10px] text-slate-400"
+        >Comma separated. Used when you shoot with no subrange selected.</span
+      >
+    </label>
 
     <!-- Add Subranges -->
     <div class="mt-3 space-y-1">

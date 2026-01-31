@@ -3086,40 +3086,13 @@ export class LoadDevTabComponent implements OnInit {
       if ((!ap.oalUnit || ap.oalUnit === 'mm') && firstWithData.oalUnit) {
         ap.oalUnit = String(firstWithData.oalUnit);
         changed = true;
-      }
 
-      // Current: project-level OAL
-      if (ap.oal == null && firstWithData.oal != null) {
-        ap.oal = Number(firstWithData.oal);
-        changed = true;
-      }
-
-      // Current: project-level OAL
-      if (ap.oal == null && firstWithData.oal != null) {
-        ap.oal = Number(firstWithData.oal);
-        changed = true;
-      }
-
-      // Current: project-level OAL
-      if (ap.oal == null && firstWithData.oal != null) {
-        ap.oal = Number(firstWithData.oal);
-        changed = true;
-      }
-
-      if (ap.oalOgive == null && firstWithData.oalOgive != null) {
-        ap.oalOgive = Number(firstWithData.oalOgive);
         changed = true;
       }
 
       // Legacy: some older entries may store unit as `coalUnit`
       if ((!ap.oalUnit || ap.oalUnit === 'mm') && (firstWithData as any).coalUnit) {
         ap.oalUnit = String((firstWithData as any).coalUnit);
-        changed = true;
-      }
-
-      // Current: project-level unit
-      if ((!ap.oalUnit || ap.oalUnit === 'mm') && firstWithData.oalUnit) {
-        ap.oalUnit = String(firstWithData.oalUnit);
         changed = true;
       }
 

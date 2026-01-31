@@ -2,14 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, Output, EventEmitter, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../data.service';
-import {
-  Rifle,
-  Venue,
-  SubRange,
-  Environment,
-  DistanceDope,
-  Session
-} from '../models';
+import { Rifle, Venue, SubRange, Environment, DistanceDope, Session } from '../models';
 import { BleClient } from '@capacitor-community/bluetooth-le';
 import { KestrelDataSnapshot, KestrelService } from '../shared/services/kestrel-bluetooth.service';
 
@@ -28,11 +21,11 @@ interface KestrelSnapshot {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './session-tab.component.html',
-  styleUrls: ['./session-tab.component.css']
+  styleUrls: ['./session-tab.component.css'],
 })
 export class SessionTabComponent implements OnInit {
   step: WizardStep = 'setup';
-@Output() backToMenu = new EventEmitter<void>();
+  @Output() backToMenu = new EventEmitter<void>();
 
   rifles: Rifle[] = [];
   venues: Venue[] = [];
@@ -66,19 +59,41 @@ export class SessionTabComponent implements OnInit {
     if (this.envToastTimer) clearTimeout(this.envToastTimer);
     this.envToastTimer = setTimeout(() => (this.envToastMessage = null), 2500);
   }
+  private clearEnvToast(): void {
+    this.envToastMessage = null;
+    if (this.envToastTimer) {
+      clearTimeout(this.envToastTimer);
+      this.envToastTimer = null;
+    }
+  }
+
+  private scrollToField(id: string): void {
+    try {
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (!el) return;
+
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        const anyEl: any = el;
+        if (typeof anyEl.focus === 'function') anyEl.focus();
+      }, 50);
+    } catch {
+      // ignore
+    }
+  }
 
   private isFiniteNumber(v: any): v is number {
     return typeof v === 'number' && Number.isFinite(v);
   }
 
-private kmhToMps(kmh: number): number {
-  return kmh / 3.6;
-}
+  private kmhToMps(kmh: number): number {
+    return kmh / 3.6;
+  }
 
-private mpsToKmh(mps: number): number {
-  return mps * 3.6;
-}
-
+  private mpsToKmh(mps: number): number {
+    return mps * 3.6;
+  }
 
   private mphToMps(mph: number): number {
     return mph * 0.44704;
@@ -94,41 +109,40 @@ private mpsToKmh(mps: number): number {
 
   // ngModel bridge for the wind speed input (display unit ⇄ stored mps)
   get windSpeedInputValue(): number | null {
-  const mps = this.environment?.windSpeedMps;
-  if (!this.isFiniteNumber(mps)) return null;
+    const mps = this.environment?.windSpeedMps;
+    if (!this.isFiniteNumber(mps)) return null;
 
-  return this.windSpeedUnit === 'mph'
-    ? Number(this.mpsToMph(mps).toFixed(1))
-    : Number(this.mpsToKmh(mps).toFixed(1));
-}
-
-
- set windSpeedInputValue(v: number | null) {
-  if (v === null || v === undefined || v === ('' as any)) {
-    this.environment.windSpeedMps = undefined;
-    return;
+    return this.windSpeedUnit === 'mph'
+      ? Number(this.mpsToMph(mps).toFixed(1))
+      : Number(this.mpsToKmh(mps).toFixed(1));
   }
 
-  const num = typeof v === 'string' ? Number(v) : v;
-  if (!Number.isFinite(num)) {
-    this.environment.windSpeedMps = undefined;
-    return;
-  }
+  set windSpeedInputValue(v: number | null) {
+    if (v === null || v === undefined || v === ('' as any)) {
+      this.environment.windSpeedMps = undefined;
+      return;
+    }
 
-  this.environment.windSpeedMps =
-    this.windSpeedUnit === 'mph'
-      ? this.mphToMps(num)
-      : this.kmhToMps(num);
-}
+    const num = typeof v === 'string' ? Number(v) : v;
+    if (!Number.isFinite(num)) {
+      this.environment.windSpeedMps = undefined;
+      return;
+    }
+
+    this.environment.windSpeedMps =
+      this.windSpeedUnit === 'mph' ? this.mphToMps(num) : this.kmhToMps(num);
+  }
 
   // Wind clock (1–12, relative to target at 12)
   windClock: number | null = null;
-    // Wind speed unit toggle (UI shows mph or km/h; internally we store mph in environment.windSpeedMps)
+  // Wind speed unit toggle (UI shows mph or km/h; internally we store mph in environment.windSpeedMps)
   shotCount: number | null = null;
   selectedDistances: number[] = [];
+  wholeVenueDistanceInput: number | null = null;
+
   notes = '';
 
-    // ---------- Shots step toast ----------
+  // ---------- Shots step toast ----------
   shotsToastMessage: string | null = null;
   private shotsToastTimer: any | null = null;
 
@@ -165,8 +179,7 @@ private mpsToKmh(mps: number): number {
   kestrelData: KestrelDataSnapshot | null = null;
   kestrelError: string | null = null;
   kestrelIsConnecting = false;
- public kestrel: KestrelService = inject(KestrelService)
-
+  public kestrel: KestrelService = inject(KestrelService);
 
   // Track current device + auto-disconnect timer
   private kestrelDeviceId: string | null = null;
@@ -181,9 +194,7 @@ private mpsToKmh(mps: number): number {
   // ---------- Rifle picker (canonical; matches Rifles tab) ----------
 
   selectedRifleLabel(): string {
-    const r = this.rifles.find(
-      x => ((x as any).id ?? (x as any).rifleId) === this.rifleId
-    );
+    const r = this.rifles.find((x) => ((x as any).id ?? (x as any).rifleId) === this.rifleId);
 
     if (!r) return 'Select rifle';
 
@@ -214,7 +225,7 @@ private mpsToKmh(mps: number): number {
   }
 
   selectRifleFromPicker(r: Rifle): void {
-    this.rifleId = ((r as any).id ?? (r as any).rifleId) ?? null;
+    this.rifleId = (r as any).id ?? (r as any).rifleId ?? null;
     this.closeRiflePicker();
   }
 
@@ -226,7 +237,7 @@ private mpsToKmh(mps: number): number {
       return;
     }
 
-    this.riflePickerFiltered = this.rifles.filter(r => {
+    this.riflePickerFiltered = this.rifles.filter((r) => {
       const name = ((r as any).name ?? '').toString().toLowerCase();
       const cal = ((r as any).caliber ?? '').toString().toLowerCase();
       return name.includes(q) || cal.includes(q);
@@ -251,13 +262,13 @@ private mpsToKmh(mps: number): number {
     const name = ((r as any).name ?? '').toString().trim();
     const cal = ((r as any).caliber ?? '').toString().trim();
     if (!name && !cal) return 'Select rifle';
-    return cal ? `${name || '-'} (${cal})` : (name || '-');
+    return cal ? `${name || '-'} (${cal})` : name || '-';
   }
 
   // ---------- Derived getters ----------
 
   get selectedVenue(): Venue | undefined {
-    return this.venues.find(v => v.id === this.venueId);
+    return this.venues.find((v) => v.id === this.venueId);
   }
 
   get subRanges(): SubRange[] {
@@ -267,16 +278,19 @@ private mpsToKmh(mps: number): number {
 
   get selectedSubRange(): SubRange | undefined {
     const list = this.subRanges;
-    return list.find(sr => sr.id === this.subRangeId);
+    return list.find((sr) => sr.id === this.subRangeId);
   }
-
 
   get distanceOptions(): number[] {
     const sr = this.selectedSubRange;
-    return sr?.distancesM ?? [];
+    if (sr?.distancesM && sr.distancesM.length) return sr.distancesM;
+
+    // Whole venue / no sub-range fallback
+    const v: any = this.selectedVenue as any;
+    return (v?.distancesM as number[]) ?? [];
   }
 
-    get windHint(): string {
+  get windHint(): string {
     // Keep a single internal basis: mph stored in environment.windSpeedMps (name is legacy)
     const mph = this.environment.windSpeedMps;
     let clock = this.windClock;
@@ -309,15 +323,13 @@ private mpsToKmh(mps: number): number {
     else if (mph < 8) intensity = 'Medium wind – expect noticeable drift.';
     else intensity = 'Strong wind – expect significant drift.';
 
-    const speedDisplay =
-      this.windSpeedUnit === 'mph' ? mph : mph * 1.609344; // mph -> km/h
+    const speedDisplay = this.windSpeedUnit === 'mph' ? mph : mph * 1.609344; // mph -> km/h
     const unitLabel = this.windSpeedUnit === 'mph' ? 'mph' : 'km/h';
 
     const speedText = Number.isFinite(speedDisplay) ? speedDisplay.toFixed(2) : `${speedDisplay}`;
 
     return `Wind from ${c} o'clock at ${speedText} ${unitLabel}: expect ${directionText}. ${intensity}`;
   }
-
 
   // Called by (ngModelChange) in the template – logic is in the getter
   updateWindHint(): void {
@@ -326,14 +338,13 @@ private mpsToKmh(mps: number): number {
 
   // ---------- Setup step ----------
 
-    onVenueChange(): void {
+  onVenueChange(): void {
     // Default to "Whole venue / no sub-range" whenever the venue changes
     this.subRangeId = null;
 
     // Changing venue resets selected distances
     this.selectedDistances = [];
   }
-
 
   canGoToEnvironment(): boolean {
     if (!this.rifleId) return false;
@@ -352,6 +363,12 @@ private mpsToKmh(mps: number): number {
       return;
     }
     // Sub-range can be null (whole venue)
+    // Sub-range can be null (whole venue)
+
+    this.clearEnvToast();
+    this.clearShotsToast();
+
+    this.step = 'environment';
 
     this.step = 'environment';
   }
@@ -364,7 +381,7 @@ private mpsToKmh(mps: number): number {
   // ---------- Kestrel integration ----------
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private clearKestrelAutoDisconnect(): void {
@@ -373,7 +390,6 @@ private mpsToKmh(mps: number): number {
       this.kestrelAutoDisconnectTimer = null;
     }
   }
-
 
   async onKestrelButtonClick(): Promise<void> {
     await this.kestrel.connectKestrelBluetooth();
@@ -385,21 +401,28 @@ private mpsToKmh(mps: number): number {
 
   nextFromEnvironment(): void {
     // Convert windClock -> approximate windDirectionDeg (0° = from target / headwind)
-        // Validation: all manual numeric fields must be populated (Light conditions excluded)
+    // Validation: all manual numeric fields must be populated (Light conditions excluded)
     const t = this.environment?.temperatureC;
     const p = this.environment?.pressureInHg;
     const h = this.environment?.humidityPercent;
     const w = this.environment?.windSpeedMps;
     const c = this.windClock;
 
-    if (
-      !this.isFiniteNumber(t) ||
-      !this.isFiniteNumber(p) ||
-      !this.isFiniteNumber(h) ||
-      !this.isFiniteNumber(w) ||
-      !this.isFiniteNumber(c)
-    ) {
+    const firstMissingId = !this.isFiniteNumber(t)
+      ? 'envTempInput'
+      : !this.isFiniteNumber(p)
+        ? 'envPressureInput'
+        : !this.isFiniteNumber(h)
+          ? 'envHumidityInput'
+          : !this.isFiniteNumber(w)
+            ? 'envWindSpeedInput'
+            : !this.isFiniteNumber(c)
+              ? 'envWindClockInput'
+              : null;
+
+    if (firstMissingId) {
       this.showEnvToast('Please complete all Environment fields (numeric).');
+      this.scrollToField(firstMissingId);
       return;
     }
 
@@ -411,6 +434,7 @@ private mpsToKmh(mps: number): number {
     } else {
       this.environment.windDirectionDeg = undefined;
     }
+    this.clearEnvToast();
 
     this.step = 'shots';
   }
@@ -421,18 +445,43 @@ private mpsToKmh(mps: number): number {
   }
 
   // ---------- Shot planning step ----------
+  addWholeVenueDistance(): void {
+    // Only applies when no sub-range is selected (whole venue).
+    if (this.subRangeId != null) return;
 
-   toggleDistance(d: number): void {
+    const v = this.selectedVenue as any;
+    if (!v) return;
+
+    const raw = this.wholeVenueDistanceInput;
+    const d = raw != null ? Number(raw) : NaN;
+    if (!Number.isFinite(d) || d <= 0) {
+      this.showShotsToast('Enter a valid distance (m) to add.');
+      return;
+    }
+
+    const existing: number[] = Array.isArray(v.distancesM) ? (v.distancesM as number[]) : [];
+    const merged = Array.from(new Set([...existing, d])).sort((a, b) => a - b);
+
+    const updatedVenue = { ...v, distancesM: merged };
+    this.data.updateVenue(updatedVenue);
+
+    // Refresh local list so UI updates immediately
+    this.venues = this.data.getVenues();
+    this.wholeVenueDistanceInput = null;
+    this.clearShotsToast();
+  }
+
+  toggleDistance(d: number): void {
     this.clearShotsToast();
 
     if (this.selectedDistances.includes(d)) {
-      this.selectedDistances = this.selectedDistances.filter(x => x !== d);
+      this.selectedDistances = this.selectedDistances.filter((x) => x !== d);
     } else {
       this.selectedDistances = [...this.selectedDistances, d].sort((a, b) => a - b);
     }
   }
 
-   canCompleteSession(): boolean {
+  canCompleteSession(): boolean {
     return (
       this.selectedDistances.length > 0 &&
       !!this.shotCount &&
@@ -442,32 +491,34 @@ private mpsToKmh(mps: number): number {
     );
   }
 
-
   completeSession(): void {
     this.clearShotsToast();
 
     const missing: string[] = [];
 
     if (this.selectedDistances.length === 0) {
-      missing.push('distance selection');
+      missing.push('distance');
     }
-
     if (!this.shotCount || this.shotCount <= 0) {
       missing.push('planned shots');
     }
-
     if (!this.notes || this.notes.trim().length === 0) {
       missing.push('comments');
     }
 
     if (missing.length) {
       this.showShotsToast(`Please complete: ${missing.join(', ')}.`);
-      return;
-    }
 
+      const firstMissingId =
+        this.selectedDistances.length === 0
+          ? 'distancePickerBlock'
+          : !this.shotCount || this.shotCount <= 0
+            ? 'shotCountInput'
+            : !this.notes || this.notes.trim().length === 0
+              ? 'sessionNotesInput'
+              : null;
 
-    if (!this.shotCount || this.shotCount <= 0) {
-    this.showShotsToast('Incomplete: enter the planned number of shots.');
+      if (firstMissingId) this.scrollToField(firstMissingId);
 
       return;
     }
@@ -478,9 +529,9 @@ private mpsToKmh(mps: number): number {
     }
 
     // Build dope rows for each selected distance
-    this.dopeRows = this.selectedDistances.map(distance => ({
+    this.dopeRows = this.selectedDistances.map((distance) => ({
       subRangeId: this.subRangeId ?? undefined,
-      distanceM: distance
+      distanceM: distance,
     }));
     const sessionNotesParts: string[] = [];
     if (this.notes?.trim()) {
@@ -494,11 +545,10 @@ private mpsToKmh(mps: number): number {
 
     sessionNotesParts.push(
       `${countText} at distances: ${this.selectedDistances.join(', ')} m` +
-        (sr ? ` on sub-range "${sr.name}"` : '')
+        (sr ? ` on sub-range "${sr.name}"` : ''),
     );
 
-        const sessionToSave: any = {
-
+    const sessionToSave: any = {
       date: new Date().toISOString(),
       rifleId: this.rifleId,
       venueId: this.venueId,
@@ -507,9 +557,8 @@ private mpsToKmh(mps: number): number {
       dope: this.dopeRows,
       notes: sessionNotesParts.join(' | '),
       voiceNoteDataUrl: this.sessionVoiceNoteDataUrl || undefined,
-      completed: false
+      completed: false,
     };
-      
 
     this.data.addSession(sessionToSave);
 
@@ -527,13 +576,13 @@ private mpsToKmh(mps: number): number {
 
   backToSetup(): void {
     this.step = 'setup';
-  }  onJumpToHistory(): void {
+  }
+  onJumpToHistory(): void {
     // Optional: reset the wizard so Sessions tab is clean next time
     this.newSession();
     // Tell AppComponent to switch to History tab
     this.jumpToHistory.emit();
   }
-
 
   backToEnvironment(): void {
     this.step = 'environment';
@@ -546,6 +595,9 @@ private mpsToKmh(mps: number): number {
   }
 
   newSession(): void {
+    this.clearEnvToast();
+    this.clearShotsToast();
+
     this.step = 'setup';
     this.title = '';
     this.rifleId = null;
@@ -556,7 +608,7 @@ private mpsToKmh(mps: number): number {
     this.shotCount = null;
     this.selectedDistances = [];
     this.notes = '';
-        // reset session voice note
+    // reset session voice note
     this.sessionMicInlineMessage = null;
     this.sessionVoiceNoteDataUrl = null;
     this.sessionIsRecording = false;
@@ -582,7 +634,7 @@ private mpsToKmh(mps: number): number {
   }
   // ---------- Session Voice Note (Mic) handlers ----------
 
-   // ===== Venue picker (canonical, same as Venues tab) =====
+  // ===== Venue picker (canonical, same as Venues tab) =====
   venuePickerOpen = false;
   venuePickerSearch = '';
   venuePickerFiltered: Venue[] = [];
@@ -630,9 +682,7 @@ private mpsToKmh(mps: number): number {
     this.closeVenuePicker();
   }
 
- 
   // ===== Sub-range picker (canonical modal, like Venues/Rifles) =====
-
 
   openSubRangePicker(): void {
     if (!this.venueId) return;
@@ -686,7 +736,10 @@ private mpsToKmh(mps: number): number {
   private async startSessionRecording(): Promise<void> {
     // Basic guard for environments without MediaRecorder
     const anyNav: any = navigator;
-    if (!anyNav?.mediaDevices?.getUserMedia || typeof (window as any).MediaRecorder === 'undefined') {
+    if (
+      !anyNav?.mediaDevices?.getUserMedia ||
+      typeof (window as any).MediaRecorder === 'undefined'
+    ) {
       this.sessionMicInlineMessage = 'Voice notes not supported on this device.';
       setTimeout(() => (this.sessionMicInlineMessage = null), 2500);
       return;
@@ -708,7 +761,10 @@ private mpsToKmh(mps: number): number {
     }
 
     this.sessionAudioChunks = [];
-    this.sessionMediaRecorder = new MediaRecorder(this.sessionMediaStream, mimeType ? { mimeType } : undefined);
+    this.sessionMediaRecorder = new MediaRecorder(
+      this.sessionMediaStream,
+      mimeType ? { mimeType } : undefined,
+    );
 
     this.sessionMediaRecorder.ondataavailable = (event: BlobEvent) => {
       if (event.data && event.data.size > 0) this.sessionAudioChunks.push(event.data);
@@ -716,7 +772,9 @@ private mpsToKmh(mps: number): number {
 
     this.sessionMediaRecorder.onstop = async () => {
       try {
-        const blob = new Blob(this.sessionAudioChunks, { type: this.sessionMediaRecorder?.mimeType || 'audio/webm' });
+        const blob = new Blob(this.sessionAudioChunks, {
+          type: this.sessionMediaRecorder?.mimeType || 'audio/webm',
+        });
         this.sessionVoiceNoteDataUrl = await this.blobToDataUrl(blob);
 
         this.sessionMicInlineMessage = 'Voice note saved';
@@ -727,7 +785,7 @@ private mpsToKmh(mps: number): number {
         setTimeout(() => (this.sessionMicInlineMessage = null), 2500);
       } finally {
         // Stop tracks to release mic
-        this.sessionMediaStream?.getTracks()?.forEach(t => t.stop());
+        this.sessionMediaStream?.getTracks()?.forEach((t) => t.stop());
         this.sessionMediaStream = null;
         this.sessionMediaRecorder = null;
         this.sessionAudioChunks = [];
@@ -758,8 +816,6 @@ private mpsToKmh(mps: number): number {
   }
 
   onBackFromHistory() {
-       this.backToMenu.emit();
-   
-}
-
+    this.backToMenu.emit();
+  }
 }

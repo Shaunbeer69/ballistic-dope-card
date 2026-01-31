@@ -1014,9 +1014,9 @@
                 </button>
 
                 <div *ngIf="howToExpanded">
-                  The <span class="font-semibold text-emerald-200">green</span> rows mark a likely
-                  <span class="font-semibold">node band</span> (a “flat spot” where velocity changes
-                  very little across neighbouring charges). Pick the
+                  The <span class="font-semibold text-emerald-200">green</span>, orange and red rows
+                  mark a likely <span class="font-semibold">node band</span> (a “flat spot” where
+                  velocity changes very little across neighbouring charges). Pick the
                   <span class="font-semibold">middle charge</span> of the green band as your first
                   node to confirm. This load will form the basis of your OCW testing.
                 </div>
@@ -1254,26 +1254,33 @@
                         <!-- Row 2 -->
                         <div class="text-gray-400">Bullet wt:</div>
                         <div class="font-semibold">
-                          {{ summaryBulletWeightGr() ?? '—' }}
-
-                          <span *ngIf="summaryBulletWeightGr() != null"> gr</span>
+                          <ng-container *ngIf="summaryBulletWeightGr() as bw; else bwDash">
+                            {{ bw }} <span> gr</span>
+                          </ng-container>
+                          <ng-template #bwDash>—</ng-template>
                         </div>
 
                         <div class="text-gray-400">COAL:</div>
                         <div class="font-semibold">
-                          {{ summaryCoalValue() ?? '—' }}
-
-                          <span *ngIf="summaryCoalValue() != null"> {{ summaryCoalUnit() }}</span>
+                          <ng-container *ngIf="summaryCoalValue() as coal; else coalDash">
+                            {{ coal }}
+                            <span>
+                              <ng-container *ngIf="summaryCoalUnit() as cu">{{ cu }}</ng-container>
+                            </span>
+                          </ng-container>
+                          <ng-template #coalDash>—</ng-template>
                         </div>
 
                         <!-- Row 3 -->
                         <div class="text-gray-400">COAL Ogive:</div>
                         <div class="font-semibold">
-                          {{ summaryCoalOgiveValue() ?? '—' }}
-
-                          <span *ngIf="summaryCoalOgiveValue() != null">
-                            {{ summaryCoalUnit() }}</span
-                          >
+                          <ng-container *ngIf="summaryCoalOgiveValue() as og; else ogDash">
+                            {{ og }}
+                            <span>
+                              <ng-container *ngIf="summaryCoalUnit() as cu">{{ cu }}</ng-container>
+                            </span>
+                          </ng-container>
+                          <ng-template #ogDash>—</ng-template>
                         </div>
 
                         <div class="col-span-4 flex items-baseline gap-2">

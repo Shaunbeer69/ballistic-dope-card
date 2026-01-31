@@ -36,6 +36,7 @@ export class VenuesTabComponent implements OnInit {
 
   // main venue form
   venueForm: Partial<Venue> = {};
+  venueDistancesText = '';
 
   // subrange rows used in the form
   subRangeRows: SubRangeRow[] = [];
@@ -69,14 +70,9 @@ export class VenuesTabComponent implements OnInit {
   private loadVenues(): void {
     this.venues = this.data.getVenues();
 
-   
-      if (
-      this.selectedVenueId != null &&
-      !this.venues.some((v) => v.id === this.selectedVenueId)
-    ) {
+    if (this.selectedVenueId != null && !this.venues.some((v) => v.id === this.selectedVenueId)) {
       this.selectedVenueId = null;
     }
-
   }
 
   get selectedVenue(): Venue | undefined {
@@ -93,7 +89,7 @@ export class VenuesTabComponent implements OnInit {
         return;
       }
 
-            // Lazy-load to match Rifles tab (stable with different jspdf/autotable builds)
+      // Lazy-load to match Rifles tab (stable with different jspdf/autotable builds)
       const jspdfMod: any = await import('jspdf');
       const autoTableMod: any = await import('jspdf-autotable');
       const jsPDF = jspdfMod?.jsPDF ?? jspdfMod?.default;
@@ -114,9 +110,16 @@ export class VenuesTabComponent implements OnInit {
       const altitudeM = (v as any)?.altitudeM ?? '';
       const notes = ((v as any)?.notes ?? '').toString();
 
-      doc.text(`Name: ${name}`, 10, y); y += 6;
-      if (location) { doc.text(`Location: ${location}`, 10, y); y += 6; }
-      if (altitudeM !== '' && altitudeM != null) { doc.text(`Altitude (m): ${altitudeM}`, 10, y); y += 6; }
+      doc.text(`Name: ${name}`, 10, y);
+      y += 6;
+      if (location) {
+        doc.text(`Location: ${location}`, 10, y);
+        y += 6;
+      }
+      if (altitudeM !== '' && altitudeM != null) {
+        doc.text(`Altitude (m): ${altitudeM}`, 10, y);
+        y += 6;
+      }
 
       // Notes (wrapped)
       if (notes.trim().length) {
@@ -128,7 +131,7 @@ export class VenuesTabComponent implements OnInit {
         doc.setFontSize(10);
         const wrapped = doc.splitTextToSize(notes, pageWidth - 20);
         doc.text(wrapped, 12, y);
-        y += (wrapped.length * 4) + 4;
+        y += wrapped.length * 4 + 4;
       }
 
       // Subranges table
@@ -140,18 +143,17 @@ export class VenuesTabComponent implements OnInit {
           y = 12;
         }
 
-                autoTableMod.default(doc, {
+        autoTableMod.default(doc, {
           startY: y,
           head: [['Subrange', 'Distances (m)']],
-          body: subRanges.map((sr: any) => ([
+          body: subRanges.map((sr: any) => [
             `${sr?.name ?? ''}`,
             Array.isArray(sr?.distancesM) ? sr.distancesM.join(', ') : '',
-          ])),
+          ]),
           styles: { fontSize: 9 },
           headStyles: { fontSize: 9 },
           margin: { left: 10, right: 10 },
         });
-
 
         y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 12;
       }
@@ -167,8 +169,7 @@ export class VenuesTabComponent implements OnInit {
   }
 
   private async sharePdfBlob(blob: Blob, filename: string): Promise<void> {
-    const isNative =
-      Capacitor.isNativePlatform() ?? (Capacitor.getPlatform() !== 'web');
+    const isNative = Capacitor.isNativePlatform() ?? Capacitor.getPlatform() !== 'web';
 
     // Web: download
     if (!isNative) {
@@ -287,8 +288,7 @@ export class VenuesTabComponent implements OnInit {
   }
 
   toggleExpanded(v: Venue): void {
-    this.expandedVenueId =
-      this.expandedVenueId === (v.id as number) ? null : (v.id as number);
+    this.expandedVenueId = this.expandedVenueId === (v.id as number) ? null : (v.id as number);
   }
   // ---------- subrange selection (single-select checkbox style) ----------
 
@@ -336,6 +336,7 @@ export class VenuesTabComponent implements OnInit {
 
   private resetForm(): void {
     this.venueForm = {};
+    this.venueDistancesText = '';
     this.subRangeRows = [];
     this.editingVenue = null;
     this.addSubRangeRow();
@@ -349,9 +350,7 @@ export class VenuesTabComponent implements OnInit {
       .map((row) => {
         const distancesM = this.parseDistances(row.distancesText);
 
-        const existing =
-          this.editingVenue?.subRanges?.find((sr) => sr.id === row.id) ??
-          undefined;
+        const existing = this.editingVenue?.subRanges?.find((sr) => sr.id === row.id) ?? undefined;
 
         return {
           ...(existing || {}),
@@ -362,19 +361,29 @@ export class VenuesTabComponent implements OnInit {
       });
 
     const base: Partial<Venue> = this.editingVenue || {};
+    const venueDistancesM = this.parseDistances(this.venueDistancesText);
+
+    // Venue must have at least one distance either on the venue itself or in a subrange.
+    if (normalizedSubRanges.length === 0 && venueDistancesM.length === 0) {
+      alert(
+        'Please add at least one distance (either Whole venue distances or a Subrange distance).',
+      );
+      return;
+    }
 
     const venue: Venue = {
       ...base,
       ...this.venueForm,
       id: base.id ?? this.venueForm.id ?? Date.now(),
+      distancesM: venueDistancesM,
       subRanges: normalizedSubRanges,
     } as Venue;
 
     if (this.editingVenue) {
-  this.data.updateVenue(venue);
-} else {
-  this.data.addVenue(venue);
-}
+      this.data.updateVenue(venue);
+    } else {
+      this.data.addVenue(venue);
+    }
 
     this.resetForm();
     this.formVisible = false;
@@ -394,6 +403,10 @@ export class VenuesTabComponent implements OnInit {
       altitudeM: v.altitudeM,
       notes: v.notes,
     };
+    this.venueDistancesText =
+      (v as any).distancesM && Array.isArray((v as any).distancesM)
+        ? ((v as any).distancesM as number[]).join(', ')
+        : '';
 
     this.subRangeRows =
       (v.subRanges || []).map((sr) => ({
@@ -427,7 +440,6 @@ export class VenuesTabComponent implements OnInit {
       this.expandedVenueId = null;
     }
   }
-
 
   // ---------- Back to main menu (like History) ----------
 
