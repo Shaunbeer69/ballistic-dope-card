@@ -24,6 +24,9 @@ export class HistoryTabComponent implements OnInit {
   toastKind: 'ok' | 'error' = 'ok';
   saveMessage: string | null = null;
   private saveMessageTimeout: any = null;
+  private aveVelAutoApplied = false;
+  private aveVelToastShown = false;
+  private aveVelToastTimeout: any = null;
 
   searchTerm: string = '';
   // PERF: precomputed lists (avoid template getters that filter/sort/group every CD tick)
@@ -39,9 +42,27 @@ export class HistoryTabComponent implements OnInit {
     ev.preventDefault();
 
     // First Elev input in the table (your file already marks it with #elevFirst)
+
     const el = document.querySelector('#elevFirst') as HTMLInputElement | null;
 
     el?.focus();
+  }
+  onAveVelFocus(): void {
+    if (!this.editSession) return;
+
+    // only show this once, and only if we auto-filled it
+    if (!this.aveVelAutoApplied || this.aveVelToastShown) return;
+
+    if (this.aveVelToastTimeout) {
+      clearTimeout(this.aveVelToastTimeout);
+      this.aveVelToastTimeout = null;
+    }
+
+    this.aveVelToastTimeout = setTimeout(() => {
+      this.showSaveMessage('Default rifle velocity applied. Change if recorded.', 'ok');
+      this.aveVelToastShown = true;
+      this.aveVelToastTimeout = null;
+    }, 800);
   }
 
   focusNotes(row: any): void {
@@ -260,6 +281,17 @@ export class HistoryTabComponent implements OnInit {
       return 'Unknown rifle';
     }
   }
+  private getDefaultRifleVelocityFps(rifleId: string | null | undefined): number | null {
+    try {
+      const ds: any = this.dataService;
+      if (!rifleId || !ds || typeof ds.getRifles !== 'function') return null;
+      const rifle = ds.getRifles().find((r: any) => String(r.id) === String(rifleId));
+      const v = rifle?.muzzleVelocityFps;
+      return Number.isFinite(Number(v)) ? Number(v) : null;
+    } catch {
+      return null;
+    }
+  }
 
   getVenueName(venueId: string | null | undefined): string {
     try {
@@ -383,6 +415,22 @@ export class HistoryTabComponent implements OnInit {
 
     // Apply History defaults (Wind Dir=3, W Speed MPH autofill)
     this.applyHistoryDefaults(this.editSession);
+    // Prefill Ave Vel from rifle default if missing (toast shown on focus, not here)
+    const dv = this.getDefaultRifleVelocityFps(this.editSession?.rifleId);
+    if (dv != null) {
+      const avNum = this.toNumber(this.editSession?.averageVelocity);
+      if (!Number.isFinite(avNum)) {
+        this.editSession.averageVelocity = dv;
+        this.aveVelAutoApplied = true;
+        this.aveVelToastShown = false;
+      } else {
+        this.aveVelAutoApplied = false;
+        this.aveVelToastShown = false;
+      }
+    } else {
+      this.aveVelAutoApplied = false;
+      this.aveVelToastShown = false;
+    }
 
     this.validationError = null;
     this.clearSaveMessage();
@@ -869,6 +917,8 @@ export class HistoryTabComponent implements OnInit {
   // UI messages / navigation
   // --------------------------------------------------
   private showSaveMessage(msg: string, kind: 'ok' | 'error' = 'ok'): void {
+    this.validationError = null;
+
     this.toastKind = kind;
     this.saveMessage = msg;
     if (this.saveMessageTimeout) clearTimeout(this.saveMessageTimeout);
@@ -899,6 +949,13 @@ export class HistoryTabComponent implements OnInit {
   closeEdit(): void {
     this.editSession = null;
     this.validationError = null;
+    this.aveVelAutoApplied = false;
+    this.aveVelToastShown = false;
+    if (this.aveVelToastTimeout) {
+      clearTimeout(this.aveVelToastTimeout);
+      this.aveVelToastTimeout = null;
+    }
+
     this.clearSaveMessage();
   }
 }

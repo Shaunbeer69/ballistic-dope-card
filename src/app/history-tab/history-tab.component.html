@@ -260,6 +260,7 @@
           [(ngModel)]="editSession.averageVelocity"
           class="ml-1 w-20 px-1 py-[2px] rounded bg-slate-950 border border-slate-700 text-[10px] leading-tight"
           placeholder="fps"
+          (focus)="onAveVelFocus()"
           (keydown.enter)="$event.preventDefault(); $event.stopPropagation(); onAveVelEnter($event)"
         />
       </ng-container>
@@ -615,11 +616,6 @@
       </ng-template>
     </div>
 
-    <!-- Validation error -->
-    <div *ngIf="validationError" class="mt-2 text-[10px] text-rose-400">
-      {{ validationError }}
-    </div>
-
     <!-- Footer buttons + toast -->
     <div class="mt-3 space-y-2">
       <!-- Delete + Back buttons row -->
@@ -653,8 +649,8 @@
 
       <!-- Toast (fixed + also shows validation errors) -->
       <div
-        *ngIf="saveMessage || validationError"
-        class="fixed left-0 right-0 bottom-[calc(10px+env(safe-area-inset-bottom))] z-[9999] flex justify-center px-3"
+        *ngIf="saveMessage"
+        class="fixed left-0 right-0 top-[calc(10px+env(safe-area-inset-top))] z-[9999] flex justify-center px-3"
       >
         <div
           class="w-full max-w-md text-center text-[10px] px-3 py-2 rounded-xl border"
@@ -664,7 +660,7 @@
               : 'bg-emerald-900/40 border-emerald-400 text-emerald-100'
           "
         >
-          {{ saveMessage || validationError }}
+          {{ saveMessage }}
         </div>
       </div>
     </div>
