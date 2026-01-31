@@ -65,6 +65,13 @@ export class DataService {
         };
 
         this.normalizeStore(store);
+        // Persist any normalization/hydration fixes immediately (one-time sweeps)
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+        } catch {
+          // ignore storage write errors here
+        }
+
         return store;
       }
     } catch {
@@ -84,6 +91,13 @@ export class DataService {
     };
 
     this.normalizeStore(store);
+    // Persist any normalization/hydration fixes immediately (one-time sweeps)
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    } catch {
+      // ignore storage write errors here
+    }
+
     return store;
   }
 
@@ -108,6 +122,9 @@ export class DataService {
 
     // Remove legacy/ghost load development projects (empty shells left behind by older versions)
     this.pruneEmptyLoadDevProjectsInStore(store);
+    // One-time backfill for old projects missing planning fields (powder/bullet/COAL/etc.)
+    this.hydrateLoadDevProjectPlanningFieldsFromRifleLoads(store);
+
     // Keep next*Id counters in sync with existing items (prevents “counter too low” scan warnings)
     const maxId = (arr: any[]) =>
       Math.max(
@@ -162,6 +179,142 @@ export class DataService {
     });
 
     return before - store.loadDevProjects.length;
+  }
+  // ---------- One-time hydration for old LoadDev projects ----------
+  // Some older OCW/Ladder projects were saved without planning fields on the project object.
+  // This sweep back-fills missing project fields from the rifle's latest saved "load planning" entry,
+  // but ONLY when the project fields are empty (never overwrites good/new data).
+  private hydrateLoadDevProjectPlanningFieldsFromRifleLoads(store: AppStore): number {
+    const rifles: any[] = Array.isArray((store as any)?.rifles)
+      ? ((store as any).rifles as any[])
+      : [];
+    const projects: any[] = Array.isArray((store as any)?.loadDevProjects)
+      ? ((store as any).loadDevProjects as any[])
+      : [];
+
+    const isBlank = (v: any): boolean =>
+      v == null || (typeof v === 'string' && v.trim().length === 0);
+
+    const toNum = (v: any): number | null => {
+      if (v == null) return null;
+      const n = typeof v === 'number' ? v : Number(String(v).replace(',', '.'));
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const hasAnyPlanning = (l: any): boolean =>
+      !!(
+        l &&
+        (l.powder ||
+          l.bullet ||
+          l.bulletWeightGr != null ||
+          l.coal != null ||
+          l.coalOgive != null ||
+          l.coalUnit ||
+          l.lands != null ||
+          l.landsOgive != null)
+      );
+
+    let fixed = 0;
+
+    for (const p of projects) {
+      if (!p || typeof p !== 'object') continue;
+
+      // Only run for projects that are missing at least ONE of the planning fields
+      const needs =
+        isBlank(p.powder) ||
+        isBlank(p.bullet) ||
+        p.bulletWeightGr == null ||
+        p.oal == null ||
+        p.oalOgive == null ||
+        isBlank(p.oalUnit) ||
+        p.lands == null ||
+        p.distanceM == null;
+
+      if (!needs) continue;
+
+      const rifleId = Number((p as any).rifleId);
+      if (!Number.isFinite(rifleId)) continue;
+
+      const r = rifles.find((x: any) => Number(x?.id) === rifleId);
+      if (!r) continue;
+
+      const loads: any[] = Array.isArray(r?.loads) ? (r.loads as any[]) : [];
+      if (!loads.length) continue;
+
+      // Prefer "most recent" by highest id (your load ids are timestamp-like in practice)
+      const candidate = loads
+        .filter((l) => hasAnyPlanning(l))
+        .sort((a, b) => Number(a?.id ?? 0) - Number(b?.id ?? 0))
+        .pop();
+
+      if (!candidate) continue;
+
+      let changed = false;
+
+      if (isBlank(p.powder) && !isBlank(candidate.powder)) {
+        p.powder = String(candidate.powder);
+        changed = true;
+      }
+
+      if (isBlank(p.bullet) && !isBlank(candidate.bullet)) {
+        p.bullet = String(candidate.bullet);
+        changed = true;
+      }
+
+      if (p.bulletWeightGr == null && candidate.bulletWeightGr != null) {
+        const w = toNum(candidate.bulletWeightGr);
+        if (w != null) {
+          p.bulletWeightGr = w;
+          changed = true;
+        }
+      }
+
+      // Project uses oal/oalOgive/oalUnit; rifle loads use coal/coalOgive/coalUnit
+      if (p.oal == null) {
+        const v = toNum(candidate.coal ?? candidate.oal);
+        if (v != null) {
+          p.oal = v;
+          changed = true;
+        }
+      }
+
+      if (p.oalOgive == null) {
+        const v = toNum(candidate.coalOgive ?? candidate.oalOgive);
+        if (v != null) {
+          p.oalOgive = v;
+          changed = true;
+        }
+      }
+
+      if (isBlank(p.oalUnit)) {
+        const u = candidate.coalUnit ?? candidate.oalUnit;
+        if (!isBlank(u)) {
+          p.oalUnit = String(u);
+          changed = true;
+        }
+      }
+
+      if (p.lands == null) {
+        const v = toNum(candidate.lands ?? candidate.landsOgive);
+        if (v != null) {
+          p.lands = v;
+          changed = true;
+        }
+      }
+
+      // distanceM is optional/legacy; only fill if the load has it (rare)
+      if (p.distanceM == null && candidate.distanceM != null) {
+        const v = toNum(candidate.distanceM);
+        if (v != null) {
+          p.distanceM = v;
+          changed = true;
+        }
+      }
+
+      if (changed) fixed++;
+    }
+
+    return fixed;
   }
 
   private saveStore(): void {

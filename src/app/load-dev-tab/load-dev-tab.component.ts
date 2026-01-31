@@ -2247,8 +2247,10 @@ export class LoadDevTabComponent implements OnInit {
         powder?: string;
         bullet?: string;
         bulletWeightGr?: number | null;
-        oal?: number | null;
-        oalOgive?: number | null;
+        oal?: number | string | null;
+
+        oalOgive?: number | string | null;
+
         oalUnit?: 'mm' | 'in';
 
         distanceM?: number | null;

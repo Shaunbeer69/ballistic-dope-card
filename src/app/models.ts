@@ -4,7 +4,13 @@ export interface RifleLoad {
   id: number;
   powder: string;
   chargeGn: number;
-  coal: string;
+  coal: number | string;
+  coalUnit?: 'mm' | 'in';
+  coalOgive?: number | string;
+  lands?: number | string;
+  landsOgive?: number | string;
+  jump?: number;
+
   primer: string;
   bullet?: string;
   bulletWeightGr?: number;
@@ -24,7 +30,7 @@ export interface Rifle {
   scopeUnit: ScopeUnit;
   scope?: string; // e.g. "GPO 6-36x56"
   notes?: string;
-  roundCount?: number;        // total rounds through this rifle
+  roundCount?: number; // total rounds through this rifle
   loads: RifleLoad[];
 }
 
@@ -53,23 +59,23 @@ export interface Environment {
   pressureInHg?: number;
 
   // match what session-tab & history-tab are using
-  pressureHpa?: number;         // hPa
-  humidityPercent?: number;     // %
+  pressureHpa?: number; // hPa
+  humidityPercent?: number; // %
 
   densityAltitudeM?: number;
   windSpeedMps?: number;
-  windDirectionClock?: number;  // 0–12 o’clock (clock system)
-  windDirectionDeg?: number;    // 0–360 degrees
+  windDirectionClock?: number; // 0–12 o’clock (clock system)
+  windDirectionDeg?: number; // 0–360 degrees
 
   // used in history / session templates
-  lightConditions?: string;     // e.g. "overcast", "late afternoon"
+  lightConditions?: string; // e.g. "overcast", "late afternoon"
 
   notes?: string;
 }
 
 export interface DistanceDope {
-  id?: number;                  // optional so we can create rows before persisting
-  subRangeId?: number;          // used by session-tab when mapping distances
+  id?: number; // optional so we can create rows before persisting
+  subRangeId?: number; // used by session-tab when mapping distances
 
   distanceM: number;
 
@@ -108,34 +114,42 @@ export type GroupSizeUnit = 'MOA' | 'mm';
 
 export interface LoadDevEntry {
   id: number;
-   createdAt?: string; // ISO datetime when entry was first captured
+  createdAt?: string; // ISO datetime when entry was first captured
   updatedAt?: string; // ISO datetime when entry was last edited
   // nested under project; no projectId needed
-  loadLabel: string;          // e.g. "42.3 gr N570 140 ELD-M"
+  loadLabel: string; // e.g. "42.3 gr N570 140 ELD-M"
   powder?: string;
   chargeGr?: number;
   coal?: string;
   primer?: string;
   bullet?: string;
   bulletWeightGr?: number;
-  bulletBc?: string;          // G7/G1 BC for this load
+  bulletBc?: string; // G7/G1 BC for this load
   distanceM?: number;
-   shotsFired?: number;
+  velocityInput?: string;
+
+  shotsFired?: number;
   groupSize?: number;
   groupUnit?: GroupSizeUnit;
-  poiNote?: string;           // POI description
+  poiNote?: string; // POI description
   notes?: string;
-
- 
 }
-
 
 export interface LoadDevProject {
   id: number;
   rifleId: number;
-  name: string;               // "N570 OCW Dec 2025"
+  name: string; // "N570 OCW Dec 2025"
   type: LoadDevType;
-  dateStarted: string;        // ISO string
+  dateStarted: string; // ISO string
   notes?: string;
   entries: LoadDevEntry[];
+  // Planning fields (project-level) — newer projects save these directly on the project
+  powder?: string;
+  bullet?: string;
+  bulletWeightGr?: number;
+  oal?: number | string;
+  oalOgive?: number | string;
+  oalUnit?: 'mm' | 'in';
+  lands?: number | string;
+  distanceM?: number | null;
 }
