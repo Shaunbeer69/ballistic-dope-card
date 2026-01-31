@@ -286,6 +286,71 @@ export class AppComponent implements OnInit {
   // ---------- first-launch slogan ----------
 
   private readonly firstLaunchSloganKey = 'gs_first_launch_slogan_done_v2';
+  private readonly firstLaunchSloganCycleKey = 'gs_first_launch_slogan_cycle_v1';
+
+  private firstLaunchSloganCycleRemaining: Record<string, string[]> = {};
+  private firstLaunchSloganCycleSig = '';
+
+  private getFirstLaunchSloganSignature(): string {
+    // Lightweight stable hash so if the slogan list changes, we reset the cycle safely.
+    const all = this.FIRST_LAUNCH_SLOGANS || [];
+    let h = 5381;
+
+    for (const s of all) {
+      const str = String(s || '');
+      for (let i = 0; i < str.length; i++) {
+        h = ((h << 5) + h) ^ str.charCodeAt(i); // djb2-ish XOR variant
+      }
+      // separator
+      h = ((h << 5) + h) ^ 124; // '|'
+    }
+
+    // include count to reduce collision chance
+    return `${all.length}:${(h >>> 0).toString(16)}`;
+  }
+
+  private loadFirstLaunchSloganCycle(): void {
+    try {
+      const sig = this.getFirstLaunchSloganSignature();
+      const raw = localStorage.getItem(this.firstLaunchSloganCycleKey);
+      if (!raw) {
+        this.firstLaunchSloganCycleRemaining = {};
+        this.firstLaunchSloganCycleSig = sig;
+        return;
+      }
+
+      const parsed = JSON.parse(raw || '{}') as any;
+      const storedSig = String(parsed?.sig || '');
+      const storedRemaining = parsed?.remaining;
+
+      if (storedSig !== sig || !storedRemaining || typeof storedRemaining !== 'object') {
+        // Slogan list changed (or storage corrupted) → reset cycle
+        this.firstLaunchSloganCycleRemaining = {};
+        this.firstLaunchSloganCycleSig = sig;
+        this.saveFirstLaunchSloganCycle();
+        return;
+      }
+
+      this.firstLaunchSloganCycleRemaining = storedRemaining as Record<string, string[]>;
+      this.firstLaunchSloganCycleSig = storedSig;
+    } catch {
+      // If storage is blocked/corrupt, fall back to fresh cycle in-memory
+      this.firstLaunchSloganCycleRemaining = {};
+      this.firstLaunchSloganCycleSig = this.getFirstLaunchSloganSignature();
+    }
+  }
+
+  private saveFirstLaunchSloganCycle(): void {
+    try {
+      const sig = this.firstLaunchSloganCycleSig || this.getFirstLaunchSloganSignature();
+      localStorage.setItem(
+        this.firstLaunchSloganCycleKey,
+        JSON.stringify({ sig, remaining: this.firstLaunchSloganCycleRemaining || {} }),
+      );
+    } catch {
+      // ignore storage failure
+    }
+  }
 
   private readonly FIRST_LAUNCH_SLOGANS: string[] = [
     'PRECISION IS A DECISION',
@@ -412,9 +477,16 @@ export class AppComponent implements OnInit {
     'EARN THE HIT',
   ];
 
+  // Non-repeating shuffle cycle:
+  // - A slogan will NOT repeat until the entire pool has been shown once.
+  // - Separate pools are maintained for "all" vs "maxLen" fallback picks.
+  private sloganCycleRemaining: Record<string, string[]> = {};
+
   private pickRandomSlogan(maxLen?: number): string {
     const all = this.FIRST_LAUNCH_SLOGANS || [];
     if (!all.length) return 'TRUST THE DATA';
+
+    const key = typeof maxLen === 'number' ? `max:${maxLen}` : 'all';
 
     const filtered =
       typeof maxLen === 'number'
@@ -422,9 +494,37 @@ export class AppComponent implements OnInit {
         : all;
 
     const pool = filtered.length ? filtered : all;
-    const i = Math.floor(Math.random() * pool.length);
-    return pool[i];
+
+    // Use the persisted remaining pool (survives app kill/reopen)
+    if (
+      !this.firstLaunchSloganCycleRemaining[key] ||
+      this.firstLaunchSloganCycleRemaining[key].length === 0
+    ) {
+      const shuffled = [...pool];
+
+      // Fisher–Yates shuffle
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      this.firstLaunchSloganCycleRemaining[key] = shuffled;
+
+      // Keep the old in-memory field in sync (minimal change, harmless if unused elsewhere)
+      this.sloganCycleRemaining = this.firstLaunchSloganCycleRemaining;
+
+      this.saveFirstLaunchSloganCycle();
+    }
+
+    const next = this.firstLaunchSloganCycleRemaining[key].pop()!;
+
+    // Keep in-memory field in sync too
+    this.sloganCycleRemaining = this.firstLaunchSloganCycleRemaining;
+
+    this.saveFirstLaunchSloganCycle();
+    return next;
   }
+
   // ---------- first-launch slogan (menu banner) ----------
   private sloganListenerReady = false;
   private lastSloganShownAt = 0;
@@ -976,6 +1076,7 @@ export class AppComponent implements OnInit {
     const firstLaunchDone = localStorage.getItem(this.firstLaunchSloganKey);
     // Show a random slogan on the main menu whenever the app becomes active.
     // Hidden as soon as a main menu icon/button is pressed (handled in setTab/openTools/openSetup/etc).
+    this.loadFirstLaunchSloganCycle();
     this.initSloganVisibilityListener();
     this.maybeShowFirstLaunchSlogan();
   }
