@@ -81,6 +81,10 @@ export class WindEffectToolComponent implements OnInit {
   // Kestrel → Shooting Solution (backbone)
   // --------------------------------
   kestrelData: KestrelDataSnapshot | null = null;
+  kestrelStatusText = '';
+  kestrelStatusIsError = false;
+  kestrelStatusHideTimer: any = null;
+
   shootingSolutionEnv: KestrelDataSnapshot | null = null;
   shootingSolutionAt: number | null = null;
   shootingSolutionOpen = false;
@@ -639,8 +643,25 @@ export class WindEffectToolComponent implements OnInit {
   // Kestrel → Shooting Solution (backbone)
   // --------------------------------
   private initKestrelSubscription(): void {
-    this.kestrel.kestrelData$.subscribe((snapshot) => {
-      this.kestrelData = snapshot;
+    this.kestrel.kestrelStatus$.subscribe((status) => {
+      // Keep showing the current status, but auto-hide RED errors after 3 seconds.
+      this.kestrelStatusText = status || '';
+      this.kestrelStatusIsError = !!this.kestrel.kestrelError;
+
+      // Clear any prior hide timer
+      if (this.kestrelStatusHideTimer) {
+        clearTimeout(this.kestrelStatusHideTimer);
+        this.kestrelStatusHideTimer = null;
+      }
+
+      // Only auto-hide when it's an error
+      if (this.kestrelStatusIsError && this.kestrelStatusText) {
+        this.kestrelStatusHideTimer = setTimeout(() => {
+          this.kestrelStatusText = '';
+          this.kestrelStatusIsError = false;
+          this.kestrelStatusHideTimer = null;
+        }, 3000);
+      }
     });
   }
 
