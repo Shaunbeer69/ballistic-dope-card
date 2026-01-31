@@ -864,6 +864,27 @@
                         {{ selectedTool === 'windEffect' ? 'Tap to close' : 'Tap to open' }}
                       </span>
                     </div>
+                    <!-- Export / Import -->
+                    <div class="flex flex-col items-center">
+                      <button
+                        class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-sky-500 via-indigo-600 to-slate-900 hover:scale-105 active:scale-95 transition"
+                        (click)="openExportImportModal()"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+                          <path
+                            class="fill-white/60"
+                            d="M12 3a5 5 0 00-4.9 4H7a4 4 0 100 8h1v-2H7a2 2 0 110-4h.5a1 1 0 00.98-.8A3 3 0 0112 5a3 3 0 012.85 2.1 1 1 0 00.87.7H16a3 3 0 010 6h-1v2h1a5 5 0 000-10h-.03A5 5 0 0012 3z"
+                          />
+                          <path
+                            class="fill-white"
+                            d="M11 11V7h2v4h2.5L12 16.5 8.5 11H11zM8 18h8v2H8z"
+                          />
+                        </svg>
+                      </button>
+                      <!-- BAckup Restore  -->
+                      <span class="mt-1 text-[10px] text-gray-300">Backup / Restore</span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5">JSON backup file</span>
+                    </div>
                     <!-- Documents -->
                     <div class="flex flex-col items-center">
                       <button
@@ -1457,28 +1478,6 @@
                     *ngIf="$any(selectedTool) !== 'preferences'"
                     class="grid grid-cols-4 gap-3 justify-items-center"
                   >
-                    <!-- Export / Import -->
-                    <div class="flex flex-col items-center">
-                      <button
-                        class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-sky-500 via-indigo-600 to-slate-900 hover:scale-105 active:scale-95 transition"
-                        (click)="openExportImportModal()"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
-                          <path
-                            class="fill-white/60"
-                            d="M12 3a5 5 0 00-4.9 4H7a4 4 0 100 8h1v-2H7a2 2 0 110-4h.5a1 1 0 00.98-.8A3 3 0 0112 5a3 3 0 012.85 2.1 1 1 0 00.87.7H16a3 3 0 010 6h-1v2h1a5 5 0 000-10h-.03A5 5 0 0012 3z"
-                          />
-                          <path
-                            class="fill-white"
-                            d="M11 11V7h2v4h2.5L12 16.5 8.5 11H11zM8 18h8v2H8z"
-                          />
-                        </svg>
-                      </button>
-
-                      <span class="mt-1 text-[10px] text-gray-300">Backup / Restore</span>
-                      <span class="text-[9px] text-gray-500 italic mt-0.5">JSON backup file</span>
-                    </div>
-
                     <!-- Hidden file input for Import (more reliable on Android WebView) -->
                     <input
                       #importFileInput

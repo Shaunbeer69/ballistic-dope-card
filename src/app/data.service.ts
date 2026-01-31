@@ -652,6 +652,8 @@ export class DataService {
       // ----- Build ID maps (old -> new/existing) -----
       const rifleIdMap = new Map<number, number>();
       const venueIdMap = new Map<number, number>();
+      const subRangeIdMap = new Map<number, number>();
+
       let addedRifles = 0;
       let addedVenues = 0;
 
@@ -687,33 +689,130 @@ export class DataService {
         if (Number.isFinite(oldId)) rifleIdMap.set(oldId, newId);
       }
 
-      // ----- Venues: match by name, else add -----
+      // ----- Venues: match by name, else add (MERGE subRanges + distancesM) -----
       for (const v of venuesIn) {
         const oldId = Number(v?.id);
         const nameKey = norm(v?.name);
 
         const existing = this.getVenues().find((x) => norm(x.name) === nameKey && nameKey);
 
-        const venuePayload: any = {
-          name: v?.name ?? '',
-          location: v?.location,
-          notes: v?.notes,
-        };
-
-        const dist = Array.isArray(v?.distances)
-          ? v.distances
-          : Array.isArray(v?.distancesM)
-            ? v.distancesM
+        // Distances: UI expects distancesM
+        const dist = Array.isArray((v as any)?.distancesM)
+          ? (v as any).distancesM
+          : Array.isArray((v as any)?.distances)
+            ? (v as any).distances
             : null;
 
-        if (dist) venuePayload.distances = dist;
+        // Subranges: accept subRanges or legacy subranges
+        const rawSubRanges = Array.isArray((v as any)?.subRanges)
+          ? (v as any).subRanges
+          : Array.isArray((v as any)?.subranges)
+            ? (v as any).subranges
+            : [];
+
+        const normalizedSubRanges = (rawSubRanges as any[])
+          .filter((sr) => sr && typeof sr === 'object')
+          .map((sr: any) => {
+            const oldSrId = Number(sr?.id);
+            const name = String(sr?.name ?? '');
+            const d = Array.isArray(sr?.distancesM)
+              ? sr.distancesM
+              : Array.isArray(sr?.distances)
+                ? sr.distances
+                : [];
+            const distancesM = (d as any[])
+              .map((n: any) => Number(n))
+              .filter((n: number) => Number.isFinite(n));
+
+            // Keep the incoming id if valid; otherwise generate one
+            const id = Number.isFinite(oldSrId)
+              ? oldSrId
+              : Date.now() + Math.floor(Math.random() * 1000);
+            return { id, name, distancesM };
+          });
 
         let newId: number;
+
         if (existing) {
-          newId = existing.id;
+          // Merge into existing venue (so Added 0 venues still updates subranges/distances)
+          const merged: any = { ...existing };
+
+          // Merge distancesM
+          const existingDist = Array.isArray((merged as any).distancesM)
+            ? (merged as any).distancesM
+            : [];
+          const incomingDist = dist
+            ? (dist as any[]).map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n))
+            : [];
+          const distSet = new Set<number>([...existingDist, ...incomingDist]);
+          (merged as any).distancesM = [...distSet];
+
+          // Merge subRanges by name; build subRangeIdMap old->existing/new
+          if (!Array.isArray((merged as any).subRanges)) (merged as any).subRanges = [];
+          const existingSrs: any[] = (merged as any).subRanges;
+
+          for (const sr of normalizedSubRanges) {
+            const oldSrId = Number(sr.id);
+            const srNameKey = norm(sr.name);
+
+            const match = existingSrs.find((x) => norm(x?.name) === srNameKey && srNameKey);
+
+            if (match) {
+              // Map old -> matched
+              if (Number.isFinite(oldSrId)) subRangeIdMap.set(oldSrId, Number(match.id));
+
+              // Merge distances
+              const a = Array.isArray(match?.distancesM) ? match.distancesM : [];
+              const b = Array.isArray(sr?.distancesM) ? sr.distancesM : [];
+              const set = new Set<number>([...a, ...b]);
+              match.distancesM = [...set];
+            } else {
+              // Add new subrange; ensure id doesn't clash
+              const used = new Set<number>(
+                existingSrs.map((x) => Number(x?.id)).filter((n) => Number.isFinite(n)),
+              );
+
+              const newSrId = used.has(Number(sr.id))
+                ? Date.now() + Math.floor(Math.random() * 1000)
+                : Number(sr.id);
+
+              existingSrs.push({
+                id: newSrId,
+                name: sr.name ?? '',
+                distancesM: Array.isArray(sr?.distancesM) ? sr.distancesM : [],
+              });
+
+              if (Number.isFinite(oldSrId)) subRangeIdMap.set(oldSrId, newSrId);
+            }
+          }
+
+          // Keep other fields
+          merged.location = (v as any)?.location ?? merged.location;
+          merged.notes = (v as any)?.notes ?? merged.notes;
+
+          this.updateVenue(merged as any);
+          newId = merged.id;
         } else {
-          newId = this.addVenue(venuePayload).id;
+          // Create new venue with subRanges/distancesM preserved
+          const venuePayload: any = {
+            name: v?.name ?? '',
+            location: (v as any)?.location,
+            notes: (v as any)?.notes,
+            distancesM: dist
+              ? (dist as any[]).map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n))
+              : [],
+            subRanges: normalizedSubRanges,
+          };
+
+          const created = this.addVenue(venuePayload);
+          newId = created.id;
           addedVenues++;
+
+          // For newly created venues we preserved subrange ids, so map old->same
+          for (const sr of normalizedSubRanges) {
+            const oldSrId = Number(sr.id);
+            if (Number.isFinite(oldSrId)) subRangeIdMap.set(oldSrId, oldSrId);
+          }
         }
 
         if (Number.isFinite(oldId)) venueIdMap.set(oldId, newId);
@@ -726,8 +825,38 @@ export class DataService {
         const oldRifleId = Number(s?.rifleId);
         const oldVenueId = Number(s?.venueId);
 
-        const newRifleId = rifleIdMap.get(oldRifleId) ?? oldRifleId;
-        const newVenueId = venueIdMap.get(oldVenueId) ?? oldVenueId;
+        // Map IDs when present; if a referenced rifle/venue is NOT included in this import,
+        // create a minimal placeholder so Sessions become visible/usable after import.
+        let newRifleId =
+          rifleIdMap.get(oldRifleId) ?? (Number.isFinite(oldRifleId) ? oldRifleId : NaN);
+        let newVenueId =
+          venueIdMap.get(oldVenueId) ?? (Number.isFinite(oldVenueId) ? oldVenueId : NaN);
+
+        // If the rifle doesn't exist locally, create an imported placeholder rifle and map it
+        if (Number.isFinite(oldRifleId) && !this.getRifleById(Number(newRifleId))) {
+          const created = this.addRifle({
+            name: `Imported rifle (${oldRifleId})`,
+            caliber: '',
+            notes: '',
+            roundCount: 0,
+            loads: [],
+          } as any);
+          newRifleId = created.id;
+          rifleIdMap.set(oldRifleId, newRifleId);
+        }
+
+        // If the venue doesn't exist locally, create an imported placeholder venue and map it
+        if (Number.isFinite(oldVenueId) && !this.getVenueById(Number(newVenueId))) {
+          const created = this.addVenue({
+            name: `Imported venue (${oldVenueId})`,
+            location: '',
+            subRanges: [],
+            distancesM: [],
+            notes: '',
+          } as any);
+          newVenueId = created.id;
+          venueIdMap.set(oldVenueId, newVenueId);
+        }
 
         const dateKey = norm(s?.date);
         const titleKey = norm(s?.title);
@@ -742,13 +871,26 @@ export class DataService {
 
         if (dup) continue;
 
+        const incomingDope = Array.isArray(s?.dope) ? s.dope : [];
+
+        // Remap dope.subRangeId using subRangeIdMap; if unknown, set to null (whole venue)
+        const remappedDope = incomingDope.map((d: any) => {
+          const oldSrId = Number(d?.subRangeId);
+          if (!Number.isFinite(oldSrId)) return d;
+
+          const mapped = subRangeIdMap.get(oldSrId);
+          if (Number.isFinite(mapped)) return { ...d, subRangeId: mapped };
+
+          return { ...d, subRangeId: null };
+        });
+
         this.addSession({
           date: s?.date ?? new Date().toISOString(),
           rifleId: newRifleId,
           venueId: newVenueId,
           title: s?.title ?? '',
           environment: s?.environment ?? {},
-          dope: Array.isArray(s?.dope) ? s.dope : [],
+          dope: remappedDope,
           notes: s?.notes ?? '',
           completed: !!s?.completed,
         });
@@ -757,6 +899,7 @@ export class DataService {
       }
 
       // ----- Load dev projects: match by (rifleId + name + dateStarted), else add
+
       // Entries are added via addLoadDevEntry so IDs regenerate safely
       let addedProjects = 0;
       let addedEntries = 0;
