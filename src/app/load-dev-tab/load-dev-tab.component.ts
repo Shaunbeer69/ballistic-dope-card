@@ -161,6 +161,13 @@ export class LoadDevTabComponent implements OnInit {
       if (!el) return;
 
       try {
+        // Put the input mid-screen so the user always sees it
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' } as any);
+      } catch {
+        // ignore
+      }
+
+      try {
         el.focus({ preventScroll: false } as any);
       } catch {
         el.focus();
@@ -2506,6 +2513,20 @@ export class LoadDevTabComponent implements OnInit {
 
   // Single-row velocity edit
   singleVelocityEditActive = false;
+  // Planning edit (pre-wizard)
+  planningEditActive = false;
+  planningEditEntry: LoadDevEntry | null = null;
+  planningInlineMessage: string | null = null;
+
+  planningChargeEditValue: string = '';
+
+  planningShotsPerGroupEditValue: string = '';
+
+  // Ladder tools
+  planningAddChargeValue: string = '';
+  planningRangeStartValue: string = '';
+  planningRangeEndValue: string = '';
+  planningRangeStepValue: string = '';
 
   // Graph (existing ladder/avg line)
   showGraph = false;
@@ -4407,6 +4428,8 @@ export class LoadDevTabComponent implements OnInit {
     this.ladderWizardActive = true;
 
     this.singleVelocityEditActive = false;
+    this.planningEditActive = false;
+    this.planningEditEntry = null;
 
     this.setWizardCurrentEntry();
   }
@@ -4605,6 +4628,8 @@ export class LoadDevTabComponent implements OnInit {
 
   editVelocityForEntry(entry: LoadDevEntry): void {
     this.ladderWizardActive = false;
+    this.planningEditActive = false;
+    this.planningEditEntry = null;
 
     this.singleVelocityEditActive = true;
     this.velocityEditEntry = entry;
@@ -4923,5 +4948,315 @@ export class LoadDevTabComponent implements OnInit {
     if (tp.dataUrl && String(tp.dataUrl).startsWith('data:image/')) return String(tp.dataUrl);
 
     return null;
+  }
+  // ================================
+  // Planning-phase edits (pre-wizard)
+  // ================================
+
+  private anyEntryHasVelocity(project?: LoadDevProject | null): boolean {
+    const p = project ?? this.selectedProject;
+    const entries = (p?.entries ?? []) as LoadDevEntry[];
+
+    return entries.some((e) => {
+      const any = e as any;
+      const vals = this.parseVelocityInput(any.velocityInput);
+      return vals.length > 0;
+    });
+  }
+
+  isPreWizardPlanningMode(): boolean {
+    const p = this.selectedProject;
+    if (!p) return false;
+    if (p.type !== 'ladder' && p.type !== 'ocw') return false;
+
+    // Pre-wizard planning means: no velocities captured anywhere yet.
+    return !this.anyEntryHasVelocity(p);
+  }
+
+  onEntryEditClick(entry: LoadDevEntry): void {
+    if (this.isPreWizardPlanningMode()) {
+      this.openPlanningEdit(entry);
+      return;
+    }
+
+    // Normal (post-wizard) behaviour: edit velocity
+    this.editVelocityForEntry(entry);
+  }
+
+  private openPlanningEdit(entry: LoadDevEntry): void {
+    // Ensure wizard/velocity editor are closed
+    this.ladderWizardActive = false;
+    this.singleVelocityEditActive = false;
+
+    this.planningEditActive = true;
+    this.planningEditEntry = entry;
+
+    this.planningChargeEditValue =
+      entry.chargeGr != null && Number.isFinite(entry.chargeGr) ? String(entry.chargeGr) : '';
+
+    // OCW planned shots (shots per group)
+    if (this.selectedProject?.type === 'ocw') {
+      const n = this.planner.shotsPerGroup ?? entry.shotsFired ?? '';
+      this.planningShotsPerGroupEditValue = n != null ? String(n) : '';
+    } else {
+      this.planningShotsPerGroupEditValue = '';
+    }
+
+    // Seed increment box from current charges
+    const entries = [...(this.selectedProject?.entries ?? [])].filter(
+      (e) => typeof e.chargeGr === 'number' && Number.isFinite(e.chargeGr as any),
+    );
+    const charges = entries.map((e) => e.chargeGr as number).sort((a, b) => a - b);
+
+    if (charges.length) {
+      this.planningRangeStartValue = String(charges[0]);
+      this.planningRangeEndValue = String(charges[charges.length - 1]);
+
+      let stepGuess = 0;
+      if (charges.length >= 2) stepGuess = Number((charges[1] - charges[0]).toFixed(2));
+      if (!stepGuess || !Number.isFinite(stepGuess)) stepGuess = 0.2;
+
+      // OCW single-charge is allowed (step = 0)
+      if (this.selectedProject?.type === 'ocw' && charges[0] === charges[charges.length - 1]) {
+        stepGuess = 0;
+      }
+
+      this.planningRangeStepValue = String(stepGuess);
+    } else {
+      this.planningRangeStartValue = '';
+      this.planningRangeEndValue = '';
+      this.planningRangeStepValue = '';
+    }
+
+    this.planningAddChargeValue = '';
+  }
+
+  savePlanningEdit(): void {
+    if (!this.selectedProject || !this.planningEditEntry) {
+      this.cancelPlanningEdit();
+      return;
+    }
+
+    const chargeRaw = (this.planningChargeEditValue ?? '').toString().trim();
+    const charge = Number(chargeRaw);
+
+    if (!Number.isFinite(charge)) {
+      alert('Enter a valid charge.');
+      return;
+    }
+
+    // Update charge for the selected entry
+    const updated = { ...this.planningEditEntry, chargeGr: Number(charge.toFixed(2)) };
+    this.data.updateLoadDevEntry(this.selectedProject.id, updated);
+
+    // OCW: update planned shots per group (and push to all un-shot entries)
+    if (this.selectedProject.type === 'ocw') {
+      const shotsRaw = (this.planningShotsPerGroupEditValue ?? '').toString().trim();
+      const n = Number(shotsRaw);
+
+      if (!Number.isFinite(n) || n < 3 || n > 5) {
+        alert('OCW requires 3 to 5 shots per group.');
+        return;
+      }
+
+      this.planner.shotsPerGroup = n;
+
+      const entries = [...(this.selectedProject.entries ?? [])];
+      for (const e of entries) {
+        const any = e as any;
+        const vals = this.parseVelocityInput(any.velocityInput);
+
+        // Only treat as "planned" if not shot yet
+        if (!vals.length) {
+          const e2 = { ...e, shotsFired: n };
+          this.data.updateLoadDevEntry(this.selectedProject.id, e2);
+        }
+      }
+    }
+
+    this.refreshSelectedProject();
+
+    // Keep charge order consistent (small -> big)
+    this.sortPlanningEntriesAscending();
+
+    // Toast inside the OCW planning edit panel (same as Ladder)
+    this.showPlanningToast('Saved ✅');
+
+    // Close AFTER showing the toast briefly
+    setTimeout(() => this.cancelPlanningEdit(), 650);
+  }
+
+  cancelPlanningEdit(): void {
+    this.planningEditActive = false;
+    this.planningEditEntry = null;
+    this.planningInlineMessage = null;
+    this.planningChargeEditValue = '';
+    this.planningShotsPerGroupEditValue = '';
+    this.planningAddChargeValue = '';
+    this.planningRangeStartValue = '';
+    this.planningRangeEndValue = '';
+    this.planningRangeStepValue = '';
+  }
+
+  addPlanningCharge(): void {
+    if (!this.selectedProject) return;
+
+    const raw = (this.planningAddChargeValue ?? '').toString().trim();
+    const charge = Number(raw);
+
+    if (!Number.isFinite(charge)) {
+      alert('Enter a valid charge to add.');
+      return;
+    }
+
+    const existing = this.selectedProject.entries ?? [];
+    const newId = existing.length ? Math.max(...existing.map((x) => x.id)) + 1 : 1;
+
+    const plannedShots =
+      this.selectedProject.type === 'ocw' ? (this.planner.shotsPerGroup ?? 3) : 1;
+
+    const newEntry: LoadDevEntry = {
+      id: newId,
+      loadLabel: '',
+      powder: undefined,
+      chargeGr: Number(charge.toFixed(2)),
+      coal: undefined,
+      primer: undefined,
+      bullet: undefined,
+      bulletWeightGr: undefined,
+      bulletBc: undefined,
+      distanceM: (this.selectedProject as any)?.distanceM ?? undefined,
+      shotsFired: plannedShots,
+      groupSize: undefined,
+      groupUnit: 'MOA',
+      poiNote: undefined,
+      notes: undefined,
+    } as LoadDevEntry;
+
+    this.data.updateLoadDevEntry(this.selectedProject.id, newEntry);
+    this.refreshSelectedProject();
+    // ✅ keep planning table sorted (small -> big)
+    this.sortPlanningEntriesAscending();
+
+    // ✅ quick toast above Ladder tools (1 second)
+    this.showPlanningToast('Saved ✅');
+
+    this.planningAddChargeValue = '';
+  }
+
+  applyPlanningIncrement(): void {
+    if (!this.selectedProject) return;
+
+    const start = Number((this.planningRangeStartValue ?? '').toString().trim());
+    const end = Number((this.planningRangeEndValue ?? '').toString().trim());
+    const step = Number((this.planningRangeStepValue ?? '').toString().trim());
+
+    if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(step)) {
+      alert('Enter valid Start / End / Step values.');
+      return;
+    }
+
+    if (this.selectedProject.type === 'ladder') {
+      if (step <= 0) {
+        alert('Ladder requires a positive Step.');
+        return;
+      }
+      if (end < start) {
+        alert('End must be greater than Start.');
+        return;
+      }
+    }
+
+    if (this.selectedProject.type === 'ocw') {
+      // OCW allows single-charge plan (start === end) with step = 0
+      if (end < start) {
+        alert('End must be greater than or equal to Start.');
+        return;
+      }
+      if (start !== end && step <= 0) {
+        alert('OCW requires a positive Step unless Start equals End.');
+        return;
+      }
+    }
+
+    // Delete all current entries, then rebuild
+    const existing = [...(this.selectedProject.entries ?? [])];
+    for (const e of existing) {
+      this.data.deleteLoadDevEntry(this.selectedProject.id, e.id);
+    }
+
+    const plannedShots =
+      this.selectedProject.type === 'ocw' ? (this.planner.shotsPerGroup ?? 3) : 1;
+
+    let id = 1;
+
+    if (this.selectedProject.type === 'ocw' && start === end) {
+      const entry: LoadDevEntry = {
+        id: id++,
+        loadLabel: '',
+        powder: undefined,
+        chargeGr: Number(start.toFixed(2)),
+        coal: undefined,
+        primer: undefined,
+        bullet: undefined,
+        bulletWeightGr: undefined,
+        bulletBc: undefined,
+        distanceM: (this.selectedProject as any)?.distanceM ?? undefined,
+        shotsFired: plannedShots,
+        groupSize: undefined,
+        groupUnit: 'MOA',
+        poiNote: undefined,
+        notes: undefined,
+      } as LoadDevEntry;
+
+      this.data.updateLoadDevEntry(this.selectedProject.id, entry);
+      this.refreshSelectedProject();
+      this.sortPlanningEntriesAscending();
+      this.showToast('Saved ✅');
+
+      return;
+    }
+
+    let charge = start;
+    while (charge <= end + 1e-6) {
+      const entry: LoadDevEntry = {
+        id: id++,
+        loadLabel: '',
+        powder: undefined,
+        chargeGr: Number(charge.toFixed(2)),
+        coal: undefined,
+        primer: undefined,
+        bullet: undefined,
+        bulletWeightGr: undefined,
+        bulletBc: undefined,
+        distanceM: (this.selectedProject as any)?.distanceM ?? undefined,
+        shotsFired: plannedShots,
+        groupSize: undefined,
+        groupUnit: 'MOA',
+        poiNote: undefined,
+        notes: undefined,
+      } as LoadDevEntry;
+
+      this.data.updateLoadDevEntry(this.selectedProject.id, entry);
+      charge = Number((charge + step).toFixed(2));
+    }
+
+    this.refreshSelectedProject();
+    this.sortPlanningEntriesAscending();
+    this.showToast('Saved ✅');
+  }
+  private sortPlanningEntriesAscending(): void {
+    // Ensure the planning table displays low → high charge.
+    this.entrySortMode = 'chargeAsc';
+    this.rebuildVisibleEntries();
+  }
+  private showPlanningToast(message: string): void {
+    this.planningInlineMessage = message;
+    setTimeout(() => (this.planningInlineMessage = null), 1000);
+  }
+
+  private showToast(msg: string): void {
+    this.postSaveMessage = msg;
+    setTimeout(() => (this.postSaveMessage = null), 2500);
   }
 }

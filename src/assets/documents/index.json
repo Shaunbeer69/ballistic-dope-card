@@ -1,20 +1,25 @@
 [
   {
-    "title": "Gunstuff Ballistics User Manual",
-    "file": "gunstuff_ballistics_user_manual.pdf",
+    "title": "Ladder Explained",
+    "file": "Ladder_Explained.pdf",
     "tags": [
-      "docs",
-      "manual",
-      "ballistics"
+      "docs"
     ]
   },
   {
-    "title": "Load Dev Prep Guide",
-    "file": "load_dev_prep_guide.pdf",
+    "title": "Load Dev Whole Shabang",
+    "file": "Load Dev_WHOLE_SHABANG.pdf",
     "tags": [
       "docs",
-      "load dev",
-      "prep"
+      "load dev"
+    ]
+  },
+  {
+    "title": "Load Dev Workflow",
+    "file": "Load_Dev_WorkFlow.pdf",
+    "tags": [
+      "docs",
+      "load dev"
     ]
   },
   {
@@ -27,8 +32,15 @@
     ]
   },
   {
+    "title": "Ocw Explained",
+    "file": "OCW_Explained.pdf",
+    "tags": [
+      "docs"
+    ]
+  },
+  {
     "title": "Reloading Acronyms",
-    "file": "reloading_acronyms.pdf",
+    "file": "Reloading_acronyms.pdf",
     "tags": [
       "docs",
       "load dev",
@@ -37,11 +49,10 @@
     ]
   },
   {
-    "title": "Test User Manual",
-    "file": "Test_User_Manual.pdf",
+    "title": "Seating Depth Explained",
+    "file": "Seating_Depth_Explained.pdf",
     "tags": [
-      "docs",
-      "manual"
+      "docs"
     ]
   },
   {

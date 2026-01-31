@@ -44,3 +44,18 @@ export const APP_VERSION = "${newV}";
 fs.mkdirSync(path.dirname(versionTsPath), { recursive: true });
 fs.writeFileSync(versionTsPath, versionTs, "utf8");
 console.log(`✅ wrote ${path.relative(root, versionTsPath)} = ${newV}`);
+// 3) rename debug APK to include version
+try {
+  const apkDir = path.join(root, "android", "app", "build", "outputs", "apk", "debug");
+  const apkSrc = path.join(apkDir, "app-debug.apk");
+  const apkDst = path.join(apkDir, `GS_DopeCard-v${newV}debug.apk`);
+
+  if (fs.existsSync(apkSrc)) {
+    fs.copyFileSync(apkSrc, apkDst);
+    console.log(`✅ APK renamed to: ${path.basename(apkDst)}`);
+  } else {
+    console.log("ℹ️ Debug APK not found yet (will rename after build).");
+  }
+} catch (err) {
+  console.warn("⚠️ APK rename skipped:", err.message);
+}
