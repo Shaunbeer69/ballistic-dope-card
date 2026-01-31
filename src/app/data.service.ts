@@ -667,6 +667,11 @@ export class DataService {
         let newId: number;
         if (existing) {
           newId = existing.id;
+
+          const incomingSN = String((r as any)?.serialNumber ?? '').trim();
+          if (incomingSN && !(existing as any)?.serialNumber) {
+            this.updateRifle({ ...(existing as any), serialNumber: incomingSN } as any);
+          }
         } else {
           newId = this.addRifle({
             name: r?.name ?? '',
@@ -677,6 +682,7 @@ export class DataService {
             muzzleVelocityFps: r?.muzzleVelocityFps ?? 0,
             scopeUnit: r?.scopeUnit ?? 'MIL',
             scope: r?.scope ?? '',
+            serialNumber: (r as any)?.serialNumber ?? '',
             notes: r?.notes ?? '',
             riflePhotoBase64: (r as any)?.riflePhotoBase64 ?? null,
             riflePhotoCapturedAt: (r as any)?.riflePhotoCapturedAt ?? null,
