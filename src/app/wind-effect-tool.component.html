@@ -178,21 +178,6 @@
     (pointercancel)="endDrag($event)"
     (pointerleave)="endDrag($event)"
   >
-    <!-- Kestrel button (top-right above the dial) -->
-    <button
-      type="button"
-      class="absolute top-2 right-2 z-10 w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-800 hover:scale-105 active:scale-95 transition"
-      (click)="onKestrelButtonClick()"
-      title="Read Kestrel"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5">
-        <path
-          class="fill-white"
-          d="M12 2a8 8 0 00-8 8v4a3 3 0 003 3h1a2 2 0 002-2v-3a2 2 0 00-2-2H7v-.2A5 5 0 0112 5a5 5 0 015 4.8V10h-1a2 2 0 00-2 2v3a2 2 0 002 2h1a3 3 0 003-3v-4a8 8 0 00-8-8z"
-        />
-      </svg>
-    </button>
-
     <svg viewBox="0 0 100 100" class="w-full h-full">
       <!-- Outer & inner rings -->
       <circle
@@ -284,6 +269,30 @@
     </button>
 
     <div *ngIf="shootingSolutionOpen" class="mt-2 text-[11px] space-y-2">
+      <!-- Kestrel (inside Shooting Solution) -->
+      <div class="flex items-center justify-between gap-2">
+        <div class="text-[10px] text-gray-300 leading-tight">
+          Tap the Kestrel icon to connect and capture a snapshot.
+        </div>
+
+        <button
+          type="button"
+          class="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-[#b07a3a] via-[#8b5a2b] to-[#5a3a1c] hover:scale-105 active:scale-95 transition"
+          (click)="onKestrelButtonClick()"
+          title="Read Kestrel"
+        >
+          <!-- simple Kestrel 5700-style device icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+            <rect x="7" y="3.5" width="10" height="17" rx="2" class="fill-white/90"></rect>
+            <rect x="8.6" y="5.2" width="6.8" height="6.2" rx="0.8" class="fill-[#5a3a1c]"></rect>
+            <circle cx="16.8" cy="7.2" r="0.8" class="fill-[#5a3a1c]"></circle>
+            <rect x="9.2" y="12.6" width="5.8" height="1.2" rx="0.6" class="fill-[#5a3a1c]"></rect>
+            <rect x="9.2" y="14.8" width="5.8" height="1.2" rx="0.6" class="fill-[#5a3a1c]"></rect>
+            <rect x="9.2" y="17" width="5.8" height="1.2" rx="0.6" class="fill-[#5a3a1c]"></rect>
+          </svg>
+        </button>
+      </div>
+
       <p [ngClass]="kestrel.kestrelError ? 'text-red-400' : 'text-gray-300'">
         {{ kestrel.kestrelStatus$ | async }}
       </p>
@@ -323,7 +332,7 @@
 
       <ng-template #noKestrelYet>
         <div class="text-[10px] text-gray-400">
-          No Kestrel snapshot yet — tap the green Kestrel button to capture.
+          No Kestrel snapshot yet — tap the Kestrel icon above to capture.
         </div>
       </ng-template>
     </div>
