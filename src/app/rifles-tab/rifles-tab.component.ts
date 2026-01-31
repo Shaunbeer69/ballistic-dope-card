@@ -15,7 +15,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
   styleUrls: ['./rifles-tab.component.css'],
 })
 export class RiflesTabComponent implements OnInit {
-    defaultLoadCoalUnit: 'mm' | 'in' = 'mm';
+  defaultLoadCoalUnit: 'mm' | 'in' = 'mm';
   private lastLoadCoalUnit: 'mm' | 'in' = 'mm';
   @Output() backToMenu = new EventEmitter<void>();
 
@@ -24,7 +24,7 @@ export class RiflesTabComponent implements OnInit {
 
   // Rifle selection / forms
   selectedRifleId: number | string | null = null;
-    // Rifle picker (Export/Import style dropdown)
+  // Rifle picker (Export/Import style dropdown)
   riflePickerOpen = false;
   riflePickerSearch = '';
   riflePickerFiltered: any[] = [];
@@ -36,7 +36,7 @@ export class RiflesTabComponent implements OnInit {
   activeLoadsRifleId: number | string | null = null;
   activeLoadFormRifleId: number | string | null = null;
   editingLoadId: number | string | null = null;
-    // Load details modal (Show Loads -> tap a row -> modal)
+  // Load details modal (Show Loads -> tap a row -> modal)
   loadDetailsOpen = false;
   loadDetailsRifleId: number | string | null = null;
   loadDetailsLoad: any | null = null;
@@ -49,9 +49,8 @@ export class RiflesTabComponent implements OnInit {
   //   this.selectedLoadDetails = { rifle: r, load: l };
   // }
 
-
   // Forms
-      rifleForm: any = {
+  rifleForm: any = {
     name: '',
     caliber: '',
     barrelLength: null,
@@ -72,32 +71,34 @@ export class RiflesTabComponent implements OnInit {
   photoViewerMode: 'form' | 'saved' = 'form';
   riflePhotoInlineMessage: string | null = null;
 
-    private riflePhotoDataUrlFromBase64(base64: string | null | undefined): string | null {
+  private riflePhotoDataUrlFromBase64(base64: string | null | undefined): string | null {
     if (!base64) return null;
     return `data:image/jpeg;base64,${base64}`;
   }
 
   rifleFormPhotoDataUrl(): string | null {
-   const p = (this.rifleForm as any)?.riflePhotoPath;
-if (p) {
-  const key = String(p);
+    const p = (this.rifleForm as any)?.riflePhotoPath;
+    if (p) {
+      const key = String(p);
 
-  const cached = this.riflePhotoCache.get(key);
-  if (cached) return cached;
+      const cached = this.riflePhotoCache.get(key);
+      if (cached) return cached;
 
-  if (this.riflePhotoMissing.has(key)) return null;
-  if (this.riflePhotoLoadInFlight.has(key)) return null;
+      if (this.riflePhotoMissing.has(key)) return null;
+      if (this.riflePhotoLoadInFlight.has(key)) return null;
 
-  this.riflePhotoLoadInFlight.add(key);
-  void this.readJpegDataUrlFromFs(key).then((u) => {
-    if (u) this.riflePhotoCache.set(key, u);
-    else this.riflePhotoMissing.add(key);
-  }).finally(() => {
-    this.riflePhotoLoadInFlight.delete(key);
-  });
+      this.riflePhotoLoadInFlight.add(key);
+      void this.readJpegDataUrlFromFs(key)
+        .then((u) => {
+          if (u) this.riflePhotoCache.set(key, u);
+          else this.riflePhotoMissing.add(key);
+        })
+        .finally(() => {
+          this.riflePhotoLoadInFlight.delete(key);
+        });
 
-  return null;
-}
+      return null;
+    }
 
     return this.riflePhotoDataUrlFromBase64(this.rifleForm?.riflePhotoBase64);
   }
@@ -109,45 +110,46 @@ if (p) {
   riflePhotoDataUrl(r: any): string | null {
     const p = (r as any)?.riflePhotoPath;
     if (p) {
-     const key = String(p);
+      const key = String(p);
 
-const cached = this.riflePhotoCache.get(key);
-if (cached) return cached;
+      const cached = this.riflePhotoCache.get(key);
+      if (cached) return cached;
 
-if (this.riflePhotoMissing.has(key)) return null;
-if (this.riflePhotoLoadInFlight.has(key)) return null;
+      if (this.riflePhotoMissing.has(key)) return null;
+      if (this.riflePhotoLoadInFlight.has(key)) return null;
 
-this.riflePhotoLoadInFlight.add(key);
+      this.riflePhotoLoadInFlight.add(key);
 
-void this.ensureRiflePhotoOnFs(r).then(async () => {
-  const p2 = (r as any)?.riflePhotoPath;
-  if (!p2) return;
+      void this.ensureRiflePhotoOnFs(r)
+        .then(async () => {
+          const p2 = (r as any)?.riflePhotoPath;
+          if (!p2) return;
 
-  const key2 = String(p2);
+          const key2 = String(p2);
 
-  // if path changed after migration, guard that too
-  if (this.riflePhotoMissing.has(key2)) return;
+          // if path changed after migration, guard that too
+          if (this.riflePhotoMissing.has(key2)) return;
 
-  const u = await this.readJpegDataUrlFromFs(key2);
-  if (u) this.riflePhotoCache.set(key2, u);
-  else this.riflePhotoMissing.add(key2);
-}).finally(() => {
-  this.riflePhotoLoadInFlight.delete(key);
-});
+          const u = await this.readJpegDataUrlFromFs(key2);
+          if (u) this.riflePhotoCache.set(key2, u);
+          else this.riflePhotoMissing.add(key2);
+        })
+        .finally(() => {
+          this.riflePhotoLoadInFlight.delete(key);
+        });
 
-return null;
+      return null;
 
       return null;
     }
     return this.riflePhotoDataUrlFromBase64((r as any)?.riflePhotoBase64);
   }
 
-
   openRiflePhotoViewer(
     url: string | null,
     mode: 'form' | 'saved' = 'form',
     rifleId: any = null,
-    event?: Event
+    event?: Event,
   ): void {
     try {
       event?.preventDefault();
@@ -189,7 +191,7 @@ return null;
         return;
       }
 
-          const dataUrl = `data:image/jpeg;base64,${base64}`;
+      const dataUrl = `data:image/jpeg;base64,${base64}`;
 
       const tmpId = (this.rifleForm as any)?.id ?? 'new';
       const path = this.makeRiflePhotoPath(tmpId);
@@ -206,8 +208,6 @@ return null;
 
       this.riflePhotoInlineMessage = '📷 Rifle photo saved (tap thumbnail to view)';
       setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
-
-
     } catch {
       this.riflePhotoInlineMessage = 'Photo capture cancelled';
       setTimeout(() => (this.riflePhotoInlineMessage = null), 2200);
@@ -244,10 +244,9 @@ return null;
     this.closePhotoViewer();
   }
 
-
   loadForm: any = {};
 
-    constructor(private data: DataService) {
+  constructor(private data: DataService) {
     try {
       const u =
         typeof (this.data as any).getDefaultLoadDevOalUnit === 'function'
@@ -271,7 +270,7 @@ return null;
     this.addFormVisible = false;
     this.editingRifle = null;
     this.activeLoadsRifleId = null;
-          this.closeLoadDetails();
+    this.closeLoadDetails();
     this.activeLoadFormRifleId = null;
     this.editingLoadId = null;
     this.resetLoadForm();
@@ -309,17 +308,16 @@ return null;
 
       // Rifle header card (simple, clean)
       doc.setFontSize(12);
-         const sn = (r as any)?.serialNumber ? ` SN: ${(r as any).serialNumber}` : '';
+      const sn = (r as any)?.serialNumber ? ` SN: ${(r as any).serialNumber}` : '';
       doc.text(`${r.name ?? 'Rifle'}${r.caliber ? ` (${r.caliber})` : ''}${sn}`, 10, y);
 
       y += 5;
-      
 
       const rifleRows: Array<[string, string]> = [
         ['Caliber', `${r.caliber ?? '-'}`],
         ['Barrel length', `${r.barrelLength ?? '-'} ${r.barrelUnit ?? ''}`.trim()],
         ['Twist rate', `${r.twistRate ?? '-'}`],
-              ['Scope', `${r.scope ?? '-'}${r.scopeUnit ? ' (' + r.scopeUnit + ')' : ''}`],
+        ['Scope', `${r.scope ?? '-'}${r.scopeUnit ? ' (' + r.scopeUnit + ')' : ''}`],
         ['Round count', `${r.roundCount ?? 0}`],
         ['Notes', `${r.notes ?? '-'}`],
       ];
@@ -335,30 +333,30 @@ return null;
 
       y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 40;
 
-             // Loads table
+      // Loads table
       const loads = Array.isArray(r.loads) ? r.loads : [];
-            const outUnit: 'mm' | 'in' = (this.defaultLoadCoalUnit === 'in' ? 'in' : 'mm');
       doc.setFontSize(12);
       doc.text('Load Data', 10, y);
       doc.setFontSize(10);
       doc.text(`Loads (${loads.length})`, 10, y + 5);
       y += 9;
       // Loads table (keep it horizontal; notes/comments go underneath)
-            const loadTableBody = (loads as any[]).reduce((acc: any[], l: any) => {
-               const fromUnit: 'mm' | 'in' = (l?.coalUnit === 'in' ? 'in' : 'mm');
-
-        const coalText = this.oalConvertValue(l?.coal, fromUnit, outUnit);
-        const coalOgiveText = this.oalConvertValue(l?.coalOgive, fromUnit, outUnit);
-        const landsText = this.oalConvertValue(l?.landsOgive ?? l?.lands, fromUnit, outUnit);
-
+      const loadTableBody = (loads as any[]).reduce((acc: any[], l: any) => {
+        const unit: 'mm' | 'in' =
+          l?.coalUnit === 'in' ? 'in' : this.defaultLoadCoalUnit === 'in' ? 'in' : 'mm';
+        const fromUnit: 'mm' | 'in' = unit;
+        const toUnit: 'mm' | 'in' = unit;
+        const coalText = this.oalConvertValue(l?.coal, fromUnit, toUnit);
+        const coalOgiveText = this.oalConvertValue(l?.coalOgive, fromUnit, toUnit);
+        const landsText = this.oalConvertValue(l?.landsOgive ?? l?.lands, fromUnit, toUnit);
         // Jump = Lands - Ogive (in OUT unit)
         const landsN = this.oalParseNum(l?.landsOgive ?? l?.lands);
         const ogiveN = this.oalParseNum(l?.coalOgive);
         let jumpText: any = '';
         if (landsN != null && ogiveN != null) {
-          const landsOut = this.oalConvert(landsN, fromUnit, outUnit);
-          const ogiveOut = this.oalConvert(ogiveN, fromUnit, outUnit);
-          jumpText = this.oalFormat(landsOut - ogiveOut, outUnit);
+          const landsOut = this.oalConvert(landsN, fromUnit, toUnit);
+          const ogiveOut = this.oalConvert(ogiveN, fromUnit, toUnit);
+          jumpText = this.oalFormat(landsOut - ogiveOut, toUnit);
         }
 
         const row = [
@@ -375,7 +373,6 @@ return null;
           `${l?.bulletBc ?? ''}`,
         ];
 
-
         const noteText = (l?.notes ?? '').toString().trim();
 
         const noteRow = [
@@ -391,51 +388,43 @@ return null;
         return acc;
       }, []);
 
-
       autoTableMod.default(doc, {
         startY: y,
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: { fontSize: 8 },
-        head: [[
-  'Powder',
-  'Charge (gr)',
-    'Vel (fps)',
-  `COAL (${outUnit})`,
-  `COAL Ogive (${outUnit})`,
-  `Lands / Ogive (${outUnit})`,
-  `Jump (${outUnit})`,
-  'Primer',
-  'Bullet',
-  'Weight (gr)',
-  'BC'
-]],
+        head: [
+          [
+            'Powder',
+            'Charge (gr)',
+            'Vel (fps)',
+            'COAL',
+            'COAL Ogive',
+            'Lands / Ogive',
+            'Jump',
+            'Primer',
+            'Bullet',
+            'Weight (gr)',
+            'BC',
+          ],
+        ],
 
-
-      body: loadTableBody,
-
-
-
-
-
+        body: loadTableBody,
       });
 
       // Move cursor below the table
-      y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 12;
-     
 
-                 // --------------------------
+      y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 12;
+
+      // --------------------------
       // Rifle photo (use remaining space under Loads)
       // --------------------------
-            let riflePhotoDataUrl: string | null = this.riflePhotoDataUrl(r);
-
-
+      let riflePhotoDataUrl: string | null = this.riflePhotoDataUrl(r);
 
       if (riflePhotoDataUrl) {
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 10;
         // Keep everything on one page: do NOT add a page; just scale to remaining space
-
 
         doc.setFontSize(12);
         doc.text('Rifle photo', 10, y);
@@ -445,7 +434,7 @@ return null;
         const maxH = pageHeight - margin - y;
 
         // Keep aspect ratio using image properties
-                // If FS based and not cached yet, load now for PDF export
+        // If FS based and not cached yet, load now for PDF export
         const p = (r as any)?.riflePhotoPath;
         if (!riflePhotoDataUrl && p) {
           const u = await this.readJpegDataUrlFromFs(String(p));
@@ -474,7 +463,7 @@ return null;
           }
         }
 
-              const x = (pageWidth - imgW) / 2;
+        const x = (pageWidth - imgW) / 2;
         if (imgW > 0 && imgH > 0) {
           (doc as any).addImage(riflePhotoDataUrl, fmt, x, y, imgW, imgH, undefined, 'FAST');
           y += imgH + 4;
@@ -484,7 +473,7 @@ return null;
       const filenameSafe = `${(r.name ?? 'rifle').toString().replace(/[^\w\-]+/g, '_')}_rifle_export.pdf`;
       const pdfBlob = doc.output('blob');
 
-    // Prefer native share on device; fallback to download on web
+      // Prefer native share on device; fallback to download on web
       await this.sharePdfBlob(pdfBlob, filenameSafe);
     } catch (err) {
       console.error('exportSelectedRiflePdf failed:', err);
@@ -494,7 +483,7 @@ return null;
 
   private async sharePdfBlob(blob: Blob, filename: string): Promise<void> {
     // If we’re on web (or Share plugin not available), trigger a download
-    const isNative = Capacitor.isNativePlatform?.() ?? (Capacitor.getPlatform?.() !== 'web');
+    const isNative = Capacitor.isNativePlatform?.() ?? Capacitor.getPlatform?.() !== 'web';
     if (!isNative) {
       const url = URL.createObjectURL(blob);
       try {
@@ -555,24 +544,19 @@ return null;
       this.rifles = [];
     }
 
-       // Do not auto-select a rifle. Only clear selection if it no longer exists.
+    // Do not auto-select a rifle. Only clear selection if it no longer exists.
     if (this.selectedRifleId != null) {
       const sel = this.selectedRifleId;
-      const stillExists = this.rifles.some(
-        (r: any) => r && (r.id === sel || r.rifleId === sel)
-      );
+      const stillExists = this.rifles.some((r: any) => r && (r.id === sel || r.rifleId === sel));
       if (!stillExists) this.selectedRifleId = null;
     }
-
   }
 
   get selectedRifle(): any | null {
     if (this.selectedRifleId == null) return null;
     return (
       this.rifles.find(
-        (r: any) =>
-          r &&
-          (r.id === this.selectedRifleId || r.rifleId === this.selectedRifleId)
+        (r: any) => r && (r.id === this.selectedRifleId || r.rifleId === this.selectedRifleId),
       ) ?? null
     );
   }
@@ -586,10 +570,10 @@ return null;
   }
 
   clearRifleForm(): void {
-      this.rifleForm = {
+    this.rifleForm = {
       name: '',
       caliber: '',
-       serialNumber: '',
+      serialNumber: '',
       barrelLength: null,
       barrelUnit: 'inch',
       twistRate: '',
@@ -604,7 +588,7 @@ return null;
     this.editingRifle = null;
   }
 
-    onSelectedRifleChange(rawId: any): void {
+  onSelectedRifleChange(rawId: any): void {
     const prev = this.selectedRifleId;
 
     if (rawId === null || rawId === undefined || rawId === '') {
@@ -621,8 +605,7 @@ return null;
     }
 
     const n = Number(rawId);
-    const nextId =
-      typeof rawId === 'number' ? rawId : (!Number.isNaN(n) ? n : rawId);
+    const nextId = typeof rawId === 'number' ? rawId : !Number.isNaN(n) ? n : rawId;
 
     // If changing rifle, collapse the previous rifle's open sections/modals
     if (prev !== nextId) {
@@ -679,7 +662,6 @@ return null;
     this.onSelectedRifleChange(id);
   }
 
-
   editRifle(r: any): void {
     if (!r) return;
     this.addFormVisible = true;
@@ -687,8 +669,7 @@ return null;
 
     const { loads, ...rest } = r;
     this.rifleForm = { ...rest };
-        delete (this.rifleForm as any).riflePhotoBase64;
-
+    delete (this.rifleForm as any).riflePhotoBase64;
   }
 
   saveRifle(): void {
@@ -696,15 +677,9 @@ return null;
     const isEditing = !!this.editingRifle;
     const existingLoads = this.editingRifle?.loads ?? [];
 
-    const roundCount =
-      this.rifleForm.roundCount != null
-        ? Number(this.rifleForm.roundCount)
-        : 0;
+    const roundCount = this.rifleForm.roundCount != null ? Number(this.rifleForm.roundCount) : 0;
 
-    const id =
-      this.editingRifle?.id ??
-      this.rifleForm.id ??
-      this.generateId('rifle');
+    const id = this.editingRifle?.id ?? this.rifleForm.id ?? this.generateId('rifle');
 
     const rifle = {
       ...(this.editingRifle || {}),
@@ -742,7 +717,7 @@ return null;
 
     const anyData: any = this.data;
 
-       const nextList = this.rifles.filter((x: any) => x.id !== r.id);
+    const nextList = this.rifles.filter((x: any) => x.id !== r.id);
 
     // Prefer setRifles because it should be the persistence path (localStorage/backup)
     if (typeof anyData.setRifles === 'function') {
@@ -762,21 +737,17 @@ return null;
       anyData.rifles = this.rifles;
     }
 
-
-        this.refresh();
+    this.refresh();
 
     // Do not auto-select a rifle after delete.
     // If current selection no longer exists, clear it.
     if (this.selectedRifleId != null) {
       const sel = this.selectedRifleId;
-      const stillExists = this.rifles.some(
-        (x: any) => x && (x.id === sel || x.rifleId === sel)
-      );
+      const stillExists = this.rifles.some((x: any) => x && (x.id === sel || x.rifleId === sel));
       if (!stillExists) this.selectedRifleId = null;
     } else {
       this.selectedRifleId = null;
     }
-
 
     this.activeLoadsRifleId = null;
     this.activeLoadFormRifleId = null;
@@ -790,7 +761,7 @@ return null;
 
     if (this.activeLoadsRifleId === r.id) {
       this.activeLoadsRifleId = null;
-            this.selectedLoadDetails = null;
+      this.selectedLoadDetails = null;
 
       this.activeLoadFormRifleId = null;
       this.editingLoadId = null;
@@ -800,7 +771,7 @@ return null;
     }
   }
 
-      toggleLoadForm(rifleId: number | string): void {
+  toggleLoadForm(rifleId: number | string): void {
     if (this.activeLoadFormRifleId === rifleId) {
       this.activeLoadFormRifleId = null;
       this.editingLoadId = null;
@@ -831,23 +802,32 @@ return null;
     }, 50);
   }
 
-
-
   // Load form logic
-    // Load form logic
-resetLoadForm(): void {
-  const defUnit =
-    typeof (this.data as any).getDefaultLoadDevOalUnit === 'function'
-      ? (this.data as any).getDefaultLoadDevOalUnit()
-      : 'mm';
+  // Load form logic
+  resetLoadForm(): void {
+    const defUnit =
+      typeof (this.data as any).getDefaultLoadDevOalUnit === 'function'
+        ? (this.data as any).getDefaultLoadDevOalUnit()
+        : 'mm';
 
-       this.loadForm = { powder: '', chargeGn: null, lands: null, coalUnit: defUnit, coal: null, coalOgive: null, primer: '', bullet: '', bulletWeightGr: null, bulletBc: '', aveVelocityFps: null, notes: '' };
-  this.lastLoadCoalUnit = (defUnit === 'in' ? 'in' : 'mm');
+    this.loadForm = {
+      powder: '',
+      chargeGn: null,
+      lands: null,
+      coalUnit: defUnit,
+      coal: null,
+      coalOgive: null,
+      primer: '',
+      bullet: '',
+      bulletWeightGr: null,
+      bulletBc: '',
+      aveVelocityFps: null,
+      notes: '',
+    };
+    this.lastLoadCoalUnit = defUnit === 'in' ? 'in' : 'mm';
 
-  this.editingLoadId = null;
-   
-
-}
+    this.editingLoadId = null;
+  }
   selectLoadForDetails(l: any): void {
     this.selectedLoadDetails = l ?? null;
   }
@@ -890,12 +870,11 @@ resetLoadForm(): void {
   }
 
   // Lands - Ogive (Load Data form + display helpers)
- private toNumOrNull(v: any): number | null {
-  
-  if (v == null || v === '') return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
+  private toNumOrNull(v: any): number | null {
+    if (v == null || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
   private oalParseNum(v: any): number | null {
     if (v == null || v === '') return null;
     const s = String(v).trim().replace(/,/g, '.');
@@ -910,7 +889,7 @@ resetLoadForm(): void {
 
   private oalConvert(n: number, from: 'mm' | 'in', to: 'mm' | 'in'): number {
     if (from === to) return n;
-    return from === 'mm' ? (n / 25.4) : (n * 25.4);
+    return from === 'mm' ? n / 25.4 : n * 25.4;
   }
 
   private oalConvertValue(v: any, from: 'mm' | 'in', to: 'mm' | 'in'): any {
@@ -920,8 +899,8 @@ resetLoadForm(): void {
   }
 
   onLoadCoalUnitChange(newUnit: 'mm' | 'in'): void {
-    const fromUnit = (this.lastLoadCoalUnit === 'in' ? 'in' : 'mm');
-    const toUnit = (newUnit === 'in' ? 'in' : 'mm');
+    const fromUnit = this.lastLoadCoalUnit === 'in' ? 'in' : 'mm';
+    const toUnit = newUnit === 'in' ? 'in' : 'mm';
 
     if (fromUnit === toUnit) {
       this.lastLoadCoalUnit = toUnit;
@@ -943,7 +922,7 @@ resetLoadForm(): void {
 
   onInchDecimalInput(field: 'landsOgive' | 'coal' | 'coalOgive', ev: Event): void {
     // Only enforce formatting when user is working in inches
-    const unit = (this.loadForm?.coalUnit ?? this.defaultLoadCoalUnit);
+    const unit = this.loadForm?.coalUnit ?? this.defaultLoadCoalUnit;
     if (unit !== 'in') return;
 
     const input = ev.target as HTMLInputElement | null;
@@ -960,132 +939,116 @@ resetLoadForm(): void {
     if (firstDot !== -1) {
       v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
     }
-// 3) Auto dot after first digit ONLY when typing forward (not when deleting)
-const inputType = (ev as any)?.inputType as string | undefined;
-const isDeleting =
-  inputType === 'deleteContentBackward' ||
-  inputType === 'deleteContentForward';
+    // 3) Auto dot after first digit ONLY when typing forward (not when deleting)
+    const inputType = (ev as any)?.inputType as string | undefined;
+    const isDeleting =
+      inputType === 'deleteContentBackward' || inputType === 'deleteContentForward';
 
-if (!isDeleting && /^\d$/.test(v)) {
-  v = v + '.';
-}
-
+    if (!isDeleting && /^\d$/.test(v)) {
+      v = v + '.';
+    }
 
     input.value = v;
     (this.loadForm as any)[field] = v;
   }
 
-/** Returns Lands - COAL(Ogive). Positive = jump (if Lands > Ogive). */
-loadLandsMinusOgiveText(): string {
-  const lands = this.toNumOrNull(this.loadForm?.landsOgive);
-  const ogive = this.toNumOrNull(this.loadForm?.coalOgive);
-  if (lands == null || ogive == null) return '';
-  const d = lands - ogive;
-  return d.toFixed(3);
-}
+  /** Returns Lands - COAL(Ogive). Positive = jump (if Lands > Ogive). */
+  loadLandsMinusOgiveText(): string {
+    const lands = this.toNumOrNull(this.loadForm?.landsOgive);
+    const ogive = this.toNumOrNull(this.loadForm?.coalOgive);
+    if (lands == null || ogive == null) return '';
+    const d = lands - ogive;
+    return d.toFixed(3);
+  }
 
-loadLandsMinusOgiveTextForLoad(l: any): string | null {
-  const lands = this.toNumOrNull(l?.landsOgive ?? l?.lands);
-  const ogive = this.toNumOrNull(l?.coalOgive);
-  if (lands == null || ogive == null) return null;
-  const d = lands - ogive;
-  return d.toFixed(3);
-}
-
-
+  loadLandsMinusOgiveTextForLoad(l: any): string | null {
+    const lands = this.toNumOrNull(l?.landsOgive ?? l?.lands);
+    const ogive = this.toNumOrNull(l?.coalOgive);
+    if (lands == null || ogive == null) return null;
+    const d = lands - ogive;
+    return d.toFixed(3);
+  }
 
   saveLoad(r: any): void {
-            const aveV = this.toNumOrNull(this.loadForm.aveVelocityFps);
+    const aveV = this.toNumOrNull(this.loadForm.aveVelocityFps);
 
     if (!r) return;
 
     const anyData: any = this.data;
     const loads: any[] = [...(r.loads || [])];
-    
 
     if (this.editingLoadId != null) {
       const idx = loads.findIndex((l) => l.id === this.editingLoadId);
       if (idx !== -1) {
-              const charge = this.toNumOrNull(this.loadForm.chargeGn);
+        const charge = this.toNumOrNull(this.loadForm.chargeGn);
         const bw = this.toNumOrNull(this.loadForm.bulletWeightGr);
         const landsOgiveNum = this.toNumOrNull(this.loadForm.landsOgive);
         const coalOgiveNum = this.toNumOrNull(this.loadForm.coalOgive);
 
-
         loads[idx] = {
           ...loads[idx],
           ...this.loadForm,
-                 id: this.editingLoadId,
+          id: this.editingLoadId,
 
           chargeGn: charge != null ? charge : loads[idx].chargeGn,
           bulletWeightGr: bw != null ? bw : loads[idx].bulletWeightGr,
-          aveVelocityFps: aveV != null ? aveV : (loads[idx] as any).aveVelocityFps ?? null,
+          aveVelocityFps: aveV != null ? aveV : ((loads[idx] as any).aveVelocityFps ?? null),
 
           // ✅ keep both fields aligned; UI reads landsOgive first
           landsOgive:
             landsOgiveNum != null
               ? landsOgiveNum
-              : (loads[idx] as any).landsOgive ?? (loads[idx] as any).lands ?? null,
+              : ((loads[idx] as any).landsOgive ?? (loads[idx] as any).lands ?? null),
 
-          lands:
-            landsOgiveNum != null
-              ? landsOgiveNum
-              : (loads[idx] as any).lands ?? null,
-              jump: (() => {
-  const lands = (landsOgiveNum != null)
-    ? landsOgiveNum
-    : (loads[idx] as any).landsOgive ?? (loads[idx] as any).lands ?? null;
+          lands: landsOgiveNum != null ? landsOgiveNum : ((loads[idx] as any).lands ?? null),
+          jump: (() => {
+            const lands =
+              landsOgiveNum != null
+                ? landsOgiveNum
+                : ((loads[idx] as any).landsOgive ?? (loads[idx] as any).lands ?? null);
 
-  const ogive = (coalOgiveNum != null)
-    ? coalOgiveNum
-    : (loads[idx] as any).coalOgive ?? null;
+            const ogive =
+              coalOgiveNum != null ? coalOgiveNum : ((loads[idx] as any).coalOgive ?? null);
 
-  return (lands != null && ogive != null) ? (lands - ogive) : (loads[idx] as any).jump ?? null;
-})(),
-
+            return lands != null && ogive != null
+              ? lands - ogive
+              : ((loads[idx] as any).jump ?? null);
+          })(),
         };
-
       }
     } else {
-        const newLoad = {
+      const newLoad = {
         id: Date.now(),
 
         powder: (this.loadForm.powder || '').toString(),
         chargeGn: this.toNumOrNull(this.loadForm.chargeGn),
-aveVelocityFps: this.toNumOrNull(this.loadForm.aveVelocityFps),
+        aveVelocityFps: this.toNumOrNull(this.loadForm.aveVelocityFps),
 
         coalUnit: this.loadForm.coalUnit || 'mm',
 
         // ✅ store the field the UI actually edits/displays
         landsOgive: this.toNumOrNull(this.loadForm.landsOgive),
-      
 
         // keep legacy field in sync for older data/display fallbacks
         lands: this.toNumOrNull(this.loadForm.landsOgive),
 
         coal: this.toNumOrNull(this.loadForm.coal),
         coalOgive: this.toNumOrNull(this.loadForm.coalOgive),
-jump: (() => {
-  const lands = this.toNumOrNull(this.loadForm.landsOgive);
-  const ogive = this.toNumOrNull(this.loadForm.coalOgive);
-  return (lands != null && ogive != null) ? (lands - ogive) : null;
-})(),
+        jump: (() => {
+          const lands = this.toNumOrNull(this.loadForm.landsOgive);
+          const ogive = this.toNumOrNull(this.loadForm.coalOgive);
+          return lands != null && ogive != null ? lands - ogive : null;
+        })(),
 
         primer: (this.loadForm.primer || '').toString(),
         bullet: (this.loadForm.bullet || '').toString(),
-        
-        bulletWeightGr: this.toNumOrNull(this.loadForm.bulletWeightGr),
-                         
 
+        bulletWeightGr: this.toNumOrNull(this.loadForm.bulletWeightGr),
 
         bulletBc: (this.loadForm.bulletBc || '').toString(),
 
         notes: (this.loadForm.notes || '').toString(),
       };
-
-
-
-      
 
       loads.push(newLoad);
     }
@@ -1098,14 +1061,18 @@ jump: (() => {
     if (typeof anyData.updateRifle === 'function') {
       anyData.updateRifle(updatedRifle);
     } else if (typeof anyData.setRifles === 'function') {
-         const list = this.rifles.map((x: any) =>
-        (x.id ?? x.rifleId) === (updatedRifle.id ?? (updatedRifle as any).rifleId) ? updatedRifle : x
+      const list = this.rifles.map((x: any) =>
+        (x.id ?? x.rifleId) === (updatedRifle.id ?? (updatedRifle as any).rifleId)
+          ? updatedRifle
+          : x,
       );
 
       anyData.setRifles(list);
     } else {
-           this.rifles = this.rifles.map((x: any) =>
-        (x.id ?? x.rifleId) === (updatedRifle.id ?? (updatedRifle as any).rifleId) ? updatedRifle : x
+      this.rifles = this.rifles.map((x: any) =>
+        (x.id ?? x.rifleId) === (updatedRifle.id ?? (updatedRifle as any).rifleId)
+          ? updatedRifle
+          : x,
       );
 
       anyData.rifles = this.rifles;
@@ -1120,15 +1087,12 @@ jump: (() => {
 
   editLoad(r: any, load: any): void {
     if (!r || !load) return;
-      aveVelocityFps: load.aveVelocityFps ?? null,
-
-    this.activeLoadsRifleId = r.id;
+    aveVelocityFps: (load.aveVelocityFps ?? null, (this.activeLoadsRifleId = r.id));
     this.activeLoadFormRifleId = r.id;
-    aveVelocityFps: this.toNumOrNull(this.loadForm.aveVelocityFps),
+    aveVelocityFps: (this.toNumOrNull(this.loadForm.aveVelocityFps),
+      (this.editingLoadId = load.id));
 
-    this.editingLoadId = load.id;
-
-           this.loadForm = {
+    this.loadForm = {
       id: load.id,
       powder: load.powder,
       chargeGn: load.chargeGn,
@@ -1140,12 +1104,11 @@ jump: (() => {
       primer: load.primer,
       bullet: load.bullet,
       bulletWeightGr: load.bulletWeightGr,
-      
+
       bulletBc: load.bulletBc,
       notes: (load.notes || '').toString(),
     };
-    this.lastLoadCoalUnit = (this.loadForm?.coalUnit === 'in' ? 'in' : 'mm');
-
+    this.lastLoadCoalUnit = this.loadForm?.coalUnit === 'in' ? 'in' : 'mm';
   }
 
   deleteLoad(r: any, load: any): void {
@@ -1160,14 +1123,10 @@ jump: (() => {
     if (typeof anyData.updateRifle === 'function') {
       anyData.updateRifle(updatedRifle);
     } else if (typeof anyData.setRifles === 'function') {
-      const list = this.rifles.map((x: any) =>
-        x.id === updatedRifle.id ? updatedRifle : x
-      );
+      const list = this.rifles.map((x: any) => (x.id === updatedRifle.id ? updatedRifle : x));
       anyData.setRifles(list);
     } else {
-      this.rifles = this.rifles.map((x: any) =>
-        x.id === updatedRifle.id ? updatedRifle : x
-      );
+      this.rifles = this.rifles.map((x: any) => (x.id === updatedRifle.id ? updatedRifle : x));
       anyData.rifles = this.rifles;
     }
 
@@ -1176,18 +1135,16 @@ jump: (() => {
     this.activeLoadFormRifleId = null;
     this.editingLoadId = null;
     this.resetLoadForm();
-    
   }
-  
+
   // ==========================================================
   // PHOTO STORAGE (Option A): Filesystem (Directory.Data)
   // ==========================================================
-  
+
   private readonly RIFLE_PHOTO_ROOT = 'gs_photos/rifles';
   private riflePhotoCache = new Map<string, string>(); // path -> dataUrl
   private riflePhotoLoadInFlight = new Set<string>(); // prevent repeated FS reads
-private riflePhotoMissing = new Set<string>();      // remember missing/unreadable files
-
+  private riflePhotoMissing = new Set<string>(); // remember missing/unreadable files
 
   private dataUrlToBase64(dataUrl: string): string {
     const b64 = (dataUrl || '').split(',')[1] ?? '';
@@ -1225,9 +1182,10 @@ private riflePhotoMissing = new Set<string>();      // remember missing/unreadab
     if (!r) return;
     if (r.riflePhotoPath) return;
 
-    const legacyBase64 = (r?.riflePhotoBase64 && String(r.riflePhotoBase64).trim())
-      ? `data:image/jpeg;base64,${String(r.riflePhotoBase64).trim()}`
-      : null;
+    const legacyBase64 =
+      r?.riflePhotoBase64 && String(r.riflePhotoBase64).trim()
+        ? `data:image/jpeg;base64,${String(r.riflePhotoBase64).trim()}`
+        : null;
 
     if (!legacyBase64) return;
 
@@ -1237,7 +1195,9 @@ private riflePhotoMissing = new Set<string>();      // remember missing/unreadab
     r.riflePhotoPath = path;
     r.riflePhotoCapturedAt = r.riflePhotoCapturedAt ?? new Date().toISOString();
 
-    try { delete r.riflePhotoBase64; } catch {}
+    try {
+      delete r.riflePhotoBase64;
+    } catch {}
 
     // persist
     try {
@@ -1249,5 +1209,4 @@ private riflePhotoMissing = new Set<string>();      // remember missing/unreadab
       }
     } catch {}
   }
-
 }

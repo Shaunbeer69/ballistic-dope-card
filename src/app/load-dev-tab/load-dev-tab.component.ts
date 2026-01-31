@@ -1266,8 +1266,9 @@ export class LoadDevTabComponent implements OnInit {
     if (p.powder) parts.push(`Powder: ${p.powder}`);
     if (p.bullet) parts.push(`Bullet: ${p.bullet}`);
     if (p.bulletWeightGr != null) parts.push(`Wt: ${p.bulletWeightGr}gr`);
-    if (p.oal != null) parts.push(`COAL: ${p.oal}mm`);
-    if (p.oalOgive != null) parts.push(`Ogive: ${p.oalOgive}mm`);
+    const u = p.oalUnit === 'in' ? 'in' : 'mm';
+    if (p.oal != null) parts.push(`COAL: ${p.oal}${u}`);
+    if (p.oalOgive != null) parts.push(`Ogive: ${p.oalOgive}${u}`);
 
     const range = this.selectedProjectChargeRangeText();
     if (range && range !== '—') parts.push(`Charge: ${range}`);
@@ -4530,8 +4531,9 @@ export class LoadDevTabComponent implements OnInit {
     const oal = p.oal;
     const ogive = p.oalOgive;
 
-    if (oal != null && oal !== '') lines.push(`COAL: ${oal}mm`);
-    if (ogive != null && ogive !== '') lines.push(`Ogive: ${ogive}mm`);
+    const u = p.oalUnit === 'in' ? 'in' : 'mm';
+    if (oal != null && oal !== '') lines.push(`COAL: ${oal}${u}`);
+    if (ogive != null && ogive !== '') lines.push(`Ogive: ${ogive}${u}`);
 
     const dist = p.distanceM;
     if (dist != null && dist !== '') lines.push(`Distance: ${dist}m`);
