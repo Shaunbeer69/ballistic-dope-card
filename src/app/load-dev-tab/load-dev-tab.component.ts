@@ -2187,22 +2187,47 @@ export class LoadDevTabComponent implements OnInit {
       // -------------------------------
 
       // ----- Save / Share -----
-      const safeName = (projectName || 'load-dev')
+      const type = this.selectedProject?.type ?? 'report';
+
+      let safeName = (projectName || 'load-dev')
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
 
-      const fileName = `${safeName}-${this.selectedProject?.type ?? 'report'}.pdf`;
+      if (!safeName) safeName = 'load-dev';
+
+      // keep filename short (Android document providers can be strict)
+      safeName = safeName.slice(0, 40);
+
+      // ensure uniqueness to avoid overwrite / provider conflicts
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+      const fileName = `${safeName}-${type}-${stamp}.pdf`;
 
       if (Capacitor.isNativePlatform()) {
-        // Native: write file, then share
-        const pdfBase64 = doc.output('datauristring').split(',')[1];
+        console.log('EXPORT starting for', fileName);
 
-        const res = await Filesystem.writeFile({
-          path: fileName,
-          data: pdfBase64,
-          directory: Directory.Documents,
-        });
+        let pdfBase64: string;
+        try {
+          pdfBase64 = doc.output('datauristring').split(',')[1];
+          console.log('PDF built, base64 length =', pdfBase64?.length);
+        } catch (e) {
+          console.error('FAILED at doc.output()', e);
+          throw e;
+        }
+
+        let res;
+        try {
+          res = await Filesystem.writeFile({
+            path: fileName,
+            data: pdfBase64,
+            directory: Directory.Documents,
+          });
+          console.log('writeFile OK, uri =', res?.uri);
+        } catch (e) {
+          console.error('FAILED at Filesystem.writeFile()', e);
+          throw e;
+        }
 
         // Share (Print is also a share-target on Android). Some print targets can reject
         // the share promise even after the print job is created — do NOT treat that as export failure.
