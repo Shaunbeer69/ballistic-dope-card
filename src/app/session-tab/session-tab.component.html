@@ -456,6 +456,16 @@
         </button>
       </div>
     </div>
+    <!-- Back to main menu (universal pattern) -->
+    <div class="p-3 flex justify-end">
+      <button
+        type="button"
+        class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black text-[11px] font-semibold"
+        (click)="goHome()"
+      >
+        Back
+      </button>
+    </div>
   </div>
 
   <!-- STEP 2: ENVIRONMENT -->
@@ -753,7 +763,7 @@
 
       <button
         class="mt-4 px-4 py-2 text-xs rounded bg-orange-500 text-black font-semibold"
-        (click)="onJumpToHistory()"
+        (click)="goHome()"
       >
         Jump to history
       </button>

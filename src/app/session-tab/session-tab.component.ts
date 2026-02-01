@@ -280,6 +280,9 @@ export class SessionTabComponent implements OnInit {
     const list = this.subRanges;
     return list.find((sr) => sr.id === this.subRangeId);
   }
+  goHome(): void {
+    this.backToMenu.emit();
+  }
 
   get distanceOptions(): number[] {
     const sr = this.selectedSubRange;
