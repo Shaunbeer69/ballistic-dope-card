@@ -187,7 +187,9 @@
         <ng-template #normalMenu>
           <div class="space-y-2">
             <!-- MAIN ACTION BUTTONS (square tiles) -->
-            <div class="rounded-3xl p-2 shadow space-y-2">
+            <div
+              class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 space-y-2"
+            >
               <ng-container *ngIf="!showTools && !showSetup && !showReportsForm">
                 <!-- Top row: 2 square blocks -->
                 <div class="grid grid-cols-2 gap-2 mt-1">
@@ -265,7 +267,10 @@
               </div>
 
               <!-- REPORTS -->
-              <div *ngIf="showReportsForm" class="rounded-2xl p-3 shadow space-y-3 mt-3">
+              <div
+                *ngIf="showReportsForm"
+                class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 space-y-3 mt-3"
+              >
                 <h3 class="text-xs font-semibold">Last settings at this venue</h3>
 
                 <p class="text-[11px] text-gray-300">
@@ -279,7 +284,7 @@
                     <label class="block text-gray-300 mb-0.5">Venue</label>
                     <button
                       type="button"
-                      class="w-full bg-black border border-gray-700 rounded px-2 py-1 text-[11px] text-left"
+                      class="w-full px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-left text-white outline-none ring-1 ring-white/5"
                       (click)="openReportVenuePicker()"
                     >
                       {{ reportSelectedVenueName || 'Select venue…' }}
@@ -299,7 +304,7 @@
                     <label class="block text-gray-300 mb-0.5">Rifle</label>
                     <button
                       type="button"
-                      class="w-full bg-black border border-gray-700 rounded px-2 py-1 text-[11px] text-left"
+                      class="w-full px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-left text-white outline-none ring-1 ring-white/5"
                       (click)="openReportRiflePicker()"
                     >
                       {{ reportSelectedRifleName || 'Select rifle…' }}
@@ -319,9 +324,11 @@
                     <label class="block text-gray-300 mb-0.5">Distance (m)</label>
                     <input
                       type="number"
-                      class="w-full bg-black border border-gray-700 rounded px-2 py-1 text-[11px]"
+                      class="w-full px-2 py-2 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-white outline-none ring-1 ring-white/5"
                       [(ngModel)]="reportDistanceM"
                       placeholder="Leave blank = show all"
+                    />
+
                     />
                   </div>
                   <!-- REPORTS: Venue picker modal (canonical) -->

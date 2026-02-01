@@ -2418,6 +2418,19 @@ export class AppComponent implements OnInit {
               return sum + projects.length;
             }, 0)
           : 0;
+        const loadDevEntriesTotal = this.dataService.getLoadDevProjectsForRifle
+          ? rifles.reduce((sum, r) => {
+              const rid = Number((r as any)?.id ?? (r as any)?.rifleId);
+              const projects = Number.isFinite(rid)
+                ? this.dataService.getLoadDevProjectsForRifle(rid)
+                : [];
+              const entriesCount = (projects ?? []).reduce(
+                (s2: number, p: any) => s2 + (Array.isArray(p?.entries) ? p.entries.length : 0),
+                0,
+              );
+              return sum + entriesCount;
+            }, 0)
+          : 0;
 
         const venueSubrangesTotal = venues.reduce(
           (sum, v) => sum + (((v as any)?.subRanges?.length ?? 0) as number),
@@ -2458,6 +2471,7 @@ export class AppComponent implements OnInit {
           venues: venues.length,
           sessions: sessions.length,
           loadDevProjects,
+          loadDevEntriesTotal,
           venueSubrangesTotal,
           venueSubrangesByName,
           rifleSessionsById,
@@ -2480,6 +2494,8 @@ export class AppComponent implements OnInit {
       const deltaVenues = after.venues - before.venues;
       const deltaSessions = after.sessions - before.sessions;
       const deltaLoadDevProjects = after.loadDevProjects - before.loadDevProjects;
+
+      const deltaLoadDevEntries = after.loadDevEntriesTotal - before.loadDevEntriesTotal;
 
       const deltaVenueSubranges = after.venueSubrangesTotal - before.venueSubrangesTotal;
       let sessionsAddedToExistingRifles = 0;
@@ -2513,6 +2529,12 @@ export class AppComponent implements OnInit {
       }
 
       const extraLines: string[] = [];
+      if (deltaLoadDevEntries !== 0) {
+        extraLines.push(
+          `Load-dev entries: ${deltaLoadDevEntries > 0 ? '+' : ''}${deltaLoadDevEntries}`,
+        );
+      }
+
       if (sessionsAddedToExistingRifles > 0) {
         extraLines.push(
           `Rifle sessions: +${sessionsAddedToExistingRifles} (added to existing rifles)`,
@@ -2545,7 +2567,9 @@ export class AppComponent implements OnInit {
         deltaVenues > 0 ? '+' : ''
       }${deltaVenues} venues, ${deltaSessions > 0 ? '+' : ''}${deltaSessions} sessions, ${
         deltaLoadDevProjects > 0 ? '+' : ''
-      }${deltaLoadDevProjects} load-dev projects.`;
+      }${deltaLoadDevProjects} load-dev projects, ${
+        deltaLoadDevEntries > 0 ? '+' : ''
+      }${deltaLoadDevEntries} load-dev entries.`;
 
       const finalMessage =
         `Import complete.\n\n${result.message}\n\n${deltaSummary}` +

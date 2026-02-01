@@ -1,6 +1,10 @@
-<div class="space-y-3 text-xs">
+<div
+  class="space-y-3 text-xs bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10"
+>
   <!-- Add / Edit Rifle header -->
-  <div class="bg-slate-800 rounded-2xl p-3 shadow flex items-center justify-between">
+  <div
+    class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 flex items-center justify-between"
+  >
     <div class="text-sm font-semibold">
       {{ editingRifle ? 'Edit Rifle' : 'Add Rifle' }}
     </div>
@@ -14,7 +18,10 @@
   </div>
 
   <!-- Rifle form -->
-  <div *ngIf="addFormVisible" class="bg-slate-800 rounded-2xl p-3 shadow space-y-2">
+  <div
+    *ngIf="addFormVisible"
+    class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 space-y-2"
+  >
     <div class="grid grid-cols-2 gap-2">
       <label class="flex flex-col">
         Name
@@ -175,14 +182,16 @@
   </div>
 
   <!-- Stored rifles (selector + single expanded card) -->
-  <div class="bg-slate-800 rounded-2xl p-3 shadow space-y-2">
+  <div
+    class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 space-y-2"
+  >
     <div class="flex justify-between items-center mb-1">
       <div class="text-xs font-semibold">Rifles</div>
       <div class="text-[11px] text-slate-300">Total: {{ rifles.length }}</div>
     </div>
     <div
       *ngIf="!selectedRifle"
-      class="bg-slate-900 rounded-2xl p-3 border border-slate-700 space-y-1"
+      class="bg-slate-900/60 rounded-2xl p-3 border border-slate-700 space-y-1 ring-1 ring-white/5"
     >
       <div class="text-xs font-semibold text-slate-200">No rifle selected</div>
       <div class="text-[10px] text-slate-400">
@@ -191,12 +200,10 @@
     </div>
     <ng-container *ngIf="rifles.length > 0">
       <label class="flex flex-col text-[11px] mb-2">
-        Select rifle
-
         <!-- Tap-to-open picker (Export/Import style) -->
         <button
           type="button"
-          class="mt-1 w-full px-2 py-1 rounded bg-slate-900 border border-slate-700 flex items-center justify-between"
+          class="mt-1 w-full px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 flex items-center justify-between ring-1 ring-white/5"
           (click)="openRiflePicker()"
         >
           <span class="truncate">
@@ -229,7 +236,7 @@
       <!-- Rifle picker modal -->
       <div
         *ngIf="riflePickerOpen"
-        class="fixed inset-0 z-[9999] bg-black/80 flex items-start justify-center pt-[72px] px-3 pb-3"
+        class="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-3"
         (click)="closeRiflePicker()"
       >
         <div
@@ -382,17 +389,6 @@
               (click)="toggleLoadForm(r.id)"
             >
               Add
-            </button>
-          </div>
-          <!-- Export (always visible when rifle is selected) -->
-          <div class="mt-2 flex items-center justify-start">
-            <button
-              type="button"
-              class="px-3 py-2 rounded-xl bg-white text-black text-xs"
-              (click)="exportSelectedRiflePdf()"
-              [disabled]="!selectedRifle"
-            >
-              Export Rifle Data
             </button>
           </div>
 
@@ -918,5 +914,29 @@
           </div>
         </div></div
     ></ng-container>
+  </div>
+  <!-- Bottom actions: Export (left) / Back (right) -->
+  <div
+    class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 mt-3"
+  >
+    <div class="flex items-center justify-between">
+      <button
+        *ngIf="selectedRifle"
+        type="button"
+        class="px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold"
+        (click)="exportSelectedRiflePdf()"
+        [disabled]="!selectedRifle"
+      >
+        Export Rifle Data
+      </button>
+      <div *ngIf="!selectedRifle"></div>
+      <button
+        type="button"
+        class="px-3 py-2 rounded-xl bg-orange-500 text-black text-xs"
+        (click)="goBack()"
+      >
+        Back
+      </button>
+    </div>
   </div>
 </div>
