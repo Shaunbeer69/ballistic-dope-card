@@ -479,11 +479,11 @@
               class="w-full bg-black/60 border border-sky-400/60 rounded-2xl px-2 py-1.5 text-xs text-sky-50 ring-2 ring-sky-400/60"
               [(ngModel)]="velocityEditValue"
               [placeholder]="
-                selectedProject?.type === 'ocw' ? 'e.g. 2765, 2772, 2768' : 'e.g. 2765 2772 2768'
+                selectedProject?.type === 'ocw' ? 'e.g. 2765, 2772, 2768' : 'e.g. 2765'
               "
             />
             <div *ngIf="selectedProject?.type === 'ocw'" class="text-[10px] text-sky-200/80">
-              Hint: Separate speeds with commas (e.g. 2765, 2772, 2768)
+              Hint: Separate speeds with commas (e.g. 2765, 2766, 2770)
             </div>
 
             <div class="flex justify-end gap-2">
@@ -554,7 +554,7 @@
                   class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black font-semibold"
                   (click)="savePlanningEdit()"
                 >
-                  Apply
+                  Save &amp; close
                 </button>
               </div>
             </ng-container>
@@ -639,14 +639,24 @@
               type="text"
               class="w-full bg-black/60 border border-sky-400/60 rounded-2xl px-2 py-1.5 text-xs text-sky-50"
               [(ngModel)]="velocityEditValue"
+              [placeholder]="
+                selectedProject?.type === 'ocw' ? 'e.g. 2765, 2772, 2768' : 'e.g. 2765'
+              "
             />
+
+            <span
+              *ngIf="singleVelocityInlineMessage"
+              class="text-[10px] rounded-xl bg-emerald-500/10 border border-emerald-400/60 text-emerald-200 px-2 py-1 inline-block"
+            >
+              {{ singleVelocityInlineMessage }}
+            </span>
 
             <div class="flex justify-end gap-2">
               <button
                 class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black font-semibold"
                 (click)="saveSingleVelocity()"
               >
-                Save
+                Apply
               </button>
               <button
                 class="px-3 py-1.5 rounded-2xl bg-gray-700 text-gray-100"

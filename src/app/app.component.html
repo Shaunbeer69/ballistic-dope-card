@@ -328,8 +328,6 @@
                       [(ngModel)]="reportDistanceM"
                       placeholder="Leave blank = show all"
                     />
-
-                    />
                   </div>
                   <!-- REPORTS: Venue picker modal (canonical) -->
                   <div
@@ -619,6 +617,18 @@
                   </div>
                 </div>
               </div>
+              <div
+                *ngIf="showReportsForm && !showTools && !showSetup"
+                class="mt-2 flex justify-end"
+              >
+                <button
+                  type="button"
+                  class="px-4 py-1.5 rounded-full bg-orange-500 text-[11px] text-black font-semibold shadow hover:bg-orange-400 active:bg-orange-600 transition"
+                  (click)="toggleReportsForm()"
+                >
+                  Back
+                </button>
+              </div>
 
               <!-- Full distance history at this venue -->
               <div *ngIf="showReportsForm && !showTools && distanceHistoryGroups.length">
@@ -675,16 +685,6 @@
                     </div>
                   </div>
                 </div>
-
-                <div class="mt-3 flex justify-end pb-[calc(88px+env(safe-area-inset-bottom))]">
-                  <button
-                    type="button"
-                    class="px-3 py-1.5 rounded-lg bg-orange-700 text-[11px] text-gray-100 active:bg-green-500 transition"
-                    (click)="backToToolsAndResetReports()"
-                  >
-                    Back
-                  </button>
-                </div>
               </div>
 
               <!-- TOOLS -->
@@ -698,10 +698,11 @@
                     {{ showTools ? 'UTILITIES' : 'SYSTEM & SETTINGS' }}
                   </div>
 
+                  <!-- RESTORED BACK TO HOME -->
                   <button
                     type="button"
-                    class="px-3 py-1.5 rounded-lg bg-orange-500 text-black text-[12px] font-semibold hover:bg-orange-400 active:bg-orange-600 transition"
-                    (click)="closeToolsSetupPanels()"
+                    class="px-3 py-1 rounded-xl bg-orange-500 text-black text-[12px] font-semibold shadow hover:bg-orange-400 active:bg-orange-600 transition"
+                    (click)="showTools = false; showSetup = false; selectedTool = null"
                   >
                     Back
                   </button>
@@ -714,6 +715,7 @@
               >
                 <ng-container *ngIf="showTools">
                   <!-- Tool icons -->
+
                   <div
                     *ngIf="
                       $any(selectedTool) !== 'converter' &&
@@ -1017,7 +1019,7 @@
                           <button
                             type="button"
                             class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
-                            (click)="closeDataShareChooser()"
+                            (click)="closeDataShareChooser(); openTools()"
                           >
                             Cancel
                           </button>
@@ -1033,6 +1035,7 @@
                   >
                     <div
                       class="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
+                      (click)="$event.stopPropagation()"
                     >
                       <div class="text-sm font-semibold">Export / Import</div>
                       <div class="text-[11px] text-slate-300 mt-1 leading-snug">
@@ -1166,7 +1169,7 @@
                       <button
                         type="button"
                         class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm"
-                        (click)="closeExportImportDataModal()"
+                        (click)="closeExportImportDataModal(); openTools()"
                       >
                         Cancel
                       </button>
@@ -1550,7 +1553,7 @@
                   <div
                     *ngIf="showExportImportModal"
                     class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
-                    (click)="closeExportImportModal()"
+                    (click)="closeExportImportModal(); openTools()"
                   >
                     <div
                       class="w-full max-w-xs rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
@@ -1707,7 +1710,7 @@
                             <button
                               type="button"
                               class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                              (click)="closeExportImportModal()"
+                              (click)="closeExportImportModal(); openTools()"
                               [disabled]="importBusy"
                             >
                               Cancel

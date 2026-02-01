@@ -2517,7 +2517,7 @@ export class LoadDevTabComponent implements OnInit {
   planningEditActive = false;
   planningEditEntry: LoadDevEntry | null = null;
   planningInlineMessage: string | null = null;
-
+  singleVelocityInlineMessage: string | null = null;
   planningChargeEditValue: string = '';
 
   planningShotsPerGroupEditValue: string = '';
@@ -4630,7 +4630,7 @@ export class LoadDevTabComponent implements OnInit {
     this.ladderWizardActive = false;
     this.planningEditActive = false;
     this.planningEditEntry = null;
-
+    this.singleVelocityInlineMessage = null;
     this.singleVelocityEditActive = true;
     this.velocityEditEntry = entry;
 
@@ -4657,9 +4657,8 @@ export class LoadDevTabComponent implements OnInit {
       this.data.updateLoadDevEntry(this.selectedProject.id, this.velocityEditEntry);
       this.refreshSelectedProject();
 
-      this.singleVelocityEditActive = false;
-      this.velocityEditEntry = null;
-      this.velocityEditValue = '';
+      this.showSingleVelocityToast('Saved ✅');
+      setTimeout(() => this.cancelSingleVelocityEdit(), 650);
       return;
     }
 
@@ -4677,13 +4676,14 @@ export class LoadDevTabComponent implements OnInit {
     this.data.updateLoadDevEntry(this.selectedProject.id, this.velocityEditEntry);
     this.refreshSelectedProject();
 
-    this.singleVelocityEditActive = false;
-    this.velocityEditEntry = null;
-    this.velocityEditValue = '';
+    this.showSingleVelocityToast('Saved ✅');
+    setTimeout(() => this.cancelSingleVelocityEdit(), 650);
   }
 
   cancelSingleVelocityEdit(): void {
     this.singleVelocityEditActive = false;
+    this.singleVelocityInlineMessage = null;
+
     this.velocityEditEntry = null;
     this.velocityEditValue = '';
   }
@@ -5253,6 +5253,10 @@ export class LoadDevTabComponent implements OnInit {
   private showPlanningToast(message: string): void {
     this.planningInlineMessage = message;
     setTimeout(() => (this.planningInlineMessage = null), 1000);
+  }
+  private showSingleVelocityToast(message: string): void {
+    this.singleVelocityInlineMessage = message;
+    setTimeout(() => (this.singleVelocityInlineMessage = null), 1000);
   }
 
   private showToast(msg: string): void {
