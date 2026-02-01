@@ -1087,14 +1087,21 @@ export class AppComponent implements OnInit {
     const rifles = this.dataService.getRifles();
     const venues = this.dataService.getVenues();
 
-    this.riflesOptions = rifles.map((r) => ({ id: r.id, name: r.name }));
-    this.venuesOptions = venues.map((v) => ({ id: v.id, name: v.name }));
+    this.riflesOptions = rifles
+      .map((r: any) => ({ id: Number(r?.id ?? r?.rifleId), name: r?.name }))
+      .filter((x: any) => Number.isFinite(x.id));
+    this.venuesOptions = venues
+      .map((v: any) => ({ id: Number(v?.id ?? v?.venueId), name: v?.name }))
+      .filter((x: any) => Number.isFinite(x.id));
 
     this.recentSessionsCount = this.allSessions.length;
 
     const loadDevs = this.dataService.getLoadDevProjectsForRifle
       ? rifles.reduce((sum, r) => {
-          const projects = this.dataService.getLoadDevProjectsForRifle(r.id);
+          const rid = Number((r as any)?.id ?? (r as any)?.rifleId);
+          const projects = Number.isFinite(rid)
+            ? this.dataService.getLoadDevProjectsForRifle(rid)
+            : [];
           return sum + projects.length;
         }, 0)
       : 0;
@@ -2395,13 +2402,157 @@ export class AppComponent implements OnInit {
       const ok = confirm('Import will MERGE into existing data (no overwrite).\n\nContinue?');
       if (!ok) return;
 
+      const normalizeName = (s: any) => (s ?? '').toString().trim().toLowerCase();
+
+      const takeSnapshot = () => {
+        const rifles: any[] = (this.dataService.getRifles?.() ?? []) as any[];
+        const venues: any[] = (this.dataService.getVenues?.() ?? []) as any[];
+        const sessions: any[] = (this.dataService.getSessions?.() ?? []) as any[];
+
+        const loadDevProjects = this.dataService.getLoadDevProjectsForRifle
+          ? rifles.reduce((sum, r) => {
+              const rid = Number((r as any)?.id ?? (r as any)?.rifleId);
+              const projects = Number.isFinite(rid)
+                ? this.dataService.getLoadDevProjectsForRifle(rid)
+                : [];
+              return sum + projects.length;
+            }, 0)
+          : 0;
+
+        const venueSubrangesTotal = venues.reduce(
+          (sum, v) => sum + (((v as any)?.subRanges?.length ?? 0) as number),
+          0,
+        );
+
+        const venueSubrangesByName = new Map<string, number>();
+        for (const v of venues) {
+          const key = normalizeName((v as any)?.name);
+          if (!key) continue;
+          const srCount = Number(((v as any)?.subRanges?.length ?? 0) as any) || 0;
+          venueSubrangesByName.set(key, srCount);
+        }
+
+        const rifleSessionsById = new Map<number, number>();
+        for (const s of sessions) {
+          const rid = Number((s as any)?.rifleId ?? (s as any)?.rifleID);
+          if (!Number.isFinite(rid)) continue;
+          rifleSessionsById.set(rid, (rifleSessionsById.get(rid) ?? 0) + 1);
+        }
+
+        const rifleProjectsById = new Map<number, number>();
+        const rifleSerialById = new Map<number, string>();
+        for (const r of rifles) {
+          const rid = Number((r as any)?.id ?? (r as any)?.rifleId);
+          if (!Number.isFinite(rid)) continue;
+
+          const projects = this.dataService.getLoadDevProjectsForRifle
+            ? this.dataService.getLoadDevProjectsForRifle(rid)
+            : [];
+          rifleProjectsById.set(rid, projects.length);
+
+          rifleSerialById.set(rid, ((r as any)?.serialNumber ?? '').toString());
+        }
+
+        return {
+          rifles: rifles.length,
+          venues: venues.length,
+          sessions: sessions.length,
+          loadDevProjects,
+          venueSubrangesTotal,
+          venueSubrangesByName,
+          rifleSessionsById,
+          rifleProjectsById,
+          rifleSerialById,
+        };
+      };
+
+      const before = takeSnapshot();
+
       const result = this.dataService.importFromBackupMerge(parsed);
 
       // Refresh menus/counts
       this.loadCoreData();
 
+      const after = takeSnapshot();
+
+      // Delta reporting (captures updates to existing venues e.g. subranges)
+      const deltaRifles = after.rifles - before.rifles;
+      const deltaVenues = after.venues - before.venues;
+      const deltaSessions = after.sessions - before.sessions;
+      const deltaLoadDevProjects = after.loadDevProjects - before.loadDevProjects;
+
+      const deltaVenueSubranges = after.venueSubrangesTotal - before.venueSubrangesTotal;
+      let sessionsAddedToExistingRifles = 0;
+      for (const [rid, afterCount] of after.rifleSessionsById.entries()) {
+        const beforeCount = before.rifleSessionsById.get(rid) ?? 0;
+        if (afterCount > beforeCount) {
+          sessionsAddedToExistingRifles += afterCount - beforeCount;
+        }
+      }
+
+      let projectsAddedToExistingRifles = 0;
+      for (const [rid, afterCount] of after.rifleProjectsById.entries()) {
+        const beforeCount = before.rifleProjectsById.get(rid) ?? 0;
+        if (afterCount > beforeCount) {
+          projectsAddedToExistingRifles += afterCount - beforeCount;
+        }
+      }
+
+      let serialsUpdated = 0;
+      for (const [rid, afterSerial] of after.rifleSerialById.entries()) {
+        const beforeSerial = before.rifleSerialById.get(rid) ?? '';
+        if (!beforeSerial && afterSerial) serialsUpdated++;
+      }
+
+      let venuesTouched = 0;
+      if (deltaVenueSubranges > 0) {
+        for (const [name, afterCount] of after.venueSubrangesByName.entries()) {
+          const beforeCount = before.venueSubrangesByName.get(name) ?? 0;
+          if (afterCount > beforeCount) venuesTouched++;
+        }
+      }
+
+      const extraLines: string[] = [];
+      if (sessionsAddedToExistingRifles > 0) {
+        extraLines.push(
+          `Rifle sessions: +${sessionsAddedToExistingRifles} (added to existing rifles)`,
+        );
+      }
+
+      if (projectsAddedToExistingRifles > 0) {
+        extraLines.push(
+          `Load-dev projects: +${projectsAddedToExistingRifles} (added to existing rifles)`,
+        );
+      }
+
+      if (serialsUpdated > 0) {
+        extraLines.push(
+          `Serial numbers updated on ${serialsUpdated} rifle${serialsUpdated === 1 ? '' : 's'}`,
+        );
+      }
+
+      if (deltaVenueSubranges !== 0) {
+        extraLines.push(
+          `Venue subranges: ${deltaVenueSubranges > 0 ? '+' : ''}${deltaVenueSubranges}` +
+            (venuesTouched > 0
+              ? ` (updated ${venuesTouched} existing venue${venuesTouched === 1 ? '' : 's'})`
+              : ''),
+        );
+      }
+
+      // If DataService message says 0 venues but we changed subranges, this makes it explicit.
+      const deltaSummary = `Detected changes: ${deltaRifles > 0 ? '+' : ''}${deltaRifles} rifles, ${
+        deltaVenues > 0 ? '+' : ''
+      }${deltaVenues} venues, ${deltaSessions > 0 ? '+' : ''}${deltaSessions} sessions, ${
+        deltaLoadDevProjects > 0 ? '+' : ''
+      }${deltaLoadDevProjects} load-dev projects.`;
+
+      const finalMessage =
+        `Import complete.\n\n${result.message}\n\n${deltaSummary}` +
+        (extraLines.length ? `\n${extraLines.join('\n')}` : '');
+
       this.showExportImportModal = false;
-      alert(`Import complete.\n\n${result.message}`);
+      alert(finalMessage);
 
       // IMPORTANT: force UI + DataService to rehydrate from persisted store
       // (Fixes: import succeeded but data not visible until restart)
