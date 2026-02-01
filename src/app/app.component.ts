@@ -1805,6 +1805,13 @@ export class AppComponent implements OnInit {
     this.selectedTool = null;
     this.showReportsForm = false;
   }
+  returnToUtilities(): void {
+    this.showFirstLaunchSlogan = false;
+    this.showSetup = false;
+    this.showReportsForm = false;
+    this.selectedTool = null;
+    this.showTools = true; // force Utilities open (no toggle)
+  }
 
   openTargetDownloads(): void {
     // Ensure the tools panel is open

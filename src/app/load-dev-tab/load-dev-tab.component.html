@@ -1117,11 +1117,16 @@
                 </button>
 
                 <div *ngIf="howToExpanded">
-                  The <span class="font-semibold text-emerald-200">green</span> SD row is currently
-                  the most consistent (best SD). Next: keep the charge the same and fine-tune
-                  <span class="font-semibold">seating depth</span> (and/or neck tension) to tighten
-                  groups. <span class="text-amber-200">Orange</span> is second-best,
-                  <span class="text-red-200">red</span> is third.
+                  The <span class="font-semibold text-emerald-200">green</span>, orange and red rows
+                  indicate a likely <span class="font-semibold">OCW charge band</span> — adjacent
+                  charges where
+                  <span class="font-semibold">group centers land in nearly the same POI</span>. When
+                  reviewing OCW results,
+                  <span class="font-semibold">ignore group size and ignore SD at first</span>. Look
+                  for charges that print in the same location on the target. Select the
+                  <span class="font-semibold">middle charge of the green band</span> as your working
+                  charge and confirm it with 5–10 shot groups. Only after confirming this charge
+                  should you begin seating depth tuning.
                 </div>
               </div>
 
@@ -1143,10 +1148,18 @@
 
                 <div *ngIf="howToExpanded">
                   The <span class="font-semibold text-emerald-200">green</span>, orange and red rows
-                  mark a likely <span class="font-semibold">node band</span> (a “flat spot” where
-                  velocity changes very little across neighbouring charges). Pick the
-                  <span class="font-semibold">middle charge</span> of the green band as your first
-                  node to confirm. This load will form the basis of your OCW testing.
+                  highlight a likely <span class="font-semibold">node band</span> — a “flat spot”
+                  where
+                  <span class="font-semibold"
+                    >charge and velocity continue to increase, but the vertical POI on the graph
+                    stops rising</span
+                  >. When identifying a node,
+                  <span class="font-semibold"
+                    >ignore horizontal spread and ignore the velocity column</span
+                  >. Read the <span class="font-semibold">vertical pattern on the graph only</span>.
+                  Select the <span class="font-semibold">middle charge of the green band</span> to
+                  confirm this node, then perform your OCW testing within this band. If pressure
+                  signs appear as charges increase, stop — anything above that charge is not usable.
                 </div>
               </div>
 
