@@ -1,6 +1,6 @@
 {
   "name": "ballistic-dope-card",
-  "version": "1.2.83",
+  "version": "1.2.91",
   "scripts": {
     "ng": "ng",
     "start": "ng serve --port 5030",
@@ -12,7 +12,10 @@
     "cap:sync": "npx cap copy",
     "android": "npx cap open android",
     "release:minor": "npm version minor && node write-version.js && npm run android:version && npm run build && npm run cap:sync && npm run android",
-    "android:version": "node scripts/write-android-version.js"
+    "android:version": "node scripts/write-android-version.js",
+    "android:rename:debug": "node scripts/rename-android-artifacts.js debug",
+    "android:rename:release-apk": "node scripts/rename-android-artifacts.js release-apk",
+    "android:rename:release-aab": "node scripts/rename-android-artifacts.js release-aab"
   },
   "prettier": {
     "printWidth": 100,

@@ -3,15 +3,45 @@ set NODE_EXE=C:\Program Files\nodejs\node.exe
 set NPM_CMD=C:\Program Files\nodejs\npm.cmd
 setlocal EnableExtensions EnableDelayedExpansion
 
-rem ============================================
-rem  GUNSTUFF Build + Sync + Android Studio
-rem  - Hard-set NODE_EXE / NPM_CMD (your preference)
-rem  - Auto-generate src/assets/documents/index.json
-rem  - Verify docs are bundled into Android assets
-rem ============================================
+rem ==========================================================
+rem  GUNSTUFF Build + Sync + Android Deliverable
+rem
+rem  What it does:
+rem   1) Generate src/assets/documents/index.json
+rem   2) Bump patch version (scripts\bump-patch.js)
+rem   3) ng build
+rem   4) cap copy (your cap:sync)
+rem   5) Verify PDFs bundled into Android assets
+rem   6) Build Android DEBUG APK
+rem   7) Produce ONE named deliverable via npm run android:rename:debug
+rem
+rem  Optional:
+rem   -release   -> also build Release AAB and rename it
+rem   -studio    -> open Android Studio at the end
+rem
+rem  Examples:
+rem    ABuildApp.bat
+rem    ABuildApp.bat -studio
+rem    ABuildApp.bat -release
+rem    ABuildApp.bat -release -studio
+rem ==========================================================
+
+set DO_RELEASE=0
+set DO_STUDIO=0
+
+:parseArgs
+if "%~1"=="" goto argsDone
+if /I "%~1"=="-release" set DO_RELEASE=1
+if /I "%~1"=="-studio"  set DO_STUDIO=1
+shift
+goto parseArgs
+
+:argsDone
 
 echo Node: %NODE_EXE%
 echo NPM : %NPM_CMD%
+echo Release: %DO_RELEASE%
+echo Studio : %DO_STUDIO%
 echo.
 
 rem ---- Validate node/npm paths ----
@@ -54,6 +84,13 @@ if not exist "scripts\generate-doc-index.js" (
   exit /b 1
 )
 
+if not exist "scripts\rename-android-artifacts.js" (
+  echo ERROR: Missing scripts\rename-android-artifacts.js
+  echo.
+  pause
+  exit /b 1
+)
+
 rem ---- Documents folder ----
 echo Checking src\assets\documents...
 if not exist "src\assets\documents" (
@@ -89,9 +126,9 @@ echo Running ng build...
 call "%NPM_CMD%" run build
 if errorlevel 1 goto error
 
-rem ---- Capacitor sync/copy ----
+rem ---- Capacitor copy ----
 echo.
-echo Running capacitor sync/copy...
+echo Running capacitor copy (cap:sync)...
 call "%NPM_CMD%" run cap:sync
 if errorlevel 1 goto error
 
@@ -103,14 +140,45 @@ if exist "android\app\src\main\assets\public\assets\documents" (
   dir /b "android\app\src\main\assets\public\assets\documents"
 ) else (
   echo WARNING: android\app\src\main\assets\public\assets\documents not found.
-  echo If PDFs do not open, cap sync may not have copied the web assets.
+  echo If PDFs do not open, cap copy may not have copied the web assets.
 )
 echo.
 
-rem ---- Open Android Studio ----
-echo Opening Android Studio...
-call "%NPM_CMD%" run android
+rem ---- Build Android Debug APK ----
+echo Building Android DEBUG APK...
+pushd android
+call gradlew.bat assembleDebug
 if errorlevel 1 goto error
+popd
+
+rem ---- Rename/make ONE deliverable debug file ----
+echo.
+echo Creating named DEBUG deliverable...
+call "%NPM_CMD%" run android:rename:debug
+if errorlevel 1 goto error
+
+rem ---- Optional Release build (AAB for Play Store) ----
+if "%DO_RELEASE%"=="1" (
+  echo.
+  echo Building Android RELEASE AAB...
+  pushd android
+  call gradlew.bat bundleRelease
+  if errorlevel 1 goto error
+  popd
+
+  echo.
+  echo Creating named RELEASE deliverable (AAB)...
+  call "%NPM_CMD%" run android:rename:release-aab
+  if errorlevel 1 goto error
+)
+
+rem ---- Optional: Open Android Studio ----
+if "%DO_STUDIO%"=="1" (
+  echo.
+  echo Opening Android Studio...
+  call "%NPM_CMD%" run android
+  if errorlevel 1 goto error
+)
 
 echo.
 echo DONE SUCCESSFULLY
