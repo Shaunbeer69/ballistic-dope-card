@@ -495,19 +495,9 @@ export class DataService {
       const includeSessions = !!riflesOpt.includeSessions;
       const includeShots = !!riflesOpt.includeShots;
 
-      const rifleFilter = (r: any) => !selectedRifleIds || selectedRifleIds.includes(Number(r?.id));
-
-      if (includeRifleData) {
-        out.data.rifles = (storeCopy.rifles ?? []).filter(rifleFilter);
-      }
-
-      if (includeLoadDev) {
-        out.data.loadDevProjects = (storeCopy.loadDevProjects ?? []).filter((p: any) =>
-          selectedRifleIds ? selectedRifleIds.includes(Number(p?.rifleId)) : true,
-        );
-      }
-
-      if (includeSessions || includeShots) {
+      // If LoadDev is included, sessions become a required dependency layer
+      const effectiveIncludeSessions = includeSessions || includeShots || includeLoadDev;
+      if (effectiveIncludeSessions) {
         const sessions = (storeCopy.sessions ?? []).filter((s: any) =>
           selectedRifleIds ? selectedRifleIds.includes(Number(s?.rifleId)) : true,
         );
@@ -586,6 +576,130 @@ export class DataService {
 
       out.data.sessions = ordered;
     }
+    // ----- Dependency closure (DO IT RIGHT) -----
+    // If exporting sessions or shots, we MUST include the referenced rifles + venues,
+    // even if the user didn't tick those categories explicitly.
+    // If exporting load dev, we MUST include the parent rifle record(s).
+    const sessionsExported = (out.data.sessions?.length ?? 0) > 0;
+    const projectsExported = (out.data.loadDevProjects?.length ?? 0) > 0;
+
+    const requiredRifleIds = new Set<number>();
+    const requiredVenueIds = new Set<number>();
+
+    for (const s of out.data.sessions ?? []) {
+      const rid = Number(s?.rifleId);
+      const vid = Number(s?.venueId);
+      if (Number.isFinite(rid)) requiredRifleIds.add(rid);
+      if (Number.isFinite(vid)) requiredVenueIds.add(vid);
+    }
+
+    for (const p of out.data.loadDevProjects ?? []) {
+      const rid = Number(p?.rifleId);
+      if (Number.isFinite(rid)) requiredRifleIds.add(rid);
+    }
+
+    // Auto-include missing rifles needed by sessions/projects
+    if (sessionsExported || projectsExported) {
+      const haveRifles = new Set<number>(
+        (out.data.rifles ?? [])
+          .map((r: any) => Number(r?.id))
+          .filter((n: number) => Number.isFinite(n)),
+      );
+
+      for (const rid of requiredRifleIds) {
+        if (haveRifles.has(rid)) continue;
+        const r = (storeCopy.rifles ?? []).find((x: any) => Number(x?.id) === rid);
+        if (r) out.data.rifles.push(r);
+      }
+    }
+
+    // Auto-include missing venues needed by sessions
+    if (sessionsExported) {
+      const haveVenues = new Set<number>(
+        (out.data.venues ?? [])
+          .map((v: any) => Number(v?.id))
+          .filter((n: number) => Number.isFinite(n)),
+      );
+
+      for (const vid of requiredVenueIds) {
+        if (haveVenues.has(vid)) continue;
+        const v = (storeCopy.venues ?? []).find((x: any) => Number(x?.id) === vid);
+        if (v) out.data.venues.push(v);
+      }
+    }
+
+    // De-dupe rifles/venues after auto-including
+    out.data.rifles = this.dedupeByNumericId(out.data.rifles ?? []);
+    out.data.venues = this.dedupeByNumericId(out.data.venues ?? []);
+
+    // Final validation: never export a broken share file
+    this.validateShareExportPayload(out);
+    // --- Auto-include linked entities when sessions are exported ---
+    // If the user exports rifle sessions but did NOT explicitly include Venues,
+    // we still include the venue records referenced by those sessions.
+    // Same idea in reverse: venue sessions should carry linked rifles.
+    const exportedSessions: any[] = Array.isArray(out.data.sessions) ? out.data.sessions : [];
+
+    if (exportedSessions.length > 0) {
+      const linkedVenueIds = new Set<number>();
+      const linkedRifleIds = new Set<number>();
+
+      for (const s of exportedSessions) {
+        const vid = Number(s?.venueId);
+        if (Number.isFinite(vid) && vid > 0) linkedVenueIds.add(vid);
+
+        const rid = Number(s?.rifleId);
+        if (Number.isFinite(rid) && rid > 0) linkedRifleIds.add(rid);
+      }
+
+      // If exporting via Rifles (sessions/shots) and user didn't include Venues explicitly,
+      // include the referenced venues automatically.
+      const riflesOpt2 = opts?.rifles ?? null;
+      const venuesOpt2 = opts?.venues ?? null;
+
+      const rifleExportHasSessions =
+        !!riflesOpt2 && (!!riflesOpt2.includeSessions || !!riflesOpt2.includeShots);
+
+      const venueExportHasSessions =
+        !!venuesOpt2 && (!!venuesOpt2.includeSessions || !!venuesOpt2.includeShots);
+
+      if (rifleExportHasSessions && !venuesOpt2 && linkedVenueIds.size > 0) {
+        const venuesAll = Array.isArray(storeCopy.venues) ? storeCopy.venues : [];
+        const linkedVenues = venuesAll.filter((v: any) => linkedVenueIds.has(Number(v?.id)));
+
+        // Merge without duplicates
+        const existingVenueIds = new Set<number>(
+          (out.data.venues ?? [])
+            .map((v: any) => Number(v?.id))
+            .filter((n: any) => Number.isFinite(n)),
+        );
+
+        for (const v of linkedVenues) {
+          const id = Number(v?.id);
+          if (!Number.isFinite(id) || existingVenueIds.has(id)) continue;
+          (out.data.venues ?? (out.data.venues = [])).push(v);
+          existingVenueIds.add(id);
+        }
+      }
+
+      if (venueExportHasSessions && !riflesOpt2 && linkedRifleIds.size > 0) {
+        const riflesAll = Array.isArray(storeCopy.rifles) ? storeCopy.rifles : [];
+        const linkedRifles = riflesAll.filter((r: any) => linkedRifleIds.has(Number(r?.id)));
+
+        const existingRifleIds = new Set<number>(
+          (out.data.rifles ?? [])
+            .map((r: any) => Number(r?.id))
+            .filter((n: any) => Number.isFinite(n)),
+        );
+
+        for (const r of linkedRifles) {
+          const id = Number(r?.id);
+          if (!Number.isFinite(id) || existingRifleIds.has(id)) continue;
+          (out.data.rifles ?? (out.data.rifles = [])).push(r);
+          existingRifleIds.add(id);
+        }
+      }
+    }
 
     // Make the share payload compatible with importFromBackupMerge (expects store.* or flat arrays)
     out.store = {
@@ -638,6 +752,8 @@ export class DataService {
 
       // Accept either wrapper { schema, exportedAt, store } or legacy flat object
       const src: any = payload.store && typeof payload.store === 'object' ? payload.store : payload;
+      const schema = String((payload as any)?.schema ?? '');
+      const isShare = schema.includes('share');
 
       const riflesIn = Array.isArray(src.rifles) ? src.rifles : [];
       const venuesIn = Array.isArray(src.venues) ? src.venues : [];
@@ -826,10 +942,23 @@ export class DataService {
 
       // ----- Sessions: remap rifleId/venueId, skip if obvious duplicate -----
       let addedSessions = 0;
+      let skippedSessions = 0;
 
       for (const s of sessionsIn) {
-        const oldRifleId = Number(s?.rifleId);
-        const oldVenueId = Number(s?.venueId);
+        // Hard guard: reject non-object / corrupted rows early
+        if (!s || typeof s !== 'object' || Array.isArray(s)) {
+          skippedSessions++;
+          continue;
+        }
+
+        const oldRifleId = Number((s as any)?.rifleId);
+        const oldVenueId = Number((s as any)?.venueId);
+
+        // If a session has no valid rifleId/venueId, it cannot be meaningfully imported
+        if (!Number.isFinite(oldRifleId) || !Number.isFinite(oldVenueId)) {
+          skippedSessions++;
+          continue;
+        }
 
         // Map IDs when present; if a referenced rifle/venue is NOT included in this import,
         // create a minimal placeholder so Sessions become visible/usable after import.
@@ -838,30 +967,48 @@ export class DataService {
         let newVenueId =
           venueIdMap.get(oldVenueId) ?? (Number.isFinite(oldVenueId) ? oldVenueId : NaN);
 
-        // If the rifle doesn't exist locally, create an imported placeholder rifle and map it
-        if (Number.isFinite(oldRifleId) && !this.getRifleById(Number(newRifleId))) {
-          const created = this.addRifle({
-            name: `Imported rifle (${oldRifleId})`,
-            caliber: '',
-            notes: '',
-            roundCount: 0,
-            loads: [],
-          } as any);
-          newRifleId = created.id;
-          rifleIdMap.set(oldRifleId, newRifleId);
-        }
+        // For user-to-user SHARE imports, missing dependencies must be treated as an error.
+        // A share file must be dependency-closed (it must include the parent rifle/venue records).
+        if (isShare) {
+          if (Number.isFinite(oldRifleId) && !this.getRifleById(Number(newRifleId))) {
+            return {
+              ok: false,
+              message: `Share import failed: session references missing rifleId ${oldRifleId}. Export must include rifle data.`,
+            };
+          }
 
-        // If the venue doesn't exist locally, create an imported placeholder venue and map it
-        if (Number.isFinite(oldVenueId) && !this.getVenueById(Number(newVenueId))) {
-          const created = this.addVenue({
-            name: `Imported venue (${oldVenueId})`,
-            location: '',
-            subRanges: [],
-            distancesM: [],
-            notes: '',
-          } as any);
-          newVenueId = created.id;
-          venueIdMap.set(oldVenueId, newVenueId);
+          if (Number.isFinite(oldVenueId) && !this.getVenueById(Number(newVenueId))) {
+            return {
+              ok: false,
+              message: `Share import failed: session references missing venueId ${oldVenueId}. Export must include venue data.`,
+            };
+          }
+        } else {
+          // For BACKUP/MERGE imports, keep the old convenience behavior:
+          // create placeholders so sessions remain visible/usable even if parents were omitted.
+          if (Number.isFinite(oldRifleId) && !this.getRifleById(Number(newRifleId))) {
+            const created = this.addRifle({
+              name: `Imported rifle (${oldRifleId})`,
+              caliber: '',
+              notes: '',
+              roundCount: 0,
+              loads: [],
+            } as any);
+            newRifleId = created.id;
+            rifleIdMap.set(oldRifleId, newRifleId);
+          }
+
+          if (Number.isFinite(oldVenueId) && !this.getVenueById(Number(newVenueId))) {
+            const created = this.addVenue({
+              name: `Imported venue (${oldVenueId})`,
+              location: '',
+              subRanges: [],
+              distancesM: [],
+              notes: '',
+            } as any);
+            newVenueId = created.id;
+            venueIdMap.set(oldVenueId, newVenueId);
+          }
         }
 
         const dateKey = norm(s?.date);
@@ -973,11 +1120,98 @@ export class DataService {
         message:
           `Merge import complete. Added ${addedRifles} rifles, ` +
           `${addedVenues} venues, ${addedSessions} sessions, ` +
-          `${addedProjects} load-dev projects, ${addedEntries} load-dev entries.`,
+          `${addedProjects} load-dev projects, ${addedEntries} load-dev entries.` +
+          (skippedSessions > 0 ? ` Skipped ${skippedSessions} invalid session record(s).` : ''),
       };
     } catch (e: any) {
       return { ok: false, message: e?.message ?? 'Unknown error.' };
     }
+  }
+  // ---------- Share export: dependency closure + validation ----------
+
+  private dedupeByNumericId(items: any[]): any[] {
+    const out: any[] = [];
+    const seen = new Set<number>();
+
+    for (const x of items || []) {
+      const id = Number((x as any)?.id);
+      if (!Number.isFinite(id)) {
+        out.push(x);
+        continue;
+      }
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(x);
+    }
+    return out;
+  }
+
+  private requireDependency(condition: boolean, msg: string): void {
+    if (!condition) throw new Error(msg);
+  }
+
+  /**
+   * Ensures the exported share payload is "dependency closed":
+   * - Every session.rifleId is present in rifles
+   * - Every session.venueId is present in venues
+   * - Every project.rifleId is present in rifles
+   *
+   * Throws a descriptive Error if not.
+   */
+  private validateShareExportPayload(out: any): void {
+    const rifles = Array.isArray(out?.data?.rifles) ? out.data.rifles : [];
+    const venues = Array.isArray(out?.data?.venues) ? out.data.venues : [];
+    const sessions = Array.isArray(out?.data?.sessions) ? out.data.sessions : [];
+    const projects = Array.isArray(out?.data?.loadDevProjects) ? out.data.loadDevProjects : [];
+    // Hard validation: sessions/projects must be objects with expected numeric link fields
+    const invalidSessions: number[] = [];
+    for (let i = 0; i < sessions.length; i++) {
+      const s = sessions[i];
+      if (!s || typeof s !== 'object' || Array.isArray(s)) {
+        invalidSessions.push(i);
+        continue;
+      }
+      const rid = Number((s as any)?.rifleId);
+      const vid = Number((s as any)?.venueId);
+      if (!Number.isFinite(rid) || !Number.isFinite(vid)) invalidSessions.push(i);
+    }
+
+    this.requireDependency(
+      invalidSessions.length === 0,
+      `Share export invalid: sessions contain invalid record(s) at index: ${invalidSessions.slice(0, 10).join(', ')}`,
+    );
+
+    const rifleIds = new Set<number>(
+      rifles.map((r: any) => Number(r?.id)).filter((n: number) => Number.isFinite(n)),
+    );
+    const venueIds = new Set<number>(
+      venues.map((v: any) => Number(v?.id)).filter((n: number) => Number.isFinite(n)),
+    );
+
+    const missingRifles = new Set<number>();
+    const missingVenues = new Set<number>();
+
+    for (const s of sessions) {
+      const rid = Number(s?.rifleId);
+      const vid = Number(s?.venueId);
+      if (Number.isFinite(rid) && !rifleIds.has(rid)) missingRifles.add(rid);
+      if (Number.isFinite(vid) && !venueIds.has(vid)) missingVenues.add(vid);
+    }
+
+    for (const p of projects) {
+      const rid = Number(p?.rifleId);
+      if (Number.isFinite(rid) && !rifleIds.has(rid)) missingRifles.add(rid);
+    }
+
+    this.requireDependency(
+      missingRifles.size === 0,
+      `Share export invalid: missing rifle records for rifleId(s): ${[...missingRifles].join(', ')}`,
+    );
+
+    this.requireDependency(
+      missingVenues.size === 0,
+      `Share export invalid: missing venue records for venueId(s): ${[...missingVenues].join(', ')}`,
+    );
   }
 
   private nextId(items: any[]): number {
@@ -986,6 +1220,15 @@ export class DataService {
       return Number.isFinite(id) ? Math.max(max, id) : max;
     }, 0);
     return maxId + 1;
+  }
+  // ---------- Stable share identity ----------
+  private newShareGuid(): string {
+    // RFC4122 v4 style GUID
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
   }
 
   // ---------- Rifles ----------

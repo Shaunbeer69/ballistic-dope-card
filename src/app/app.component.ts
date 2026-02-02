@@ -2828,6 +2828,7 @@ export class AppComponent implements OnInit {
     const selectedRifleIds = this.dataShareAllRifles
       ? null
       : Array.from(this.dataShareRifleIds.values());
+    this.enforceDataShareDependencies();
 
     const selectedVenueIds = this.dataShareAllVenues
       ? null
@@ -3605,10 +3606,20 @@ export class AppComponent implements OnInit {
     for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
     return bytes;
   }
+  private enforceDataShareDependencies(): void {
+    // If LoadDev is being shared, also share sessions (and shots by default),
+    // because sessions are the only “context” that links to venues/subranges.
+    if (this.dataShareIncludeRifles && this.dataShareRifleLoadDev) {
+      this.dataShareRifleData = true; // root dependency
+      this.dataShareRifleSessions = true; // required context layer
+      this.dataShareRifleShots = true; // ensures dope rows are exported too
+    }
+  }
 
   async onExportImportDataShare(): Promise<void> {
     // Close modal immediately for clean UX
     this.showExportImportDataModal = false;
+    this.enforceDataShareDependencies();
 
     const selectedRifleIds = this.dataShareAllRifles
       ? null
