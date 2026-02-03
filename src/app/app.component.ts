@@ -2830,28 +2830,33 @@ export class AppComponent implements OnInit {
     const selectedVenueIds = this.dataShareAllVenues
       ? null
       : Array.from(this.dataShareVenueIds.values());
+    // In PDF mode, treat any sub-checkbox tick as "include this section"
+    const includeRifleBlock =
+      this.dataShareIncludeRifles ||
+      this.dataShareRifleData ||
+      this.dataShareRifleLoadDev ||
+      this.dataShareRifleSessions ||
+      this.dataShareRifleShots;
+
+    const includeVenueBlock =
+      this.dataShareIncludeVenues ||
+      this.dataShareVenueData ||
+      this.dataShareVenueSessions ||
+      this.dataShareVenueShots;
 
     // Same validation rules as your share-export
-    if (
-      this.dataShareIncludeRifles &&
-      !this.dataShareAllRifles &&
-      (selectedRifleIds?.length ?? 0) === 0
-    ) {
+    if (includeRifleBlock && !this.dataShareAllRifles && (selectedRifleIds?.length ?? 0) === 0) {
       alert('Select at least one rifle, or tick "All rifles".');
       return;
     }
 
-    if (
-      this.dataShareIncludeVenues &&
-      !this.dataShareAllVenues &&
-      (selectedVenueIds?.length ?? 0) === 0
-    ) {
+    if (includeVenueBlock && !this.dataShareAllVenues && (selectedVenueIds?.length ?? 0) === 0) {
       alert('Select at least one venue, or tick "All venues".');
       return;
     }
 
     const opts = {
-      rifles: this.dataShareIncludeRifles
+      rifles: includeRifleBlock
         ? {
             all: this.dataShareAllRifles,
             ids: selectedRifleIds,
@@ -2861,7 +2866,8 @@ export class AppComponent implements OnInit {
             includeShots: this.dataShareRifleShots,
           }
         : null,
-      venues: this.dataShareIncludeVenues
+
+      venues: includeVenueBlock
         ? {
             all: this.dataShareAllVenues,
             ids: selectedVenueIds,
