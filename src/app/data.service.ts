@@ -454,14 +454,15 @@ export class DataService {
   }
 
   /**
-   * Selective share export (for sending to other users).
-   * Produces a smaller payload than full backup, and is meant for merge-import.
+   * Selective export builder.
+   * - mode='share': merge-import safe; enforces dependency closure (sessions -> rifles/venues, load-dev -> rifles)
+   * - mode='pdf'  : exports ONLY what the user selected (no auto-includes / no referential validation)
    */
-  exportSelectiveShare(opts: any): any | null {
+  private buildSelectiveExport(opts: any, mode: 'share' | 'pdf'): any | null {
     const storeCopy: any = JSON.parse(JSON.stringify(this.store));
 
     const out: any = {
-      schema: 'ballistic-dope-card-share-v1',
+      schema: mode === 'share' ? 'ballistic-dope-card-share-v1' : 'ballistic-dope-card-pdf-v1',
       exportedAt: new Date().toISOString(),
       data: {
         rifles: [] as any[],
@@ -494,19 +495,6 @@ export class DataService {
       const includeLoadDev = !!riflesOpt.includeLoadDev;
       const includeSessions = !!riflesOpt.includeSessions;
       const includeShots = !!riflesOpt.includeShots;
-      // If user requested rifle data, export the selected rifles.
-      if (includeRifleData) {
-        out.data.rifles = (storeCopy.rifles ?? []).filter((r: any) =>
-          selectedRifleIds ? selectedRifleIds.includes(Number(r?.id)) : true,
-        );
-      }
-
-      // If user requested load development, export the selected rifle's projects (including entries).
-      if (includeLoadDev) {
-        out.data.loadDevProjects = (storeCopy.loadDevProjects ?? []).filter((p: any) =>
-          selectedRifleIds ? selectedRifleIds.includes(Number(p?.rifleId)) : true,
-        );
-      }
 
       // --- Rifle records ---
       const rifleFilter = (r: any) => !selectedRifleIds || selectedRifleIds.includes(Number(r?.id));
@@ -515,15 +503,14 @@ export class DataService {
         out.data.rifles = (storeCopy.rifles ?? []).filter(rifleFilter);
       }
 
-      // --- Load Development projects (and nested entries) ---
+      // --- Load Development projects ---
       if (includeLoadDev) {
-        // Filter projects by selected rifle ids
         out.data.loadDevProjects = (storeCopy.loadDevProjects ?? []).filter(
           (p: any) => !selectedRifleIds || selectedRifleIds.includes(Number(p?.rifleId)),
         );
       }
 
-      // --- Sessions / shots (independent of load-dev) ---
+      // --- Sessions / shots ---
       const effectiveIncludeSessions = includeSessions || includeShots;
 
       if (effectiveIncludeSessions) {
@@ -605,138 +592,75 @@ export class DataService {
 
       out.data.sessions = ordered;
     }
-    // ----- Dependency closure (DO IT RIGHT) -----
-    // If exporting sessions or shots, we MUST include the referenced rifles + venues,
-    // even if the user didn't tick those categories explicitly.
-    // If exporting load dev, we MUST include the parent rifle record(s).
-    const sessionsExported = (out.data.sessions?.length ?? 0) > 0;
-    const projectsExported = (out.data.loadDevProjects?.length ?? 0) > 0;
 
-    const requiredRifleIds = new Set<number>();
-    const requiredVenueIds = new Set<number>();
+    // ----- Dependency closure (SHARE ONLY) -----
+    // For sharing between users we must ensure referential integrity:
+    // - sessions/shots require their referenced rifles + venues
+    // - load-dev projects require their parent rifle
+    if (mode === 'share') {
+      const sessionsExported = (out.data.sessions?.length ?? 0) > 0;
+      const projectsExported = (out.data.loadDevProjects?.length ?? 0) > 0;
 
-    for (const s of out.data.sessions ?? []) {
-      const rid = Number(s?.rifleId);
-      const vid = Number(s?.venueId);
-      if (Number.isFinite(rid)) requiredRifleIds.add(rid);
-      if (Number.isFinite(vid)) requiredVenueIds.add(vid);
-    }
+      const requiredRifleIds = new Set<number>();
+      const requiredVenueIds = new Set<number>();
 
-    for (const p of out.data.loadDevProjects ?? []) {
-      const rid = Number(p?.rifleId);
-      if (Number.isFinite(rid)) requiredRifleIds.add(rid);
-    }
-
-    // Auto-include missing rifles needed by sessions/projects
-    if (sessionsExported || projectsExported) {
-      const haveRifles = new Set<number>(
-        (out.data.rifles ?? [])
-          .map((r: any) => Number(r?.id))
-          .filter((n: number) => Number.isFinite(n)),
-      );
-
-      for (const rid of requiredRifleIds) {
-        if (haveRifles.has(rid)) continue;
-        const r = (storeCopy.rifles ?? []).find((x: any) => Number(x?.id) === rid);
-        if (r) out.data.rifles.push(r);
-      }
-    }
-
-    // Auto-include missing venues needed by sessions
-    if (sessionsExported) {
-      const haveVenues = new Set<number>(
-        (out.data.venues ?? [])
-          .map((v: any) => Number(v?.id))
-          .filter((n: number) => Number.isFinite(n)),
-      );
-
-      for (const vid of requiredVenueIds) {
-        if (haveVenues.has(vid)) continue;
-        const v = (storeCopy.venues ?? []).find((x: any) => Number(x?.id) === vid);
-        if (v) out.data.venues.push(v);
-      }
-    }
-
-    // De-dupe rifles/venues after auto-including
-    out.data.rifles = this.dedupeByNumericId(out.data.rifles ?? []);
-    out.data.venues = this.dedupeByNumericId(out.data.venues ?? []);
-
-    // Final validation: never export a broken share file
-    this.validateShareExportPayload(out);
-    // --- Auto-include linked entities when sessions are exported ---
-    // If the user exports rifle sessions but did NOT explicitly include Venues,
-    // we still include the venue records referenced by those sessions.
-    // Same idea in reverse: venue sessions should carry linked rifles.
-    const exportedSessions: any[] = Array.isArray(out.data.sessions) ? out.data.sessions : [];
-
-    if (exportedSessions.length > 0) {
-      const linkedVenueIds = new Set<number>();
-      const linkedRifleIds = new Set<number>();
-
-      for (const s of exportedSessions) {
-        const vid = Number(s?.venueId);
-        if (Number.isFinite(vid) && vid > 0) linkedVenueIds.add(vid);
-
+      for (const s of out.data.sessions ?? []) {
         const rid = Number(s?.rifleId);
-        if (Number.isFinite(rid) && rid > 0) linkedRifleIds.add(rid);
+        const vid = Number(s?.venueId);
+        if (Number.isFinite(rid)) requiredRifleIds.add(rid);
+        if (Number.isFinite(vid)) requiredVenueIds.add(vid);
       }
 
-      // If exporting via Rifles (sessions/shots) and user didn't include Venues explicitly,
-      // include the referenced venues automatically.
-      const riflesOpt2 = opts?.rifles ?? null;
-      const venuesOpt2 = opts?.venues ?? null;
-
-      const rifleExportHasSessions =
-        !!riflesOpt2 && (!!riflesOpt2.includeSessions || !!riflesOpt2.includeShots);
-
-      const venueExportHasSessions =
-        !!venuesOpt2 && (!!venuesOpt2.includeSessions || !!venuesOpt2.includeShots);
-
-      if (rifleExportHasSessions && !venuesOpt2 && linkedVenueIds.size > 0) {
-        const venuesAll = Array.isArray(storeCopy.venues) ? storeCopy.venues : [];
-        const linkedVenues = venuesAll.filter((v: any) => linkedVenueIds.has(Number(v?.id)));
-
-        // Merge without duplicates
-        const existingVenueIds = new Set<number>(
-          (out.data.venues ?? [])
-            .map((v: any) => Number(v?.id))
-            .filter((n: any) => Number.isFinite(n)),
-        );
-
-        for (const v of linkedVenues) {
-          const id = Number(v?.id);
-          if (!Number.isFinite(id) || existingVenueIds.has(id)) continue;
-          (out.data.venues ?? (out.data.venues = [])).push(v);
-          existingVenueIds.add(id);
-        }
+      for (const p of out.data.loadDevProjects ?? []) {
+        const rid = Number(p?.rifleId);
+        if (Number.isFinite(rid)) requiredRifleIds.add(rid);
       }
 
-      if (venueExportHasSessions && !riflesOpt2 && linkedRifleIds.size > 0) {
-        const riflesAll = Array.isArray(storeCopy.rifles) ? storeCopy.rifles : [];
-        const linkedRifles = riflesAll.filter((r: any) => linkedRifleIds.has(Number(r?.id)));
-
-        const existingRifleIds = new Set<number>(
+      // Auto-include missing rifles needed by sessions/projects
+      if (sessionsExported || projectsExported) {
+        const haveRifles = new Set<number>(
           (out.data.rifles ?? [])
             .map((r: any) => Number(r?.id))
-            .filter((n: any) => Number.isFinite(n)),
+            .filter((n: number) => Number.isFinite(n)),
         );
 
-        for (const r of linkedRifles) {
-          const id = Number(r?.id);
-          if (!Number.isFinite(id) || existingRifleIds.has(id)) continue;
-          (out.data.rifles ?? (out.data.rifles = [])).push(r);
-          existingRifleIds.add(id);
+        for (const rid of requiredRifleIds) {
+          if (haveRifles.has(rid)) continue;
+          const r = (storeCopy.rifles ?? []).find((x: any) => Number(x?.id) === rid);
+          if (r) out.data.rifles.push(r);
         }
       }
-    }
 
-    // Make the share payload compatible with importFromBackupMerge (expects store.* or flat arrays)
-    out.store = {
-      rifles: out.data.rifles ?? [],
-      venues: out.data.venues ?? [],
-      sessions: out.data.sessions ?? [],
-      loadDevProjects: out.data.loadDevProjects ?? [],
-    };
+      // Auto-include missing venues needed by sessions
+      if (sessionsExported) {
+        const haveVenues = new Set<number>(
+          (out.data.venues ?? [])
+            .map((v: any) => Number(v?.id))
+            .filter((n: number) => Number.isFinite(n)),
+        );
+
+        for (const vid of requiredVenueIds) {
+          if (haveVenues.has(vid)) continue;
+          const v = (storeCopy.venues ?? []).find((x: any) => Number(x?.id) === vid);
+          if (v) out.data.venues.push(v);
+        }
+      }
+
+      // De-dupe rifles/venues after auto-including
+      out.data.rifles = this.dedupeByNumericId(out.data.rifles ?? []);
+      out.data.venues = this.dedupeByNumericId(out.data.venues ?? []);
+
+      // Final validation: never export a broken share file
+      this.validateShareExportPayload(out);
+
+      // Make the share payload compatible with importFromBackupMerge
+      out.store = {
+        rifles: out.data.rifles ?? [],
+        venues: out.data.venues ?? [],
+        sessions: out.data.sessions ?? [],
+        loadDevProjects: out.data.loadDevProjects ?? [],
+      };
+    }
 
     const hasAny =
       (out.data.rifles?.length ?? 0) +
@@ -747,6 +671,24 @@ export class DataService {
 
     return hasAny ? out : null;
   }
+
+  /**
+   * Selective share export (for sending to other users).
+   * Produces a smaller payload than full backup, and is meant for merge-import.
+   * NOTE: This enforces dependency closure so the receiver can import safely.
+   */
+  exportSelectiveShare(opts: any): any | null {
+    return this.buildSelectiveExport(opts, 'share');
+  }
+
+  /**
+   * Selective PDF export (for printing/sharing as a document).
+   * Exports ONLY what the user selected (no automatic inclusion of related data).
+   */
+  exportSelectivePdf(opts: any): any | null {
+    return this.buildSelectiveExport(opts, 'pdf');
+  }
+
   /**
    * Selective share export but shaped exactly like importFromBackupMerge expects:
    * { schema, exportedAt, store: { rifles, venues, sessions, loadDevProjects } }

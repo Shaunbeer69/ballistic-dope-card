@@ -2826,7 +2826,6 @@ export class AppComponent implements OnInit {
     const selectedRifleIds = this.dataShareAllRifles
       ? null
       : Array.from(this.dataShareRifleIds.values());
-    this.enforceDataShareDependencies();
 
     const selectedVenueIds = this.dataShareAllVenues
       ? null
@@ -2876,7 +2875,7 @@ export class AppComponent implements OnInit {
     // IMPORTANT:
     // - File share must be merge-import compatible => prefer exportSelectiveShareForMerge()
     // - Fallback to exportSelectiveShare() if older builds don’t have it
-    const payload = this.buildSelectiveExportPayloadWithValidation(opts, 'Print PDF');
+    const payload = this.dataService.exportSelectivePdf(opts);
 
     if (!payload) {
       alert('Export failed: no data selected.');
@@ -3611,7 +3610,9 @@ export class AppComponent implements OnInit {
   async onExportImportDataShare(): Promise<void> {
     // Close modal immediately for clean UX
     this.showExportImportDataModal = false;
-    this.enforceDataShareDependencies();
+    if (this.dataShareActionMode === 'export') {
+      if (this.dataShareActionMode === 'export') this.enforceDataShareDependencies();
+    }
 
     const selectedRifleIds = this.dataShareAllRifles
       ? null
@@ -3661,11 +3662,12 @@ export class AppComponent implements OnInit {
         : null,
     };
 
-    const payload = this.buildSelectiveExportPayloadWithValidation(opts, 'Export (File)');
+    let payload: any;
 
-    if (!payload) {
-      alert('Export failed: no data selected.');
-      return;
+    if (this.dataShareActionMode === 'export') {
+      payload = this.dataService.exportSelectiveShare(opts);
+    } else {
+      payload = this.dataService.exportSelectivePdf(opts);
     }
 
     const json = JSON.stringify(payload, null, 2);
