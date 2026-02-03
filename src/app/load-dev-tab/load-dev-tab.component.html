@@ -183,10 +183,10 @@
 
           <!-- OAL + COAL (Ogive) -->
           <div class="grid grid-cols-2 gap-2">
-            <!-- LEFT: Overall length + unit -->
+            <!-- LEFT: Ogive length (BTO) + unit -->
             <div>
               <div class="text-gray-400 mb-0.5 flex items-center justify-between gap-2">
-                <span>Dev Coal</span>
+                <span>Test Coal</span>
                 <select
                   class="bg-black/40 border border-gray-700 rounded-xl px-2 py-0.5 text-gray-100 text-[10px]"
                   [(ngModel)]="projectForm.oalUnit"
@@ -199,12 +199,12 @@
               <input
                 type="number"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
-                [(ngModel)]="projectForm.oal"
-                placeholder="Length BTT"
+                [(ngModel)]="projectForm.oalOgive"
+                placeholder="Length BTO"
               />
             </div>
 
-            <!-- RIGHT: Ogive length (same unit) -->
+            <!-- RIGHT: Overall length (BTT) (same unit) -->
             <div>
               <div class="text-gray-400 mb-0.5 flex items-center justify-end gap-2">
                 <span class="text-[10px] text-gray-500"> ({{ projectForm.oalUnit || 'mm' }}) </span>
@@ -213,8 +213,8 @@
               <input
                 type="number"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
-                [(ngModel)]="projectForm.oalOgive"
-                placeholder="Length BTO"
+                [(ngModel)]="projectForm.oal"
+                placeholder="Length BTT"
               />
             </div>
           </div>
