@@ -874,26 +874,19 @@
                       </span>
                     </div>
                     <!-- Export / Import -->
-                    <div class="flex flex-col items-center">
+                    <div class="flex flex-col items-center gap-2">
                       <button
                         class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-sky-500 via-indigo-600 to-slate-900 hover:scale-105 active:scale-95 transition"
                         (click)="openExportImportModal()"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
-                          <path
-                            class="fill-white/60"
-                            d="M12 3a5 5 0 00-4.9 4H7a4 4 0 100 8h1v-2H7a2 2 0 110-4h.5a1 1 0 00.98-.8A3 3 0 0112 5a3 3 0 012.85 2.1 1 1 0 00.87.7H16a3 3 0 010 6h-1v2h1a5 5 0 000-10h-.03A5 5 0 0012 3z"
-                          />
-                          <path
-                            class="fill-white"
-                            d="M11 11V7h2v4h2.5L12 16.5 8.5 11H11zM8 18h8v2H8z"
-                          />
-                        </svg>
+                        <i class="fas fa-file-export text-white text-xl"></i>
                       </button>
-                      <!-- BAckup Restore  -->
-                      <span class="mt-1 text-[10px] text-gray-300">Backup / Restore</span>
-                      <span class="text-[9px] text-gray-500 italic mt-0.5">JSON backup file</span>
+
+                      <div class="text-xs text-gray-300 text-center leading-tight">
+                        Export / Restore / Import
+                      </div>
                     </div>
+
                     <!-- Documents -->
                     <div class="flex flex-col items-center">
                       <button
@@ -926,8 +919,10 @@
                         </svg>
                       </button>
 
-                      <span class="mt-1 text-[10px] text-gray-300">Export / Print</span>
-                      <span class="text-[9px] text-gray-500 italic mt-0.5">Share or Print</span>
+                      <span class="mt-1 text-[10px] text-gray-300">Export File / Share PDF</span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5"
+                        >Datafile sharing or PDF</span
+                      >
                     </div>
                   </div>
                   <!-- Export / Print chooser (opens the existing Export / Import DATA modal) -->
@@ -940,7 +935,7 @@
                       class="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
                       (click)="$event.stopPropagation()"
                     >
-                      <div class="text-sm font-semibold">Export / Print</div>
+                      <div class="text-sm font-semibold">Export File / Share PDF</div>
                       <div class="text-[11px] text-slate-300 mt-1 leading-snug">
                         Choose how you want to share this data.
                       </div>
@@ -991,9 +986,9 @@
                         >
                           <div class="flex items-center justify-between gap-3">
                             <div class="min-w-0">
-                              <div class="text-[12px] font-semibold text-sky-200">Print (PDF)</div>
+                              <div class="text-[12px] font-semibold text-sky-200">Share (PDF)</div>
                               <div class="text-[10px] text-slate-300 mt-0.5 leading-snug">
-                                Export a PDF for printing or sharing via WhatsApp/email.
+                                Export a PDF for Printing Sharing via WhatsApp/email.
                               </div>
                             </div>
 
@@ -1037,10 +1032,10 @@
                       class="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
                       (click)="$event.stopPropagation()"
                     >
-                      <div class="text-sm font-semibold">Export / Import</div>
+                      <div class="text-sm font-semibold">Export / Share</div>
                       <div class="text-[11px] text-slate-300 mt-1 leading-snug">
-                        Share selected data with another user (does not overwrite their data — it
-                        merges).
+                        Share selected data (File or PDF) with another user (if file, it does not
+                        overwrite their data — it merges).
                       </div>
 
                       <div class="mt-3 space-y-3 text-[11px]">
@@ -1163,7 +1158,7 @@
                         class="w-full py-2 rounded-xl bg-sky-600/90 hover:bg-sky-600 text-white text-sm"
                         (click)="exportPdfFromSelectedData()"
                       >
-                        Print (PDF)
+                        Share (PDF)
                       </button>
 
                       <button
@@ -1559,9 +1554,9 @@
                       class="w-full max-w-xs rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
                       (click)="$event.stopPropagation()"
                     >
-                      <div class="text-sm font-semibold">Backup and restore</div>
+                      <div class="text-sm font-semibold">Backup / Restore</div>
                       <div class="text-[11px] text-slate-300 mt-1 leading-snug">
-                        Backup a full JSON file for safekeeping. Import a JSON file to restore it.
+                        Backup a full JSON file. Restore a full JSON file. Import user file.
                       </div>
 
                       <!-- Import busy indicator -->
