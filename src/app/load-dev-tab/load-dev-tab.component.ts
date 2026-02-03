@@ -1270,13 +1270,28 @@ export class LoadDevTabComponent implements OnInit {
 
     const parts: string[] = [];
 
+    // Keep existing basics
     if (p.powder) parts.push(`Powder: ${p.powder}`);
     if (p.bullet) parts.push(`Bullet: ${p.bullet}`);
     if (p.bulletWeightGr != null) parts.push(`Wt: ${p.bulletWeightGr}gr`);
-    const u = p.oalUnit === 'in' ? 'in' : 'mm';
-    if (p.oal != null) parts.push(`COAL: ${p.oal}${u}`);
-    if (p.oalOgive != null) parts.push(`Ogive: ${p.oalOgive}${u}`);
 
+    // Units
+    const u = p.oalUnit === 'in' ? 'in' : 'mm';
+
+    // NEW: geometry / seating summary (the order you asked for)
+    if (p.lands != null) parts.push(`Lands (BTO): ${p.lands}${u}`);
+    if (p.oalOgive != null) parts.push(`Test (BTO): ${p.oalOgive}${u}`);
+    if (p.oal != null) parts.push(`Test (BTT): ${p.oal}${u}`);
+
+    // NEW: Jump (Lands - Ogive)
+    const landsNum = Number(p.lands);
+    const ogiveNum = Number(p.oalOgive);
+    if (Number.isFinite(landsNum) && Number.isFinite(ogiveNum)) {
+      const jump = Math.round((landsNum - ogiveNum) * 1000) / 1000;
+      parts.push(`Jump: ${jump}${u}`);
+    }
+
+    // Existing: charge range
     const range = this.selectedProjectChargeRangeText();
     if (range && range !== '—') parts.push(`Charge: ${range}`);
 
