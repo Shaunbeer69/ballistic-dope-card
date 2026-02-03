@@ -210,6 +210,17 @@ export class SessionTabComponent implements OnInit {
   }
 
   openRiflePicker(): void {
+    // Always re-pull rifles so the picker can’t be stale after deletes/repairs/imports.
+    this.rifles = this.data.getRifles();
+
+    // If selected rifle no longer exists, clear it.
+    if (
+      this.rifleId != null &&
+      !this.rifles.some((x) => ((x as any).id ?? (x as any).rifleId) === this.rifleId)
+    ) {
+      this.rifleId = null;
+    }
+
     this.riflePickerOpen = true;
     this.riflePickerSearch = '';
     this.riflePickerFiltered = [...this.rifles];

@@ -2972,9 +2972,15 @@ export class LoadDevTabComponent implements OnInit {
   get devTypeDescription(): string | null {
     switch (this.projectForm.type) {
       case 'ladder':
-        return `Ladder test: single shots with small powder charge steps. You look for a "flat spot" in velocity (low SD/ES) across 3 or more neighbouring charges – that usually indicates a stable node.`;
+        return `Ladder test: one shot per charge at distance. You are NOT looking for groups or SD. 
+You are looking for a flat vertical point-of-impact where increasing powder no longer moves the impact up. 
+That flat spot reveals a forgiving barrel timing node and defines your safe pressure window before you run OCW.`;
+
       case 'ocw':
-        return `OCW (Optimal Charge Weight): 3–5 shot groups over a small charge window. You look for a range of charges where point of impact stays very similar while groups remain tight – that indicates a forgiving accuracy node.`;
+        return `OCW (Optimal Charge Weight): 3–5 shot groups inside a ladder-found node. 
+You are looking for a range of charges where point of impact stays in the same place while groups remain tight. 
+This confirms which timing node is the most repeatable and forgiving in real shooting.`;
+
       default:
         return null;
     }

@@ -494,9 +494,38 @@ export class DataService {
       const includeLoadDev = !!riflesOpt.includeLoadDev;
       const includeSessions = !!riflesOpt.includeSessions;
       const includeShots = !!riflesOpt.includeShots;
+      // If user requested rifle data, export the selected rifles.
+      if (includeRifleData) {
+        out.data.rifles = (storeCopy.rifles ?? []).filter((r: any) =>
+          selectedRifleIds ? selectedRifleIds.includes(Number(r?.id)) : true,
+        );
+      }
 
-      // If LoadDev is included, sessions become a required dependency layer
-      const effectiveIncludeSessions = includeSessions || includeShots || includeLoadDev;
+      // If user requested load development, export the selected rifle's projects (including entries).
+      if (includeLoadDev) {
+        out.data.loadDevProjects = (storeCopy.loadDevProjects ?? []).filter((p: any) =>
+          selectedRifleIds ? selectedRifleIds.includes(Number(p?.rifleId)) : true,
+        );
+      }
+
+      // --- Rifle records ---
+      const rifleFilter = (r: any) => !selectedRifleIds || selectedRifleIds.includes(Number(r?.id));
+
+      if (includeRifleData) {
+        out.data.rifles = (storeCopy.rifles ?? []).filter(rifleFilter);
+      }
+
+      // --- Load Development projects (and nested entries) ---
+      if (includeLoadDev) {
+        // Filter projects by selected rifle ids
+        out.data.loadDevProjects = (storeCopy.loadDevProjects ?? []).filter(
+          (p: any) => !selectedRifleIds || selectedRifleIds.includes(Number(p?.rifleId)),
+        );
+      }
+
+      // --- Sessions / shots (independent of load-dev) ---
+      const effectiveIncludeSessions = includeSessions || includeShots;
+
       if (effectiveIncludeSessions) {
         const sessions = (storeCopy.sessions ?? []).filter((s: any) =>
           selectedRifleIds ? selectedRifleIds.includes(Number(s?.rifleId)) : true,
@@ -1120,8 +1149,7 @@ export class DataService {
         message:
           `Merge import complete. Added ${addedRifles} rifles, ` +
           `${addedVenues} venues, ${addedSessions} sessions, ` +
-          `${addedProjects} load-dev projects, ${addedEntries} load-dev entries.` +
-          (skippedSessions > 0 ? ` Skipped ${skippedSessions} invalid session record(s).` : ''),
+          `${addedProjects} load developments containing ${addedEntries} test rows.`,
       };
     } catch (e: any) {
       return { ok: false, message: e?.message ?? 'Unknown error.' };
@@ -1230,6 +1258,11 @@ export class DataService {
       return v.toString(16);
     });
   }
+  /** Replace array contents in-place so any component holding a reference stays up-to-date. */
+  private replaceArrayInPlace<T>(target: T[], next: T[]): void {
+    if (!target) return;
+    target.splice(0, target.length, ...(next || []));
+  }
 
   // ---------- Rifles ----------
 
@@ -1262,14 +1295,26 @@ export class DataService {
   deleteRifle(id: number): void {
     const idNum = Number(id);
 
-    // Remove rifle
-    this.store.rifles = this.store.rifles.filter((r) => Number(r.id) !== idNum);
-
-    // Remove all rifle-linked data (matches the UI warning)
-    this.store.sessions = (this.store.sessions || []).filter((s) => Number(s?.rifleId) !== idNum);
-    this.store.loadDevProjects = (this.store.loadDevProjects || []).filter(
-      (p) => Number(p?.rifleId) !== idNum,
+    // Remove rifle (IN-PLACE so existing references update)
+    this.replaceArrayInPlace(
+      this.store.rifles,
+      (this.store.rifles || []).filter((r) => Number(r.id) !== idNum),
     );
+
+    // Remove all rifle-linked data (IN-PLACE)
+    this.replaceArrayInPlace(
+      this.store.sessions,
+      (this.store.sessions || []).filter((s) => Number(s?.rifleId) !== idNum),
+    );
+
+    this.replaceArrayInPlace(
+      this.store.loadDevProjects,
+      (this.store.loadDevProjects || []).filter((p) => Number(p?.rifleId) !== idNum),
+    );
+
+    // IMPORTANT: if you also store load-dev entries separately, they must be filtered too.
+    // If your entries link to projectId (not rifleId), you should remove entries for removed projects.
+    // (We can wire that once we confirm your entry model keys.)
 
     this.saveStore();
   }
