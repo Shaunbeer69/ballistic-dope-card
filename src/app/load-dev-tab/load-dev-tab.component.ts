@@ -2621,6 +2621,19 @@ export class LoadDevTabComponent implements OnInit {
       distanceM: null,
     };
   }
+  jumpTextForSelectedProject(): string | null {
+    const p: any = this.selectedProject;
+    if (!p) return null;
+
+    const lands = Number(p.lands);
+    const ogive = Number(p.oalOgive);
+
+    if (!Number.isFinite(lands) || !Number.isFinite(ogive)) return null;
+
+    const jump = lands - ogive;
+    // keep 3 decimals max, trim trailing zeros
+    return String(Math.round(jump * 1000) / 1000);
+  }
 
   private createEmptyEntryForm(): EntryForm {
     return {
@@ -4059,7 +4072,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
    * - If step is about 0.2gr => need 3 consecutive charges in a "flat spot"
    * - If step is about 0.3gr (or larger) => need 2 consecutive
    *
-   * "Flat spot" here = within-window velocity RANGE <= 10 fps (max - min <= 10).
+   * "Flat spot" here = within-window velocity RANGE <= 12 fps (max - min <= 12).
    */
   private ladderNodeWindowSize(sorted: LoadDevEntry[]): number {
     const step = this.estimateLadderStepGr(sorted);

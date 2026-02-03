@@ -1402,20 +1402,19 @@
                           </ng-container>
                           <ng-template #bwDash>—</ng-template>
                         </div>
-
-                        <div class="text-gray-400">COAL:</div>
+                        <div class="text-gray-400">Lands (BTO):</div>
                         <div class="font-semibold">
-                          <ng-container *ngIf="summaryCoalValue() as coal; else coalDash">
-                            {{ coal }}
+                          <ng-container *ngIf="selectedProject?.lands != null; else landsDash">
+                            {{ selectedProject?.lands }}
                             <span>
                               <ng-container *ngIf="summaryCoalUnit() as cu">{{ cu }}</ng-container>
                             </span>
                           </ng-container>
-                          <ng-template #coalDash>—</ng-template>
+                          <ng-template #landsDash>—</ng-template>
                         </div>
 
                         <!-- Row 3 -->
-                        <div class="text-gray-400">COAL Ogive:</div>
+                        <div class="text-gray-400">Test (BTO):</div>
                         <div class="font-semibold">
                           <ng-container *ngIf="summaryCoalOgiveValue() as og; else ogDash">
                             {{ og }}
@@ -1426,48 +1425,44 @@
                           <ng-template #ogDash>—</ng-template>
                         </div>
 
+                        <div class="text-gray-400">Test (BTT):</div>
+                        <div class="font-semibold">
+                          <ng-container *ngIf="summaryCoalValue() as coal; else coalDash">
+                            {{ coal }}
+                            <span>
+                              <ng-container *ngIf="summaryCoalUnit() as cu">{{ cu }}</ng-container>
+                            </span>
+                          </ng-container>
+                          <ng-template #coalDash>—</ng-template>
+                        </div>
+
+                        <!-- Row 4 -->
+                        <div class="text-gray-400">Jump:</div>
+                        <div class="font-semibold">
+                          <ng-container
+                            *ngIf="
+                              selectedProject?.lands != null && selectedProject?.oalOgive != null;
+                              else jumpDash
+                            "
+                          >
+                            {{
+                              +selectedProject!.lands! - +selectedProject!.oalOgive!
+                                | number: '1.0-3'
+                            }}
+                            <span>
+                              <ng-container *ngIf="summaryCoalUnit() as cu">{{ cu }}</ng-container>
+                            </span>
+                          </ng-container>
+                          <ng-template #jumpDash>—</ng-template>
+                        </div>
+
                         <div class="col-span-4 flex items-baseline gap-2">
                           <div class="text-gray-400 whitespace-nowrap">Charge range:</div>
                           <div class="font-semibold whitespace-nowrap">
                             {{ selectedProjectChargeRangeText() }}
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                  <!-- Save button -->
 
-                  <div *ngIf="showNotesPanel" class="flex justify-end">
-                    <button
-                      type="button"
-                      class="px-3 py-1.5 rounded-xl bg-emerald-500 text-black text-xs font-semibold"
-                      (click)="saveSelectedProjectNotes()"
-                    >
-                      Save &amp; Close
-                    </button>
-                  </div>
-
-                  <div
-                    *ngIf="photoViewerOpen"
-                    class="fixed inset-0 z-[9999] bg-black/90 flex flex-col"
-                    (click)="closePhotoViewer()"
-                  >
-                    <div
-                      class="p-3 flex items-center justify-center"
-                      (click)="$event.stopPropagation()"
-                    >
-                      <div class="text-white text-sm font-semibold">Target photo</div>
-                    </div>
-
-                    <div class="flex-1 overflow-auto p-3" (click)="$event.stopPropagation()">
-                      <div *ngIf="photoViewerImgUrl" class="relative w-full max-w-[520px] mx-auto">
-                        <img
-                          [src]="photoViewerImgUrl"
-                          class="w-full rounded-2xl border border-gray-700"
-                          alt="Target photo"
-                        />
-
-                        <!-- Step 1: auto-scaled 1cm grid overlay -->
                         <div
                           *ngIf="gridPxPerCm"
                           class="absolute inset-0 pointer-events-none rounded-2xl"

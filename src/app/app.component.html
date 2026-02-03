@@ -3036,7 +3036,7 @@
           <!-- Rifles -->
           <button
             type="button"
-            class="rounded-xl py-2 flex flex-col items-center justify-center transition"
+            class="rounded-xl py-1 flex flex-col items-center justify-center transition"
             (click)="navTo('rifles')"
             [ngClass]="
               currentTab === 'rifles'
@@ -3048,8 +3048,9 @@
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 64 24"
-              class="w-7 h-7 text-sky-400"
+              class="h-8 w-auto text-sky-400"
               fill="currentColor"
+              preserveAspectRatio="xMidYMid meet"
             >
               <!-- barrel -->
               <rect x="2" y="10" width="38" height="3" rx="1.5" />
@@ -3068,6 +3069,7 @@
           </button>
 
           <!-- Venues -->
+
           <button
             type="button"
             class="rounded-xl py-2 flex flex-col items-center justify-center transition"
