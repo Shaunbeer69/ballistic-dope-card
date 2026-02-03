@@ -6,6 +6,8 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { FileOpener } from '@capacitor-community/file-opener';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import { APP_VERSION } from './environments/version';
 import { RiflesTabComponent } from './rifles-tab/rifles-tab.component';
@@ -2293,12 +2295,8 @@ export class AppComponent implements OnInit {
 
   chooseDataShareMode(mode: 'export' | 'print'): void {
     // ✅ For now: Print (PDF) is not implemented
-    if (mode === 'print') {
-      this.showDataShareChooserModal = false;
-      alert('Print (PDF) coming in next version.');
-      return;
-    }
 
+    // ✅ For now: Print (PDF) is not implemented
     this.dataShareActionMode = mode;
     this.showDataShareChooserModal = false;
     this.openExportImportDataModal();
@@ -2886,19 +2884,7 @@ export class AppComponent implements OnInit {
     }
 
     // Build a proper PDF report (Rifles-tab style) instead of embedding JSON text
-    let jspdfMod: any;
-    let autoTableMod: any;
 
-    try {
-      jspdfMod = await import('jspdf');
-      autoTableMod = await import('jspdf-autotable');
-    } catch (err) {
-      console.error('Print PDF modules failed to load:', err);
-      alert('Print (PDF) is not available in this build (PDF modules missing).');
-      return;
-    }
-
-    const jsPDF = jspdfMod?.jsPDF ?? jspdfMod?.default;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -2949,7 +2935,7 @@ export class AppComponent implements OnInit {
           ['Notes', `${r?.notes ?? '-'}`],
         ];
 
-        autoTableMod.default(doc, {
+        autoTable(doc, {
           startY: y,
           theme: 'grid',
           styles: { fontSize: 9, cellPadding: 2 },
@@ -2978,7 +2964,7 @@ export class AppComponent implements OnInit {
             `${l?.bulletBc ?? ''}`,
           ]);
 
-          autoTableMod.default(doc, {
+          autoTable(doc, {
             startY: y,
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2 },
@@ -3057,7 +3043,7 @@ export class AppComponent implements OnInit {
         ];
       });
 
-      autoTableMod.default(doc, {
+      autoTable(doc, {
         startY: y,
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 2 },
@@ -3152,7 +3138,7 @@ export class AppComponent implements OnInit {
           return [k, uniq.join(', ')];
         });
 
-        autoTableMod.default(doc, {
+        autoTable(doc, {
           startY: y,
           theme: 'grid',
           styles: { fontSize: 8, cellPadding: 2 },
@@ -3193,7 +3179,7 @@ export class AppComponent implements OnInit {
           ];
         });
 
-        autoTableMod.default(doc, {
+        autoTable(doc, {
           startY: y,
           theme: 'grid',
           styles: { fontSize: 8, cellPadding: 2 },
@@ -3311,7 +3297,7 @@ export class AppComponent implements OnInit {
             ];
           });
 
-          autoTableMod.default(doc, {
+          autoTable(doc, {
             startY: y,
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2 },
@@ -3322,7 +3308,7 @@ export class AppComponent implements OnInit {
 
           y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
 
-          autoTableMod.default(doc, {
+          autoTable(doc, {
             startY: y,
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2 },
@@ -3368,7 +3354,7 @@ export class AppComponent implements OnInit {
             ['Notes', `${p?.notes ?? '-'}`],
           ];
 
-          autoTableMod.default(doc, {
+          autoTable(doc, {
             startY: y,
             theme: 'grid',
             styles: { fontSize: 9, cellPadding: 2 },
@@ -3406,7 +3392,7 @@ export class AppComponent implements OnInit {
               return [`${charge}`, `${shotsFired}`, `${velocity}`, `${velocityInput}`, `${notes}`];
             });
 
-            autoTableMod.default(doc, {
+            autoTable(doc, {
               startY: y,
               theme: 'grid',
               styles: { fontSize: 8, cellPadding: 2 },
@@ -3426,31 +3412,37 @@ export class AppComponent implements OnInit {
 
       const filename = 'gunstuff-export-' + new Date().toISOString().slice(0, 10) + '.pdf';
 
-      const pdfBlob = doc.output('blob');
-
       if (Capacitor.isNativePlatform()) {
         try {
-          const base64 = await this.blobToBase64(pdfBlob);
+          // Match the working Load Dev PDF approach (base64 from datauri)
+          const pdfBase64 = doc.output('datauristring').split(',')[1];
 
           const writeRes = await Filesystem.writeFile({
             path: `gs-exports/${filename}`,
-            data: base64,
-            directory: Directory.Cache,
+            data: pdfBase64,
+            directory: Directory.Documents,
             recursive: true,
           });
 
-          await Share.share({
-            title: 'GS Export PDF',
-            text: 'GS Ballistics export PDF',
-            url: writeRes.uri,
-            dialogTitle: 'Share / Print PDF',
-          });
+          // Share/Print (some Android print targets may throw even when the job is created)
+          try {
+            await Share.share({
+              title: 'GS Export PDF',
+              text: 'GS Ballistics export PDF',
+              url: writeRes.uri,
+              dialogTitle: 'Share / Print PDF',
+            });
+          } catch (shareErr) {
+            console.warn('Share/Print returned an error (non-fatal):', shareErr);
+            // File still saved successfully
+          }
         } catch (err) {
           console.error('PDF export failed:', err);
           alert('PDF export failed on this device.');
         }
       } else {
         try {
+          const pdfBlob = doc.output('blob');
           const url = URL.createObjectURL(pdfBlob);
           const a = document.createElement('a');
           a.href = url;
