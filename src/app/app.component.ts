@@ -2294,9 +2294,9 @@ export class AppComponent implements OnInit {
   }
 
   chooseDataShareMode(mode: 'export' | 'print'): void {
-    // ✅ For now: Print (PDF) is not implemented
-
-    // ✅ For now: Print (PDF) is not implemented
+    // Mode determines which action button is shown in the Export/Share modal:
+    // - export => Export (Share) JSON merge-safe
+    // - print  => Share (PDF) report
     this.dataShareActionMode = mode;
     this.showDataShareChooserModal = false;
     this.openExportImportDataModal();
@@ -2830,31 +2830,22 @@ export class AppComponent implements OnInit {
     const selectedVenueIds = this.dataShareAllVenues
       ? null
       : Array.from(this.dataShareVenueIds.values());
-    // In PDF mode, treat any sub-checkbox tick as "include this section"
-    const includeRifleBlock =
-      this.dataShareIncludeRifles ||
-      this.dataShareRifleData ||
-      this.dataShareRifleLoadDev ||
-      this.dataShareRifleSessions ||
-      this.dataShareRifleShots;
 
-    const includeVenueBlock =
-      this.dataShareIncludeVenues ||
-      this.dataShareVenueData ||
-      this.dataShareVenueSessions ||
-      this.dataShareVenueShots;
+    // IMPORTANT: independence = only the TOP checkbox controls inclusion
+    const includeRifleBlock = this.dataShareIncludeRifles;
+    const includeVenueBlock = this.dataShareIncludeVenues;
 
-    // Same validation rules as your share-export
+    // Validation
     if (includeRifleBlock && !this.dataShareAllRifles && (selectedRifleIds?.length ?? 0) === 0) {
       alert('Select at least one rifle, or tick "All rifles".');
       return;
     }
-
     if (includeVenueBlock && !this.dataShareAllVenues && (selectedVenueIds?.length ?? 0) === 0) {
       alert('Select at least one venue, or tick "All venues".');
       return;
     }
 
+    // Build opts for the service
     const opts = {
       rifles: includeRifleBlock
         ? {
@@ -2866,7 +2857,6 @@ export class AppComponent implements OnInit {
             includeShots: this.dataShareRifleShots,
           }
         : null,
-
       venues: includeVenueBlock
         ? {
             all: this.dataShareAllVenues,
@@ -2878,20 +2868,32 @@ export class AppComponent implements OnInit {
         : null,
     };
 
-    // IMPORTANT:
-    // - File share must be merge-import compatible => prefer exportSelectiveShareForMerge()
-    // - Fallback to exportSelectiveShare() if older builds don’t have it
     const payload = this.dataService.exportSelectivePdf(opts);
-
     if (!payload) {
       alert('Export failed: no data selected.');
       return;
     }
 
-    // Build a proper PDF report (Rifles-tab style) instead of embedding JSON text
+    const data: any = (payload as any)?.data ?? (payload as any)?.store ?? {};
+    const rifles: any[] = Array.isArray(data?.rifles) ? data.rifles : [];
+    const venues: any[] = Array.isArray(data?.venues) ? data.venues : [];
+    const sessions: any[] = Array.isArray(data?.sessions) ? data.sessions : [];
+    const loadDevProjects: any[] = Array.isArray(data?.loadDevProjects) ? data.loadDevProjects : [];
+
+    // Debug that matches your logcat pattern
+    try {
+      console.log('[PDF] riflesSelected=', rifles.length, 'allRifles=', this.dataShareAllRifles);
+      console.log('[PDF] venuesSelected=', venues.length, 'allVenues=', this.dataShareAllVenues);
+    } catch {}
+
+    const rifleNameById = new Map<number, string>(
+      (rifles ?? []).map((r: any) => [Number(r?.id), String(r?.name ?? '')]),
+    );
+    const venueNameById = new Map<number, string>(
+      (venues ?? []).map((v: any) => [Number(v?.id), String(v?.name ?? '')]),
+    );
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
     const pageWidth = doc.internal.pageSize.getWidth();
     let y = 12;
 
@@ -2903,22 +2905,8 @@ export class AppComponent implements OnInit {
     doc.text(`Generated: ${new Date().toLocaleString()}`, 10, y);
     y += 8;
 
-    const data: any = (payload as any)?.data ?? (payload as any)?.store ?? {};
-    const rifles: any[] = Array.isArray(data?.rifles) ? data.rifles : [];
-    const venues: any[] = Array.isArray(data?.venues) ? data.venues : [];
-
-    const sessions: any[] = Array.isArray(data?.sessions) ? data.sessions : [];
-    const loadDevProjects: any[] = Array.isArray(data?.loadDevProjects) ? data.loadDevProjects : [];
-
-    const rifleNameById = new Map<number, string>(
-      (rifles ?? []).map((r: any) => [Number(r?.id), String(r?.name ?? '')]),
-    );
-    const venueNameById = new Map<number, string>(
-      (venues ?? []).map((v: any) => [Number(v?.id), String(v?.name ?? '')]),
-    );
-
     // ---------- Rifles ----------
-    if (rifles.length) {
+    if (includeRifleBlock && rifles.length) {
       doc.setFontSize(12);
       doc.text(`Rifles (${rifles.length})`, 10, y);
       y += 4;
@@ -2931,68 +2919,71 @@ export class AppComponent implements OnInit {
         doc.text(title, 10, y);
         y += 3;
 
-        const rifleRows: Array<[string, string]> = [
-          ['Caliber', `${r?.caliber ?? '-'}`],
-          ['Barrel length', `${r?.barrelLength ?? '-'} ${r?.barrelUnit ?? ''}`.trim()],
-          ['Twist rate', `${r?.twistRate ?? '-'}`],
-          ['Scope', `${r?.scope ?? '-'}${r?.scopeUnit ? ' (' + r.scopeUnit + ')' : ''}`],
-          ['Round count', `${r?.roundCount ?? 0}`],
-          ['Notes', `${r?.notes ?? '-'}`],
-        ];
-
-        autoTable(doc, {
-          startY: y,
-          theme: 'grid',
-          styles: { fontSize: 9, cellPadding: 2 },
-          headStyles: { fontSize: 9 },
-          columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: pageWidth - 20 - 45 } },
-          body: rifleRows.map(([k, v]) => [k, v]),
-        });
-
-        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 5 : y + 25;
-
-        // Loads (if present)
-        const loads: any[] = Array.isArray(r?.loads) ? r.loads : [];
-        if (loads.length) {
-          doc.setFontSize(11);
-          doc.text(`Load Data (${loads.length})`, 10, y);
-          y += 4;
-
-          const body = loads.map((l: any) => [
-            `${l?.powder ?? ''}`,
-            `${l?.chargeGn ?? ''}`,
-            `${l?.aveVelocityFps ?? ''}`,
-            `${l?.coal ?? ''}${l?.coalUnit ? ' ' + l.coalUnit : ''}`,
-            `${l?.primer ?? ''}`,
-            `${l?.bullet ?? ''}`,
-            `${l?.bulletWeightGr ?? ''}`,
-            `${l?.bulletBc ?? ''}`,
-          ]);
+        if (this.dataShareRifleData) {
+          const rifleRows: Array<[string, string]> = [
+            ['Caliber', `${r?.caliber ?? '-'}`],
+            ['Barrel length', `${r?.barrelLength ?? '-'} ${r?.barrelUnit ?? ''}`.trim()],
+            ['Twist rate', `${r?.twistRate ?? '-'}`],
+            ['Scope', `${r?.scope ?? '-'}${r?.scopeUnit ? ' (' + r.scopeUnit + ')' : ''}`],
+            ['Round count', `${r?.roundCount ?? 0}`],
+            ['Notes', `${r?.notes ?? '-'}`],
+          ];
 
           autoTable(doc, {
             startY: y,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2 },
-            headStyles: { fontSize: 8 },
-            head: [
-              [
-                'Powder',
-                'Charge (gr)',
-                'Vel (fps)',
-                'COAL',
-                'Primer',
-                'Bullet',
-                'Weight (gr)',
-                'BC',
-              ],
-            ],
-            body,
+            styles: { fontSize: 9, cellPadding: 2 },
+            headStyles: { fontSize: 9 },
+            columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: pageWidth - 20 - 45 } },
+            body: rifleRows.map(([k, v]) => [k, v]),
           });
 
-          y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+          y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 5 : y + 25;
         }
 
-        // New page if needed (simple guard)
+        // Loads (if present + user requested loaddev)
+        if (this.dataShareRifleLoadDev) {
+          const loads: any[] = Array.isArray(r?.loads) ? r.loads : [];
+          if (loads.length) {
+            doc.setFontSize(11);
+            doc.text(`Load Data (${loads.length})`, 10, y);
+            y += 4;
+
+            const body = loads.map((l: any) => [
+              `${l?.powder ?? ''}`,
+              `${l?.chargeGn ?? ''}`,
+              `${l?.aveVelocityFps ?? ''}`,
+              `${l?.coal ?? ''}${l?.coalUnit ? ' ' + l.coalUnit : ''}`,
+              `${l?.primer ?? ''}`,
+              `${l?.bullet ?? ''}`,
+              `${l?.bulletWeightGr ?? ''}`,
+              `${l?.bulletBc ?? ''}`,
+            ]);
+
+            autoTable(doc, {
+              startY: y,
+              theme: 'grid',
+              styles: { fontSize: 8, cellPadding: 2 },
+              headStyles: { fontSize: 8 },
+              head: [
+                [
+                  'Powder',
+                  'Charge (gr)',
+                  'Vel (fps)',
+                  'COAL',
+                  'Primer',
+                  'Bullet',
+                  'Weight (gr)',
+                  'BC',
+                ],
+              ],
+              body,
+            });
+
+            y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+          }
+        }
+
         const pageHeight = doc.internal.pageSize.getHeight();
         if (y > pageHeight - 20 && i < rifles.length - 1) {
           doc.addPage();
@@ -3002,7 +2993,7 @@ export class AppComponent implements OnInit {
     }
 
     // ---------- Venues ----------
-    if (venues.length) {
+    if (includeVenueBlock && venues.length && this.dataShareVenueData) {
       const pageHeight = doc.internal.pageSize.getHeight();
       if (y > pageHeight - 40) {
         doc.addPage();
@@ -3013,7 +3004,6 @@ export class AppComponent implements OnInit {
       doc.text(`Venues (${venues.length})`, 10, y);
       y += 4;
 
-      // Export venues with a cleaner display (subranges grouped + readable distances)
       const fmt = (val: any) => {
         if (val == null) return '';
         if (typeof val === 'string') return val;
@@ -3025,14 +3015,7 @@ export class AppComponent implements OnInit {
         }
       };
 
-      // Summary table (one row per venue)
       const venueSummaryRows = venues.map((v: any) => {
-        const distances = Array.isArray(v?.distances)
-          ? v.distances
-          : Array.isArray(v?.distancesM)
-            ? v.distancesM
-            : [];
-
         const subRanges = Array.isArray(v?.subRanges)
           ? v.subRanges
           : Array.isArray(v?.subranges)
@@ -3043,8 +3026,8 @@ export class AppComponent implements OnInit {
           `${v?.name ?? ''}`,
           `${v?.location ?? ''}`,
           `${v?.notes ?? ''}`,
-          `${distances.length}`,
-          `${subRanges.length}`,
+          `${subRanges?.length ?? 0}`,
+          `${(subRanges || []).reduce((acc: number, sr: any) => acc + (Array.isArray(sr?.distances) ? sr.distances.length : 0), 0)}`,
         ];
       });
 
@@ -3053,416 +3036,205 @@ export class AppComponent implements OnInit {
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: { fontSize: 8 },
-        head: [['Name', 'Location', 'Notes', '#Distances', '#Subranges']],
+        head: [['Name', 'Location', 'Notes', 'Subranges', '#Distances']],
         body: venueSummaryRows,
       });
 
       y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
 
-      // Detailed distances grouped by subrange for each venue
-      for (const v of venues as any[]) {
-        const distancesRaw = Array.isArray(v?.distances)
-          ? v.distances
-          : Array.isArray(v?.distancesM)
-            ? v.distancesM
-            : [];
-
-        const subRangesArr = Array.isArray(v?.subRanges)
+      for (const v of venues) {
+        const subRanges = Array.isArray(v?.subRanges)
           ? v.subRanges
           : Array.isArray(v?.subranges)
             ? v.subranges
             : [];
 
-        const srNameById = new Map<number, string>();
-        for (const sr of subRangesArr) {
-          const id = Number((sr as any)?.id);
-          const name = (sr as any)?.name ?? (sr as any)?.title ?? '';
-          if (Number.isFinite(id) && String(name).trim()) srNameById.set(id, String(name));
-        }
+        if (!subRanges.length) continue;
 
-        // group distances under a subrange key
-        const groups = new Map<string, number[]>();
-
-        const addDist = (key: string, distVal: any) => {
-          const n = Number(distVal);
-          if (!Number.isFinite(n)) return;
-          const k = key || 'Main';
-          if (!groups.has(k)) groups.set(k, []);
-          groups.get(k)!.push(n);
-        };
-
-        for (const d of distancesRaw) {
-          if (typeof d === 'number') {
-            addDist('Main', d);
-            continue;
-          }
-
-          if (d && typeof d === 'object') {
-            const dist =
-              (d as any).distanceM ??
-              (d as any).distance ??
-              (d as any).m ??
-              (d as any).value ??
-              (d as any).meters;
-
-            const srId =
-              (d as any).subRangeId ??
-              (d as any).subrangeId ??
-              (d as any).subRange ??
-              (d as any).subrange;
-
-            const srName =
-              (d as any).subRangeName ??
-              (d as any).subrangeName ??
-              (d as any).name ??
-              (Number.isFinite(Number(srId)) ? srNameById.get(Number(srId)) : '') ??
-              (Number.isFinite(Number(srId)) ? `Subrange ${Number(srId)}` : 'Main');
-
-            addDist(String(srName || 'Main'), dist);
-            continue;
-          }
-
-          // fallback
-          addDist('Main', d);
-        }
-
-        if (groups.size === 0) continue;
-
-        // page break if needed
-        if (y > 260) {
-          doc.addPage();
-          y = 12;
-        }
-
-        doc.setFontSize(10);
-        doc.text(`Venue: ${v?.name ?? ''}`, 10, y);
+        doc.setFontSize(11);
+        doc.text(`Venue: ${fmt(v?.name)}`, 10, y);
         y += 4;
 
-        const groupRows = Array.from(groups.entries()).map(([k, arr]) => {
-          const uniq = Array.from(new Set(arr)).sort((a, b) => a - b);
-          return [k, uniq.join(', ')];
-        });
+        for (const sr of subRanges) {
+          const srName = fmt(sr?.name);
+          const distances = Array.isArray(sr?.distances) ? sr.distances : [];
 
-        autoTable(doc, {
-          startY: y,
-          theme: 'grid',
-          styles: { fontSize: 8, cellPadding: 2 },
-          headStyles: { fontSize: 8 },
-          head: [['Subrange', 'Distances']],
-          body: groupRows,
-        });
-
-        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
-      }
-
-      // ---------- Sessions ----------
-      if (sessions.length) {
-        const pageHeight = doc.internal.pageSize.getHeight();
-        if (y > pageHeight - 40) {
-          doc.addPage();
-          y = 12;
-        }
-
-        doc.setFontSize(12);
-        doc.text(`Sessions (${sessions.length})`, 10, y);
-        y += 4;
-
-        const sessionBody = sessions.map((s: any) => {
-          const rifleName = rifleNameById.get(Number(s?.rifleId)) || `#${s?.rifleId ?? ''}`;
-          const venueName = venueNameById.get(Number(s?.venueId)) || `#${s?.venueId ?? ''}`;
-          const allShots = this.extractAllDopeEntries(s);
-          const shotsCount = allShots.length;
-
-          return [
-            `${s?.date ?? ''}`,
-            `${s?.title ?? ''}`,
-            `${rifleName}`,
-            `${venueName}`,
-            `${shotsCount}`,
-            `${s?.completed ? 'Yes' : 'No'}`,
-            `${s?.notes ?? ''}`,
-          ];
-        });
-
-        autoTable(doc, {
-          startY: y,
-          theme: 'grid',
-          styles: { fontSize: 8, cellPadding: 2 },
-          headStyles: { fontSize: 8 },
-          head: [['Date', 'Title', 'Rifle', 'Venue', 'Shots', 'Done', 'Notes']],
-          body: sessionBody,
-        });
-
-        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
-
-        // ---------- Shots (per session) ----------
-        for (const s of sessions) {
-          const shotsArr = Array.isArray(s?.dope) ? s.dope : [];
-          if (!shotsArr.length) continue;
-
-          const pageHeight2 = doc.internal.pageSize.getHeight();
-          if (y > pageHeight2 - 40) {
-            doc.addPage();
-            y = 12;
-          }
-
-          const rifleName = rifleNameById.get(Number(s?.rifleId)) || `#${s?.rifleId ?? ''}`;
-          const venueName = venueNameById.get(Number(s?.venueId)) || `#${s?.venueId ?? ''}`;
-
-          doc.setFontSize(11);
-          doc.text(`Shots (${shotsArr.length}) — ${rifleName} @ ${venueName}`, 10, y);
-          y += 4;
-
-          const shotRows: Array<{ subRange: string; sh: any }> = [];
-          const seen = new Set<string>();
-
-          const safeKey = (v: any) => {
-            try {
-              return JSON.stringify(v);
-            } catch {
-              return String(v);
-            }
-          };
-
-          const pushDope = (arr: any, srName: string) => {
-            if (!Array.isArray(arr)) return;
-            for (const sh of arr) {
-              if (!sh) continue;
-              const k = safeKey(sh);
-              if (seen.has(k)) continue;
-              seen.add(k);
-              shotRows.push({ subRange: srName, sh });
-            }
-          };
-
-          const fmt = (v: any) => {
-            if (v == null) return '';
-            if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '';
-            if (typeof v === 'string') return v;
-            try {
-              return JSON.stringify(v);
-            } catch {
-              return String(v);
-            }
-          };
-
-          // ---- Top-level dope sources (match extractAllDopeEntries logic) ----
-          pushDope((s as any).distanceDopes, '');
-          pushDope((s as any).distances, '');
-          pushDope((s as any).distanceDope, '');
-          pushDope((s as any).dopes, '');
-          pushDope((s as any).dope, '');
-          if ((s as any).dopeMap && typeof (s as any).dopeMap === 'object') {
-            pushDope(Object.values((s as any).dopeMap), '');
-          }
-
-          // ---- SubRanges dope sources ----
-          if (Array.isArray((s as any).subRanges)) {
-            for (let sri = 0; sri < (s as any).subRanges.length; sri++) {
-              const sr = (s as any).subRanges[sri];
-              const srName = sr?.name ?? sr?.title ?? `Subrange ${sri + 1}`;
-
-              pushDope(sr?.distanceDopes, srName);
-              pushDope(sr?.distances, srName);
-              pushDope(sr?.distanceDope, srName);
-              pushDope(sr?.dope, srName);
-              if (sr?.dopeMap && typeof sr.dopeMap === 'object') {
-                pushDope(Object.values(sr.dopeMap), srName);
-              }
-            }
-          }
-
-          const shotBody = shotRows.map((row: any, idx: number) => {
-            const sh = row?.sh ?? {};
-
-            const dist =
-              typeof sh?.distanceM === 'number'
-                ? sh.distanceM
-                : typeof sh?.distance === 'number'
-                  ? sh.distance
-                  : (sh?.rangeM ?? sh?.range ?? '');
-
-            const elev = sh?.elevationMil ?? sh?.elevation ?? sh?.drop ?? sh?.elev ?? '';
-
-            const wind =
-              sh?.windageMil ?? sh?.windage ?? sh?.wind ?? sh?.drift ?? sh?.windHold ?? '';
-
-            const impact = sh?.impactsDescription ?? sh?.impact ?? sh?.poi ?? sh?.hit ?? '';
-
-            const note = sh?.notes ?? sh?.comment ?? '';
-
-            return [
-              `${idx + 1}`,
-              `${row.subRange ?? ''}`,
-              fmt(dist),
-              fmt(elev),
-              fmt(wind),
-              fmt(impact),
-              fmt(note),
-            ];
-          });
-
-          autoTable(doc, {
-            startY: y,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2 },
-            headStyles: { fontSize: 8 },
-            head: [['#', 'SubRange', 'Dist', 'Elev', 'Wind', 'Impact', 'Notes']],
-            body: shotBody,
-          });
-
-          y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
-
-          autoTable(doc, {
-            startY: y,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2 },
-            headStyles: { fontSize: 8 },
-            head: [['#', 'SubRange', 'Dist', 'Elev', 'Wind', 'Impact', 'Notes']],
-
-            body: shotBody,
-          });
-
-          y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
-        }
-      }
-
-      // ---------- Load Development ----------
-      if (loadDevProjects.length) {
-        const pageHeight = doc.internal.pageSize.getHeight();
-        if (y > pageHeight - 40) {
-          doc.addPage();
-          y = 12;
-        }
-
-        doc.setFontSize(12);
-        doc.text(`Load Development (${loadDevProjects.length})`, 10, y);
-        y += 4;
-
-        for (const p of loadDevProjects) {
-          const pageHeight2 = doc.internal.pageSize.getHeight();
-          if (y > pageHeight2 - 40) {
-            doc.addPage();
-            y = 12;
-          }
-
-          const rifleName = rifleNameById.get(Number(p?.rifleId)) || `#${p?.rifleId ?? ''}`;
-          const title = `${p?.name ?? 'Project'} — ${rifleName}`;
-
-          doc.setFontSize(11);
-          doc.text(title, 10, y);
+          doc.setFontSize(10);
+          doc.text(`Subrange: ${srName}`, 10, y);
           y += 3;
 
-          const projRows: Array<[string, string]> = [
-            ['Type', `${p?.type ?? '-'}`],
-            ['Date started', `${p?.dateStarted ?? '-'}`],
-            ['Notes', `${p?.notes ?? '-'}`],
-          ];
-
-          autoTable(doc, {
-            startY: y,
-            theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 2 },
-            headStyles: { fontSize: 9 },
-            columnStyles: { 0: { cellWidth: 45 }, 1: { cellWidth: pageWidth - 20 - 45 } },
-            body: projRows.map(([k, v]) => [k, v]),
-          });
-
-          y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 5 : y + 25;
-
-          const entries: any[] = Array.isArray(p?.entries) ? p.entries : [];
-          if (entries.length) {
-            const entryBody = entries.map((e: any) => {
-              const charge = e?.chargeGr ?? e?.charge ?? '';
-              const shotsFired = e?.shotsFired ?? '';
-
-              const velocitiesArr = Array.isArray(e?.velocities) ? e.velocities : [];
-              const velocityInput =
-                e?.velocityInput ?? (velocitiesArr.length ? velocitiesArr.join(', ') : '');
-
-              // Prefer stored average/velocity; else compute from velocities if present
-              let velocity = e?.velocity ?? e?.aveVelocityFps ?? '';
-
-              if ((velocity === '' || velocity == null) && velocitiesArr.length) {
-                const nums = velocitiesArr
-                  .map((x: any) => Number(x))
-                  .filter((n: number) => Number.isFinite(n));
-                if (nums.length) {
-                  const avg = nums.reduce((a: number, b: number) => a + b, 0) / nums.length;
-                  velocity = Math.round(avg);
-                }
-              }
-
-              const notes = e?.notes ?? '';
-              return [`${charge}`, `${shotsFired}`, `${velocity}`, `${velocityInput}`, `${notes}`];
-            });
-
+          if (distances.length) {
+            const distBody = distances.map((d: any) => [fmt(d)]);
             autoTable(doc, {
               startY: y,
               theme: 'grid',
               styles: { fontSize: 8, cellPadding: 2 },
               headStyles: { fontSize: 8 },
-              head: [['Charge', 'Shots', 'Velocity', 'Velocity Input', 'Notes']],
-              body: entryBody,
+              head: [['Distances']],
+              body: distBody,
             });
-
-            y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
-          } else {
-            doc.setFontSize(9);
-            doc.text('No entries', 10, y);
-            y += 6;
+            y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 5 : y + 15;
           }
         }
-      }
 
-      const filename = 'gunstuff-export-' + new Date().toISOString().slice(0, 10) + '.pdf';
-
-      if (Capacitor.isNativePlatform()) {
-        try {
-          // Match the working Load Dev PDF approach (base64 from datauri)
-          const pdfBase64 = doc.output('datauristring').split(',')[1];
-
-          const writeRes = await Filesystem.writeFile({
-            path: `gs-exports/${filename}`,
-            data: pdfBase64,
-            directory: Directory.Documents,
-            recursive: true,
-          });
-
-          // Share/Print (some Android print targets may throw even when the job is created)
-          try {
-            await Share.share({
-              title: 'GS Export PDF',
-              text: 'GS Ballistics export PDF',
-              url: writeRes.uri,
-              dialogTitle: 'Share / Print PDF',
-            });
-          } catch (shareErr) {
-            console.warn('Share/Print returned an error (non-fatal):', shareErr);
-            // File still saved successfully
-          }
-        } catch (err) {
-          console.error('PDF export failed:', err);
-          alert('PDF export failed on this device.');
-        }
-      } else {
-        try {
-          const pdfBlob = doc.output('blob');
-          const url = URL.createObjectURL(pdfBlob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        } catch (err) {
-          console.error('Browser PDF export failed:', err);
-          alert('Browser PDF export failed.');
+        const pageHeight2 = doc.internal.pageSize.getHeight();
+        if (y > pageHeight2 - 30) {
+          doc.addPage();
+          y = 12;
         }
       }
     }
-    this.showExportImportDataModal = false;
+
+    // ---------- Sessions ----------
+    const includeSessionsBlock =
+      (includeRifleBlock && this.dataShareRifleSessions) ||
+      (includeVenueBlock && this.dataShareVenueSessions);
+
+    if (includeSessionsBlock && sessions.length) {
+      const pageHeight = doc.internal.pageSize.getHeight();
+      if (y > pageHeight - 40) {
+        doc.addPage();
+        y = 12;
+      }
+
+      doc.setFontSize(12);
+      doc.text(`Sessions (${sessions.length})`, 10, y);
+      y += 4;
+
+      const sessionRows = sessions.map((s: any) => [
+        `${s?.date ?? ''}`,
+        `${rifleNameById.get(Number(s?.rifleId)) ?? s?.rifleId ?? ''}`,
+        `${venueNameById.get(Number(s?.venueId)) ?? s?.venueId ?? ''}`,
+        `${s?.subRange ?? ''}`,
+        `${s?.wind ?? ''}`,
+        `${s?.notes ?? ''}`,
+      ]);
+
+      autoTable(doc, {
+        startY: y,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fontSize: 8 },
+        head: [['Date', 'Rifle', 'Venue', 'Subrange', 'Wind', 'Notes']],
+        body: sessionRows,
+      });
+
+      y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+    }
+
+    // ---------- Shots ----------
+    const includeShotsBlock =
+      (includeRifleBlock && this.dataShareRifleShots) ||
+      (includeVenueBlock && this.dataShareVenueShots);
+
+    if (includeShotsBlock && sessions.length) {
+      const allShots: any[] = [];
+      for (const s of sessions) {
+        if (Array.isArray(s?.shots)) {
+          for (const sh of s.shots) allShots.push({ ...sh, _session: s });
+        }
+      }
+
+      if (allShots.length) {
+        const pageHeight = doc.internal.pageSize.getHeight();
+        if (y > pageHeight - 40) {
+          doc.addPage();
+          y = 12;
+        }
+
+        doc.setFontSize(12);
+        doc.text(`Shots (${allShots.length})`, 10, y);
+        y += 4;
+
+        const shotRows = allShots.map((sh: any) => [
+          `${sh?._session?.date ?? ''}`,
+          `${rifleNameById.get(Number(sh?._session?.rifleId)) ?? sh?._session?.rifleId ?? ''}`,
+          `${venueNameById.get(Number(sh?._session?.venueId)) ?? sh?._session?.venueId ?? ''}`,
+          `${sh?.distance ?? ''}`,
+          `${sh?.elev ?? ''}`,
+          `${sh?.wind ?? ''}`,
+          `${sh?.impact ?? ''}`,
+          `${sh?.notes ?? ''}`,
+        ]);
+
+        autoTable(doc, {
+          startY: y,
+          theme: 'grid',
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fontSize: 8 },
+          head: [['Date', 'Rifle', 'Venue', 'Dist', 'Elev', 'Wind', 'Impact', 'Notes']],
+          body: shotRows,
+        });
+
+        y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+      }
+    }
+
+    // ---------- Load Development Projects ----------
+    if (includeRifleBlock && this.dataShareRifleLoadDev && loadDevProjects.length) {
+      const pageHeight = doc.internal.pageSize.getHeight();
+      if (y > pageHeight - 40) {
+        doc.addPage();
+        y = 12;
+      }
+
+      doc.setFontSize(12);
+      doc.text(`Load Development Projects (${loadDevProjects.length})`, 10, y);
+      y += 4;
+
+      const ldRows = loadDevProjects.map((p: any) => [
+        `${p?.name ?? ''}`,
+        `${rifleNameById.get(Number(p?.rifleId)) ?? p?.rifleId ?? ''}`,
+        `${p?.created ?? ''}`,
+        `${p?.notes ?? ''}`,
+      ]);
+
+      autoTable(doc, {
+        startY: y,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fontSize: 8 },
+        head: [['Project', 'Rifle', 'Created', 'Notes']],
+        body: ldRows,
+      });
+
+      y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 6 : y + 20;
+    }
+
+    // ---------- ALWAYS share/save the PDF (this used to be stuck inside venues.length) ----------
+    const filename = 'gunstuff-export-' + new Date().toISOString().slice(0, 10) + '.pdf';
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const pdfBase64 = doc.output('datauristring').split(',')[1];
+        const directory = Directory.Cache;
+        const path = filename;
+
+        await Filesystem.writeFile({
+          path,
+          data: pdfBase64,
+          directory,
+        });
+
+        const { uri } = await Filesystem.getUri({ path, directory });
+
+        await Share.share({
+          title: 'GS Export PDF',
+          text: 'GS Ballistics PDF export',
+          url: uri,
+        });
+      } catch (err) {
+        console.error('PDF export failed:', err);
+        alert('PDF export failed on this device.\n\n' + ((err as any)?.message ?? String(err)));
+      }
+    } else {
+      try {
+        doc.save(filename);
+      } catch (err) {
+        console.error('Browser PDF export failed:', err);
+        alert('Browser PDF export failed.');
+      }
+    }
   }
 
   private buildSimplePdfBase64FromText(text: string): string {
@@ -3612,13 +3384,18 @@ export class AppComponent implements OnInit {
       this.dataShareRifleShots = true; // ensures dope rows are exported too
     }
   }
-
   async onExportImportDataShare(): Promise<void> {
     // Close modal immediately for clean UX
     this.showExportImportDataModal = false;
-    if (this.dataShareActionMode === 'export') {
-      if (this.dataShareActionMode === 'export') this.enforceDataShareDependencies();
+
+    // PRINT MODE: do NOT generate/share JSON. Produce the PDF and return.
+    if (this.dataShareActionMode !== 'export') {
+      await this.exportPdfFromSelectedData();
+      return;
     }
+
+    // EXPORT MODE (JSON share): enforce merge-safe dependencies
+    this.enforceDataShareDependencies();
 
     const selectedRifleIds = this.dataShareAllRifles
       ? null
@@ -3668,13 +3445,7 @@ export class AppComponent implements OnInit {
         : null,
     };
 
-    let payload: any;
-
-    if (this.dataShareActionMode === 'export') {
-      payload = this.dataService.exportSelectiveShare(opts);
-    } else {
-      payload = this.dataService.exportSelectivePdf(opts);
-    }
+    const payload = this.dataService.exportSelectiveShare(opts);
 
     const json = JSON.stringify(payload, null, 2);
     const filename = 'gunstuff-share-data-' + new Date().toISOString().slice(0, 10) + '.json';

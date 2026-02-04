@@ -645,6 +645,75 @@ export class DataService {
           if (v) out.data.venues.push(v);
         }
       }
+      // ----- Orphan cleanup (SHARE ONLY) -----
+      // If the user deleted a rifle/venue but leftover sessions still point to it,
+      // we MUST drop those sessions from a share export (otherwise export stops).
+      const storeRifleIds = new Set<number>(
+        (storeCopy.rifles ?? [])
+          .map((r: any) => Number(r?.id))
+          .filter((n: number) => Number.isFinite(n)),
+      );
+
+      const storeVenueIds = new Set<number>(
+        (storeCopy.venues ?? [])
+          .map((v: any) => Number(v?.id))
+          .filter((n: number) => Number.isFinite(n)),
+      );
+
+      // 1) Drop orphaned load-dev projects (should be rare, but safe)
+      if (Array.isArray(out.data.loadDevProjects)) {
+        out.data.loadDevProjects = out.data.loadDevProjects.filter((p: any) => {
+          const rid = Number(p?.rifleId);
+          return Number.isFinite(rid) && storeRifleIds.has(rid);
+        });
+      }
+
+      // 2) Drop orphaned sessions (rifleId/venueId must exist)
+      if (Array.isArray(out.data.sessions)) {
+        out.data.sessions = out.data.sessions.filter((s: any) => {
+          const rid = Number(s?.rifleId);
+          const vid = Number(s?.venueId);
+          return (
+            Number.isFinite(rid) &&
+            Number.isFinite(vid) &&
+            storeRifleIds.has(rid) &&
+            storeVenueIds.has(vid)
+          );
+        });
+      }
+
+      // 3) Fix dope subRangeId integrity (if subRange is missing, set to null)
+      const venueById = new Map<number, any>();
+      for (const v of storeCopy.venues ?? []) {
+        const vid = Number(v?.id);
+        if (Number.isFinite(vid)) venueById.set(vid, v);
+      }
+
+      for (const s of out.data.sessions ?? []) {
+        const vid = Number(s?.venueId);
+        const v = venueById.get(vid);
+
+        const subRangesArr = Array.isArray(v?.subRanges)
+          ? v.subRanges
+          : Array.isArray(v?.subranges)
+            ? v.subranges
+            : [];
+
+        const allowedSubRangeIds = new Set<number>(
+          (subRangesArr ?? [])
+            .map((sr: any) => Number(sr?.id))
+            .filter((n: number) => Number.isFinite(n)),
+        );
+
+        const dopeArr = Array.isArray(s?.dope) ? s.dope : [];
+        for (const d of dopeArr) {
+          const srid = Number(d?.subRangeId);
+          if (!Number.isFinite(srid)) continue; // null/undefined ok
+          if (!allowedSubRangeIds.has(srid)) {
+            d.subRangeId = null; // keep the row, but remove broken link
+          }
+        }
+      }
 
       // De-dupe rifles/venues after auto-including
       out.data.rifles = this.dedupeByNumericId(out.data.rifles ?? []);

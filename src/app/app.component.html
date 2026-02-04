@@ -1032,10 +1032,23 @@
                       class="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-700 shadow-xl p-4"
                       (click)="$event.stopPropagation()"
                     >
-                      <div class="text-sm font-semibold">Export / Share</div>
-                      <div class="text-[11px] text-slate-300 mt-1 leading-snug">
-                        Share selected data (File or PDF) with another user (if file, it does not
-                        overwrite their data — it merges).
+                      <div class="text-sm font-semibold">
+                        {{ dataShareActionMode === 'print' ? 'Share (PDF)' : 'Export (File)' }}
+                      </div>
+
+                      <div
+                        class="text-[11px] text-slate-300 mt-1 leading-snug"
+                        *ngIf="dataShareActionMode === 'export'"
+                      >
+                        Create a share file for another user. Importing it will merge (it will not
+                        overwrite).
+                      </div>
+
+                      <div
+                        class="text-[11px] text-slate-300 mt-1 leading-snug"
+                        *ngIf="dataShareActionMode === 'print'"
+                      >
+                        Create a PDF report from your current selection for printing or sending.
                       </div>
 
                       <div class="mt-3 space-y-3 text-[11px]">
