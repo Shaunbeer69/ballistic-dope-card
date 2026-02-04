@@ -3282,10 +3282,18 @@ This confirms which timing node is the most repeatable and forgiving in real sho
   }
 
   private updateHasResultsFlag(): void {
-    this.hasResultsForSelectedProject =
-      !!this.selectedProject &&
-      !!this.selectedProject.entries &&
-      this.selectedProject.entries.length > 0;
+    const sp: any = this.selectedProject as any;
+
+    const raw = sp?.entries ?? sp?.loadData ?? sp?.shots ?? sp?.results ?? sp?.data ?? [];
+
+    const byProject = Array.isArray(raw) && raw.length > 0;
+    const byVisible = Array.isArray(this.visibleEntries) && this.visibleEntries.length > 0;
+
+    this.hasResultsForSelectedProject = !!this.selectedProject && (byProject || byVisible);
+    const byProject =
+      Array.isArray((this.selectedProject as any)?.entries) &&
+      (this.selectedProject as any).entries.length > 0;
+    this.hasResultsForSelectedProject = !!this.selectedProject && (byVisible || byProject);
 
     this.updateOcwValidationWarning();
   }
@@ -3781,7 +3789,11 @@ This confirms which timing node is the most repeatable and forgiving in real sho
   // Removed duplicate implementation of rebuildVisibleEntries()
   entriesForSelectedProject(): LoadDevEntry[] {
     if (!this.selectedProject) return [];
-    const list = [...(this.selectedProject.entries ?? [])];
+    const sp: any = this.selectedProject as any;
+
+    const raw = sp.entries ?? sp.loadData ?? sp.shots ?? sp.results ?? sp.data ?? [];
+
+    const list: LoadDevEntry[] = Array.isArray(raw) ? [...raw] : [];
 
     if (this.selectedProject.type === 'ocw') {
       return this.sortOcwEntriesBySd(list);
@@ -3840,50 +3852,62 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     const entries = (this.selectedProject as any)?.entries as any[] | undefined;
     if (!entries || !entries.length) return null;
 
-    return (
-      entries.find(
-        (e: any) =>
-          e &&
-          (e.powder ||
-            e.bullet ||
-            e.bulletWeightGr != null ||
-            (e as any).coal != null ||
-            (e as any).coalUnit != null ||
-            e.oal != null ||
-            e.oalOgive != null),
-      ) ?? null
-    );
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const e: any = entries[i];
+      if (
+        e &&
+        (e.powder ||
+          e.bullet ||
+          e.bulletWeightGr != null ||
+          e.coal != null ||
+          e.coalUnit != null ||
+          e.oal != null ||
+          e.oalOgive != null ||
+          e.lands != null)
+      ) {
+        return e;
+      }
+    }
+    return null;
   }
 
   summaryPowderText(): string {
     const sp: any = this.selectedProject as any;
     if (!sp) return '—';
-    return (sp.powder || this.getSummarySourceEntry()?.powder || '—') as string;
+    return (this.getSummarySourceEntry()?.powder || sp.powder || '—') as string;
   }
 
   summaryBulletText(): string {
     const sp: any = this.selectedProject as any;
     if (!sp) return '—';
-    return (sp.bullet || this.getSummarySourceEntry()?.bullet || '—') as string;
+    return (this.getSummarySourceEntry()?.bullet || sp.bullet || '—') as string;
   }
 
   summaryBulletWeightGr(): number | null {
     const sp: any = this.selectedProject as any;
     if (!sp) return null;
-    const w = sp.bulletWeightGr ?? this.getSummarySourceEntry()?.bulletWeightGr;
+    const w = this.getSummarySourceEntry()?.bulletWeightGr ?? sp.bulletWeightGr;
     return typeof w === 'number' && Number.isFinite(w) ? w : null;
+  }
+  summaryLandsValue(): number | null {
+    const sp: any = this.selectedProject as any;
+    if (!sp) return null;
+
+    const e: any = this.getSummarySourceEntry();
+    const raw = e?.lands ?? sp.lands;
+    if (raw == null) return null;
+
+    const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
   }
 
   summaryCoalValue(): number | null {
     const sp: any = this.selectedProject as any;
     if (!sp) return null;
 
-    // Prefer project-level (current)
-    if (sp.oal != null && typeof sp.oal === 'number' && Number.isFinite(sp.oal)) return sp.oal;
-
-    // Fallback to entry-level legacy: `coal` can be string/number
+    // Prefer entry-level (legacy `coal` or `oal`)
     const e: any = this.getSummarySourceEntry();
-    const raw = e?.coal ?? e?.oal;
+    const raw = e?.coal ?? e?.oal ?? sp.oal;
     if (raw == null) return null;
 
     const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
@@ -3894,13 +3918,13 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     const sp: any = this.selectedProject as any;
     if (!sp) return 'mm';
 
-    // Prefer project-level unit
-    if (sp.oalUnit) return String(sp.oalUnit);
-
-    // Fallback to entry-level legacy unit
+    // Prefer entry-level unit
     const e: any = this.getSummarySourceEntry();
     if (e?.coalUnit) return String(e.coalUnit);
     if (e?.oalUnit) return String(e.oalUnit);
+
+    // Fallback to project-level
+    if (sp.oalUnit) return String(sp.oalUnit);
 
     return 'mm';
   }
@@ -3909,13 +3933,9 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     const sp: any = this.selectedProject as any;
     if (!sp) return null;
 
-    // Prefer project-level
-    if (sp.oalOgive != null && typeof sp.oalOgive === 'number' && Number.isFinite(sp.oalOgive))
-      return sp.oalOgive;
-
-    // Fallback if any legacy entry stored ogive
+    // Prefer entry-level (what was actually shot / planned)
     const e: any = this.getSummarySourceEntry();
-    const raw = e?.oalOgive ?? e?.coalOgive;
+    const raw = e?.oalOgive ?? e?.coalOgive ?? sp.oalOgive;
     if (raw == null) return null;
 
     const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
