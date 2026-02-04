@@ -147,11 +147,11 @@
             </div>
           </div>
           <!-- Lands + (Lands - Ogive) -->
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-[2fr_1fr] gap-2">
             <!-- LEFT: Lands input -->
             <div>
               <div class="text-gray-400 mb-0.5 flex items-center justify-between gap-2">
-                <span>Lands (BTO)</span>
+                <span class="text-white font-semibold">Actual Lands (BTO)</span>
                 <span class="text-[10px] text-gray-500">({{ projectForm.oalUnit || 'mm' }})</span>
               </div>
 
@@ -185,7 +185,7 @@
           <div class="grid grid-cols-2 gap-2">
             <!-- LEFT: Ogive length (BTO) + unit -->
             <div>
-              <div class="text-gray-400 mb-0.5 flex items-center justify-between gap-2">
+              <div class="text-white-400 mb-0.5 flex items-center justify-between gap-2">
                 <span>Test Coal</span>
                 <select
                   class="bg-black/40 border border-gray-700 rounded-xl px-2 py-0.5 text-gray-100 text-[10px]"
@@ -1378,32 +1378,46 @@
                     </ng-template>
                     <!-- RIGHT: Summary -->
                     <div class="rounded-2xl border border-gray-700 bg-black/30 p-2">
-                      <div class="text-[10px] text-gray-300 font-semibold mb-1">Summary</div>
+                      <!-- Summary label: normal weight (not bold) -->
+                      <div class="text-[10px] text-gray-300 mb-1">Summary</div>
 
                       <div
                         class="grid grid-cols-[auto,1fr,auto,1fr] gap-x-3 gap-y-1 text-[10px] text-gray-200"
                       >
                         <!-- Row 1 -->
                         <div class="text-gray-400">Powder:</div>
-                        <div class="font-semibold truncate">
+                        <div
+                          class="font-semibold"
+                          style="white-space: normal; word-break: break-word"
+                        >
                           {{ summaryPowderText() }}
                         </div>
 
                         <div class="text-gray-400">Bullet:</div>
-                        <div class="font-semibold truncate">
+                        <div
+                          class="font-semibold"
+                          style="white-space: normal; word-break: break-word"
+                        >
                           {{ summaryBulletText() }}
                         </div>
 
                         <!-- Row 2 -->
                         <div class="text-gray-400">Bullet wt:</div>
-                        <div class="font-semibold">
+                        <div
+                          class="font-semibold"
+                          style="white-space: normal; word-break: break-word"
+                        >
                           <ng-container *ngIf="summaryBulletWeightGr() as bw; else bwDash">
                             {{ bw }} <span> gr</span>
                           </ng-container>
                           <ng-template #bwDash>—</ng-template>
                         </div>
+
                         <div class="text-gray-400">Lands (BTO):</div>
-                        <div class="font-semibold">
+                        <div
+                          class="font-semibold"
+                          style="white-space: normal; word-break: break-word"
+                        >
                           <ng-container *ngIf="selectedProject?.lands != null; else landsDash">
                             {{ selectedProject?.lands }}
                             <span>
@@ -1415,7 +1429,10 @@
 
                         <!-- Row 3 -->
                         <div class="text-gray-400">Test (BTO):</div>
-                        <div class="font-semibold">
+                        <div
+                          class="font-semibold"
+                          style="white-space: normal; word-break: break-word"
+                        >
                           <ng-container *ngIf="summaryCoalOgiveValue() as og; else ogDash">
                             {{ og }}
                             <span>
@@ -1426,7 +1443,10 @@
                         </div>
 
                         <div class="text-gray-400">Test (BTT):</div>
-                        <div class="font-semibold">
+                        <div
+                          class="font-semibold"
+                          style="white-space: normal; word-break: break-word"
+                        >
                           <ng-container *ngIf="summaryCoalValue() as coal; else coalDash">
                             {{ coal }}
                             <span>
@@ -1438,7 +1458,10 @@
 
                         <!-- Row 4 -->
                         <div class="text-gray-400">Jump:</div>
-                        <div class="font-semibold">
+                        <div
+                          class="font-semibold"
+                          style="white-space: normal; word-break: break-word"
+                        >
                           <ng-container
                             *ngIf="
                               selectedProject?.lands != null && selectedProject?.oalOgive != null;
@@ -1456,9 +1479,15 @@
                           <ng-template #jumpDash>—</ng-template>
                         </div>
 
-                        <div class="col-span-4 flex items-baseline gap-2">
-                          <div class="text-gray-400 whitespace-nowrap">Charge range:</div>
-                          <div class="font-semibold whitespace-nowrap">
+                        <!-- Charge range (wrap + continue on next line) -->
+                        <div
+                          class="col-span-4 grid grid-cols-[auto,1fr] gap-x-2 gap-y-1 items-start"
+                        >
+                          <div class="text-gray-400">Charge range:</div>
+                          <div
+                            class="font-semibold"
+                            style="white-space: normal; word-break: break-word"
+                          >
                             {{ selectedProjectChargeRangeText() }}
                           </div>
                         </div>
@@ -1484,6 +1513,7 @@
             </ng-container>
 
             <!-- Bottom Back (always visible, even when results are collapsed/hidden) -->
+
             <div class="w-100 flex justify-between gap-2">
               <button
                 class="px-3 py-[4px] rounded-full bg-gray-100 text-black text-[12px] font-semibold shadow"
