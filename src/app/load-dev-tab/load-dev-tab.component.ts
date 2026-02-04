@@ -122,6 +122,9 @@ interface OcwGroupEllipse {
   templateUrl: './load-dev-tab.component.html',
 })
 export class LoadDevTabComponent implements OnInit {
+  close() {
+    throw new Error('Method not implemented.');
+  }
   @ViewChild('velocityInputEl') velocityInputEl?: ElementRef<HTMLInputElement>;
   @ViewChild('pdfContent') pdfContent?: ElementRef<HTMLElement>;
   @ViewChild('targetFileInput') targetFileInput?: ElementRef<HTMLInputElement>;
