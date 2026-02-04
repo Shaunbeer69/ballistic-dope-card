@@ -1055,7 +1055,11 @@
                         <!-- RIFLES -->
                         <div class="rounded-xl border border-slate-700 bg-black/20 p-3">
                           <label class="flex items-center gap-2 text-slate-200 font-semibold">
-                            <input type="checkbox" [(ngModel)]="dataShareIncludeRifles" />
+                            <input
+                              type="checkbox"
+                              [ngModel]="dataShareIncludeRifles"
+                              (ngModelChange)="setIncludeRiflesForShare($event)"
+                            />
                             <span>Rifles</span>
                           </label>
 
@@ -1111,13 +1115,21 @@
                         <!-- VENUES -->
                         <div class="rounded-xl border border-slate-700 bg-black/20 p-3">
                           <label class="flex items-center gap-2 text-slate-200 font-semibold">
-                            <input type="checkbox" [(ngModel)]="dataShareIncludeVenues" />
+                            <input
+                              type="checkbox"
+                              [ngModel]="dataShareIncludeVenues"
+                              (ngModelChange)="setIncludeVenuesForShare($event)"
+                            />
                             <span>Venues</span>
                           </label>
 
                           <div *ngIf="dataShareIncludeVenues" class="mt-2 space-y-2">
                             <label class="flex items-center gap-2 text-slate-300">
-                              <input type="checkbox" [(ngModel)]="dataShareAllVenues" />
+                              <input
+                                type="checkbox"
+                                [ngModel]="dataShareAllVenues"
+                                (ngModelChange)="setAllVenuesForShare($event)"
+                              />
                               <span>All venues</span>
                             </label>
 

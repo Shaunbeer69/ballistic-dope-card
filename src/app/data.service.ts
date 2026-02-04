@@ -511,49 +511,88 @@ export class DataService {
       }
 
       // --- Sessions / shots ---
-      const effectiveIncludeSessions = includeSessions || includeShots;
+      // NOTE: Sessions belong to BOTH rifleId and venueId.
+      // For PDF mode we must NOT do a union when both sides are enabled, otherwise
+      // the export balloons. Instead:
+      // - If rifle sessions/shots requested => apply rifle filter
+      // - If venue sessions/shots requested => apply venue filter
+      // - If both requested => intersection (AND)
+      const rifleWantsSessions = includeSessions || includeShots;
 
-      if (effectiveIncludeSessions) {
-        const sessions = (storeCopy.sessions ?? []).filter((s: any) =>
-          selectedRifleIds ? selectedRifleIds.includes(Number(s?.rifleId)) : true,
-        );
-
-        // If shots not included, strip dope array (shot rows)
-        if (!includeShots) {
-          for (const s of sessions) {
-            if (Array.isArray(s?.dope)) s.dope = [];
-          }
-        }
-
-        out.data.sessions = out.data.sessions.concat(sessions);
-      }
+      // We DO NOT export sessions here yet; we do it once below (after we know what venues want)
+      // by using conditional filtering based on rifleWantsSessions/venueWantsSessions.
     }
 
     // --- Venues ---
+    let venueWantsSessions = false;
+    let venueWantsShots = false;
+
     if (venuesOpt) {
       const includeVenueData = !!venuesOpt.includeVenueData;
-      const includeSessions = !!venuesOpt.includeSessions;
-      const includeShots = !!venuesOpt.includeShots;
+      const includeVenueSessions = !!venuesOpt.includeSessions;
+      const includeVenueShots = !!venuesOpt.includeShots;
+
+      venueWantsSessions = includeVenueSessions || includeVenueShots;
+      venueWantsShots = includeVenueShots;
 
       const venueFilter = (v: any) => !selectedVenueIds || selectedVenueIds.includes(Number(v?.id));
 
       if (includeVenueData) {
         out.data.venues = (storeCopy.venues ?? []).filter(venueFilter);
       }
+    }
 
-      if (includeSessions || includeShots) {
-        const sessions = (storeCopy.sessions ?? []).filter((s: any) =>
-          selectedVenueIds ? selectedVenueIds.includes(Number(s?.venueId)) : true,
-        );
+    // ---------- Sessions/Shots (single pass; PDF uses conditional AND) ----------
+    // Recompute rifle wants flags here (since we exited that scope above)
+    const riflesOpt2 = opts?.rifles ?? null;
+    const selectedRifleIds2: number[] | null =
+      riflesOpt2 && riflesOpt2.all
+        ? null
+        : Array.isArray(riflesOpt2?.ids)
+          ? riflesOpt2.ids.map((x: any) => Number(x))
+          : null;
 
-        if (!includeShots) {
-          for (const s of sessions) {
-            if (Array.isArray(s?.dope)) s.dope = [];
-          }
+    const rifleWantsSessions2 =
+      !!riflesOpt2 && (!!riflesOpt2.includeSessions || !!riflesOpt2.includeShots);
+    const rifleWantsShots2 = !!riflesOpt2 && !!riflesOpt2.includeShots;
+
+    const wantsAnySessions = rifleWantsSessions2 || venueWantsSessions;
+
+    if (wantsAnySessions) {
+      const sessions = (storeCopy.sessions ?? []).filter((s: any) => {
+        const rid = Number(s?.rifleId);
+        const vid = Number(s?.venueId);
+
+        // If a side is NOT requesting sessions, it should NOT affect inclusion.
+        // When both sides request sessions, include sessions that match EITHER side (union),
+        // so Rifles and Venues remain independent selectors.
+        const rifleMatch = rifleWantsSessions2
+          ? !selectedRifleIds2
+            ? true
+            : selectedRifleIds2.includes(rid)
+          : false;
+
+        const venueMatch = venueWantsSessions
+          ? !selectedVenueIds
+            ? true
+            : selectedVenueIds.includes(vid)
+          : false;
+
+        if (rifleWantsSessions2 && venueWantsSessions) return rifleMatch || venueMatch;
+        if (rifleWantsSessions2) return rifleMatch;
+        return venueMatch;
+      });
+
+      const wantsAnyShots = rifleWantsShots2 || venueWantsShots;
+
+      // If shots not included by either side, strip dope array (shot rows)
+      if (!wantsAnyShots) {
+        for (const s of sessions) {
+          if (Array.isArray(s?.dope)) s.dope = [];
         }
-
-        out.data.sessions = out.data.sessions.concat(sessions);
       }
+
+      out.data.sessions = out.data.sessions.concat(sessions);
     }
 
     // De-dupe sessions by id (rifle+venue selections can overlap)

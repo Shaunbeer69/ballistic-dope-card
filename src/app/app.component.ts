@@ -2318,13 +2318,59 @@ export class AppComponent implements OnInit {
     // this.dataShareIncludeRifles = false;
     // this.dataShareIncludeVenues = false;
 
-    if (this.dataShareAllRifles) this.dataShareRifleIds.clear();
-    if (this.dataShareAllVenues) this.dataShareVenueIds.clear();
+    // Always open Share (PDF) in the clean "two master checkboxes" state
+    this.dataShareIncludeRifles = false;
+    this.dataShareIncludeVenues = false;
+
+    // Use explicit list selection (not "All") when user enables a section
+    this.dataShareAllRifles = false;
+    this.dataShareAllVenues = false;
+
+    // Start with no picks; when a master is enabled we preselect all items
+    this.dataShareRifleIds.clear();
+    this.dataShareVenueIds.clear();
   }
 
   closeExportImportDataModal(): void {
     this.showExportImportDataModal = false;
   }
+
+  // Master toggle: when enabled, preselect ALL rifles so user can untick unwanted
+  setIncludeRiflesForShare(checked: boolean): void {
+    this.dataShareIncludeRifles = !!checked;
+
+    if (!this.dataShareIncludeRifles) {
+      this.dataShareAllRifles = false;
+      this.dataShareRifleIds.clear();
+      return;
+    }
+
+    // Use explicit list selection (not "All") and preselect everything
+    this.dataShareAllRifles = false;
+    this.dataShareRifleIds.clear();
+    for (const r of this.riflesOptions ?? []) {
+      this.dataShareRifleIds.add(Number((r as any)?.id));
+    }
+  }
+
+  // Master toggle: when enabled, preselect ALL venues so user can untick unwanted
+  setIncludeVenuesForShare(checked: boolean): void {
+    this.dataShareIncludeVenues = !!checked;
+
+    if (!this.dataShareIncludeVenues) {
+      this.dataShareAllVenues = false;
+      this.dataShareVenueIds.clear();
+      return;
+    }
+
+    // Use explicit list selection (not "All") and preselect everything
+    this.dataShareAllVenues = false;
+    this.dataShareVenueIds.clear();
+    for (const v of this.venuesOptions ?? []) {
+      this.dataShareVenueIds.add(Number((v as any)?.id));
+    }
+  }
+
   setAllRiflesForShare(checked: boolean): void {
     this.dataShareAllRifles = !!checked;
 
@@ -2332,11 +2378,18 @@ export class AppComponent implements OnInit {
     if (this.dataShareAllRifles) this.dataShareRifleIds.clear();
   }
 
+  // Keep venues consistent with rifles: if switching to "All venues", ignore prior picks
+  setAllVenuesForShare(checked: boolean): void {
+    this.dataShareAllVenues = !!checked;
+    if (this.dataShareAllVenues) this.dataShareVenueIds.clear();
+  }
+
   isRifleSelectedForShare(id: number): boolean {
     return this.dataShareRifleIds.has(Number(id));
   }
 
   toggleRifleShare(id: number): void {
+    if (this.dataShareAllRifles) return; // ignore list clicks when "All rifles" is on
     const n = Number(id);
     if (this.dataShareRifleIds.has(n)) this.dataShareRifleIds.delete(n);
     else this.dataShareRifleIds.add(n);
@@ -2347,6 +2400,7 @@ export class AppComponent implements OnInit {
   }
 
   toggleVenueShare(id: number): void {
+    if (this.dataShareAllVenues) return; // ignore list clicks when "All venues" is on
     const n = Number(id);
     if (this.dataShareVenueIds.has(n)) this.dataShareVenueIds.delete(n);
     else this.dataShareVenueIds.add(n);
@@ -2354,6 +2408,7 @@ export class AppComponent implements OnInit {
 
   async onChooseExport(): Promise<void> {
     // Backward-compatible: old button now behaves like Share
+
     await this.onExportShare();
   }
   async onExportSaveLocal(): Promise<void> {
@@ -2369,6 +2424,7 @@ export class AppComponent implements OnInit {
   onChooseImport(): void {
     // Keep modal open until user picks (or cancel picker)
     // Trigger the hidden input (more reliable on Android)
+
     if (this.importFileInput?.nativeElement) {
       this.importFileInput.nativeElement.value = ''; // allow re-import same file twice
       this.importFileInput.nativeElement.click();
