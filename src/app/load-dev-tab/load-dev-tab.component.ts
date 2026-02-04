@@ -3283,17 +3283,12 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
   private updateHasResultsFlag(): void {
     const sp: any = this.selectedProject as any;
-
     const raw = sp?.entries ?? sp?.loadData ?? sp?.shots ?? sp?.results ?? sp?.data ?? [];
 
     const byProject = Array.isArray(raw) && raw.length > 0;
     const byVisible = Array.isArray(this.visibleEntries) && this.visibleEntries.length > 0;
 
     this.hasResultsForSelectedProject = !!this.selectedProject && (byProject || byVisible);
-    const byProject =
-      Array.isArray((this.selectedProject as any)?.entries) &&
-      (this.selectedProject as any).entries.length > 0;
-    this.hasResultsForSelectedProject = !!this.selectedProject && (byVisible || byProject);
 
     this.updateOcwValidationWarning();
   }
