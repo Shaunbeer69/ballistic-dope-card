@@ -435,6 +435,7 @@
             </button>
 
             <button
+              *ngIf="selectedProjectId || selectedProject"
               type="button"
               class="px-3 py-1.5 rounded-2xl bg-gray-700 text-gray-100 text-[11px]"
               (click)="toggleResultsCollapsed()"
