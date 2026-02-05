@@ -1418,8 +1418,9 @@
                           class="font-semibold"
                           style="white-space: normal; word-break: break-word"
                         >
-                          <ng-container *ngIf="selectedProject?.lands != null; else landsDash">
-                            {{ selectedProject?.lands }}
+                          <ng-container *ngIf="summaryLandsValue() as lands; else landsDash">
+                            {{ lands }}
+
                             <span>
                               <ng-container *ngIf="summaryCoalUnit() as cu">{{ cu }}</ng-container>
                             </span>
@@ -1462,19 +1463,15 @@
                           class="font-semibold"
                           style="white-space: normal; word-break: break-word"
                         >
-                          <ng-container
-                            *ngIf="
-                              selectedProject?.lands != null && selectedProject?.oalOgive != null;
-                              else jumpDash
-                            "
-                          >
-                            {{
-                              +selectedProject!.lands! - +selectedProject!.oalOgive!
-                                | number: '1.0-3'
-                            }}
-                            <span>
-                              <ng-container *ngIf="summaryCoalUnit() as cu">{{ cu }}</ng-container>
-                            </span>
+                          <ng-container *ngIf="summaryLandsValue() as lands; else jumpDash">
+                            <ng-container *ngIf="summaryCoalOgiveValue() as og; else jumpDash">
+                              {{ lands - og | number: '1.0-3' }}
+                              <span>
+                                <ng-container *ngIf="summaryCoalUnit() as cu">{{
+                                  cu
+                                }}</ng-container>
+                              </span>
+                            </ng-container>
                           </ng-container>
                           <ng-template #jumpDash>—</ng-template>
                         </div>
@@ -1504,6 +1501,7 @@
                 </div>
 
                 <!-- Export removed (keep layout spacing identical) -->
+
                 <div
                   class="px-3 py-1.5 rounded-2xl bg-white text-black font-semibold text-[11px] border border-gray-300 invisible pointer-events-none select-none"
                 >

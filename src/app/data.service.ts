@@ -1159,38 +1159,85 @@ export class DataService {
 
         if (!existingProject) addedProjects++;
 
-        // Merge entries by chargeGr (skip if same charge already exists)
+        // Merge entries by chargeGr:
+        // - If charge does NOT exist => add
+        // - If charge exists => update if incoming is newer OR incoming has shot data and existing doesn't
         const incomingEntries = Array.isArray(p?.entries) ? p.entries : [];
+
+        const toMs = (iso: any): number => {
+          const t = Date.parse(String(iso ?? ''));
+          return Number.isFinite(t) ? t : 0;
+        };
+
+        const hasMeaningfulShotData = (en: any): boolean => {
+          const vIn = String(en?.velocityInput ?? '').trim();
+          const sf = Number(en?.shotsFired);
+          return vIn.length > 0 || (Number.isFinite(sf) && sf > 0);
+        };
+
+        // Ensure entries array exists
+        targetProject.entries = Array.isArray(targetProject.entries) ? targetProject.entries : [];
+
         for (const e of incomingEntries) {
           const charge = Number(e?.chargeGr);
-          const already = (targetProject.entries ?? []).some((x) => Number(x.chargeGr) === charge);
+          if (!Number.isFinite(charge)) continue;
 
-          if (already) continue;
+          const existingIdx = targetProject.entries.findIndex(
+            (x: any) => Number(x?.chargeGr) === charge,
+          );
 
-          const created = this.addLoadDevEntry(targetProject.id, {
-            chargeGr: e?.chargeGr,
-            velocity: (e as any)?.velocity,
-            velocities: Array.isArray((e as any)?.velocities) ? (e as any).velocities : undefined,
+          // If the row doesn't exist yet, add it (same as before)
+          if (existingIdx < 0) {
+            const created = this.addLoadDevEntry(targetProject.id, {
+              chargeGr: e?.chargeGr,
+              velocity: (e as any)?.velocity,
+              velocities: Array.isArray((e as any)?.velocities) ? (e as any).velocities : undefined,
+              velocityInput: (e as any)?.velocityInput ?? undefined,
+              shotsFired: (e as any)?.shotsFired ?? undefined,
+              notes: (e as any)?.notes,
+              targetPhotoDataUrl: (e as any)?.targetPhotoDataUrl,
+              entryPhotoDataUrl: (e as any)?.entryPhotoDataUrl,
+              ...((e as any)?.groupSizeCm !== undefined
+                ? { groupSizeCm: (e as any).groupSizeCm }
+                : {}),
+              ...((e as any)?.createdAt ? { createdAt: (e as any).createdAt } : {}),
+              ...((e as any)?.updatedAt ? { updatedAt: (e as any).updatedAt } : {}),
+            } as any);
 
-            // ✅ THIS is what Ladder restores from (shot strings)
-            velocityInput: (e as any)?.velocityInput ?? undefined,
+            if (created) addedEntries++;
+            continue;
+          }
 
-            // ✅ keep shot count if you stored it
-            shotsFired: (e as any)?.shotsFired ?? undefined,
+          // Row exists: decide whether to apply incoming changes
+          const existing = targetProject.entries[existingIdx] as any;
 
-            notes: (e as any)?.notes,
-            targetPhotoDataUrl: (e as any)?.targetPhotoDataUrl,
-            entryPhotoDataUrl: (e as any)?.entryPhotoDataUrl,
+          const existingTs = Math.max(toMs(existing?.updatedAt), toMs(existing?.createdAt));
+          const incomingTs = Math.max(toMs((e as any)?.updatedAt), toMs((e as any)?.createdAt));
 
-            // keep any extra fields safely
-            ...((e as any)?.groupSizeCm !== undefined
-              ? { groupSizeCm: (e as any).groupSizeCm }
-              : {}),
-            ...((e as any)?.createdAt ? { createdAt: (e as any).createdAt } : {}),
-            ...((e as any)?.updatedAt ? { updatedAt: (e as any).updatedAt } : {}),
-          } as any);
+          const incomingHasShots = hasMeaningfulShotData(e);
+          const existingHasShots = hasMeaningfulShotData(existing);
 
-          if (created) addedEntries++;
+          // Update rules:
+          // 1) If incoming is newer -> merge
+          // 2) If incoming has shot data and existing doesn't -> merge
+          const shouldMerge = incomingTs > existingTs || (incomingHasShots && !existingHasShots);
+          if (!shouldMerge) continue;
+
+          // Merge. IMPORTANT: preserve the existing local entry id.
+          // Also IMPORTANT: keep incoming updatedAt if provided (do NOT auto-bump here).
+          const merged: any = {
+            ...existing,
+            ...(e as any),
+            id: existing.id,
+            chargeGr: existing.chargeGr ?? (e as any)?.chargeGr,
+            createdAt: existing?.createdAt ?? (e as any)?.createdAt ?? new Date().toISOString(),
+            updatedAt: (e as any)?.updatedAt ?? existing?.updatedAt ?? new Date().toISOString(),
+          };
+
+          targetProject.entries[existingIdx] = merged;
+
+          // Persist project after modifying entries
+          this.updateLoadDevProject(targetProject as any);
         }
       }
 

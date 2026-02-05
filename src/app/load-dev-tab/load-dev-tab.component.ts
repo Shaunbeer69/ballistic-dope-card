@@ -3847,46 +3847,29 @@ This confirms which timing node is the most repeatable and forgiving in real sho
   }
   // ---------- Summary helpers (fallback to entry-level data) ----------
   private getSummarySourceEntry(): any | null {
-    const entries = (this.selectedProject as any)?.entries as any[] | undefined;
-    if (!entries || !entries.length) return null;
-
-    for (let i = entries.length - 1; i >= 0; i--) {
-      const e: any = entries[i];
-      if (
-        e &&
-        (e.powder ||
-          e.bullet ||
-          e.bulletWeightGr != null ||
-          e.coal != null ||
-          e.coalUnit != null ||
-          e.oal != null ||
-          e.oalOgive != null ||
-          e.lands != null)
-      ) {
-        return e;
-      }
-    }
-    return null;
+    return this.visibleEntries?.length ? this.visibleEntries[0] : null;
   }
-
   summaryPowderText(): string {
     const sp: any = this.selectedProject as any;
-    if (!sp) return '—';
-    return (this.getSummarySourceEntry()?.powder || sp.powder || '—') as string;
+    const e: any = this.getSummarySourceEntry();
+    return String(e?.powder ?? sp?.powder ?? '—');
   }
 
   summaryBulletText(): string {
     const sp: any = this.selectedProject as any;
-    if (!sp) return '—';
-    return (this.getSummarySourceEntry()?.bullet || sp.bullet || '—') as string;
+    const e: any = this.getSummarySourceEntry();
+    return String(e?.bullet ?? sp?.bullet ?? '—');
   }
 
   summaryBulletWeightGr(): number | null {
     const sp: any = this.selectedProject as any;
-    if (!sp) return null;
-    const w = this.getSummarySourceEntry()?.bulletWeightGr ?? sp.bulletWeightGr;
-    return typeof w === 'number' && Number.isFinite(w) ? w : null;
+    const e: any = this.getSummarySourceEntry();
+    const raw = e?.bulletWeightGr ?? sp?.bulletWeightGr;
+    if (raw == null) return null;
+    const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
   }
+
   summaryLandsValue(): number | null {
     const sp: any = this.selectedProject as any;
     if (!sp) return null;

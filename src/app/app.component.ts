@@ -2807,6 +2807,24 @@ export class AppComponent implements OnInit {
     if (!file) return;
 
     const text = await file.text();
+    // --- Exact-file detection (content hash) ---
+    let fileHash = '';
+    try {
+      fileHash = await this.sha256Text(text);
+      const key = 'gs_import_hashes_v1';
+      const prev = JSON.parse(localStorage.getItem(key) || '[]') as string[];
+      const seen = new Set(prev);
+
+      if (seen.has(fileHash)) {
+        const again = confirm(
+          'This exact backup file was already imported on this device.\n\n' +
+            'OK = import anyway (merge again)\nCancel = stop',
+        );
+        if (!again) return;
+      }
+    } catch {
+      // If hashing fails, do not block import
+    }
 
     let parsed: any;
     try {
@@ -2831,6 +2849,13 @@ export class AppComponent implements OnInit {
 
     // Refresh menus/counts
     this.loadCoreData();
+    // --- Remember imported file hash (last 50) ---
+    if (fileHash) {
+      const key = 'gs_import_hashes_v1';
+      const prev = JSON.parse(localStorage.getItem(key) || '[]') as string[];
+      const next = [fileHash, ...prev.filter((h) => h !== fileHash)].slice(0, 50);
+      localStorage.setItem(key, JSON.stringify(next));
+    }
 
     alert(`Import complete.\n\n${result.message}`);
   }
@@ -2853,6 +2878,12 @@ export class AppComponent implements OnInit {
       );
       return null;
     }
+  }
+  private async sha256Text(text: string): Promise<string> {
+    const data = new TextEncoder().encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
   }
 
   private buildSelectiveExportValidationReport(opts: any, contextLabel: string, err: any): string {
