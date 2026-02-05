@@ -44,9 +44,8 @@ interface ProjectForm {
   brass: string;
   // Lands (reference length for seating depth)
   lands: number | null;
-
-  oal: number | null;
-  oalOgive: number | null;
+  oal: string | null;
+  oalOgive: string | null;
 
   // ✅ NEW: unit selector for COAL / Ogive input
   oalUnit: 'mm' | 'in';
@@ -2870,6 +2869,27 @@ export class LoadDevTabComponent implements OnInit {
       }, 0);
     }
   }
+  private applyAutoDecimal(value: string, unit: 'in' | 'mm'): string {
+    if (!value) return value;
+
+    if (value.startsWith('.')) return value;
+
+    const digitsOnly = value.replace('.', '');
+
+    if (unit === 'in') {
+      if (digitsOnly.length === 1 && !value.includes('.')) {
+        return digitsOnly + '.';
+      }
+    }
+
+    if (unit === 'mm') {
+      if (digitsOnly.length === 2 && !value.includes('.')) {
+        return digitsOnly + '.';
+      }
+    }
+
+    return value;
+  }
 
   entryHasPhoto(entry: LoadDevEntry): boolean {
     const any = entry as any;
@@ -2886,6 +2906,16 @@ export class LoadDevTabComponent implements OnInit {
       !!p?.targetPhotoBase64 ||
       !!p?.targetPhotoDataUrl
     );
+  }
+  onOalDecimalInput(field: 'oal' | 'oalOgive', event: any) {
+    const input = event.target as HTMLInputElement;
+
+    // Load Dev uses the per-project COAL unit selector
+    const unit = (this.projectForm?.oalUnit ?? 'mm') as 'mm' | 'in';
+
+    const newVal = this.applyAutoDecimal(input.value, unit);
+    input.value = newVal;
+    this.projectForm[field] = newVal;
   }
 
   hasAnyPhoto(): boolean {

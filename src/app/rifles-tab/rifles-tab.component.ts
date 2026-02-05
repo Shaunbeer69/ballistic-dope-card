@@ -921,31 +921,36 @@ export class RiflesTabComponent implements OnInit {
   }
 
   onInchDecimalInput(field: 'landsOgive' | 'coal' | 'coalOgive', ev: Event): void {
-    // Only enforce formatting when user is working in inches
-    const unit = this.loadForm?.coalUnit ?? this.defaultLoadCoalUnit;
-    if (unit !== 'in') return;
-
     const input = ev.target as HTMLInputElement | null;
     if (!input) return;
 
     let v = (input.value ?? '').toString();
-
-    // 1) Comma -> dot
+    // Normalize commas
     v = v.replace(/,/g, '.');
 
-    // 2) Only allow digits and a single dot
+    // Allow digits and dot only
     v = v.replace(/[^0-9.]/g, '');
-    const firstDot = v.indexOf('.');
-    if (firstDot !== -1) {
-      v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+    // Respect sub-unit entry like ".5"
+    if (v.startsWith('.')) {
+      input.value = v;
+      (this.loadForm as any)[field] = v;
+      return;
     }
-    // 3) Auto dot after first digit ONLY when typing forward (not when deleting)
+
+    const unit = this.loadForm?.coalUnit ?? this.defaultLoadCoalUnit;
+    const digitsOnly = v.replace('.', '');
+
     const inputType = (ev as any)?.inputType as string | undefined;
     const isDeleting =
       inputType === 'deleteContentBackward' || inputType === 'deleteContentForward';
 
-    if (!isDeleting && /^\d$/.test(v)) {
-      v = v + '.';
+    if (!isDeleting && !v.includes('.')) {
+      if (unit === 'in' && digitsOnly.length === 1) {
+        v = digitsOnly + '.';
+      }
+      if (unit === 'mm' && digitsOnly.length === 2) {
+        v = digitsOnly + '.';
+      }
     }
 
     input.value = v;
