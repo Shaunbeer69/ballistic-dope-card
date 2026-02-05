@@ -2369,7 +2369,7 @@ export class LoadDevTabComponent implements OnInit {
 
   private ocwRankCache = new Map<number, 'best' | 'second' | 'third' | null>();
   private ocwBestIdCache: number | null = null;
-  private readonly LADDER_NODE_MAX_VEL_RANGE_FPS: number = 10;
+  private readonly LADDER_NODE_MAX_VEL_RANGE_FPS: number = 12;
   private entryIdOf(e: LoadDevEntry): number | null {
     const id = Number((e as any)?.id);
     return Number.isFinite(id) ? id : null;

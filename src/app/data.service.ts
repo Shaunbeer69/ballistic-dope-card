@@ -830,7 +830,13 @@ export class DataService {
       }
 
       // Accept either wrapper { schema, exportedAt, store } or legacy flat object
-      const src: any = payload.store && typeof payload.store === 'object' ? payload.store : payload;
+      // Accept wrapper { schema, exportedAt, store } OR { schema, exportedAt, data, store } OR legacy flat object
+      const src: any =
+        payload.store && typeof payload.store === 'object'
+          ? payload.store
+          : payload.data && typeof payload.data === 'object'
+            ? payload.data
+            : payload;
       const schema = String((payload as any)?.schema ?? '');
       const isShare = schema.includes('share');
 
@@ -1135,6 +1141,7 @@ export class DataService {
       // Entries are added via addLoadDevEntry so IDs regenerate safely
       let addedProjects = 0;
       let addedEntries = 0;
+      let updatedEntries = 0; // NEW: count updates to existing load-dev rows
 
       for (const p of projectsIn) {
         const oldRifleId = Number(p?.rifleId);
@@ -1207,6 +1214,79 @@ export class DataService {
             if (created) addedEntries++;
             continue;
           }
+          // Merge entries by chargeGr:
+          // - if charge doesn't exist: ADD
+          // - if charge exists but fields differ: UPDATE (so wizard/shot changes transfer)
+          const incomingEntries = Array.isArray(p?.entries) ? p.entries : [];
+          for (const e of incomingEntries) {
+            const charge = Number(e?.chargeGr);
+
+            const existingEntry = (targetProject.entries ?? []).find(
+              (x) => Number(x.chargeGr) === charge,
+            );
+
+            const incomingNormalized: any = {
+              chargeGr: e?.chargeGr,
+              velocity: (e as any)?.velocity,
+              velocities: Array.isArray((e as any)?.velocities) ? (e as any).velocities : undefined,
+
+              // Ladder restore source (shot strings)
+              velocityInput: (e as any)?.velocityInput ?? undefined,
+
+              // shot count (if present)
+              shotsFired: (e as any)?.shotsFired ?? undefined,
+
+              notes: (e as any)?.notes,
+              targetPhotoDataUrl: (e as any)?.targetPhotoDataUrl,
+              entryPhotoDataUrl: (e as any)?.entryPhotoDataUrl,
+
+              ...((e as any)?.groupSizeCm !== undefined
+                ? { groupSizeCm: (e as any).groupSizeCm }
+                : {}),
+              ...((e as any)?.createdAt ? { createdAt: (e as any).createdAt } : {}),
+              ...((e as any)?.updatedAt ? { updatedAt: (e as any).updatedAt } : {}),
+            };
+
+            if (!existingEntry) {
+              const created = this.addLoadDevEntry(targetProject.id, incomingNormalized as any);
+              if (created) addedEntries++;
+              continue;
+            }
+
+            // Only update if something actually differs (avoid bumping updatedAt unnecessarily)
+            const differs =
+              String((existingEntry as any)?.velocityInput ?? '') !==
+                String(incomingNormalized.velocityInput ?? '') ||
+              Number((existingEntry as any)?.shotsFired ?? -1) !==
+                Number(incomingNormalized.shotsFired ?? -1) ||
+              String((existingEntry as any)?.notes ?? '') !==
+                String(incomingNormalized.notes ?? '') ||
+              String((existingEntry as any)?.targetPhotoDataUrl ?? '') !==
+                String(incomingNormalized.targetPhotoDataUrl ?? '') ||
+              String((existingEntry as any)?.entryPhotoDataUrl ?? '') !==
+                String(incomingNormalized.entryPhotoDataUrl ?? '') ||
+              Number((existingEntry as any)?.groupSizeCm ?? -1) !==
+                Number(incomingNormalized.groupSizeCm ?? -1) ||
+              JSON.stringify((existingEntry as any)?.velocities ?? null) !==
+                JSON.stringify(incomingNormalized.velocities ?? null) ||
+              Number((existingEntry as any)?.velocity ?? -1) !==
+                Number(incomingNormalized.velocity ?? -1);
+
+            if (!differs) continue;
+
+            // Update using the existing entry id so it truly overwrites that row
+            this.updateLoadDevEntry(targetProject.id, {
+              ...(existingEntry as any),
+              ...(incomingNormalized as any),
+              id: (existingEntry as any).id,
+              // preserve createdAt if it exists already
+              createdAt:
+                (existingEntry as any)?.createdAt ?? (incomingNormalized as any)?.createdAt,
+            } as any);
+            updatedEntries++; // NEW
+
+            // (Optional) if you want counters for "updated entries", add a new counter like updatedEntries++
+          }
 
           // Row exists: decide whether to apply incoming changes
           const existing = targetProject.entries[existingIdx] as any;
@@ -1217,10 +1297,20 @@ export class DataService {
           const incomingHasShots = hasMeaningfulShotData(e);
           const existingHasShots = hasMeaningfulShotData(existing);
 
-          // Update rules:
-          // 1) If incoming is newer -> merge
-          // 2) If incoming has shot data and existing doesn't -> merge
-          const shouldMerge = incomingTs > existingTs || (incomingHasShots && !existingHasShots);
+          const fieldsDiffer =
+            String((existing as any)?.velocityInput ?? '') !==
+              String((e as any)?.velocityInput ?? '') ||
+            Number((existing as any)?.shotsFired ?? 0) !== Number((e as any)?.shotsFired ?? 0) ||
+            String((existing as any)?.notes ?? '') !== String((e as any)?.notes ?? '') ||
+            String((existing as any)?.targetPhotoDataUrl ?? '') !==
+              String((e as any)?.targetPhotoDataUrl ?? '') ||
+            String((existing as any)?.entryPhotoDataUrl ?? '') !==
+              String((e as any)?.entryPhotoDataUrl ?? '') ||
+            Number((existing as any)?.groupSizeCm ?? -1) !== Number((e as any)?.groupSizeCm ?? -1);
+
+          const shouldMerge =
+            incomingTs > existingTs || (incomingHasShots && !existingHasShots) || fieldsDiffer;
+
           if (!shouldMerge) continue;
 
           // Merge. IMPORTANT: preserve the existing local entry id.
@@ -1233,9 +1323,8 @@ export class DataService {
             createdAt: existing?.createdAt ?? (e as any)?.createdAt ?? new Date().toISOString(),
             updatedAt: (e as any)?.updatedAt ?? existing?.updatedAt ?? new Date().toISOString(),
           };
-
           targetProject.entries[existingIdx] = merged;
-
+          updatedEntries++; // NEW
           // Persist project after modifying entries
           this.updateLoadDevProject(targetProject as any);
         }
@@ -1246,7 +1335,8 @@ export class DataService {
         message:
           `Merge import complete. Added ${addedRifles} rifles, ` +
           `${addedVenues} venues, ${addedSessions} sessions, ` +
-          `${addedProjects} load developments containing ${addedEntries} test rows.`,
+          `${addedProjects} load developments containing ${addedEntries} new test rows. ` +
+          `Updated ${updatedEntries} existing load-dev test rows.`,
       };
     } catch (e: any) {
       return { ok: false, message: e?.message ?? 'Unknown error.' };

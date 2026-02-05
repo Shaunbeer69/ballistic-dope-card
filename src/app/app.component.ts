@@ -3658,7 +3658,11 @@ export class AppComponent implements OnInit {
         : null,
     };
 
-    const payload = this.dataService.exportSelectiveShare(opts);
+    const fn =
+      (this.dataService as any).exportSelectiveShareForMerge ??
+      (this.dataService as any).exportSelectiveShare;
+
+    const payload = fn.call(this.dataService, opts);
 
     const json = JSON.stringify(payload, null, 2);
     const filename = 'gunstuff-share-data-' + new Date().toISOString().slice(0, 10) + '.json';
