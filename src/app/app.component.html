@@ -874,17 +874,31 @@
                       </span>
                     </div>
                     <!-- Export / Import -->
-                    <div class="flex flex-col items-center gap-2">
+                    <div class="flex flex-col items-center">
                       <button
                         class="w-14 h-14 rounded-xl relative overflow-hidden flex items-center justify-center shadow-lg ring-1 ring-white/10 bg-gradient-to-br from-sky-500 via-indigo-600 to-slate-900 hover:scale-105 active:scale-95 transition"
                         (click)="openExportImportModal()"
                       >
-                        <i class="fas fa-file-export text-white text-xl"></i>
+                        <!-- Icon: file + arrow (consistent with other tiles using inline SVG) -->
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-6 h-6">
+                          <!-- file -->
+                          <path
+                            class="fill-white/70"
+                            d="M7 3h7l3 3v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm7 1.5V7h2.5L14 4.5Z"
+                          />
+                          <!-- export arrow -->
+                          <path
+                            class="fill-white"
+                            d="M12 10a1 1 0 0 1 1 1v2h2.2l-3.2 3.2L8.8 13H11v-2a1 1 0 0 1 1-1Z"
+                          />
+                          <path class="fill-white" d="M7 19h10v1.5H7V19Z" />
+                        </svg>
                       </button>
 
-                      <div class="text-xs text-gray-300 text-center leading-tight">
-                        Export / Restore / Import
-                      </div>
+                      <span class="mt-1 text-[10px] text-gray-300 text-center leading-tight">
+                        Backup / Restore / Import
+                      </span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5">Tap to open</span>
                     </div>
 
                     <!-- Documents -->
@@ -919,10 +933,8 @@
                         </svg>
                       </button>
 
-                      <span class="mt-1 text-[10px] text-gray-300">Export File / Share PDF</span>
-                      <span class="text-[9px] text-gray-500 italic mt-0.5"
-                        >Datafile sharing or PDF</span
-                      >
+                      <span class="mt-1 text-[10px] text-gray-300">Export File / PDF</span>
+                      <span class="text-[9px] text-gray-500 italic mt-0.5">Tap to open</span>
                     </div>
                   </div>
                   <!-- Export / Print chooser (opens the existing Export / Import DATA modal) -->
@@ -3060,7 +3072,7 @@
             (click)="navTo('rifles')"
             [ngClass]="
               currentTab === 'rifles'
-                ? 'bg-white/10 ring-1 ring-sky-400/40 shadow-[0_0_18px_rgba(56,189,248,0.30)]'
+                ? 'bg-white/10 ring-1 bg-red-700 shadow-[0_0_18px_rgba(56,189,248,0.30)]'
                 : 'hover:bg-white/5'
             "
           >
