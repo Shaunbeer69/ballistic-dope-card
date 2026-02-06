@@ -37,6 +37,12 @@ interface RifleLike {
   bulletBcG1?: number;
   bulletBcG7?: number;
   bc?: number;
+
+  // Possible bullet weight fields (grains)
+  bulletWeightGrains?: number;
+  bulletWeight?: number; // sometimes already in grains
+  projectileWeight?: number; // sometimes already in grains
+  weightGr?: number;
 }
 
 @Component({
@@ -55,6 +61,9 @@ export class WindEffectToolComponent implements OnInit {
 
   muzzleVelocityFps = 2700;
   ballisticCoeff = 0.35;
+
+  // Bullet weight (grains) — pulled from selected rifle when available
+  bulletWeightGrains = 150;
 
   // Wind
   // Wind
@@ -171,7 +180,20 @@ export class WindEffectToolComponent implements OnInit {
     if (bc !== undefined) {
       this.ballisticCoeff = bc as number;
     }
+
+    // Bullet weight (grains)
+    const wCandidates: any[] = [
+      (r as any).bulletWeightGrains,
+      (r as any).bulletWeight,
+      (r as any).projectileWeight,
+      (r as any).weightGr,
+    ];
+    const w = wCandidates.find((v) => typeof v === 'number' && Number.isFinite(v) && v > 0);
+    if (w !== undefined) {
+      this.bulletWeightGrains = w as number;
+    }
   }
+
   // --------------------------------
   // Rifle picker (canonical modal)
   // --------------------------------
@@ -426,6 +448,21 @@ export class WindEffectToolComponent implements OnInit {
   // Ballistic core: TOF & drift
   // --------------------------------
   /** simple TOF model that grows with distance and depends on BC */
+  /** Weight factor: heavier bullets retain velocity better (bounded). */
+  private get weightFactor(): number {
+    const w = Number(this.bulletWeightGrains ?? 0);
+    if (!Number.isFinite(w) || w <= 0) return 1;
+    // reference 150gr, clamp to keep outputs sane
+    return Math.max(0.7, Math.min(1.4, Math.sqrt(w / 150)));
+  }
+
+  /** Effective BC: BC scaled by weight factor (bounded). */
+  private get effectiveBc(): number {
+    const bc = Number(this.ballisticCoeff ?? 0.5);
+    if (!Number.isFinite(bc) || bc <= 0) return 0.5;
+    return bc * this.weightFactor;
+  }
+
   private get timeOfFlightSeconds(): number {
     if ((this.rangeMeters ?? 0) <= 0 || this.muzzleVelocityFps <= 0) {
       return 0;
@@ -436,8 +473,8 @@ export class WindEffectToolComponent implements OnInit {
 
     const rangeKm = (this.rangeMeters ?? 0) / 1000;
 
-    const bc = this.ballisticCoeff || 0.5;
-    const bcFactor = 0.5 / bc;
+    const bcEff = this.effectiveBc || 0.5;
+    const bcFactor = 0.5 / bcEff;
 
     // 600 m → small increase, 2000 m → much bigger TOF
     const slowDownFactor = 1 + 0.4 * rangeKm * bcFactor;
@@ -459,8 +496,9 @@ export class WindEffectToolComponent implements OnInit {
     const windFps = this.mphToFps(this.windSpeedMph) * factorAbs;
     const tof = this.timeOfFlightSeconds;
 
-    // how effectively wind pushes bullet (fudge factor)
-    const windEfficiency = 0.12;
+    // how effectively wind pushes bullet (heavier bullets get pushed slightly less)
+    const windEfficiencyBase = 0.12;
+    const windEfficiency = windEfficiencyBase / this.weightFactor;
 
     const lateralFeet = windFps * tof * windEfficiency;
     return lateralFeet * 12;
@@ -577,6 +615,31 @@ export class WindEffectToolComponent implements OnInit {
 
   get moaDrift(): number {
     return this.milDrift * 3.43775;
+  }
+  get windageInTurretUnits(): number {
+    if (!this.shootingSolutionResult) return 0;
+    const unit = this.shootingSolutionResult.turretUnit;
+    return unit === 'MOA' ? this.moaDrift : this.milDrift;
+  }
+
+  get windageClicks(): number {
+    if (!this.shootingSolutionResult) return 0;
+    const cv = this.shootingSolutionResult.clickValue || 0;
+    if (cv <= 0) return 0;
+    return this.windageInTurretUnits / cv;
+  }
+
+  get windageDialText(): string {
+    if (!this.shootingSolutionResult) return '';
+    const dir = this.driftArrow === '←' ? 'LEFT' : this.driftArrow === '→' ? 'RIGHT' : '';
+    const clicksAbs = Math.abs(this.windageClicks);
+    return dir ? `${clicksAbs.toFixed(0)} clicks ${dir}` : `0 clicks`;
+  }
+
+  get elevationDialText(): string {
+    if (!this.shootingSolutionResult) return '';
+    const clicksAbs = Math.abs(this.shootingSolutionResult.clicks || 0);
+    return `${clicksAbs.toFixed(0)} clicks UP`;
   }
 
   // Prefer showing inches when scope adjustment is MOA, otherwise prefer cm.
@@ -764,57 +827,80 @@ export class WindEffectToolComponent implements OnInit {
       return;
     }
 
-    const mv = Number(this.muzzleVelocityFps ?? 0);
-    const bc = Number(this.ballisticCoeff ?? 0);
+    // Find selected rifle
+    const r =
+      this.rifles.find((x) => (x.id ?? (x as any).rifleId) === this.selectedRifleId) ?? null;
+
+    // Use rifle MV/BC if present; fallback to inputs
+    const mv = Number(
+      (r as any)?.muzzleVelocityFps ?? (r as any)?.mvFps ?? this.muzzleVelocityFps ?? 0,
+    );
+
+    const bc = Number(
+      (r as any)?.ballisticCoeff ?? (r as any)?.bc ?? (r as any)?.g1Bc ?? this.ballisticCoeff ?? 0,
+    );
+
     if (!Number.isFinite(mv) || mv <= 0 || !Number.isFinite(bc) || bc <= 0) {
       this.shootingSolutionResult = null;
       return;
     }
 
-    // rifle defaults (zero etc.)
-    const r =
-      this.rifles.find((x) => (x.id ?? (x as any).rifleId) === this.selectedRifleId) ?? null;
-
+    // Zero range from rifle (fallback 100m)
     const zeroM = Number(
       (r as any)?.zeroRangeMeters ?? (r as any)?.zeroRangeM ?? (r as any)?.zeroDistanceM ?? 100,
     );
 
+    // Environmentals: use ShootingSolution env override, else Kestrel snapshot
     const env = this.shootingSolutionEnv ?? this.kestrelData;
+
+    // Density ratio sigma
     const sigma = this.computeDensityRatioSigma(env);
 
+    // TOF model (simple but stable)
     const tofRange = this.computeTofSeconds(rangeM, mv, bc, sigma);
     const tofZero = this.computeTofSeconds(zeroM, mv, bc, sigma);
 
     const g = 9.80665;
 
+    // Gravity drop from muzzle line (m)
     const dropRangeM = 0.5 * g * tofRange * tofRange;
     const dropZeroM = 0.5 * g * tofZero * tofZero;
 
-    const deltaDropM = dropRangeM - dropZeroM;
+    // --- Zero model (small-angle bore-up) ---
+    // If the rifle is zeroed at `zeroM`, the bore is angled up such that the
+    // bullet is "dropZeroM" below the bore line at that distance.
+    // Small-angle: boreUp ≈ dropZeroM / zeroM  (radians)
+    const boreUpTheta = zeroM > 0 ? dropZeroM / zeroM : 0;
 
-    const theta = deltaDropM / rangeM;
+    // At range, the required line-of-sight elevation relative to bore is:
+    // thetaRange ≈ dropRangeM / rangeM  (radians)
+    // Net elevation to dial ≈ thetaRange - boreUpTheta
+    const thetaRange = dropRangeM / rangeM;
+    const theta = thetaRange - boreUpTheta;
 
+    // Convert to mil / moa
     const elevationMil = theta / 0.001;
     const elevationMoa = elevationMil * 3.43774677;
 
+    // Turret / clicks
     const turretUnit = this.getPreferredTurretUnit(r);
     const clickValue = this.getPreferredClickValue(turretUnit, r);
-
     const elevInUnit = turretUnit === 'MOA' ? elevationMoa : elevationMil;
     const clicks = clickValue > 0 ? elevInUnit / clickValue : 0;
 
+    // IMPORTANT: no shorthand props (prevents TS18004 scope errors)
     this.shootingSolutionResult = {
       at: Date.now(),
-      rangeM,
-      sigma,
+      rangeM: rangeM,
+      sigma: sigma,
       tofS: tofRange,
       dropCm: dropRangeM * 100,
       dropAtZeroCm: dropZeroM * 100,
-      elevationMil,
-      elevationMoa,
-      turretUnit,
-      clickValue,
-      clicks,
+      elevationMil: elevationMil,
+      elevationMoa: elevationMoa,
+      turretUnit: turretUnit,
+      clickValue: clickValue,
+      clicks: clicks,
     };
   }
 

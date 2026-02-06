@@ -2026,6 +2026,7 @@ export class AppComponent implements OnInit {
     velocityUnit: 'mps' | 'fps';
     temperatureUnit: 'c' | 'f';
     loadDevOalUnit: 'mm' | 'in';
+    loadDevBcModel: 'g7' | 'g1';
 
     pressureUnit: 'hpa' | 'inhg' | 'mmhg' | 'kpa';
     windSpeedUnit: 'kmh' | 'mph' | 'ms' | 'kn';
@@ -2035,6 +2036,7 @@ export class AppComponent implements OnInit {
     distanceUnit: 'm',
     velocityUnit: 'mps',
     loadDevOalUnit: 'mm',
+    loadDevBcModel: 'g7',
 
     temperatureUnit: 'c',
     pressureUnit: 'hpa',
@@ -2080,7 +2082,9 @@ export class AppComponent implements OnInit {
     }
     // Also save Load Dev COAL/Ogive unit into the structured prefs used by components
     try {
-      this.dataService.updatePreferences({ loadDev: { oalUnit: this.prefs.loadDevOalUnit } });
+      this.dataService.updatePreferences({
+        loadDev: { oalUnit: this.prefs.loadDevOalUnit },
+      });
     } catch {
       // ignore (keep UI save working even if storage blocked)
     }
@@ -2134,6 +2138,7 @@ export class AppComponent implements OnInit {
           ).toLowerCase() === 'in'
             ? 'in'
             : 'mm',
+        loadDevBcModel: parsed.loadDevBcModel === 'g1' ? 'g1' : 'g7',
 
         temperatureUnit: parsed.temperatureUnit === 'f' ? 'f' : 'c',
         pressureUnit: ['hpa', 'inhg', 'mmhg', 'kpa'].includes(parsed.pressureUnit)
@@ -2149,17 +2154,26 @@ export class AppComponent implements OnInit {
       // ignore parse errors
     }
   }
+  readonly TARGETS = [
+    { id: 'ocw-ladder-a4', label: 'OCW / Ladder (A4)', file: 'assets/targets/ocw-ladder-a4.pdf' },
+    {
+      id: 'Target_Square_Green',
+      label: 'Target Square Green',
+      file: 'assets/targets/Target_Square_Green.pdf',
+    },
+    {
+      id: 'Target_Square_Single',
+      label: 'Target Square Single',
+      file: 'assets/targets/Target_Square_Single.pdf',
+    },
+  ] as const;
 
-  async downloadTarget(type: 'ocw' | 'group' | 'dots'): Promise<void> {
+  async downloadTarget(type: (typeof this.TARGETS)[number]['id']): Promise<void> {
     try {
-      const files: Record<string, string> = {
-        ocw: 'assets/targets/ocw-ladder-a4.pdf',
-        group: 'assets/targets/group-zero-a4.pdf',
-        dots: 'assets/targets/dot-drill-a4.pdf',
-      };
+      const t = this.TARGETS.find((x) => x.id === type);
+      if (!t) throw new Error(`Unknown target type: ${type}`);
 
-      const url = files[type];
-      if (!url) throw new Error(`Unknown target type: ${type}`);
+      const url = t.file;
 
       // 1) fetch asset
       const response = await fetch(url);
@@ -2193,20 +2207,13 @@ export class AppComponent implements OnInit {
           text: 'Save this target to Downloads / Files',
           url: shareUrl,
         });
-      } catch (shareErr) {
+      } catch {
         // Fallback: open the PDF directly
         const filePath = shareUrl.startsWith('file://')
           ? shareUrl.slice('file://'.length)
           : shareUrl;
         await FileOpener.open({ filePath, contentType: 'application/pdf' });
       }
-
-      // 3) open share sheet so user can "Save to Downloads" or print
-      await Share.share({
-        title: filename,
-        text: 'Save this target to Downloads / Files',
-        url: uri.uri,
-      });
     } catch (err) {
       console.error('downloadTarget failed', err);
       alert(`Download failed: ${(err as any)?.message ?? err}`);
