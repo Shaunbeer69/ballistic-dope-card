@@ -156,9 +156,13 @@
               </div>
 
               <input
-                type="number"
+                type="text"
+                inputmode="decimal"
+                pattern="[0-9.]*"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                 [(ngModel)]="projectForm.lands"
+                (input)="onLandsDecimalInput($event)"
+                (blur)="onLandsDecimalInput($event)"
                 placeholder="Bullet Specific"
               />
             </div>

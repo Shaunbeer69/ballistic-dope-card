@@ -2890,6 +2890,17 @@ export class LoadDevTabComponent implements OnInit {
 
     return value;
   }
+  private sanitizeDecimalInput(value: string): string {
+    if (!value) return value;
+
+    // Keep only digits + a single dot
+    let v = value.replace(/[^0-9.]/g, '');
+    const firstDot = v.indexOf('.');
+    if (firstDot >= 0) {
+      v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+    }
+    return v;
+  }
 
   entryHasPhoto(entry: LoadDevEntry): boolean {
     const any = entry as any;
@@ -2907,15 +2918,45 @@ export class LoadDevTabComponent implements OnInit {
       !!p?.targetPhotoDataUrl
     );
   }
+  onLandsDecimalInput(event: any) {
+    const input = event.target as HTMLInputElement;
+
+    const unit = (this.projectForm?.oalUnit ?? 'mm') as 'mm' | 'in';
+
+    const inputType = String((event as InputEvent)?.inputType ?? '');
+    const isDelete =
+      inputType === 'deleteContentBackward' ||
+      inputType === 'deleteContentForward' ||
+      inputType.startsWith('delete');
+
+    const raw = input.value;
+
+    const newVal = isDelete ? this.sanitizeDecimalInput(raw) : this.applyAutoDecimal(raw, unit);
+
+    input.value = newVal;
+    (this.projectForm as any).lands = newVal;
+  }
+
   onOalDecimalInput(field: 'oal' | 'oalOgive', event: any) {
     const input = event.target as HTMLInputElement;
 
     // Load Dev uses the per-project COAL unit selector
     const unit = (this.projectForm?.oalUnit ?? 'mm') as 'mm' | 'in';
 
-    const newVal = this.applyAutoDecimal(input.value, unit);
+    // IMPORTANT: Do not auto-insert '.' while the user is deleting/backspacing,
+    // otherwise they cannot clear and retype.
+    const inputType = String((event as InputEvent)?.inputType ?? '');
+    const isDelete =
+      inputType === 'deleteContentBackward' ||
+      inputType === 'deleteContentForward' ||
+      inputType.startsWith('delete');
+
+    const raw = input.value;
+
+    const newVal = isDelete ? this.sanitizeDecimalInput(raw) : this.applyAutoDecimal(raw, unit);
+
     input.value = newVal;
-    this.projectForm[field] = newVal;
+    (this.projectForm as any)[field] = newVal;
   }
 
   hasAnyPhoto(): boolean {
@@ -3137,92 +3178,6 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     // Cleanup legacy “ghost” load developments (empty projects with names left behind)
     this.data.pruneEmptyLoadDevProjects();
     this.projects = this.data.getLoadDevProjectsForRifle(this.selectedRifleId);
-    // ✅ Hydrate legacy projects: if summary fields are empty on the project,
-    // try to pull them from the first entry (older data stored these per-entry).
-    for (const p of this.projects) {
-      const ap: any = p as any;
-      const entries: any[] = (ap.entries || []) as any[];
-
-      if (!entries.length) continue;
-
-      // Prefer entries that contain COAL (this is the "newer/important" data)
-      const firstWithCoal =
-        entries.find(
-          (e) => e && (e as any).coal != null && String((e as any).coal).trim() !== '',
-        ) || null;
-
-      // Otherwise fallback to any entry that has summary-ish data
-      const firstWithData =
-        firstWithCoal ||
-        entries.find(
-          (e) =>
-            e &&
-            (e.powder ||
-              e.bullet ||
-              e.bulletWeightGr != null ||
-              (e as any).coalUnit != null ||
-              e.oal != null ||
-              e.oalOgive != null),
-        ) ||
-        entries[0];
-
-      if (!firstWithData) continue;
-
-      let changed = false;
-
-      if ((!ap.powder || ap.powder === '—') && firstWithData.powder) {
-        ap.powder = String(firstWithData.powder);
-        changed = true;
-      }
-      if ((!ap.bullet || ap.bullet === '—') && firstWithData.bullet) {
-        ap.bullet = String(firstWithData.bullet);
-        changed = true;
-      }
-      if (ap.bulletWeightGr == null && firstWithData.bulletWeightGr != null) {
-        ap.bulletWeightGr = Number(firstWithData.bulletWeightGr);
-        changed = true;
-      }
-
-      // Legacy: older entries stored COAL as `coal` (string/number) instead of project-level `oal`
-      if (ap.oal == null && (firstWithData as any).coal != null) {
-        const raw = (firstWithData as any).coal;
-        const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
-        if (Number.isFinite(n)) {
-          // Heuristic: values like 2270 typically mean 2.270 inches (thousandths)
-          if ((!ap.oalUnit || ap.oalUnit === 'mm') && n >= 200) {
-            ap.oal = n / 1000;
-            ap.oalUnit = 'in';
-          } else {
-            ap.oal = n;
-          }
-          changed = true;
-        }
-      }
-
-      // Current: project-level OAL
-      if (ap.oal == null && firstWithData.oal != null) {
-        ap.oal = Number(firstWithData.oal);
-        changed = true;
-      }
-
-      // Current: project-level unit
-      if ((!ap.oalUnit || ap.oalUnit === 'mm') && firstWithData.oalUnit) {
-        ap.oalUnit = String(firstWithData.oalUnit);
-        changed = true;
-
-        changed = true;
-      }
-
-      // Legacy: some older entries may store unit as `coalUnit`
-      if ((!ap.oalUnit || ap.oalUnit === 'mm') && (firstWithData as any).coalUnit) {
-        ap.oalUnit = String((firstWithData as any).coalUnit);
-        changed = true;
-      }
-
-      if (changed) {
-        this.data.updateLoadDevProject(p);
-      }
-    }
 
     if (this.selectedProjectId != null) {
       this.selectedProject = this.projects.find((p) => p.id === this.selectedProjectId) ?? null;
@@ -3858,10 +3813,17 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
   // ---------- Lands / Ogive helper (project form) ----------
   landsMinusOgive(): number | null {
-    const lands = (this.projectForm as any)?.lands as number | null | undefined;
-    const ogive = (this.projectForm as any)?.oalOgive as number | null | undefined;
+    const rawLands = (this.projectForm as any)?.lands;
+    const rawOgive = (this.projectForm as any)?.oalOgive;
 
-    if (lands == null || ogive == null) return null;
+    if (rawLands == null || rawOgive == null) return null;
+
+    const lands =
+      typeof rawLands === 'number' ? rawLands : Number(String(rawLands).replace(',', '.'));
+    const ogive =
+      typeof rawOgive === 'number' ? rawOgive : Number(String(rawOgive).replace(',', '.'));
+
+    if (!Number.isFinite(lands) || !Number.isFinite(ogive)) return null;
 
     const diff = lands - ogive;
     return Number.isFinite(diff) ? diff : null;
@@ -3875,26 +3837,22 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     const decimals = this.projectForm?.oalUnit === 'in' ? 3 : 2;
     return d.toFixed(decimals);
   }
-  // ---------- Summary helpers (fallback to entry-level data) ----------
-  private getSummarySourceEntry(): any | null {
-    return this.visibleEntries?.length ? this.visibleEntries[0] : null;
-  }
+  // ---------- Summary helpers (project-level ONLY) ----------
+  // Summary must reflect ONLY what was entered/saved on the Load Dev project,
+  // never pulled from entries below.
   summaryPowderText(): string {
     const sp: any = this.selectedProject as any;
-    const e: any = this.getSummarySourceEntry();
-    return String(e?.powder ?? sp?.powder ?? '—');
+    return String(sp?.powder ?? '—');
   }
 
   summaryBulletText(): string {
     const sp: any = this.selectedProject as any;
-    const e: any = this.getSummarySourceEntry();
-    return String(e?.bullet ?? sp?.bullet ?? '—');
+    return String(sp?.bullet ?? '—');
   }
 
   summaryBulletWeightGr(): number | null {
     const sp: any = this.selectedProject as any;
-    const e: any = this.getSummarySourceEntry();
-    const raw = e?.bulletWeightGr ?? sp?.bulletWeightGr;
+    const raw = sp?.bulletWeightGr;
     if (raw == null) return null;
     const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
     return Number.isFinite(n) ? n : null;
@@ -3902,53 +3860,29 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
   summaryLandsValue(): number | null {
     const sp: any = this.selectedProject as any;
-    if (!sp) return null;
-
-    const e: any = this.getSummarySourceEntry();
-    const raw = e?.lands ?? sp.lands;
+    const raw = sp?.lands;
     if (raw == null) return null;
-
     const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
     return Number.isFinite(n) ? n : null;
   }
 
   summaryCoalValue(): number | null {
     const sp: any = this.selectedProject as any;
-    if (!sp) return null;
-
-    // Prefer entry-level (legacy `coal` or `oal`)
-    const e: any = this.getSummarySourceEntry();
-    const raw = e?.coal ?? e?.oal ?? sp.oal;
+    const raw = sp?.oal;
     if (raw == null) return null;
-
     const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
     return Number.isFinite(n) ? n : null;
   }
 
   summaryCoalUnit(): string {
     const sp: any = this.selectedProject as any;
-    if (!sp) return 'mm';
-
-    // Prefer entry-level unit
-    const e: any = this.getSummarySourceEntry();
-    if (e?.coalUnit) return String(e.coalUnit);
-    if (e?.oalUnit) return String(e.oalUnit);
-
-    // Fallback to project-level
-    if (sp.oalUnit) return String(sp.oalUnit);
-
-    return 'mm';
+    return String(sp?.oalUnit ?? 'mm');
   }
 
   summaryCoalOgiveValue(): number | null {
     const sp: any = this.selectedProject as any;
-    if (!sp) return null;
-
-    // Prefer entry-level (what was actually shot / planned)
-    const e: any = this.getSummarySourceEntry();
-    const raw = e?.oalOgive ?? e?.coalOgive ?? sp.oalOgive;
+    const raw = sp?.oalOgive;
     if (raw == null) return null;
-
     const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
     return Number.isFinite(n) ? n : null;
   }
