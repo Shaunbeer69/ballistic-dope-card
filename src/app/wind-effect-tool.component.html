@@ -136,7 +136,11 @@
         <div
           class="w-full bg-black border border-gray-700 rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px] text-center font-semibold"
         >
-          {{ windFromClock }}
+          {{
+            shootingSolutionResult && kestrelData?.windDirectionClock
+              ? kestrelData?.windDirectionClock
+              : windFromClock
+          }}
         </div>
       </div>
     </div>
@@ -170,6 +174,7 @@
 
   <!-- Wind dial -->
   <div
+    *ngIf="!(shootingSolutionOpen && shootingSolutionResult)"
     #circleArea
     class="relative mx-auto aspect-square flex-none w-full max-w-[340px] sm:max-w-[420px] md:max-w-[560px] lg:max-w-[680px] xl:max-w-[720px] max-h-[38vh] sm:max-h-[44vh] md:max-h-[52vh] lg:max-h-[58vh] xl:max-h-[62vh] select-none touch-none"
     (pointerdown)="startDrag($event)"
@@ -332,6 +337,59 @@
           <div class="col-span-2">
             Wind dir (clock):
             <span class="font-semibold text-gray-100">{{ kestrelData.windDirectionClock }}</span>
+          </div>
+        </div>
+        <!-- Ballistic Solution output -->
+        <div
+          *ngIf="shootingSolutionResult"
+          class="mt-2 rounded-xl border border-slate-700 bg-black/30 p-2 space-y-1"
+        >
+          <div class="text-[11px] font-semibold text-gray-100">Ballistic solution</div>
+
+          <div class="grid grid-cols-2 gap-1 text-[10px] text-gray-200">
+            <div>
+              Elev:
+              <span class="font-semibold">
+                {{ shootingSolutionResult.elevationMil | number: '1.2-2' }} mil
+              </span>
+            </div>
+
+            <div>
+              Elev:
+              <span class="font-semibold">
+                {{ shootingSolutionResult.elevationMoa | number: '1.2-2' }} MOA
+              </span>
+            </div>
+
+            <div class="col-span-2">
+              Turret:
+              <span class="font-semibold">
+                {{ shootingSolutionResult.turretUnit }}
+                —
+                {{ shootingSolutionResult.clicks | number: '1.0-0' }} clicks ({{
+                  shootingSolutionResult.clickValue
+                }}
+                / click)
+              </span>
+            </div>
+
+            <div>
+              Drop:
+              <span class="font-semibold">
+                {{ shootingSolutionResult.dropCm | number: '1.0-0' }} cm
+              </span>
+            </div>
+
+            <div>
+              TOF:
+              <span class="font-semibold">
+                {{ shootingSolutionResult.tofS | number: '1.2-2' }} s
+              </span>
+            </div>
+          </div>
+
+          <div class="text-[9px] text-gray-400">
+            Density ratio σ={{ shootingSolutionResult.sigma | number: '1.2-2' }} • Zero accounted
           </div>
         </div>
       </ng-container>

@@ -533,15 +533,10 @@
               }}
             </div>
 
-            <!-- OCW only: edit charge -->
-            <ng-container *ngIf="selectedProject?.type === 'ocw'">
-              <div class="text-[10px] text-gray-300">Charge (gr)</div>
-              <input
-                type="number"
-                inputmode="decimal"
-                class="w-full bg-black/60 border border-emerald-400/60 rounded-2xl px-2 py-1.5 text-xs text-emerald-50"
-                [(ngModel)]="planningChargeEditValue"
-              />
+            <!-- Edit charge (OCW + Ladder) -->
+            <ng-container
+              *ngIf="selectedProject?.type === 'ocw' || selectedProject?.type === 'ladder'"
+            >
             </ng-container>
 
             <!-- OCW: edit planned shots per group -->
@@ -567,7 +562,14 @@
                   class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black font-semibold"
                   (click)="savePlanningEdit()"
                 >
-                  Save &amp; close
+                  Apply
+                </button>
+
+                <button
+                  class="px-3 py-1.5 rounded-2xl bg-gray-700 text-gray-100"
+                  (click)="cancelPlanningEdit()"
+                >
+                  Close
                 </button>
               </div>
             </ng-container>
@@ -600,35 +602,10 @@
                   </button>
                 </div>
 
-                <!-- Increment box (rebuild charges) -->
-                <div class="text-[10px] text-gray-300 pt-1">Increment box (rebuild charges)</div>
-                <div class="grid grid-cols-3 gap-2">
-                  <input
-                    type="number"
-                    inputmode="decimal"
-                    class="bg-black/60 border border-gray-700 rounded-2xl px-2 py-1.5 text-xs text-gray-100"
-                    placeholder="Start"
-                    [(ngModel)]="planningRangeStartValue"
-                  />
-                  <input
-                    type="number"
-                    inputmode="decimal"
-                    class="bg-black/60 border border-gray-700 rounded-2xl px-2 py-1.5 text-xs text-gray-100"
-                    placeholder="End"
-                    [(ngModel)]="planningRangeEndValue"
-                  />
-                  <input
-                    type="number"
-                    inputmode="decimal"
-                    class="bg-black/60 border border-gray-700 rounded-2xl px-2 py-1.5 text-xs text-gray-100"
-                    placeholder="Step"
-                    [(ngModel)]="planningRangeStepValue"
-                  />
-                </div>
-
+                <!-- No rebuild in pre-wizard edit: only add or edit -->
                 <div class="flex justify-end">
                   <button
-                    class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black font-semibold text-[11px]"
+                    class="px-3 py-1.5 rounded-2xl bg-gray-700 text-gray-100 text-[11px]"
                     (click)="cancelPlanningEdit()"
                   >
                     Close

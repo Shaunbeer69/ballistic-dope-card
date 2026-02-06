@@ -1,5 +1,13 @@
 [
   {
+    "title": "Acronyms",
+    "file": "Acronyms.pdf",
+    "tags": [
+      "docs",
+      "acronyms"
+    ]
+  },
+  {
     "title": "Ladder Explained Gs",
     "file": "Ladder_Explained_GS.pdf",
     "tags": [
@@ -31,20 +39,18 @@
     ]
   },
   {
-    "title": "Reloading Acronyms",
-    "file": "Reloading_acronyms.pdf",
-    "tags": [
-      "docs",
-      "load dev",
-      "reloading",
-      "acronyms"
-    ]
-  },
-  {
     "title": "Seating Depth Explained Gs",
     "file": "Seating_Depth_Explained_GS.pdf",
     "tags": [
       "docs"
+    ]
+  },
+  {
+    "title": "Target Square Single",
+    "file": "Target_Square_Single.pdf",
+    "tags": [
+      "docs",
+      "targets"
     ]
   },
   {

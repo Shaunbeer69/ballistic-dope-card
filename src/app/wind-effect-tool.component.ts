@@ -88,6 +88,22 @@ export class WindEffectToolComponent implements OnInit {
   shootingSolutionEnv: KestrelDataSnapshot | null = null;
   shootingSolutionAt: number | null = null;
   shootingSolutionOpen = false;
+  shootingSolutionResult: null | {
+    at: number;
+    rangeM: number;
+    sigma: number;
+    tofS: number;
+
+    dropCm: number;
+    dropAtZeroCm: number;
+
+    elevationMil: number;
+    elevationMoa: number;
+
+    turretUnit: 'MIL' | 'MOA';
+    clickValue: number;
+    clicks: number;
+  } = null;
 
   constructor(
     private data: DataService,
@@ -268,12 +284,15 @@ export class WindEffectToolComponent implements OnInit {
     if (raw === '' || raw === null || raw === undefined) {
       this.rangeMeters = null;
       this.updatePoiFromDrift();
+      this.computeShootingSolution();
+
       return;
     }
 
     const v = Number(raw);
     this.rangeMeters = Number.isFinite(v) && v > 0 ? v : null;
     this.updatePoiFromDrift();
+    this.computeShootingSolution();
   }
 
   // --------------------------------
@@ -638,6 +657,8 @@ export class WindEffectToolComponent implements OnInit {
     // Keep inside viewbox-safe area (avoid touching frame)
     this.poiX = Math.max(14, Math.min(86, x));
     this.poiY = Math.max(14, Math.min(86, y));
+    // Keep shooting solution in sync with any input that changes drift math
+    this.computeShootingSolution();
   }
   // --------------------------------
   // Kestrel → Shooting Solution (backbone)
@@ -696,6 +717,8 @@ export class WindEffectToolComponent implements OnInit {
   }
   // Apply the last-read Kestrel snapshot to Wind Effect inputs (backbone for later “Shooting Solution”)
   private applyKestrelSnapshotToWind(snap: any): void {
+    this.computeShootingSolution();
+
     if (!snap) return;
 
     // Wind unit (best-effort mapping; keep existing if unknown)
@@ -725,9 +748,145 @@ export class WindEffectToolComponent implements OnInit {
 
     // Recompute outputs below the dial
     this.updatePoiFromDrift();
+    this.computeShootingSolution();
   }
 
   // --------------------------------
   // Back button (if used in template)
   // --------------------------------
+  // --------------------------------
+  // Ballistic Shooting Solution (elevation turret)
+  // --------------------------------
+  private computeShootingSolution(): void {
+    const rangeM = Number(this.rangeMeters ?? 0);
+    if (!Number.isFinite(rangeM) || rangeM <= 0) {
+      this.shootingSolutionResult = null;
+      return;
+    }
+
+    const mv = Number(this.muzzleVelocityFps ?? 0);
+    const bc = Number(this.ballisticCoeff ?? 0);
+    if (!Number.isFinite(mv) || mv <= 0 || !Number.isFinite(bc) || bc <= 0) {
+      this.shootingSolutionResult = null;
+      return;
+    }
+
+    // rifle defaults (zero etc.)
+    const r =
+      this.rifles.find((x) => (x.id ?? (x as any).rifleId) === this.selectedRifleId) ?? null;
+
+    const zeroM = Number(
+      (r as any)?.zeroRangeMeters ?? (r as any)?.zeroRangeM ?? (r as any)?.zeroDistanceM ?? 100,
+    );
+
+    const env = this.shootingSolutionEnv ?? this.kestrelData;
+    const sigma = this.computeDensityRatioSigma(env);
+
+    const tofRange = this.computeTofSeconds(rangeM, mv, bc, sigma);
+    const tofZero = this.computeTofSeconds(zeroM, mv, bc, sigma);
+
+    const g = 9.80665;
+
+    const dropRangeM = 0.5 * g * tofRange * tofRange;
+    const dropZeroM = 0.5 * g * tofZero * tofZero;
+
+    const deltaDropM = dropRangeM - dropZeroM;
+
+    const theta = deltaDropM / rangeM;
+
+    const elevationMil = theta / 0.001;
+    const elevationMoa = elevationMil * 3.43774677;
+
+    const turretUnit = this.getPreferredTurretUnit(r);
+    const clickValue = this.getPreferredClickValue(turretUnit, r);
+
+    const elevInUnit = turretUnit === 'MOA' ? elevationMoa : elevationMil;
+    const clicks = clickValue > 0 ? elevInUnit / clickValue : 0;
+
+    this.shootingSolutionResult = {
+      at: Date.now(),
+      rangeM,
+      sigma,
+      tofS: tofRange,
+      dropCm: dropRangeM * 100,
+      dropAtZeroCm: dropZeroM * 100,
+      elevationMil,
+      elevationMoa,
+      turretUnit,
+      clickValue,
+      clicks,
+    };
+  }
+
+  private computeTofSeconds(rangeM: number, mvFps: number, bc: number, sigma: number): number {
+    if (rangeM <= 0 || mvFps <= 0 || bc <= 0) return 0;
+
+    const distanceFt = rangeM * 3.28084;
+    const tof0 = distanceFt / mvFps;
+
+    const rangeKm = rangeM / 1000;
+
+    const bcFactor = 0.5 / bc;
+    const densityFactor = Math.sqrt(Math.max(0.2, Math.min(2.5, sigma)));
+
+    const slowDownFactor = 1 + 0.4 * rangeKm * bcFactor * densityFactor;
+
+    return tof0 * slowDownFactor;
+  }
+
+  private computeDensityRatioSigma(env: any): number {
+    if (!env) return 1.0;
+
+    const tempC = Number(env.temperatureC);
+    const pressureInHg = Number(env.pressureInHg);
+    const rh = Number(env.humidityPercent);
+
+    if (!Number.isFinite(tempC) || !Number.isFinite(pressureInHg) || !Number.isFinite(rh)) {
+      return 1.0;
+    }
+
+    const T = tempC + 273.15;
+    const p = pressureInHg * 3386.389;
+
+    const es = 611.21 * Math.exp((18.678 - tempC / 234.5) * (tempC / (257.14 + tempC)));
+    const e = Math.max(0, Math.min(1, rh / 100)) * es;
+
+    const Rd = 287.058;
+    const Rv = 461.495;
+
+    const rho = (p - e) / (Rd * T) + e / (Rv * T);
+
+    const rho0 = 1.225;
+    const sigma = rho / rho0;
+
+    return Math.max(0.4, Math.min(1.6, sigma));
+  }
+
+  private getPreferredTurretUnit(r: any): 'MIL' | 'MOA' {
+    try {
+      const p: any = this.data.getPreferences?.() ?? {};
+      const pref = String(p?.scopeAdjustment ?? '').toUpperCase();
+      if (pref === 'MOA') return 'MOA';
+      if (pref === 'MIL') return 'MIL';
+    } catch {}
+
+    const ru = String(r?.scopeUnit ?? '').toUpperCase();
+    if (ru === 'MOA') return 'MOA';
+    if (ru === 'MIL') return 'MIL';
+
+    return 'MIL';
+  }
+
+  private getPreferredClickValue(unit: 'MIL' | 'MOA', r: any): number {
+    try {
+      const p: any = this.data.getPreferences?.() ?? {};
+      if (unit === 'MIL' && Number.isFinite(Number(p?.clickMil))) return Number(p.clickMil);
+      if (unit === 'MOA' && Number.isFinite(Number(p?.clickMoa))) return Number(p.clickMoa);
+    } catch {}
+
+    if (unit === 'MIL' && Number.isFinite(Number(r?.clickMil))) return Number(r.clickMil);
+    if (unit === 'MOA' && Number.isFinite(Number(r?.clickMoa))) return Number(r.clickMoa);
+
+    return unit === 'MOA' ? 0.25 : 0.1;
+  }
 }
