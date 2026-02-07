@@ -134,6 +134,11 @@ export class LoadDevTabComponent implements OnInit {
   photoViewerOpen = false;
   photoViewerEntry: LoadDevEntry | null = null;
   photoViewerUrl: string | null = null;
+  // --- Group measurement via photo grid ---
+  photoMeasurePoints: Array<{ x: number; y: number }> = [];
+  measuredGroupCm: number | null = null;
+  measuredGroupIn: number | null = null;
+  measuredGroupMoa: number | null = null;
 
   private pendingEntryForPhoto: LoadDevEntry | null = null;
 
@@ -709,12 +714,27 @@ export class LoadDevTabComponent implements OnInit {
           this.targetPhotoDataUrl = url;
           if (url) this.photoDataUrlCache.set(path, url);
         }
+
         // Also preload entry photos so Notes shows instantly
         this.preloadSelectedProjectEntryPhotos();
         return;
       }
 
-      // 3) Nothing
+      // 3) Fallback: direct dataUrl/base64 (older storage)
+      if (any?.targetPhotoDataUrl && typeof any.targetPhotoDataUrl === 'string') {
+        this.targetPhotoDataUrl = String(any.targetPhotoDataUrl);
+        this.preloadSelectedProjectEntryPhotos();
+        return;
+      }
+
+      if (any?.targetPhotoBase64 && typeof any.targetPhotoBase64 === 'string') {
+        const mime = String(any?.targetPhotoMime || 'image/jpeg');
+        this.targetPhotoDataUrl = `data:${mime};base64,${String(any.targetPhotoBase64).trim()}`;
+        this.preloadSelectedProjectEntryPhotos();
+        return;
+      }
+
+      // 4) Nothing
       this.targetPhotoDataUrl = null;
       this.preloadSelectedProjectEntryPhotos();
     } catch {
@@ -768,23 +788,40 @@ export class LoadDevTabComponent implements OnInit {
         return;
       }
 
-      // Show thumbnail in UI
-      this.targetPhotoDataUrl = `data:image/jpeg;base64,${base64}`;
+      // Build a dataUrl (this is what your Notes UI already expects)
+      const dataUrl = `data:image/jpeg;base64,${base64}`;
 
-      // Attach to project (stored as base64 so it works offline)
-      (this.selectedProject as any).targetPhotoBase64 = base64;
-      (this.selectedProject as any).targetPhotoCapturedAt = new Date().toISOString();
+      // Show thumbnail in UI immediately
+      this.targetPhotoDataUrl = dataUrl;
+
+      // Overwrite the project photo source used by Notes/viewer
+      const p: any = this.selectedProject as any;
+
+      // If there was an old FS path cached, clear it so we don't snap back to it
+      if (p?.targetPhotoPath) {
+        const oldPath = String(p.targetPhotoPath);
+        this.photoDataUrlCache.delete(oldPath);
+      }
+
+      // Prefer storing as dataUrl (simple + immediate). Also store mime.
+      p.targetPhotoDataUrl = dataUrl;
+      p.targetPhotoMime = 'image/jpeg';
+      p.targetPhotoCapturedAt = new Date().toISOString();
+
+      // Clear legacy fields so sync doesn't “prefer” the old one
+      delete p.targetPhotoPath;
+      delete p.targetPhotoBase64;
 
       // Persist using your existing project update path
       try {
-        this.data.updateLoadDevProject({ ...(this.selectedProject as any) });
+        this.data.updateLoadDevProject({ ...(p as any) });
         this.refreshSelectedProject();
       } catch {
         // ignore
       }
 
       // Keep preview in sync
-      this.syncTargetPhotoFromProject();
+      void this.syncTargetPhotoFromProject();
 
       this.targetPhotoInlineMessage = '📷 Target photo saved';
       setTimeout(() => (this.targetPhotoInlineMessage = null), 2200);
@@ -1039,14 +1076,44 @@ export class LoadDevTabComponent implements OnInit {
 
     if (!url) return;
 
+    // VIEW-ONLY mode (no overlay, no measuring)
     this.photoViewerEntry = null;
     this.photoViewerUrl = url;
     this.photoViewerOpen = true;
+
     this.isAnnotatingPhoto = false;
+    this.photoMeasurePoints = [];
+    this.measuredGroupCm = null;
+    this.measuredGroupIn = null;
+    this.measuredGroupMoa = null;
+
+    // IMPORTANT: do NOT auto-scale here, otherwise the overlay shows in view mode
+    this.gridPxPerCm = null;
+  }
+
+  openProjectPhotoMeasureViewer(url: string | null, event?: Event): void {
+    try {
+      event?.preventDefault();
+      event?.stopPropagation();
+    } catch {}
+
+    if (!url) return;
+
+    // MEASURE mode (overlay + tap-to-measure)
+    this.photoViewerEntry = null;
+    this.photoViewerUrl = url;
+    this.photoViewerOpen = true;
+
+    this.isAnnotatingPhoto = true;
+    this.photoMeasurePoints = [];
+    this.measuredGroupCm = null;
+    this.measuredGroupIn = null;
+    this.measuredGroupMoa = null;
 
     // Step 1: auto-scale for 1cm blocks
     void this.runAutoScaleForPhoto(url);
   }
+
   openEntryPhotoViewer(entry: LoadDevEntry, event?: Event): void {
     try {
       event?.preventDefault();
@@ -1070,9 +1137,115 @@ export class LoadDevTabComponent implements OnInit {
     this.photoViewerEntry = null;
     this.photoViewerUrl = null;
     this.isAnnotatingPhoto = false;
+    this.photoMeasurePoints = [];
+    this.measuredGroupCm = null;
+    this.measuredGroupIn = null;
+    this.measuredGroupMoa = null;
 
     // Step 1: reset overlay state
     this.gridPxPerCm = null;
+  }
+  onPhotoTap(ev: MouseEvent): void {
+    if (!this.gridPxPerCm) return; // no scale, can't measure
+
+    const host = ev.currentTarget as HTMLElement | null;
+    if (!host) return;
+
+    const rect = host.getBoundingClientRect();
+    const x = ev.clientX - rect.left;
+    const y = ev.clientY - rect.top;
+
+    this.photoMeasurePoints.push({ x, y });
+
+    // keep only last 2 taps
+    if (this.photoMeasurePoints.length > 2) {
+      this.photoMeasurePoints = this.photoMeasurePoints.slice(-2);
+    }
+
+    if (this.photoMeasurePoints.length === 2) {
+      this.recalcGroupFromTwoPoints();
+    }
+  }
+
+  private recalcGroupFromTwoPoints(): void {
+    if (!this.gridPxPerCm) return;
+    if (this.photoMeasurePoints.length !== 2) return;
+
+    const [a, b] = this.photoMeasurePoints;
+
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dPx = Math.sqrt(dx * dx + dy * dy);
+
+    const dCm = dPx / this.gridPxPerCm;
+    const dIn = dCm / 2.54;
+
+    this.measuredGroupCm = dCm;
+    this.measuredGroupIn = dIn;
+
+    // MOA only if we have distance
+    const distM = (this.selectedProject as any)?.distanceM ?? null;
+    if (typeof distM === 'number' && isFinite(distM) && distM > 0) {
+      const yards = distM * 1.0936133;
+      this.measuredGroupMoa = (dIn * 100) / (yards * 1.047);
+    } else {
+      this.measuredGroupMoa = null;
+    }
+  }
+  private writeMeasurementIntoNotes(): void {
+    const cm = this.measuredGroupCm;
+    const inch = this.measuredGroupIn;
+    const moa = this.measuredGroupMoa;
+
+    if (cm == null || inch == null) return;
+
+    const parts: string[] = [`Group size: ${cm.toFixed(1)} cm`, `${inch.toFixed(2)} in`];
+    if (moa != null && Number.isFinite(moa)) parts.push(`${moa.toFixed(2)} MOA`);
+
+    const line = `📏 ${parts.join(' • ')}`;
+
+    // If viewer is showing an ENTRY photo, write to that entry’s notes.
+    if (this.photoViewerEntry && this.selectedProject) {
+      const entryAny: any = { ...(this.photoViewerEntry as any) };
+      entryAny.notes = this.upsertNoteLine((entryAny.notes ?? '').toString(), line);
+
+      this.data.updateLoadDevEntry(this.selectedProject.id, entryAny as LoadDevEntry);
+
+      // keep local copy in sync so UI reflects immediately
+      (this.photoViewerEntry as any).notes = entryAny.notes;
+
+      this.refreshSelectedProject();
+      return;
+    }
+
+    // Otherwise write to PROJECT notes.
+    if (!this.selectedProject) return;
+
+    const projectAny: any = { ...(this.selectedProject as any) };
+    projectAny.notes = this.upsertNoteLine((projectAny.notes ?? '').toString(), line);
+
+    this.data.updateLoadDevProject(projectAny as LoadDevProject);
+
+    // keep local copy in sync so textarea updates immediately
+    (this.selectedProject as any).notes = projectAny.notes;
+
+    this.refreshSelectedProject();
+  }
+
+  private upsertNoteLine(existing: string, newLine: string): string {
+    const lines = (existing ?? '').toString().split(/\r?\n/);
+
+    const idx = lines.findIndex((l) => l.trim().startsWith('📏 Group size:'));
+    const outLine = newLine.replace(/^📏\s*/, '📏 ');
+
+    if (idx >= 0) {
+      lines[idx] = outLine;
+    } else {
+      if (lines.length > 0 && lines[lines.length - 1].trim() !== '') lines.push('');
+      lines.push(outLine);
+    }
+
+    return lines.join('\n').trimEnd();
   }
 
   /** Step 1: estimate pixels-per-1cm grid spacing and store for overlay. */

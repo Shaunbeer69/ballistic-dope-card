@@ -145,7 +145,8 @@ export class SessionTabComponent implements OnInit {
   // ---------- Shots step toast ----------
   shotsToastMessage: string | null = null;
   private shotsToastTimer: any | null = null;
-
+  // Large “go shoot” guidance toast shown when entering Shots
+  showGoShootToast = false;
   private showShotsToast(msg: string): void {
     this.shotsToastMessage = msg;
     if (this.shotsToastTimer) clearTimeout(this.shotsToastTimer);
@@ -454,6 +455,8 @@ export class SessionTabComponent implements OnInit {
     this.clearEnvToast();
 
     this.step = 'shots';
+    this.showGoShootToast = true;
+    setTimeout(() => (this.showGoShootToast = false), 6000);
   }
 
   // Alias for template name
