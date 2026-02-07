@@ -430,7 +430,7 @@
                             <span *ngIf="l.bulletWeightGr">{{ l.bulletWeightGr }} gr </span
                             >{{ l.bullet }}
                             <div *ngIf="l.bulletBc" class="text-[9px] text-slate-400">
-                              BC: {{ l.bulletBc }}
+                              BC ({{ bcLabel }}): {{ l.bulletBc }}
                             </div>
                           </ng-container>
                           <ng-template #noBullet>
@@ -537,7 +537,7 @@
                     }}
                     {{ loadDetailsLoad.bullet || '-' }}
                     <span *ngIf="loadDetailsLoad.bulletBc" class="text-slate-400">
-                      • BC: {{ loadDetailsLoad.bulletBc }}</span
+                      • BC ({{ bcLabel }}): {{ loadDetailsLoad.bulletBc }}</span
                     >
                   </div>
 
@@ -662,7 +662,7 @@
                   }}
                   {{ selectedLoadDetails.load?.bullet || '-' }}
                   <span *ngIf="selectedLoadDetails.load?.bulletBc" class="text-slate-400">
-                    • BC: {{ selectedLoadDetails.load?.bulletBc }}</span
+                    • BC ({{ bcLabel }}): {{ selectedLoadDetails.load?.bulletBc }}</span
                   >
                 </div>
 
@@ -808,7 +808,7 @@
                 </label>
 
                 <label class="flex flex-col">
-                  BC
+                  BC ({{ bcLabel }})
                   <input
                     [(ngModel)]="loadForm.bulletBc"
                     name="loadBulletBc"

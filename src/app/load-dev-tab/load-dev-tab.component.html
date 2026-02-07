@@ -1089,6 +1089,43 @@
                   </div>
                 </div>
               </ng-container>
+              <!-- ✅ Photo viewer overlay -->
+              <ng-container *ngIf="photoViewerOpen && photoViewerUrl as pvUrl">
+                <div
+                  class="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-3 pb-[calc(env(safe-area-inset-bottom)+24px)]"
+                  (click)="closePhotoViewer()"
+                >
+                  <div
+                    class="relative w-full max-w-[920px] rounded-2xl border border-gray-700 bg-gray-900/95 overflow-hidden"
+                    (click)="$event.stopPropagation()"
+                  >
+                    <div
+                      class="flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-800 bg-black/40"
+                    >
+                      <div class="text-[11px] text-gray-100 font-semibold">Photo</div>
+
+                      <button
+                        type="button"
+                        class="px-2 py-1 rounded-xl bg-gray-700 text-white text-[11px]"
+                        (click)="closePhotoViewer()"
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    <div class="relative w-full bg-black" style="height: min(70vh, 680px)">
+                      <img [src]="pvUrl" class="absolute inset-0 w-full h-full object-contain" />
+
+                      <!-- ✅ Grid overlay belongs HERE (over the photo), not on the Summary card -->
+                      <div
+                        *ngIf="gridPxPerCm"
+                        class="absolute inset-0 pointer-events-none"
+                        [ngStyle]="gridOverlayStyle"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </ng-container>
 
               <!-- OCW hint (explains SD colour ranking) -->
               <div
@@ -1478,12 +1515,6 @@
                             {{ selectedProjectChargeRangeText() }}
                           </div>
                         </div>
-
-                        <div
-                          *ngIf="gridPxPerCm"
-                          class="absolute inset-0 pointer-events-none rounded-2xl"
-                          [ngStyle]="gridOverlayStyle"
-                        ></div>
                       </div>
                       <div class="mt-3 flex justify-end gap-2"></div>
                     </div>

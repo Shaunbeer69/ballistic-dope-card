@@ -131,8 +131,9 @@ export class LoadDevTabComponent implements OnInit {
   @ViewChild('projectSelectEl') projectSelectEl?: ElementRef<HTMLSelectElement>;
   @ViewChild('shotsPerGroupEl') shotsPerGroupEl?: ElementRef<HTMLInputElement>;
 
+  photoViewerOpen = false;
   photoViewerEntry: LoadDevEntry | null = null;
-  photoViewerImgUrl: string | null = null;
+  photoViewerUrl: string | null = null;
 
   private pendingEntryForPhoto: LoadDevEntry | null = null;
 
@@ -703,7 +704,8 @@ export class LoadDevTabComponent implements OnInit {
         if (cached) {
           this.targetPhotoDataUrl = cached;
         } else {
-          const url = await this.readJpegDataUrlFromFs(path);
+          const mime = String(any?.targetPhotoMime || 'image/jpeg');
+          const url = await this.readImageDataUrlFromFs(path, mime);
           this.targetPhotoDataUrl = url;
           if (url) this.photoDataUrlCache.set(path, url);
         }
@@ -818,7 +820,9 @@ export class LoadDevTabComponent implements OnInit {
       const pid = Number((this.selectedProject as any)?.id ?? 0);
       if (pid) {
         const path = this.makeProjectPhotoPath(pid);
-        await this.writeJpegDataUrlToFs(path, dataUrl);
+        const mime = await this.writeImageDataUrlToFs(path, dataUrl);
+        (this.selectedProject as any).targetPhotoPath = path;
+        (this.selectedProject as any).targetPhotoMime = mime;
 
         (this.selectedProject as any).targetPhotoPath = path;
         (this.selectedProject as any).targetPhotoCapturedAt = new Date().toISOString();
@@ -948,7 +952,7 @@ export class LoadDevTabComponent implements OnInit {
 
     if (!savedPath) return;
 
-    await this.writeJpegDataUrlToFs(savedPath, stampedDataUrl);
+    const mime = await this.writeImageDataUrlToFs(savedPath, stampedDataUrl);
 
     // Cache for instant UI preview
     this.photoDataUrlCache.set(savedPath, stampedDataUrl);
@@ -957,6 +961,7 @@ export class LoadDevTabComponent implements OnInit {
       ...(entry as any),
       targetPhoto: {
         path: savedPath,
+        mime,
         takenAt,
         groupSize,
         groupUnit: unit,
@@ -1035,14 +1040,13 @@ export class LoadDevTabComponent implements OnInit {
     if (!url) return;
 
     this.photoViewerEntry = null;
-    this.photoViewerImgUrl = url;
+    this.photoViewerUrl = url;
     this.photoViewerOpen = true;
     this.isAnnotatingPhoto = false;
 
     // Step 1: auto-scale for 1cm blocks
     void this.runAutoScaleForPhoto(url);
   }
-
   openEntryPhotoViewer(entry: LoadDevEntry, event?: Event): void {
     try {
       event?.preventDefault();
@@ -1053,7 +1057,7 @@ export class LoadDevTabComponent implements OnInit {
     if (!url) return;
 
     this.photoViewerEntry = entry;
-    this.photoViewerImgUrl = url;
+    this.photoViewerUrl = url;
     this.photoViewerOpen = true;
     this.isAnnotatingPhoto = false;
 
@@ -1064,7 +1068,7 @@ export class LoadDevTabComponent implements OnInit {
   closePhotoViewer(): void {
     this.photoViewerOpen = false;
     this.photoViewerEntry = null;
-    this.photoViewerImgUrl = null;
+    this.photoViewerUrl = null;
     this.isAnnotatingPhoto = false;
 
     // Step 1: reset overlay state
@@ -1076,13 +1080,13 @@ export class LoadDevTabComponent implements OnInit {
     this.gridPxPerCm = null;
 
     // Only run if viewer is still open and image unchanged
-    const guardUrl = this.photoViewerImgUrl;
+    const guardUrl = this.photoViewerUrl;
 
     try {
       const px = await this.estimateGridPxPerCm(dataUrl);
 
       if (!this.photoViewerOpen) return;
-      if (this.photoViewerImgUrl !== guardUrl) return;
+      if (this.photoViewerUrl !== guardUrl) return;
 
       if (px && Number.isFinite(px) && px > 2) {
         this.gridPxPerCm = px;
@@ -1923,12 +1927,19 @@ export class LoadDevTabComponent implements OnInit {
       // Project-level only (single-page target photo area is reserved for the Notes/Project photo)
       const projectAny = this.selectedProject as any;
 
-      const photoDataUrl = projectAny?.targetPhotoPath
-        ? (this.photoDataUrlCache.get(String(projectAny.targetPhotoPath)) ??
-          (await this.readJpegDataUrlFromFs(String(projectAny.targetPhotoPath))))
-        : projectAny?.targetPhotoBase64
-          ? `data:image/jpeg;base64,${projectAny.targetPhotoBase64}`
-          : (projectAny?.targetPhotoDataUrl ?? null);
+      let photoDataUrl: string | null = projectAny?.targetPhotoBase64
+        ? `data:image/jpeg;base64,${projectAny.targetPhotoBase64}`
+        : (projectAny?.targetPhotoDataUrl ?? null);
+
+      if (projectAny?.targetPhotoPath) {
+        const p = String(projectAny.targetPhotoPath);
+        photoDataUrl =
+          this.photoDataUrlCache.get(p) ??
+          (await this.readImageDataUrlFromFs(
+            p,
+            String(projectAny?.targetPhotoMime || 'image/jpeg'),
+          ));
+      }
 
       if (
         photoDataUrl &&
@@ -2695,7 +2706,8 @@ export class LoadDevTabComponent implements OnInit {
         void this.ensureEntryPhotoOnFs(entry, pid).then(async () => {
           const tp2: any = (entry as any)?.targetPhoto ?? null;
           if (tp2?.path) {
-            const url = await this.readJpegDataUrlFromFs(String(tp2.path));
+            const mime = String(tp2?.mime || 'image/jpeg');
+            const url = await this.readImageDataUrlFromFs(String(tp2.path), mime);
             if (url) this.photoDataUrlCache.set(String(tp2.path), url);
           }
         });
@@ -2740,7 +2752,8 @@ export class LoadDevTabComponent implements OnInit {
 
       // If photo is FS-based, warm cache (so UI fills in within a tick)
       if (tp?.path && !this.photoDataUrlCache.has(String(tp.path))) {
-        void this.readJpegDataUrlFromFs(String(tp.path)).then((u) => {
+        const mime = String(tp?.mime || 'image/jpeg');
+        void this.readImageDataUrlFromFs(String(tp.path), mime).then((u: string | null) => {
           if (u) this.photoDataUrlCache.set(String(tp.path), u);
         });
       }
@@ -3380,8 +3393,6 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.showNotesPanel = false;
   }
   // ---------- Media helpers (Photo / future Audio) ----------
-  photoViewerOpen = false;
-  photoViewerUrl: string | null = null;
 
   // Step 1: auto-scale pixels-per-1cm for grid overlay
   gridPxPerCm: number | null = null;
@@ -4818,26 +4829,30 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     return `${this.PHOTO_ROOT}/loaddev/entry/p${projectId}-e${entryId}-${Date.now()}.jpg`;
   }
 
-  private async writeJpegDataUrlToFs(path: string, dataUrl: string): Promise<void> {
-    const base64 = this.dataUrlToBase64(dataUrl);
-    if (!base64) throw new Error('No base64 image data');
+  private parseDataUrl(dataUrl: string): { mime: string; base64: string } | null {
+    const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/.exec(dataUrl || '');
+    if (!m) return null;
+    return { mime: m[1], base64: m[2] };
+  }
+
+  private async writeImageDataUrlToFs(path: string, dataUrl: string): Promise<string> {
+    const parsed = this.parseDataUrl(dataUrl);
+    if (!parsed?.base64) throw new Error('No base64 image data');
     await Filesystem.writeFile({
       path,
-      data: base64,
+      data: parsed.base64,
       directory: Directory.Data,
       recursive: true,
     });
+    return parsed.mime; // <-- important
   }
 
-  private async readJpegDataUrlFromFs(path: string): Promise<string | null> {
+  private async readImageDataUrlFromFs(path: string, mime?: string): Promise<string | null> {
     try {
-      const res = await Filesystem.readFile({
-        path,
-        directory: Directory.Data,
-      });
+      const res = await Filesystem.readFile({ path, directory: Directory.Data });
       const base64 = (res?.data ?? '').toString().trim();
       if (!base64) return null;
-      return `data:image/jpeg;base64,${base64}`;
+      return `data:${mime || 'image/jpeg'};base64,${base64}`;
     } catch {
       return null;
     }
@@ -4858,7 +4873,9 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
     const legacyBase64 =
       project?.targetPhotoBase64 && String(project.targetPhotoBase64).trim()
-        ? `data:image/jpeg;base64,${String(project.targetPhotoBase64).trim()}`
+        ? `data:${String(project?.targetPhotoMime || 'image/jpeg')};base64,${String(
+            project.targetPhotoBase64,
+          ).trim()}`
         : null;
 
     const toSave = legacyDataUrl || legacyBase64;
@@ -4868,9 +4885,11 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     if (!pid) return;
 
     const path = this.makeProjectPhotoPath(pid);
-    await this.writeJpegDataUrlToFs(path, toSave);
+    const mime = this.parseDataUrl(toSave)?.mime || 'image/jpeg';
+    await this.writeImageDataUrlToFs(path, toSave);
 
     project.targetPhotoPath = path;
+    project.targetPhotoMime = mime;
     project.targetPhotoCapturedAt = project.targetPhotoCapturedAt ?? new Date().toISOString();
 
     // IMPORTANT: remove large legacy fields so localStorage stays tiny
@@ -4919,9 +4938,10 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     if (!pid || !eid) return;
 
     const path = this.makeEntryPhotoPath(pid, eid);
-    await this.writeJpegDataUrlToFs(path, toSave);
-
+    const mime = this.parseDataUrl(toSave)?.mime || 'image/jpeg';
+    await this.writeImageDataUrlToFs(path, toSave);
     tp.path = path;
+    tp.mime = mime;
 
     // Remove big legacy payloads
     try {
@@ -4953,8 +4973,9 @@ This confirms which timing node is the most repeatable and forgiving in real sho
       if (tp?.path) {
         const path = String(tp.path);
         if (!this.photoDataUrlCache.has(path)) {
-          void this.readJpegDataUrlFromFs(path).then((url) => {
-            if (url) this.photoDataUrlCache.set(path, url);
+          const mime = String(tp?.mime || 'image/jpeg');
+          void this.readImageDataUrlFromFs(path, mime).then((u: string | null) => {
+            if (u) this.photoDataUrlCache.set(path, u);
           });
         }
       }
@@ -4970,9 +4991,10 @@ This confirms which timing node is the most repeatable and forgiving in real sho
       const cached = this.photoDataUrlCache.get(path);
       if (cached) return cached;
 
-      const url = await this.readJpegDataUrlFromFs(path);
-      if (url) this.photoDataUrlCache.set(path, url);
-      return url;
+      const mime = String(tp?.mime || 'image/jpeg');
+      const u = await this.readImageDataUrlFromFs(path, mime);
+      if (u) this.photoDataUrlCache.set(path, u);
+      return u;
     }
 
     // Legacy in-memory (should migrate away, but still supported)

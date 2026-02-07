@@ -1,0 +1,13 @@
+{
+  "model": "G7",
+  "units": "fps",
+  "source": "temporary-stub",
+  "segments": [
+    {
+      "vLoFps": 0,
+      "vHiFps": 5000,
+      "A": 0.000095,
+      "M": 1.60
+    }
+  ]
+}

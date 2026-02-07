@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, EventEmitter, Output } from '@angular/core';
+import { Component, OnInit, EventEmitter, Output, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../data.service';
 import { Capacitor } from '@capacitor/core';
@@ -15,11 +15,19 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
   styleUrls: ['./rifles-tab.component.css'],
 })
 export class RiflesTabComponent implements OnInit {
+  // From Preferences: prefs.loadDevBcModel ('g1' | 'g7')
+  @Input() bcModel: 'g1' | 'g7' = 'g7';
+
+  get bcLabel(): 'G1' | 'G7' {
+    return this.bcModel === 'g1' ? 'G1' : 'G7';
+  }
+
   defaultLoadCoalUnit: 'mm' | 'in' = 'mm';
   private lastLoadCoalUnit: 'mm' | 'in' = 'mm';
   @Output() backToMenu = new EventEmitter<void>();
 
   // All rifles
+
   rifles: any[] = [];
 
   // Rifle selection / forms

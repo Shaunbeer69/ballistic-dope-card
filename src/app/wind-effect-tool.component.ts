@@ -1,12 +1,27 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { DataService } from './data.service';
 import { BleClient } from '@capacitor-community/bluetooth-le';
 import { KestrelService, KestrelDataSnapshot } from './shared/services/kestrel-bluetooth.service';
 
 type WindUnit = 'mph' | 'kmh' | 'mps';
+type DragModel = 'G1' | 'G7';
+
+interface DragSegment {
+  vLoFps: number;
+  vHiFps: number;
+  A: number;
+  M: number;
+}
+
+interface DragTableJson {
+  model: DragModel;
+  segments: DragSegment[];
+}
 
 interface HourMarker {
   hour: number;
@@ -48,7 +63,7 @@ interface RifleLike {
 @Component({
   selector: 'app-wind-effect-tool',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HttpClientModule],
   templateUrl: './wind-effect-tool.component.html',
 })
 export class WindEffectToolComponent implements OnInit {
@@ -64,6 +79,13 @@ export class WindEffectToolComponent implements OnInit {
 
   // Bullet weight (grains) — pulled from selected rifle when available
   bulletWeightGrains = 150;
+  // Drag tables (loaded from /assets/drag/*.json)
+  private dragG1: DragSegment[] = [];
+  private dragG7: DragSegment[] = [];
+
+  // PUBLIC so HTML can show status
+  dragTablesReady = false;
+  dragTablesError: string | null = null;
 
   // Wind
   // Wind
@@ -102,7 +124,6 @@ export class WindEffectToolComponent implements OnInit {
     rangeM: number;
     sigma: number;
     tofS: number;
-
     dropCm: number;
     dropAtZeroCm: number;
 
@@ -118,6 +139,7 @@ export class WindEffectToolComponent implements OnInit {
     private data: DataService,
     private router: Router,
     public kestrel: KestrelService,
+    private http: HttpClient,
   ) {}
 
   // --------------------------------
@@ -126,6 +148,7 @@ export class WindEffectToolComponent implements OnInit {
   ngOnInit(): void {
     this.buildHourMarkers();
     this.loadRifles();
+    this.loadDragTables();
     this.initKestrelSubscription();
 
     // Preferences default wind unit (mph/kmh/mps)
@@ -138,9 +161,19 @@ export class WindEffectToolComponent implements OnInit {
     this.updatePoiFromDrift();
   }
 
+  toggleShootingSolution(): void {
+    this.shootingSolutionOpen = !this.shootingSolutionOpen;
+
+    // When opening the accordion, compute immediately so UI can show a result
+    if (this.shootingSolutionOpen) {
+      this.computeShootingSolution();
+    }
+  }
+
   // --------------------------------
   // Rifle handling
   // --------------------------------
+
   private loadRifles(): void {
     const anyData: any = this.data;
     if (anyData && typeof anyData.getRifles === 'function') {
@@ -774,6 +807,9 @@ export class WindEffectToolComponent implements OnInit {
       this.shootingSolutionOpen = true;
 
       this.applyKestrelSnapshotToWind(snap as any);
+
+      // Now that env + open state are set, compute the dial solution
+      this.computeShootingSolution();
     } catch (err) {
       console.error('[WindEffect] Kestrel read failed:', err);
     }
@@ -813,12 +849,206 @@ export class WindEffectToolComponent implements OnInit {
     this.updatePoiFromDrift();
     this.computeShootingSolution();
   }
+  private loadDragTables(): void {
+    this.dragTablesReady = false;
+    this.dragTablesError = null;
 
-  // --------------------------------
-  // Back button (if used in template)
-  // --------------------------------
-  // --------------------------------
-  // Ballistic Shooting Solution (elevation turret)
+    forkJoin({
+      g1: this.http.get<DragTableJson>('assets/drag/g1.json'),
+      g7: this.http.get<DragTableJson>('assets/drag/g7.json'),
+    }).subscribe({
+      next: ({ g1, g7 }) => {
+        this.dragG1 = Array.isArray(g1?.segments) ? g1.segments : [];
+        this.dragG7 = Array.isArray(g7?.segments) ? g7.segments : [];
+
+        this.dragTablesReady = this.dragG1.length > 0 && this.dragG7.length > 0;
+
+        if (!this.dragTablesReady) {
+          this.dragTablesError =
+            'Drag tables loaded but segments[] is empty/invalid (check JSON shape).';
+          this.shootingSolutionResult = null;
+          return;
+        }
+
+        // Recompute once tables are ready
+        this.updatePoiFromDrift();
+        this.computeShootingSolution();
+      },
+      error: (err) => {
+        console.error('[Ballistics] Drag tables load failed:', err);
+        this.dragTablesReady = false;
+        this.dragTablesError =
+          'Ballistic solver disabled: cannot load assets/drag/g1.json and g7.json. Ensure they exist under src/assets/drag and are included in the build.';
+        this.shootingSolutionResult = null;
+      },
+    });
+  }
+
+  private pickDragModel(r: any): DragModel {
+    // Best-effort: if rifle has G7 BC use G7, else G1
+    const bcG7 = Number(r?.bulletBcG7 ?? r?.bcG7 ?? r?.g7Bc);
+    if (Number.isFinite(bcG7) && bcG7 > 0) return 'G7';
+    return 'G1';
+  }
+
+  private getBcForModel(r: any, model: DragModel): number {
+    const bcG1 = Number(r?.ballisticCoeff ?? r?.bulletBcG1 ?? r?.bc ?? r?.g1Bc);
+    const bcG7 = Number(r?.bulletBcG7 ?? r?.bcG7 ?? r?.g7Bc);
+
+    if (model === 'G7') {
+      if (Number.isFinite(bcG7) && bcG7 > 0) return bcG7;
+      // fallback
+      if (Number.isFinite(bcG1) && bcG1 > 0) return bcG1;
+      return Number(this.ballisticCoeff ?? 0);
+    }
+
+    // G1
+    if (Number.isFinite(bcG1) && bcG1 > 0) return bcG1;
+    if (Number.isFinite(bcG7) && bcG7 > 0) return bcG7;
+    return Number(this.ballisticCoeff ?? 0);
+  }
+
+  private dragDvDxFpsPerFt(vFps: number, bc: number, sigma: number, model: DragModel): number {
+    // JBM uses dv/dx = -A * v^M / BC (x in feet, v in fps)
+    if (!this.dragTablesReady || vFps <= 0 || bc <= 0) return 0;
+
+    const segs = model === 'G7' ? this.dragG7 : this.dragG1;
+    let seg = segs[segs.length - 1];
+
+    // linear scan is OK (tables small); can be optimized later
+    for (let i = 0; i < segs.length; i++) {
+      const s = segs[i];
+      if (vFps >= s.vLoFps && vFps < s.vHiFps) {
+        seg = s;
+        break;
+      }
+    }
+
+    const A = seg.A;
+    const M = seg.M;
+
+    // density ratio sigma scales drag approximately linearly (point-mass standard practice)
+    const scaledA = A * Math.max(0.2, Math.min(3.0, sigma));
+
+    // Convert JBM-style retardation to dv/dx by dividing by v
+    return -(scaledA * Math.pow(vFps, M)) / (bc * Math.max(1e-6, vFps)); // fps per foot
+  }
+
+  private integratePointMassToRange(
+    rangeM: number,
+    mvFps: number,
+    bc: number,
+    sigma: number,
+    boreUpRad: number,
+    model: DragModel,
+  ): { tofS: number; dropM: number } {
+    // Integrate 2D trajectory (x forward, y up), return y at range and time-of-flight.
+    const g = 9.80665; // m/s^2
+
+    const rangeFt = rangeM * 3.28084;
+
+    // Initial velocity components (fps)
+    const vx0 = mvFps * Math.cos(boreUpRad);
+    const vy0 = mvFps * Math.sin(boreUpRad);
+
+    let xFt = 0;
+    let yFt = 0;
+
+    let vx = vx0;
+    let vy = vy0;
+
+    let t = 0;
+
+    // Step size in feet (distance-based stepping; stable + fast)
+    const dxFt = 1.0; // ~0.305m per step
+
+    // convert gravity to ft/s^2
+    const gFt = g * 3.28084;
+
+    // guard rails
+    const maxSteps = Math.ceil(rangeFt / dxFt) + 5000;
+
+    for (let step = 0; step < maxSteps; step++) {
+      if (xFt >= rangeFt) break;
+
+      const v = Math.sqrt(vx * vx + vy * vy);
+      if (!Number.isFinite(v) || v <= 1) break;
+
+      const dvDx = this.dragDvDxFpsPerFt(v, bc, sigma, model); // fps/ft (negative)
+      const axDrag = dvDx * v * (vx / v); // (dv/dx * v) gives dv/dt, project onto vx
+      const ayDrag = dvDx * v * (vy / v);
+
+      // dt based on forward travel
+      const dt = dxFt / Math.max(1e-6, vx);
+
+      // update velocities
+      const vxNext = vx + axDrag * dt;
+      const vyNext = vy + (ayDrag - gFt) * dt;
+
+      // update positions
+      const xNext = xFt + vx * dt;
+      const yNext = yFt + vy * dt;
+
+      vx = vxNext;
+      vy = vyNext;
+      xFt = xNext;
+      yFt = yNext;
+      t += dt;
+    }
+
+    // drop is negative y (if y ends below muzzle line); convert ft->m
+    const yM = yFt / 3.28084;
+    const dropM = -yM;
+
+    return { tofS: t, dropM };
+  }
+
+  private solveBoreUpForZero(
+    zeroM: number,
+    mvFps: number,
+    bc: number,
+    sigma: number,
+    model: DragModel,
+  ): number {
+    // Find bore angle so that y(zero) ~= 0 (zeroed at zeroM)
+    // Small-angle bracket + binary search
+    const lo = -0.01; // ~ -0.57 deg
+    const hi = 0.06; // ~ 3.4 deg
+
+    let a = lo;
+    let b = hi;
+
+    const fa = this.integratePointMassToRange(zeroM, mvFps, bc, sigma, a, model).dropM;
+    const fb = this.integratePointMassToRange(zeroM, mvFps, bc, sigma, b, model).dropM;
+
+    // If bracket fails, return small-angle fallback
+    if (!Number.isFinite(fa) || !Number.isFinite(fb) || fa * fb > 0) {
+      return 0;
+    }
+
+    let left = a;
+    let right = b;
+
+    for (let i = 0; i < 24; i++) {
+      const mid = (left + right) / 2;
+      const fm = this.integratePointMassToRange(zeroM, mvFps, bc, sigma, mid, model).dropM;
+      if (!Number.isFinite(fm)) break;
+
+      // We want dropM ~= 0 at zero distance
+      if (fm === 0) return mid;
+
+      // keep the sign change bracket
+      const fl = this.integratePointMassToRange(zeroM, mvFps, bc, sigma, left, model).dropM;
+      if (fl * fm <= 0) {
+        right = mid;
+      } else {
+        left = mid;
+      }
+    }
+
+    return (left + right) / 2;
+  }
+
   // --------------------------------
   private computeShootingSolution(): void {
     const rangeM = Number(this.rangeMeters ?? 0);
@@ -856,29 +1086,31 @@ export class WindEffectToolComponent implements OnInit {
     // Density ratio sigma
     const sigma = this.computeDensityRatioSigma(env);
 
-    // TOF model (simple but stable)
-    const tofRange = this.computeTofSeconds(rangeM, mv, bc, sigma);
-    const tofZero = this.computeTofSeconds(zeroM, mv, bc, sigma);
+    // Drag model + BC selection (G1/G7)
+    const dragModel = this.pickDragModel(r);
+    const bcModel = this.getBcForModel(r, dragModel);
 
-    const g = 9.80665;
+    if (!this.dragTablesReady) {
+      // Without tables, we can't produce a trustworthy elevation dial.
+      this.shootingSolutionResult = null;
+      return;
+    }
 
-    // Gravity drop from muzzle line (m)
-    const dropRangeM = 0.5 * g * tofRange * tofRange;
-    const dropZeroM = 0.5 * g * tofZero * tofZero;
+    if (!Number.isFinite(bcModel) || bcModel <= 0) {
+      this.shootingSolutionResult = null;
+      return;
+    }
 
-    // --- Zero model (small-angle bore-up) ---
-    // If the rifle is zeroed at `zeroM`, the bore is angled up such that the
-    // bullet is "dropZeroM" below the bore line at that distance.
-    // Small-angle: boreUp ≈ dropZeroM / zeroM  (radians)
-    const boreUpTheta = zeroM > 0 ? dropZeroM / zeroM : 0;
+    // Solve bore-up angle so zero distance intersects LOS at zeroM
+    const boreUp = this.solveBoreUpForZero(zeroM, mv, bcModel, sigma, dragModel);
 
-    // At range, the required line-of-sight elevation relative to bore is:
-    // thetaRange ≈ dropRangeM / rangeM  (radians)
-    // Net elevation to dial ≈ thetaRange - boreUpTheta
-    const thetaRange = dropRangeM / rangeM;
-    const theta = thetaRange - boreUpTheta;
+    // Integrate to target range using that bore angle
+    const sol = this.integratePointMassToRange(rangeM, mv, bcModel, sigma, boreUp, dragModel);
 
-    // Convert to mil / moa
+    // Elevation to dial is the LOS angle needed to cancel drop relative to bore:
+    // small-angle: theta ≈ drop / range
+    const theta = rangeM > 0 ? sol.dropM / rangeM : 0;
+
     const elevationMil = theta / 0.001;
     const elevationMoa = elevationMil * 3.43774677;
 
@@ -886,39 +1118,22 @@ export class WindEffectToolComponent implements OnInit {
     const turretUnit = this.getPreferredTurretUnit(r);
     const clickValue = this.getPreferredClickValue(turretUnit, r);
     const elevInUnit = turretUnit === 'MOA' ? elevationMoa : elevationMil;
-    const clicks = clickValue > 0 ? elevInUnit / clickValue : 0;
+    const clicksVal = clickValue > 0 ? elevInUnit / clickValue : 0;
 
-    // IMPORTANT: no shorthand props (prevents TS18004 scope errors)
     this.shootingSolutionResult = {
       at: Date.now(),
       rangeM: rangeM,
       sigma: sigma,
-      tofS: tofRange,
-      dropCm: dropRangeM * 100,
-      dropAtZeroCm: dropZeroM * 100,
+      tofS: sol.tofS,
+      dropCm: sol.dropM * 100,
+      dropAtZeroCm: 0, // by definition of "zero"
       elevationMil: elevationMil,
       elevationMoa: elevationMoa,
       turretUnit: turretUnit,
       clickValue: clickValue,
-      clicks: clicks,
+      clicks: clicksVal,
     };
-  }
-
-  private computeTofSeconds(rangeM: number, mvFps: number, bc: number, sigma: number): number {
-    if (rangeM <= 0 || mvFps <= 0 || bc <= 0) return 0;
-
-    const distanceFt = rangeM * 3.28084;
-    const tof0 = distanceFt / mvFps;
-
-    const rangeKm = rangeM / 1000;
-
-    const bcFactor = 0.5 / bc;
-    const densityFactor = Math.sqrt(Math.max(0.2, Math.min(2.5, sigma)));
-
-    const slowDownFactor = 1 + 0.4 * rangeKm * bcFactor * densityFactor;
-
-    return tof0 * slowDownFactor;
-  }
+  } // ✅ FIX: closes computeShootingSolution()
 
   private computeDensityRatioSigma(env: any): number {
     if (!env) return 1.0;
