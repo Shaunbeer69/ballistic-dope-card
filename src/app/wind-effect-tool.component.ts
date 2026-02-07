@@ -908,14 +908,14 @@ export class WindEffectToolComponent implements OnInit {
     return Number(this.ballisticCoeff ?? 0);
   }
 
-  private dragDvDxFpsPerFt(vFps: number, bc: number, sigma: number, model: DragModel): number {
-    // JBM uses dv/dx = -A * v^M / BC (x in feet, v in fps)
+  private dragDvDtFpsPerS(vFps: number, bc: number, sigma: number, model: DragModel): number {
+    // JBM A/M segments are used as dv/dt = -(A * v^M / BC) * sigma
+    // v in fps, dv/dt in fps/s
     if (!this.dragTablesReady || vFps <= 0 || bc <= 0) return 0;
 
     const segs = model === 'G7' ? this.dragG7 : this.dragG1;
     let seg = segs[segs.length - 1];
 
-    // linear scan is OK (tables small); can be optimized later
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
       if (vFps >= s.vLoFps && vFps < s.vHiFps) {
@@ -927,11 +927,8 @@ export class WindEffectToolComponent implements OnInit {
     const A = seg.A;
     const M = seg.M;
 
-    // density ratio sigma scales drag approximately linearly (point-mass standard practice)
-    const scaledA = A * Math.max(0.2, Math.min(3.0, sigma));
-
-    // Convert JBM-style retardation to dv/dx by dividing by v
-    return -(scaledA * Math.pow(vFps, M)) / (bc * Math.max(1e-6, vFps)); // fps per foot
+    const sigmaClamped = Math.max(0.2, Math.min(3.0, sigma));
+    return -(A * sigmaClamped * Math.pow(vFps, M)) / bc; // fps per second
   }
 
   private integratePointMassToRange(
@@ -974,10 +971,9 @@ export class WindEffectToolComponent implements OnInit {
       const v = Math.sqrt(vx * vx + vy * vy);
       if (!Number.isFinite(v) || v <= 1) break;
 
-      const dvDx = this.dragDvDxFpsPerFt(v, bc, sigma, model); // fps/ft (negative)
-      const axDrag = dvDx * v * (vx / v); // (dv/dx * v) gives dv/dt, project onto vx
-      const ayDrag = dvDx * v * (vy / v);
-
+      const dvDt = this.dragDvDtFpsPerS(v, bc, sigma, model); // fps/s (negative)
+      const axDrag = dvDt * (vx / v); // drag accel along velocity vector
+      const ayDrag = dvDt * (vy / v);
       // dt based on forward travel
       const dt = dxFt / Math.max(1e-6, vx);
 
