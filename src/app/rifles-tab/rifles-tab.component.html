@@ -672,7 +672,6 @@
                 </div>
               </div>
             </div>
-
             <!-- Load edit/add form -->
             <div
               *ngIf="activeLoadFormRifleId === r.id"
@@ -683,6 +682,7 @@
               </div>
 
               <div class="grid grid-cols-2 gap-2">
+                <!-- Powder -->
                 <label class="flex flex-col">
                   Powder
                   <input
@@ -692,6 +692,7 @@
                   />
                 </label>
 
+                <!-- Charge -->
                 <label class="flex flex-col">
                   Charge (gr)
                   <input
@@ -702,12 +703,13 @@
                   />
                 </label>
 
+                <!-- Actual Lands (BTO) -->
                 <label class="flex flex-col">
                   <div class="flex items-center justify-between gap-2">
-                    <span>Lands (Ogive)</span>
-                    <span class="text-[10px] text-slate-400"
-                      >({{ loadForm.coalUnit || defaultLoadCoalUnit }})</span
-                    >
+                    <span>Actual Lands (BTO)</span>
+                    <span class="text-[10px] text-slate-400">
+                      ({{ loadForm.coalUnit || defaultLoadCoalUnit }})
+                    </span>
                   </div>
 
                   <input
@@ -722,8 +724,9 @@
                   />
                 </label>
 
+                <!-- Jump (readonly) -->
                 <label class="flex flex-col">
-                  <div class="flex items-center justify-end gap-2">
+                  <div class="flex items-center justify-between gap-2">
                     <span class="text-[10px] text-slate-400">
                       Jump ({{ loadForm.coalUnit || defaultLoadCoalUnit }})
                     </span>
@@ -738,9 +741,10 @@
                   />
                 </label>
 
+                <!-- Test COAL (unit selector + input) -->
                 <label class="flex flex-col">
                   <div class="flex items-center justify-between gap-2">
-                    <span>Dev Coal</span>
+                    <span>Test COAL</span>
                     <select
                       [(ngModel)]="loadForm.coalUnit"
                       (ngModelChange)="onLoadCoalUnitChange($event)"
@@ -750,6 +754,29 @@
                       <option value="mm">mm</option>
                       <option value="in">in</option>
                     </select>
+                  </div>
+
+                  <!-- Length BTO -->
+
+                  <input
+                    type="text"
+                    inputmode="decimal"
+                    [(ngModel)]="loadForm.coalOgive"
+                    (input)="onInchDecimalInput('coalOgive', $event)"
+                    (blur)="onInchDecimalInput('coalOgive', $event)"
+                    name="loadCoalOgive"
+                    placeholder="Length BTO"
+                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                  />
+                </label>
+
+                <!-- Length BTT -->
+                <label class="flex flex-col">
+                  <div class="flex items-center justify-between gap-2">
+                    <span>Length BTT</span>
+                    <span class="text-[10px] text-slate-400">
+                      ({{ loadForm.coalUnit || defaultLoadCoalUnit }})
+                    </span>
                   </div>
 
                   <input
@@ -764,20 +791,7 @@
                   />
                 </label>
 
-                <label class="flex flex-col">
-                  Coal Ogive
-                  <input
-                    type="text"
-                    inputmode="decimal"
-                    [(ngModel)]="loadForm.coalOgive"
-                    (input)="onInchDecimalInput('coalOgive', $event)"
-                    (blur)="onInchDecimalInput('coalOgive', $event)"
-                    name="loadCoalOgive"
-                    placeholder="BTO"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
-                  />
-                </label>
-
+                <!-- Primer -->
                 <label class="flex flex-col">
                   Primer
                   <input
@@ -787,6 +801,7 @@
                   />
                 </label>
 
+                <!-- Bullet -->
                 <label class="flex flex-col">
                   Bullet
                   <input
@@ -797,6 +812,7 @@
                   />
                 </label>
 
+                <!-- Bullet weight -->
                 <label class="flex flex-col">
                   Bullet weight (gr)
                   <input
@@ -807,6 +823,7 @@
                   />
                 </label>
 
+                <!-- BC -->
                 <label class="flex flex-col">
                   BC ({{ bcLabel }})
                   <input
@@ -816,6 +833,8 @@
                     class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>
+
+                <!-- Ave velocity -->
                 <label class="flex flex-col">
                   Ave velocity (fps)
                   <input
@@ -827,6 +846,7 @@
                   />
                 </label>
 
+                <!-- Notes -->
                 <label class="flex flex-col">
                   Notes
                   <textarea

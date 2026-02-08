@@ -131,18 +131,31 @@ export class LoadDevTabComponent implements OnInit {
   @ViewChild('projectSelectEl') projectSelectEl?: ElementRef<HTMLSelectElement>;
   @ViewChild('shotsPerGroupEl') shotsPerGroupEl?: ElementRef<HTMLInputElement>;
 
+  // ---------- Media helpers (Photo / Measure) ----------
   photoViewerOpen = false;
   photoViewerEntry: LoadDevEntry | null = null;
   photoViewerUrl: string | null = null;
-  // --- Group measurement via photo grid ---
+
+  private pendingEntryForPhoto: LoadDevEntry | null = null;
+
+  // Measure mode
+  isAnnotatingPhoto = false;
+
+  // Grid scaling (px per 1cm block)
+  gridPxPerCm: number | null = null;
+
+  // Measurement taps (viewer-local pixel coords)
   photoMeasurePoints: Array<{ x: number; y: number }> = [];
+
+  // Measurement results
   measuredGroupCm: number | null = null;
   measuredGroupIn: number | null = null;
   measuredGroupMoa: number | null = null;
 
-  private pendingEntryForPhoto: LoadDevEntry | null = null;
+  // Save-state + viewer toast (for Save -> Close behavior)
+  photoMeasurementJustSaved = false;
+  photoViewerToast: string | null = null;
 
-  isAnnotatingPhoto = false;
   // ==========================
   // OCW per-entry notes + voice
   // ==========================
@@ -1076,19 +1089,23 @@ export class LoadDevTabComponent implements OnInit {
 
     if (!url) return;
 
-    // VIEW-ONLY mode (no overlay, no measuring)
+    // VIEW ONLY (no overlay / no taps)
     this.photoViewerEntry = null;
     this.photoViewerUrl = url;
     this.photoViewerOpen = true;
 
     this.isAnnotatingPhoto = false;
+
+    // reset measurement state
     this.photoMeasurePoints = [];
     this.measuredGroupCm = null;
     this.measuredGroupIn = null;
     this.measuredGroupMoa = null;
+    this.photoMeasurementJustSaved = false;
+    this.photoViewerToast = null;
 
-    // IMPORTANT: do NOT auto-scale here, otherwise the overlay shows in view mode
-    this.gridPxPerCm = null;
+    // keep your autoscale if you want it ready for measure later
+    void this.runAutoScaleForPhoto(url);
   }
 
   openProjectPhotoMeasureViewer(url: string | null, event?: Event): void {
@@ -1099,18 +1116,23 @@ export class LoadDevTabComponent implements OnInit {
 
     if (!url) return;
 
-    // MEASURE mode (overlay + tap-to-measure)
+    // MEASURE MODE (overlay + tap-to-measure)
     this.photoViewerEntry = null;
     this.photoViewerUrl = url;
     this.photoViewerOpen = true;
 
     this.isAnnotatingPhoto = true;
+
+    // reset measurement state
     this.photoMeasurePoints = [];
     this.measuredGroupCm = null;
     this.measuredGroupIn = null;
     this.measuredGroupMoa = null;
 
-    // Step 1: auto-scale for 1cm blocks
+    this.photoMeasurementJustSaved = false;
+    this.photoViewerToast = null;
+
+    // ensure grid scale exists (best effort)
     void this.runAutoScaleForPhoto(url);
   }
 
@@ -1126,27 +1148,112 @@ export class LoadDevTabComponent implements OnInit {
     this.photoViewerEntry = entry;
     this.photoViewerUrl = url;
     this.photoViewerOpen = true;
+
+    // entries open as VIEW ONLY by default
     this.isAnnotatingPhoto = false;
 
-    // Step 1: auto-scale for 1cm blocks
-    void this.runAutoScaleForPhoto(url);
-  }
-
-  closePhotoViewer(): void {
-    this.photoViewerOpen = false;
-    this.photoViewerEntry = null;
-    this.photoViewerUrl = null;
-    this.isAnnotatingPhoto = false;
     this.photoMeasurePoints = [];
     this.measuredGroupCm = null;
     this.measuredGroupIn = null;
     this.measuredGroupMoa = null;
 
-    // Step 1: reset overlay state
-    this.gridPxPerCm = null;
+    void this.runAutoScaleForPhoto(url);
   }
+  // ==========================
+  // Photo Viewer: View/Measure toggle + measuring + save to notes
+  // ==========================
+
+  closePhotoViewer(): void {
+    this.photoViewerOpen = false;
+    this.photoViewerEntry = null;
+    this.photoViewerUrl = null;
+
+    this.isAnnotatingPhoto = false;
+
+    this.photoMeasurePoints = [];
+    this.measuredGroupCm = null;
+    this.measuredGroupIn = null;
+    this.measuredGroupMoa = null;
+
+    this.gridPxPerCm = null;
+
+    // E) always reset save/toast state on close
+    this.photoMeasurementJustSaved = false;
+    this.photoViewerToast = null;
+  }
+
+  setPhotoViewerMode(mode: 'view' | 'measure'): void {
+    // E) reset save/toast state on mode change
+    this.photoMeasurementJustSaved = false;
+    this.photoViewerToast = null;
+
+    this.photoMeasurePoints = [];
+    this.measuredGroupCm = null;
+    this.measuredGroupIn = null;
+    this.measuredGroupMoa = null;
+
+    if (mode === 'measure') {
+      this.isAnnotatingPhoto = true;
+
+      // ensure grid scale exists (best effort)
+      const url = this.photoViewerUrl;
+      if (url) void this.runAutoScaleForPhoto(url);
+    } else {
+      this.isAnnotatingPhoto = false;
+
+      // prevents grid from showing in view mode
+      this.gridPxPerCm = null;
+
+      // E) leaving measure always clears save/toast
+      this.photoMeasurementJustSaved = false;
+      this.photoViewerToast = null;
+    }
+  }
+
+  togglePhotoViewerMode(): void {
+    // E) switching modes always returns to unsaved state
+    this.photoMeasurementJustSaved = false;
+    this.photoViewerToast = null;
+
+    this.setPhotoViewerMode(this.isAnnotatingPhoto ? 'view' : 'measure');
+  }
+
+  photoSaveOrClose(): void {
+    // If already saved → Close
+    if (this.photoMeasurementJustSaved) {
+      this.closePhotoViewer();
+      return;
+    }
+    // Guard: do not save without a valid measurement
+    if (this.measuredGroupCm == null) {
+      this.photoViewerToast = 'Tap 2 points first';
+      setTimeout(() => (this.photoViewerToast = null), 2500);
+      return;
+    }
+
+    // Save to notes
+    this.savePhotoMeasurementToNotes();
+
+    // Flip button to Close + show toast
+    this.photoMeasurementJustSaved = true;
+    this.photoViewerToast = 'Saved to Notes ✅';
+    setTimeout(() => (this.photoViewerToast = null), 4000);
+  }
+
+  clearPhotoMeasurement(): void {
+    this.photoMeasurePoints = [];
+    this.measuredGroupCm = null;
+    this.measuredGroupIn = null;
+    this.measuredGroupMoa = null;
+
+    // E) Clear should always bring Save back
+    this.photoMeasurementJustSaved = false;
+    this.photoViewerToast = null;
+  }
+
   onPhotoTap(ev: MouseEvent): void {
-    if (!this.gridPxPerCm) return; // no scale, can't measure
+    if (!this.isAnnotatingPhoto) return;
+    if (!this.gridPxPerCm) return;
 
     const host = ev.currentTarget as HTMLElement | null;
     if (!host) return;
@@ -1155,9 +1262,11 @@ export class LoadDevTabComponent implements OnInit {
     const x = ev.clientX - rect.left;
     const y = ev.clientY - rect.top;
 
-    this.photoMeasurePoints.push({ x, y });
+    // E) new taps invalidate previous save
+    this.photoMeasurementJustSaved = false;
+    this.photoViewerToast = null;
 
-    // keep only last 2 taps
+    this.photoMeasurePoints.push({ x, y });
     if (this.photoMeasurePoints.length > 2) {
       this.photoMeasurePoints = this.photoMeasurePoints.slice(-2);
     }
@@ -1183,7 +1292,7 @@ export class LoadDevTabComponent implements OnInit {
     this.measuredGroupCm = dCm;
     this.measuredGroupIn = dIn;
 
-    // MOA only if we have distance
+    // MOA if distance is available
     const distM = (this.selectedProject as any)?.distanceM ?? null;
     if (typeof distM === 'number' && isFinite(distM) && distM > 0) {
       const yards = distM * 1.0936133;
@@ -1191,7 +1300,16 @@ export class LoadDevTabComponent implements OnInit {
     } else {
       this.measuredGroupMoa = null;
     }
+
+    // IMPORTANT:
+    // Do NOT write to Notes here anymore.
+    // Notes write happens only when user taps Save (photoSaveOrClose -> savePhotoMeasurementToNotes).
   }
+
+  savePhotoMeasurementToNotes(): void {
+    this.writeMeasurementIntoNotes();
+  }
+
   private writeMeasurementIntoNotes(): void {
     const cm = this.measuredGroupCm;
     const inch = this.measuredGroupIn;
@@ -1199,26 +1317,24 @@ export class LoadDevTabComponent implements OnInit {
 
     if (cm == null || inch == null) return;
 
-    const parts: string[] = [`Group size: ${cm.toFixed(1)} cm`, `${inch.toFixed(2)} in`];
+    const parts: string[] = [`📏 Group size: ${cm.toFixed(1)} cm`, `${inch.toFixed(2)} in`];
     if (moa != null && Number.isFinite(moa)) parts.push(`${moa.toFixed(2)} MOA`);
 
-    const line = `📏 ${parts.join(' • ')}`;
+    const line = parts.join(' • ');
 
-    // If viewer is showing an ENTRY photo, write to that entry’s notes.
+    // Write to entry notes if measuring an entry photo; else project notes
     if (this.photoViewerEntry && this.selectedProject) {
       const entryAny: any = { ...(this.photoViewerEntry as any) };
       entryAny.notes = this.upsertNoteLine((entryAny.notes ?? '').toString(), line);
 
       this.data.updateLoadDevEntry(this.selectedProject.id, entryAny as LoadDevEntry);
 
-      // keep local copy in sync so UI reflects immediately
+      // keep local in sync
       (this.photoViewerEntry as any).notes = entryAny.notes;
-
       this.refreshSelectedProject();
       return;
     }
 
-    // Otherwise write to PROJECT notes.
     if (!this.selectedProject) return;
 
     const projectAny: any = { ...(this.selectedProject as any) };
@@ -1226,9 +1342,8 @@ export class LoadDevTabComponent implements OnInit {
 
     this.data.updateLoadDevProject(projectAny as LoadDevProject);
 
-    // keep local copy in sync so textarea updates immediately
+    // keep local in sync
     (this.selectedProject as any).notes = projectAny.notes;
-
     this.refreshSelectedProject();
   }
 
@@ -1254,7 +1369,6 @@ export class LoadDevTabComponent implements OnInit {
 
     // Only run if viewer is still open and image unchanged
     const guardUrl = this.photoViewerUrl;
-
     try {
       const px = await this.estimateGridPxPerCm(dataUrl);
 
@@ -3565,10 +3679,6 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
     this.showNotesPanel = false;
   }
-  // ---------- Media helpers (Photo / future Audio) ----------
-
-  // Step 1: auto-scale pixels-per-1cm for grid overlay
-  gridPxPerCm: number | null = null;
 
   get gridOverlayStyle(): any {
     if (!this.gridPxPerCm) return null;

@@ -47,6 +47,8 @@ export class SessionTabComponent implements OnInit {
 
   title = '';
   environment: Environment = {};
+  setupTriedNext = false;
+
   // Wind speed unit toggle (display only). Internally we store windSpeedMps on environment.
   windSpeedUnit: 'mph' | 'mps' = 'mph'; // default mph (as requested)
 
@@ -365,10 +367,16 @@ export class SessionTabComponent implements OnInit {
   }
 
   canGoToEnvironment(): boolean {
-    if (!this.rifleId) return false;
-    if (!this.venueId) return false;
-    // subRange is optional – you allow "Whole venue / no sub-range"
-    return true;
+    return !!(this.title && this.title.trim().length > 0 && this.rifleId && this.venueId);
+  }
+  onSetupNext(): void {
+    this.setupTriedNext = true;
+
+    if (!this.canGoToEnvironment()) {
+      return;
+    }
+
+    this.goToEnvironmentStep();
   }
 
   goToEnvironmentStep(): void {
