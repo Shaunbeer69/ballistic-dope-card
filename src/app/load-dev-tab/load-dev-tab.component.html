@@ -1099,25 +1099,76 @@
                     class="relative w-full max-w-[920px] rounded-2xl border border-gray-700 bg-gray-900/95 overflow-hidden"
                     (click)="$event.stopPropagation()"
                   >
-                    <div
-                      class="flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-800 bg-black/40"
-                    >
-                      <!-- LEFT: title + (moved) results + toast -->
-                      <div class="min-w-0">
-                        <div class="text-[11px] text-gray-100 font-semibold">
-                          Photo
-                          <span
-                            *ngIf="isAnnotatingPhoto"
-                            class="ml-2 text-[10px] text-emerald-300 font-semibold"
-                          >
-                            (Measure mode: tap 2 points)
-                          </span>
-                        </div>
+                    <div class="px-3 py-2 border-b border-gray-800 bg-black/40">
+                      <!-- Row 1: title + buttons -->
+                      <div class="flex items-center justify-between gap-2">
+                        <div class="text-[11px] text-gray-100 font-semibold">Photo</div>
 
-                        <!-- ✅ moved result UNDER the buttons/title area -->
+                        <div class="flex items-center gap-2">
+                          <!-- ✅ single toggle: View <-> Measure -->
+                          <button
+                            type="button"
+                            class="px-2 py-1 rounded-xl text-[11px] font-semibold"
+                            [ngClass]="
+                              isAnnotatingPhoto
+                                ? 'bg-gray-700 text-gray-100'
+                                : 'bg-emerald-600 text-white'
+                            "
+                            (click)="togglePhotoViewerMode()"
+                          >
+                            {{ isAnnotatingPhoto ? 'View' : 'Measure' }}
+                          </button>
+
+                          <button
+                            *ngIf="isAnnotatingPhoto"
+                            type="button"
+                            class="px-2 py-1 rounded-xl bg-gray-700 text-white text-[11px]"
+                            (click)="clearPhotoMeasurement()"
+                          >
+                            Clear
+                          </button>
+
+                          <!-- ✅ Save becomes Close after save -->
+                          <button
+                            *ngIf="isAnnotatingPhoto"
+                            type="button"
+                            class="px-2 py-1 rounded-xl text-[11px] font-semibold"
+                            [disabled]="measuredGroupCm == null && !photoMeasurementJustSaved"
+                            [ngClass]="
+                              measuredGroupCm != null || photoMeasurementJustSaved
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-gray-800 text-gray-500'
+                            "
+                            (click)="photoSaveOrClose()"
+                          >
+                            {{ photoMeasurementJustSaved ? 'Close' : 'Save' }}
+                          </button>
+
+                          <!-- Hide the normal Close when Save has turned into Close (avoids 2 Close buttons) -->
+                          <button
+                            *ngIf="!isAnnotatingPhoto || !photoMeasurementJustSaved"
+                            type="button"
+                            class="px-2 py-1 rounded-xl bg-gray-700 text-white text-[11px]"
+                            (click)="closePhotoViewer()"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- Row 2: RESULT (full-width “modal style” box under buttons) -->
+                      <!-- ✅ Measurement panel (always visible in Measure mode) -->
+                      <div
+                        *ngIf="isAnnotatingPhoto"
+                        class="mt-2 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-[12px] text-gray-100"
+                      >
+                        <div class="font-semibold text-emerald-200">Measurement</div>
+
+                        <div class="mt-0.5 text-[10px] text-emerald-200/90">Tap 2 points</div>
+
                         <div
-                          *ngIf="measuredGroupCm != null"
-                          class="mt-1 text-[10px] text-gray-200/90 font-semibold"
+                          *ngIf="measuredGroupCm != null; else noMeasureYet"
+                          class="mt-1 font-semibold"
                         >
                           {{ measuredGroupCm | number: '1.1-1' }} cm /
                           {{ measuredGroupIn | number: '1.2-2' }} in
@@ -1126,65 +1177,16 @@
                           </ng-container>
                         </div>
 
-                        <!-- ✅ viewer toast -->
-                        <div
-                          *ngIf="photoViewerToast"
-                          class="mt-1 text-[10px] text-emerald-200 font-semibold"
-                        >
-                          {{ photoViewerToast }}
-                        </div>
+                        <ng-template #noMeasureYet>
+                          <div class="mt-1 text-[11px] text-gray-200/80">No measurement yet.</div>
+                        </ng-template>
                       </div>
-
-                      <!-- RIGHT: controls -->
-                      <div class="flex items-center gap-2">
-                        <!-- ✅ single toggle: View <-> Measure -->
-                        <button
-                          type="button"
-                          class="px-2 py-1 rounded-xl text-[11px] font-semibold"
-                          [ngClass]="
-                            isAnnotatingPhoto
-                              ? 'bg-gray-700 text-gray-100'
-                              : 'bg-emerald-600 text-white'
-                          "
-                          (click)="togglePhotoViewerMode()"
-                        >
-                          {{ isAnnotatingPhoto ? 'View' : 'Measure' }}
-                        </button>
-
-                        <button
-                          *ngIf="isAnnotatingPhoto"
-                          type="button"
-                          class="px-2 py-1 rounded-xl bg-gray-700 text-white text-[11px]"
-                          (click)="clearPhotoMeasurement()"
-                        >
-                          Clear
-                        </button>
-
-                        <!-- ✅ Save becomes Close after save -->
-                        <button
-                          *ngIf="isAnnotatingPhoto"
-                          type="button"
-                          class="px-2 py-1 rounded-xl text-[11px] font-semibold"
-                          [disabled]="measuredGroupCm == null && !photoMeasurementJustSaved"
-                          [ngClass]="
-                            measuredGroupCm != null || photoMeasurementJustSaved
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-gray-800 text-gray-500'
-                          "
-                          (click)="photoSaveOrClose()"
-                        >
-                          {{ photoMeasurementJustSaved ? 'Close' : 'Save' }}
-                        </button>
-
-                        <!-- Hide the normal Close when Save has turned into Close (avoids 2 Close buttons) -->
-                        <button
-                          *ngIf="!isAnnotatingPhoto || !photoMeasurementJustSaved"
-                          type="button"
-                          class="px-2 py-1 rounded-xl bg-gray-700 text-white text-[11px]"
-                          (click)="closePhotoViewer()"
-                        >
-                          Close
-                        </button>
+                      <!-- ✅ Floating toast (bigger, centered, longer visibility handled in TS) -->
+                      <div
+                        *ngIf="photoViewerToast"
+                        class="fixed left-1/2 -translate-x-1/2 bottom-10 z-[10000] px-5 py-3 rounded-2xl bg-black/90 border border-emerald-400/70 text-[14px] font-semibold text-emerald-200 shadow-lg pointer-events-none"
+                      >
+                        {{ photoViewerToast }}
                       </div>
                     </div>
 

@@ -369,10 +369,21 @@ export class SessionTabComponent implements OnInit {
   canGoToEnvironment(): boolean {
     return !!(this.title && this.title.trim().length > 0 && this.rifleId && this.venueId);
   }
+
   onSetupNext(): void {
     this.setupTriedNext = true;
 
-    if (!this.canGoToEnvironment()) {
+    const firstMissingId =
+      !this.title || this.title.trim().length === 0
+        ? 'setupTitleInput'
+        : !this.rifleId
+          ? 'setupRifleBtn'
+          : !this.venueId
+            ? 'setupVenueBtn'
+            : null;
+
+    if (firstMissingId) {
+      this.scrollToField(firstMissingId);
       return;
     }
 
@@ -380,28 +391,10 @@ export class SessionTabComponent implements OnInit {
   }
 
   goToEnvironmentStep(): void {
-    if (!this.rifleId) {
-      alert('Please select a rifle.');
-      return;
-    }
-    if (!this.venueId) {
-      alert('Please select a venue.');
-      return;
-    }
-    // Sub-range can be null (whole venue)
-    // Sub-range can be null (whole venue)
-
+    // Assumes setup validation already passed (see onSetupNext/canGoToEnvironment)
     this.clearEnvToast();
     this.clearShotsToast();
-
     this.step = 'environment';
-
-    this.step = 'environment';
-  }
-
-  cancelSession(): void {
-    this.newSession();
-    this.step = 'setup';
   }
 
   // ---------- Kestrel integration ----------
