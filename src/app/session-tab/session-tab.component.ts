@@ -272,6 +272,28 @@ export class SessionTabComponent implements OnInit {
 
     return null;
   }
+
+  /**
+   * Whole-venue is only a valid option when the venue itself has distances.
+   * Some venues only define distances per sub-range.
+   */
+  hasWholeVenueDistances(): boolean {
+    const v: any = this.selectedVenue as any;
+
+    // Whole venue option must only appear when:
+    // 1) the venue itself has valid distances, AND
+    // 2) the venue does NOT have sub-ranges (if it has ranges, user must pick a range)
+    const raw = v?.distancesM;
+    const distances: number[] = Array.isArray(raw)
+      ? raw.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n) && n > 0)
+      : [];
+
+    const hasDistances = distances.length > 0;
+    const hasSubRanges = Array.isArray(this.subRanges) && this.subRanges.length > 0;
+
+    return hasDistances && !hasSubRanges;
+  }
+
   canGoToShots(): boolean {
     const t = this.environment?.temperatureC;
     const p = this.environment?.pressureInHg;
@@ -386,8 +408,10 @@ export class SessionTabComponent implements OnInit {
     // Always re-pull venues so subRanges are never stale after edits in Venues tab
     this.venues = this.data.getVenues();
 
-    // Default to "Whole venue / no sub-range" whenever the venue changes
-    this.subRangeId = null;
+    // Default selection when the venue changes:
+    // - If venue has its own distances, allow "Whole venue / no sub-range".
+    // - Otherwise, auto-pick the first sub-range (so users can actually get distance options).
+    this.subRangeId = this.hasWholeVenueDistances() ? null : (this.subRanges[0]?.id ?? null);
 
     // Changing venue resets selected distances
     this.selectedDistances = [];
@@ -768,7 +792,7 @@ export class SessionTabComponent implements OnInit {
   }
 
   clearSubRangeFromPicker(): void {
-    this.subRangeId = null;
+    this.subRangeId = this.hasWholeVenueDistances() ? null : (this.subRanges[0]?.id ?? null);
     this.selectedDistances = [];
     this.closeSubRangePicker();
   }
@@ -801,7 +825,8 @@ export class SessionTabComponent implements OnInit {
 
   selectedSubRangeLabel(): string {
     if (!this.venueId) return 'Select venue first';
-    if (this.subRangeId == null) return 'Whole venue / no sub-range';
+    if (this.subRangeId == null)
+      return this.hasWholeVenueDistances() ? 'Whole venue / no sub-range' : 'Select sub-range';
     return this.selectedSubRange?.name || 'Sub-range';
   }
 
