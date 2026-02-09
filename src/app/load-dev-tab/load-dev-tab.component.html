@@ -236,6 +236,19 @@
             *ngIf="projectForm.type === 'ladder' || projectForm.type === 'ocw'"
             class="mt-2 border border-gray-800 rounded-2xl p-2 text-[11px] bg-black/40 space-y-2"
           >
+            <!-- Distance (meters) -->
+            <div *ngIf="projectForm.type === 'ladder' || projectForm.type === 'ocw'" class="mt-2">
+              <div class="text-gray-400 mb-0.5">Distance (m)</div>
+              <input
+                type="number"
+                inputmode="decimal"
+                class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
+                [(ngModel)]="planner.distanceM"
+                placeholder="e.g. 100"
+              />
+              <div class="mt-0.5 text-[9px] text-gray-500">Required for MOA calculation.</div>
+            </div>
+
             <!-- Start / End / Step -->
             <div class="grid grid-cols-3 gap-2">
               <div>
@@ -439,6 +452,7 @@
           <!-- Quick actions row -->
           <div class="flex items-center justify-between gap-2">
             <button
+              *ngIf="selectedProjectId"
               type="button"
               class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black font-semibold text-[11px]"
               (click)="toggleGraph()"
@@ -525,6 +539,35 @@
             *ngIf="planningEditActive && planningEditEntry"
             class="mt-3 relative left-[-12px] w-[calc(100%+24px)] border border-gray-800 bg-black/70 rounded-2xl px-3 py-3 space-y-2 overflow-x-hidden"
           >
+            <!-- Ladder tools (moved up) -->
+            <ng-container *ngIf="selectedProject?.type === 'ladder'">
+              <div class="text-[11px] text-sky-200 font-semibold">Ladder tools</div>
+
+              <span
+                *ngIf="planningInlineMessage"
+                class="text-[10px] rounded-xl bg-emerald-500/10 border border-emerald-400/60 text-emerald-200 px-2 py-1 inline-block"
+              >
+                {{ planningInlineMessage }}
+              </span>
+
+              <!-- Add a charge (inline) -->
+              <div class="flex items-center gap-2">
+                <input
+                  type="number"
+                  inputmode="decimal"
+                  class="w-36 bg-black/60 border border-sky-400/60 rounded-2xl px-2 py-1 text-xs text-sky-50"
+                  placeholder="Add (gr)"
+                  [(ngModel)]="planningAddChargeValue"
+                />
+                <button
+                  class="w-20 px-3 py-1 rounded-2xl bg-sky-600 text-black font-semibold text-[11px]"
+                  (click)="addPlanningCharge()"
+                >
+                  Add
+                </button>
+              </div>
+            </ng-container>
+
             <div class="text-[11px] text-emerald-200 font-semibold">
               {{
                 selectedProject?.type === 'ocw'
@@ -533,10 +576,34 @@
               }}
             </div>
 
-            <!-- Edit charge (OCW + Ladder) -->
+            <!-- Edit charge (OCW + Ladder) + Apply/Close inline -->
             <ng-container
               *ngIf="selectedProject?.type === 'ocw' || selectedProject?.type === 'ladder'"
             >
+              <div class="flex items-center gap-2 mt-2">
+                <input
+                  type="number"
+                  inputmode="decimal"
+                  step="0.01"
+                  class="w-36 bg-black/60 border border-emerald-400/60 rounded-2xl px-2 py-1 text-xs text-emerald-50"
+                  placeholder="Charge (gr)"
+                  [(ngModel)]="planningChargeEditValue"
+                />
+
+                <button
+                  class="w-20 px-3 py-1 rounded-2xl bg-emerald-500 text-black font-semibold text-[11px]"
+                  (click)="savePlanningEdit()"
+                >
+                  Apply
+                </button>
+
+                <button
+                  class="w-20 px-3 py-1 rounded-2xl bg-gray-700 text-gray-100 text-[11px]"
+                  (click)="cancelPlanningEdit()"
+                >
+                  Close
+                </button>
+              </div>
             </ng-container>
 
             <!-- OCW: edit planned shots per group -->
@@ -548,70 +615,6 @@
                 class="w-full bg-black/60 border border-emerald-400/60 rounded-2xl px-2 py-1.5 text-xs text-emerald-50"
                 [(ngModel)]="planningShotsPerGroupEditValue"
               />
-            </ng-container>
-            <ng-container *ngIf="selectedProject?.type === 'ocw'">
-              <span
-                *ngIf="planningInlineMessage"
-                class="text-[10px] rounded-xl bg-emerald-500/10 border border-emerald-400/60 text-emerald-200 px-2 py-1 inline-block"
-              >
-                {{ planningInlineMessage }}
-              </span>
-
-              <div class="flex justify-end gap-2 pt-1">
-                <button
-                  class="px-3 py-1.5 rounded-2xl bg-emerald-500 text-black font-semibold"
-                  (click)="savePlanningEdit()"
-                >
-                  Apply
-                </button>
-
-                <button
-                  class="px-3 py-1.5 rounded-2xl bg-gray-700 text-gray-100"
-                  (click)="cancelPlanningEdit()"
-                >
-                  Close
-                </button>
-              </div>
-            </ng-container>
-
-            <!-- Ladder tools -->
-            <ng-container *ngIf="selectedProject?.type === 'ladder'">
-              <div class="mt-2 pt-2 border-t border-gray-800 space-y-2">
-                <div class="text-[11px] text-sky-200 font-semibold">Ladder tools</div>
-                <span
-                  *ngIf="planningInlineMessage"
-                  class="text-[10px] rounded-xl bg-emerald-500/10 border border-emerald-400/60 text-emerald-200 px-2 py-1 inline-block"
-                >
-                  {{ planningInlineMessage }}
-                </span>
-
-                <!-- Add a charge -->
-                <div class="text-[10px] text-gray-300">Add charge (gr)</div>
-                <div class="flex gap-2">
-                  <input
-                    type="number"
-                    inputmode="decimal"
-                    class="flex-1 bg-black/60 border border-sky-400/60 rounded-2xl px-2 py-1.5 text-xs text-sky-50"
-                    [(ngModel)]="planningAddChargeValue"
-                  />
-                  <button
-                    class="px-3 py-1.5 rounded-2xl bg-sky-600 text-black font-semibold text-[11px]"
-                    (click)="addPlanningCharge()"
-                  >
-                    Add
-                  </button>
-                </div>
-
-                <!-- No rebuild in pre-wizard edit: only add or edit -->
-                <div class="flex justify-end">
-                  <button
-                    class="px-3 py-1.5 rounded-2xl bg-gray-700 text-gray-100 text-[11px]"
-                    (click)="cancelPlanningEdit()"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
             </ng-container>
           </div>
 
@@ -1181,6 +1184,7 @@
                           <div class="mt-1 text-[11px] text-gray-200/80">No measurement yet.</div>
                         </ng-template>
                       </div>
+
                       <!-- ✅ Floating toast (bigger, centered, longer visibility handled in TS) -->
                       <div
                         *ngIf="photoViewerToast"

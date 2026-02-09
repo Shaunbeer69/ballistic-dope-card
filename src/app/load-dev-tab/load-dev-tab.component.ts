@@ -1275,7 +1275,18 @@ export class LoadDevTabComponent implements OnInit {
       this.recalcGroupFromTwoPoints();
     }
   }
+  private getMeasurementDistanceM(): number | null {
+    const entryM = (this.photoViewerEntry as any)?.distanceM;
+    if (typeof entryM === 'number' && isFinite(entryM) && entryM > 0) return entryM;
 
+    const projM = (this.selectedProject as any)?.distanceM;
+    if (typeof projM === 'number' && isFinite(projM) && projM > 0) return projM;
+
+    const plannerM = (this.planner as any)?.distanceM;
+    if (typeof plannerM === 'number' && isFinite(plannerM) && plannerM > 0) return plannerM;
+
+    return null;
+  }
   private recalcGroupFromTwoPoints(): void {
     if (!this.gridPxPerCm) return;
     if (this.photoMeasurePoints.length !== 2) return;
@@ -1293,17 +1304,14 @@ export class LoadDevTabComponent implements OnInit {
     this.measuredGroupIn = dIn;
 
     // MOA if distance is available
-    const distM = (this.selectedProject as any)?.distanceM ?? null;
-    if (typeof distM === 'number' && isFinite(distM) && distM > 0) {
+    // ✅ FIX: use entry distance first, then project/planner fallback
+    const distM = this.getMeasurementDistanceM();
+    if (distM != null) {
       const yards = distM * 1.0936133;
       this.measuredGroupMoa = (dIn * 100) / (yards * 1.047);
     } else {
       this.measuredGroupMoa = null;
     }
-
-    // IMPORTANT:
-    // Do NOT write to Notes here anymore.
-    // Notes write happens only when user taps Save (photoSaveOrClose -> savePhotoMeasurementToNotes).
   }
 
   savePhotoMeasurementToNotes(): void {
@@ -4709,12 +4717,17 @@ This confirms which timing node is the most repeatable and forgiving in real sho
   }
 
   toggleGraph(): void {
+    if (!this.selectedProjectId && !this.selectedProject) {
+      return;
+    }
+
     const canShow = this.graphCoords.length > 0 || this.ocwShotPoints.length > 0;
 
     if (!canShow) {
-      alert('No velocity data to graph yet.');
+      this.showGraph = false;
       return;
     }
+
     this.showGraph = !this.showGraph;
   }
 

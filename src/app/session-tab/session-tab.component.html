@@ -499,12 +499,31 @@
       <h2 class="text-sm font-semibold mb-1">Environment (before shooting)</h2>
 
       <!-- Validation toast -->
-
       <div
         *ngIf="envToastMessage"
         class="sticky top-0 z-10 text-[11px] rounded-xl border border-red-500/60 bg-red-500/10 text-red-200 px-3 py-2"
       >
         {{ envToastMessage }}
+      </div>
+
+      <!-- ✅ ENV VALIDATION PROMPT (shows after user taps Next once) -->
+      <div
+        *ngIf="environmentTriedNext && !canGoToShots()"
+        class="mb-2 rounded-xl border border-red-700 bg-red-950/50 px-2 py-2"
+      >
+        <div class="text-[11px] text-red-200 font-semibold">Missing required fields</div>
+        <ul class="mt-1 text-[10px] text-red-200 list-disc pl-4 space-y-0.5">
+          <li *ngIf="environment.temperatureC == null">Temp is required</li>
+          <li *ngIf="environment.pressureInHg == null">Pressure is required</li>
+          <li *ngIf="environment.humidityPercent == null">Humidity is required</li>
+          <li *ngIf="windSpeedInputValue == null">Wind speed is required</li>
+          <li *ngIf="windClock == null || windClock < 1 || windClock > 12">
+            Wind from (1–12) is required
+          </li>
+          <li *ngIf="!environment.lightConditions || !environment.lightConditions.trim()">
+            Light conditions is required
+          </li>
+        </ul>
       </div>
 
       <!-- Kestrel quick sync (above manual fields) -->
@@ -645,9 +664,12 @@
 
       <!-- Light conditions -->
       <label class="flex flex-col mt-1">
-        <span class="text-[11px] text-gray-300 mb-1">Light conditions</span>
+        <span class="text-[11px] text-gray-300 mb-1">
+          Light conditions <span class="text-red-400">*</span>
+        </span>
         <input
           [(ngModel)]="environment.lightConditions"
+          id="envLightConditionsInput"
           placeholder="Overcast, mirage, etc."
           class="px-2 py-1 rounded bg-black border border-gray-700 text-[11px]"
         />
@@ -657,8 +679,12 @@
         <button class="px-3 py-1.5 text-xs rounded bg-gray-700" (click)="backToSetup()">
           Back
         </button>
+
         <button
-          class="px-4 py-1.5 text-xs rounded bg-orange-500 text-black font-semibold"
+          class="px-4 py-1.5 text-xs rounded text-black font-semibold"
+          [ngClass]="
+            canGoToShots() ? 'bg-green-500' : 'bg-orange-500 opacity-60 cursor-not-allowed'
+          "
           (click)="nextFromEnvironment()"
         >
           Next: Shot plan
@@ -794,13 +820,5 @@
     </div>
   </div>
 
-  <div class="p-3 flex justify-end">
-    <button
-      type="button"
-      class="px-3 py-1.5 rounded-2xl bg-orange-500 text-black text-[11px] font-semibold"
-      (click)="onBackFromHistory()"
-    >
-      Back
-    </button>
-  </div>
+  <div class="p-3 flex justify-end"></div>
 </div>

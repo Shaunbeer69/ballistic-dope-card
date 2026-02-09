@@ -48,6 +48,8 @@ export class SessionTabComponent implements OnInit {
   title = '';
   environment: Environment = {};
   setupTriedNext = false;
+  environmentTriedNext = false;
+  hasStartedSession = false;
 
   // Wind speed unit toggle (display only). Internally we store windSpeedMps on environment.
   windSpeedUnit: 'mph' | 'mps' = 'mph'; // default mph (as requested)
@@ -270,6 +272,31 @@ export class SessionTabComponent implements OnInit {
 
     return null;
   }
+  canGoToShots(): boolean {
+    const t = this.environment?.temperatureC;
+    const p = this.environment?.pressureInHg;
+    const h = this.environment?.humidityPercent;
+
+    const windOk =
+      this.windSpeedInputValue != null && Number.isFinite(Number(this.windSpeedInputValue));
+    const clockOk =
+      this.windClock != null &&
+      Number.isFinite(this.windClock) &&
+      this.windClock >= 1 &&
+      this.windClock <= 12;
+
+    const lightOk =
+      !!this.environment?.lightConditions && this.environment.lightConditions.trim().length > 0;
+
+    return (
+      this.isFiniteNumber(t) &&
+      this.isFiniteNumber(p) &&
+      this.isFiniteNumber(h) &&
+      windOk &&
+      clockOk &&
+      lightOk
+    );
+  }
 
   rifleAnyLabel(r: Rifle | any): string {
     if (!r) return 'Select rifle';
@@ -391,9 +418,13 @@ export class SessionTabComponent implements OnInit {
   }
 
   goToEnvironmentStep(): void {
-    // Assumes setup validation already passed (see onSetupNext/canGoToEnvironment)
+    // Wizard has started (used to change Back button behavior)
+    this.hasStartedSession = true;
+
+    // Reset per-step "tried next" flags when entering a step
+    this.environmentTriedNext = false;
+
     this.clearEnvToast();
-    this.clearShotsToast();
     this.step = 'environment';
   }
 
@@ -417,15 +448,25 @@ export class SessionTabComponent implements OnInit {
   }
 
   // ---------- Environment step ----------
-
   nextFromEnvironment(): void {
-    // Convert windClock -> approximate windDirectionDeg (0° = from target / headwind)
-    // Validation: all manual numeric fields must be populated (Light conditions excluded)
+    // Mark that user attempted to move forward so inline validation appears
+    this.environmentTriedNext = true;
+
+    // Hard validation: all required Environment fields must be present
     const t = this.environment?.temperatureC;
     const p = this.environment?.pressureInHg;
     const h = this.environment?.humidityPercent;
-    const w = this.environment?.windSpeedMps;
-    const c = this.windClock;
+
+    const windSpeedOk =
+      this.windSpeedInputValue != null && this.isFiniteNumber(this.environment?.windSpeedMps);
+    const windClockOk =
+      this.windClock != null &&
+      Number.isFinite(this.windClock) &&
+      this.windClock >= 1 &&
+      this.windClock <= 12;
+
+    const lightOk =
+      !!this.environment?.lightConditions && !!String(this.environment.lightConditions).trim();
 
     const firstMissingId = !this.isFiniteNumber(t)
       ? 'envTempInput'
@@ -433,26 +474,27 @@ export class SessionTabComponent implements OnInit {
         ? 'envPressureInput'
         : !this.isFiniteNumber(h)
           ? 'envHumidityInput'
-          : !this.isFiniteNumber(w)
+          : !windSpeedOk
             ? 'envWindSpeedInput'
-            : !this.isFiniteNumber(c)
+            : !windClockOk
               ? 'envWindClockInput'
-              : null;
+              : !lightOk
+                ? 'envLightConditionsInput'
+                : null;
 
     if (firstMissingId) {
-      this.showEnvToast('Please complete all Environment fields (numeric).');
+      this.showEnvToast('Please complete all Environment fields.');
       this.scrollToField(firstMissingId);
       return;
     }
 
-    if (this.windClock != null) {
-      let c = ((this.windClock - 1) % 12) + 1; // 1..12
-      const fraction = c === 12 ? 0 : c / 12;
-      const deg = Math.round(fraction * 360);
-      this.environment.windDirectionDeg = deg;
-    } else {
-      this.environment.windDirectionDeg = undefined;
-    }
+    // Convert windClock -> approximate windDirectionDeg (0° = from target / headwind)
+    const c = this.windClock!;
+    let cNorm = ((c - 1) % 12) + 1; // 1..12
+    const fraction = cNorm === 12 ? 0 : cNorm / 12;
+    const deg = Math.round(fraction * 360);
+    this.environment.windDirectionDeg = deg;
+
     this.clearEnvToast();
 
     this.step = 'shots';
@@ -619,8 +661,14 @@ export class SessionTabComponent implements OnInit {
     this.clearEnvToast();
     this.clearShotsToast();
 
+    // Reset wizard state flags
+    this.setupTriedNext = false;
+    this.environmentTriedNext = false;
+    this.hasStartedSession = false;
+
     this.step = 'setup';
     this.title = '';
+
     this.rifleId = null;
     this.venueId = null;
     this.subRangeId = null;
@@ -840,6 +888,23 @@ export class SessionTabComponent implements OnInit {
   }
 
   onBackFromHistory() {
+    // If the wizard has started, Back should only go to the previous wizard step
+    if (this.hasStartedSession) {
+      if (this.step === 'environment') {
+        this.backToSetup();
+        return;
+      }
+      if (this.step === 'shots') {
+        this.backToEnvironmentStep();
+        return;
+      }
+      if (this.step === 'complete') {
+        this.step = 'shots';
+        return;
+      }
+    }
+
+    // Default behavior: leave the Sessions tab / return to menu
     this.backToMenu.emit();
   }
 }
