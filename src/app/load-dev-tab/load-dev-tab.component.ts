@@ -143,6 +143,10 @@ export class LoadDevTabComponent implements OnInit {
 
   // Grid scaling (px per 1cm block)
   gridPxPerCm: number | null = null;
+  // --- Option A: manual calibration (tap 2 known points) ---
+  isCalibratingPhoto = false;
+  photoCalibKnownCm = 5; // default; user can change in UI
+  photoCalibPoints: Array<{ x: number; y: number }> = [];
 
   // Measurement taps (viewer-local pixel coords)
   photoMeasurePoints: Array<{ x: number; y: number }> = [];
@@ -1122,6 +1126,10 @@ export class LoadDevTabComponent implements OnInit {
     this.photoViewerOpen = true;
 
     this.isAnnotatingPhoto = true;
+    // Option A: start with calibration step
+    this.isCalibratingPhoto = true;
+    this.gridPxPerCm = null;
+    this.photoCalibPoints = [];
 
     // reset measurement state
     this.photoMeasurePoints = [];
@@ -1133,7 +1141,6 @@ export class LoadDevTabComponent implements OnInit {
     this.photoViewerToast = null;
 
     // ensure grid scale exists (best effort)
-    void this.runAutoScaleForPhoto(url);
   }
 
   openEntryPhotoViewer(entry: LoadDevEntry, event?: Event): void {
@@ -1195,11 +1202,14 @@ export class LoadDevTabComponent implements OnInit {
     if (mode === 'measure') {
       this.isAnnotatingPhoto = true;
 
-      // ensure grid scale exists (best effort)
-      const url = this.photoViewerUrl;
-      if (url) void this.runAutoScaleForPhoto(url);
+      // Option A: require manual calibration first
+      this.isCalibratingPhoto = true;
+      this.gridPxPerCm = null;
+      this.photoCalibPoints = [];
     } else {
       this.isAnnotatingPhoto = false;
+      this.isCalibratingPhoto = false;
+      this.photoCalibPoints = [];
 
       // prevents grid from showing in view mode
       this.gridPxPerCm = null;
@@ -1249,11 +1259,14 @@ export class LoadDevTabComponent implements OnInit {
     // E) Clear should always bring Save back
     this.photoMeasurementJustSaved = false;
     this.photoViewerToast = null;
+    // Option A: clearing measurement returns to calibration step
+    this.isCalibratingPhoto = true;
+    this.gridPxPerCm = null;
+    this.photoCalibPoints = [];
   }
 
   onPhotoTap(ev: MouseEvent): void {
     if (!this.isAnnotatingPhoto) return;
-    if (!this.gridPxPerCm) return;
 
     const host = ev.currentTarget as HTMLElement | null;
     if (!host) return;
@@ -1261,6 +1274,40 @@ export class LoadDevTabComponent implements OnInit {
     const rect = host.getBoundingClientRect();
     const x = ev.clientX - rect.left;
     const y = ev.clientY - rect.top;
+    // --- Option A calibration step ---
+    if (this.isCalibratingPhoto) {
+      this.photoCalibPoints.push({ x, y });
+      if (this.photoCalibPoints.length > 2) {
+        this.photoCalibPoints = this.photoCalibPoints.slice(-2);
+      }
+
+      if (this.photoCalibPoints.length === 2) {
+        const [a, b] = this.photoCalibPoints;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dPx = Math.sqrt(dx * dx + dy * dy);
+
+        const cm = Number(this.photoCalibKnownCm);
+        if (Number.isFinite(cm) && cm > 0 && dPx > 2) {
+          this.gridPxPerCm = dPx / cm;
+          this.isCalibratingPhoto = false;
+
+          // reset measurement taps/results for the next step
+          this.photoMeasurePoints = [];
+          this.measuredGroupCm = null;
+          this.measuredGroupIn = null;
+          this.measuredGroupMoa = null;
+
+          this.photoViewerToast = 'Calibrated ✅ Now tap 2 points to measure';
+          setTimeout(() => (this.photoViewerToast = null), 3500);
+        } else {
+          this.photoViewerToast = 'Enter a valid cm value';
+          setTimeout(() => (this.photoViewerToast = null), 2500);
+        }
+      }
+
+      return; // IMPORTANT: do not fall through into measurement logic
+    }
 
     // E) new taps invalidate previous save
     this.photoMeasurementJustSaved = false;
@@ -1312,6 +1359,9 @@ export class LoadDevTabComponent implements OnInit {
     } else {
       this.measuredGroupMoa = null;
     }
+
+    // After measuring, immediately write measurement line to Notes (at top)
+    this.writeMeasurementIntoNotes();
   }
 
   savePhotoMeasurementToNotes(): void {
@@ -1356,19 +1406,24 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   private upsertNoteLine(existing: string, newLine: string): string {
-    const lines = (existing ?? '').toString().split(/\r?\n/);
-
-    const idx = lines.findIndex((l) => l.trim().startsWith('📏 Group size:'));
     const outLine = newLine.replace(/^📏\s*/, '📏 ');
 
-    if (idx >= 0) {
-      lines[idx] = outLine;
-    } else {
-      if (lines.length > 0 && lines[lines.length - 1].trim() !== '') lines.push('');
-      lines.push(outLine);
+    // Normalize existing lines (preserve user text, but remove any older measurement line anywhere)
+    const raw = (existing ?? '').toString().replace(/\r/g, '');
+    const existingLines = raw.split('\n');
+
+    const remaining = existingLines.filter((l) => !l.trim().startsWith('📏 Group size:'));
+
+    // If existing was empty (or only measurement), return just the measurement line
+    if (remaining.length === 0 || (remaining.length === 1 && remaining[0].trim() === '')) {
+      return outLine;
     }
 
-    return lines.join('\n').trimEnd();
+    // Ensure measurement is line 1 and previous comments start at line 2
+    // (keep original spacing as-is, but avoid leading blank lines)
+    while (remaining.length > 0 && remaining[0].trim() === '') remaining.shift();
+
+    return [outLine, ...remaining].join('\n').trimEnd();
   }
 
   /** Step 1: estimate pixels-per-1cm grid spacing and store for overlay. */
