@@ -2676,6 +2676,9 @@ export class AppComponent implements OnInit {
 
       const before = takeSnapshot();
 
+      // ✅ IMPORTANT: restore embedded load-dev photos back into Directory.Data
+      await this.rehydrateLoadDevMediaFromImport(parsed);
+
       const result = this.dataService.importFromBackupMerge(parsed);
 
       // Refresh menus/counts
@@ -2846,6 +2849,9 @@ export class AppComponent implements OnInit {
       'Import will ADD/merge data into this device (it will not delete existing data).\n\nContinue?',
     );
     if (!ok) return;
+
+    // ✅ NEW: add this ONE line (do not re-declare result)
+    await this.rehydrateLoadDevMediaFromImport(parsed);
 
     const result = this.dataService.importFromBackupMerge(parsed);
 
@@ -3668,10 +3674,13 @@ export class AppComponent implements OnInit {
     const fn =
       (this.dataService as any).exportSelectiveShareForMerge ??
       (this.dataService as any).exportSelectiveShare;
-
     const payload = fn.call(this.dataService, opts);
 
+    // ✅ NEW: add this ONE line (do not re-declare payload/json again)
+    await this.attachLoadDevMediaToBackupPayload(payload);
+
     const json = JSON.stringify(payload, null, 2);
+
     const filename = 'gunstuff-share-data-' + new Date().toISOString().slice(0, 10) + '.json';
 
     if (Capacitor.isNativePlatform()) {
@@ -3742,6 +3751,9 @@ export class AppComponent implements OnInit {
       alert('No data found – nothing to backup yet.');
       return;
     }
+
+    // ✅ IMPORTANT: embed load-dev photos from Directory.Data into the JSON payload
+    await this.attachLoadDevMediaToBackupPayload(payload);
 
     const json = JSON.stringify(payload, null, 2);
     const filename = 'gunstuff-full-backup-' + new Date().toISOString().slice(0, 10) + '.json';
@@ -4091,5 +4103,81 @@ export class AppComponent implements OnInit {
     // Browser fallback: text-only via wa.me
     const wa = 'https://wa.me/?text=' + encodeURIComponent(text);
     window.open(wa, '_blank');
+  }
+  // ---------- LoadDev media helpers (export/import) ----------
+
+  private async attachLoadDevMediaToBackupPayload(payload: any): Promise<void> {
+    try {
+      const projects: any[] = payload?.store?.loadDevProjects ?? [];
+      if (!Array.isArray(projects) || projects.length === 0) return;
+
+      payload.loadDevMedia = payload.loadDevMedia ?? {};
+      payload.loadDevMedia.files = payload.loadDevMedia.files ?? {};
+
+      const files: Record<string, { base64: string; mime: string }> = payload.loadDevMedia.files;
+
+      const addPath = async (pathRaw: any, mimeRaw: any) => {
+        const path = (pathRaw ?? '').toString().trim();
+        if (!path) return;
+        if (files[path]) return;
+
+        const mime = (mimeRaw ?? 'image/jpeg').toString().trim() || 'image/jpeg';
+
+        try {
+          const res = await Filesystem.readFile({ path, directory: Directory.Data });
+          const base64 = (res?.data ?? '').toString().trim();
+          if (!base64) return;
+
+          files[path] = { base64, mime };
+        } catch {
+          // ignore missing file on disk
+        }
+      };
+
+      for (const p of projects) {
+        // Project-level overview photo
+        await addPath((p as any)?.targetPhotoPath, (p as any)?.targetPhotoMime);
+
+        // Entry-level photos
+        const entries: any[] = (p as any)?.entries ?? [];
+        if (Array.isArray(entries)) {
+          for (const e of entries) {
+            const tp = (e as any)?.targetPhoto;
+            await addPath(tp?.path, tp?.mime);
+          }
+        }
+      }
+    } catch {
+      // no-throw export
+    }
+  }
+
+  private async rehydrateLoadDevMediaFromImport(parsed: any): Promise<void> {
+    try {
+      const files: Record<string, { base64: string; mime?: string }> =
+        parsed?.loadDevMedia?.files ?? {};
+
+      const paths = Object.keys(files || {});
+      if (!paths.length) return;
+
+      for (const path of paths) {
+        const item = files[path];
+        const base64 = (item?.base64 ?? '').toString().trim();
+        if (!base64) continue;
+
+        try {
+          await Filesystem.writeFile({
+            path,
+            data: base64,
+            directory: Directory.Data,
+            recursive: true,
+          });
+        } catch {
+          // ignore write failures
+        }
+      }
+    } catch {
+      // no-throw import
+    }
   }
 }

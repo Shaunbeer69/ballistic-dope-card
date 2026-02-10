@@ -301,9 +301,7 @@
               <div *ngIf="v.location" class="text-[11px] text-slate-300">
                 {{ v.location }}
               </div>
-              <div *ngIf="v.altitudeM != null" class="text-[11px] text-slate-300">
-                Altitude: {{ v.altitudeM }} m
-              </div>
+
               <div *ngIf="v.notes" class="text-[11px] text-slate-300">Notes: {{ v.notes }}</div>
             </div>
 
@@ -330,11 +328,18 @@
               </button>
             </div>
           </div>
-
           <!-- Subrange display -->
           <div *ngIf="expandedVenueId === v.id" class="space-y-1 mt-2">
+            <!-- Whole venue distances (when no subranges exist) -->
             <div
-              *ngIf="!v.subRanges || v.subRanges.length === 0"
+              *ngIf="(!v.subRanges || v.subRanges.length === 0) && v.distancesM?.length"
+              class="text-[11px] text-slate-300"
+            >
+              Distances: {{ v.distancesM?.join(', ') }} m
+            </div>
+
+            <div
+              *ngIf="(!v.subRanges || v.subRanges.length === 0) && !v.distancesM?.length"
               class="text-[11px] text-slate-400"
             >
               No subranges defined.
@@ -368,33 +373,8 @@
               </div>
             </button>
           </div>
-        </div>
-      </ng-container>
-    </ng-container>
-  </div>
-
-  <!-- Bottom actions: Export (left) / Back (right) -->
-  <div
-    class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 mt-3"
-  >
-    <div class="flex items-center justify-between">
-      <button
-        *ngIf="selectedVenue"
-        type="button"
-        class="px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold"
-        (click)="exportSelectedVenuePdf()"
-        [disabled]="!selectedVenue"
-      >
-        Export Venue Data
-      </button>
-      <div *ngIf="!selectedVenue"></div>
-      <button
-        type="button"
-        class="px-3 py-2 rounded-xl bg-orange-500 text-black text-xs"
-        (click)="goBack()"
-      >
-        Back
-      </button>
-    </div>
+        </div></ng-container
+      ></ng-container
+    >
   </div>
 </div>
