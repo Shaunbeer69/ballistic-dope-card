@@ -166,7 +166,6 @@
                 placeholder="Bullet Specific"
               />
             </div>
-
             <!-- RIGHT: Calculated difference (Lands - Ogive) -->
             <div>
               <div class="text-gray-400 mb-0.5 flex items-center justify-end gap-2">
@@ -213,6 +212,7 @@
             </div>
 
             <!-- RIGHT: Overall length (BTT) (same unit) -->
+
             <div>
               <div class="text-gray-400 mb-0.5 flex items-center justify-end gap-2">
                 <span class="text-[10px] text-gray-500"> ({{ projectForm.oalUnit || 'mm' }}) </span>
@@ -1194,7 +1194,7 @@
                           class="mt-1 font-semibold"
                         >
                           {{ measuredGroupCm | number: '1.1-1' }} cm /
-                          {{ measuredGroupIn | number: '1.2-2' }} in
+                          {{ fmtLen(measuredGroupIn, 'in') }} in
                           <ng-container *ngIf="measuredGroupMoa != null">
                             / {{ measuredGroupMoa | number: '1.2-2' }} MOA
                           </ng-container>
@@ -1473,7 +1473,7 @@
                                 {{ measuredGroupCm | number: '1.1-1' }} cm
                               </span>
                               <span *ngIf="measuredGroupIn" class="ml-2">
-                                {{ measuredGroupIn | number: '1.2-2' }} in
+                                {{ fmtLen(measuredGroupIn, 'in') }} in
                               </span>
                               <span *ngIf="measuredGroupMoa" class="ml-2">
                                 {{ measuredGroupMoa | number: '1.2-2' }} MOA
@@ -1665,7 +1665,7 @@
                         >
                           <ng-container *ngIf="summaryLandsValue() as lands; else jumpDash">
                             <ng-container *ngIf="summaryCoalOgiveValue() as og; else jumpDash">
-                              {{ lands - og | number: '1.0-3' }}
+                              {{ fmtLen(lands - og, summaryCoalUnit() === 'in' ? 'in' : 'mm') }}
                               <span>
                                 <ng-container *ngIf="summaryCoalUnit() as cu">{{
                                   cu

@@ -1639,12 +1639,12 @@ export class LoadDevTabComponent implements OnInit {
     if (p.oalOgive != null) parts.push(`Test (BTO): ${p.oalOgive}${u}`);
     if (p.oal != null) parts.push(`Test (BTT): ${p.oal}${u}`);
 
-    // NEW: Jump (Lands - Ogive)
+    // NEW: Jump (Lands - Ogive) - NEVER ROUND
     const landsNum = Number(p.lands);
     const ogiveNum = Number(p.oalOgive);
     if (Number.isFinite(landsNum) && Number.isFinite(ogiveNum)) {
-      const jump = Math.round((landsNum - ogiveNum) * 1000) / 1000;
-      parts.push(`Jump: ${jump}${u}`);
+      const unit: 'mm' | 'in' = p.oalUnit === 'in' ? 'in' : 'mm';
+      parts.push(`Jump: ${this.fmtLen(landsNum - ogiveNum, unit)}${u}`);
     }
 
     // Existing: charge range
@@ -4169,6 +4169,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
   }
 
   // ---------- Lands / Ogive helper (project form) ----------
+  // ---------- Lands / Ogive helper (project form) ----------
   landsMinusOgive(): number | null {
     const rawLands = (this.projectForm as any)?.lands;
     const rawOgive = (this.projectForm as any)?.oalOgive;
@@ -4186,14 +4187,27 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     return Number.isFinite(diff) ? diff : null;
   }
 
+  private truncTo(n: number, decimals: number): number {
+    const f = Math.pow(10, decimals);
+    // truncate toward zero (NEVER round)
+    return (n < 0 ? Math.ceil(n * f) : Math.floor(n * f)) / f;
+  }
+
+  // NOTE: must be public because HTML calls it
+  public fmtLen(n: number | null | undefined, unit: 'mm' | 'in'): string {
+    if (n == null || !Number.isFinite(Number(n))) return '—';
+    const decimals = unit === 'in' ? 3 : 1; // REQUIREMENT
+    const t = this.truncTo(Number(n), decimals);
+    return t.toFixed(decimals); // pads zeros without rounding
+  }
+
   landsMinusOgiveText(): string {
     const d = this.landsMinusOgive();
     if (d == null) return '';
-
-    // Readable precision (inches typically needs more)
-    const decimals = this.projectForm?.oalUnit === 'in' ? 3 : 2;
-    return d.toFixed(decimals);
+    const unit: 'mm' | 'in' = this.projectForm?.oalUnit === 'in' ? 'in' : 'mm';
+    return this.fmtLen(d, unit);
   }
+
   // ---------- Summary helpers (project-level ONLY) ----------
   // Summary must reflect ONLY what was entered/saved on the Load Dev project,
   // never pulled from entries below.
