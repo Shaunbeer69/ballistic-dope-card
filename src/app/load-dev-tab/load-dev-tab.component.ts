@@ -1458,16 +1458,18 @@ export class LoadDevTabComponent implements OnInit {
     // In MOA-calibration mode we may only have MOA.
     if (this.photoCalibMode === 'moa') {
       if (moa == null || !Number.isFinite(moa)) return;
-      const line = `📏 Group size: ${moa.toFixed(2)} MOA`;
+      const line = `Group size: ${moa.toFixed(2)} MOA`;
       this.writeMeasurementLine(line);
       return;
     }
 
     if (mm == null || inch == null) return;
 
-    const parts: string[] = [`📏 Group size: ${mm.toFixed(1)} mm`, `${inch.toFixed(2)} in`];
+    const parts: string[] = [`Group size: ${mm.toFixed(1)} mm`, `${inch.toFixed(2)} in`];
     if (moa != null && Number.isFinite(moa)) parts.push(`${moa.toFixed(2)} MOA`);
-    const line = parts.join(' • ');
+
+    // Use ASCII separators for maximum PDF compatibility
+    const line = parts.join(' | ');
     this.writeMeasurementLine(line);
   }
 
@@ -1498,13 +1500,15 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   private upsertNoteLine(existing: string, newLine: string): string {
-    const outLine = newLine.replace(/^📏\s*/, '📏 ');
+    // No emoji normalization needed anymore
+    const outLine = newLine.trim();
 
     // Normalize existing lines (preserve user text, but remove any older measurement line anywhere)
     const raw = (existing ?? '').toString().replace(/\r/g, '');
     const existingLines = raw.split('\n');
 
-    const remaining = existingLines.filter((l) => !l.trim().startsWith('📏 Group size:'));
+    // Remove previous measurement line(s)
+    const remaining = existingLines.filter((l) => !l.trim().startsWith('Group size:'));
 
     // If existing was empty (or only measurement), return just the measurement line
     if (remaining.length === 0 || (remaining.length === 1 && remaining[0].trim() === '')) {
@@ -1512,7 +1516,6 @@ export class LoadDevTabComponent implements OnInit {
     }
 
     // Ensure measurement is line 1 and previous comments start at line 2
-    // (keep original spacing as-is, but avoid leading blank lines)
     while (remaining.length > 0 && remaining[0].trim() === '') remaining.shift();
 
     return [outLine, ...remaining].join('\n').trimEnd();
@@ -2269,19 +2272,36 @@ export class LoadDevTabComponent implements OnInit {
       // How many comment lines can we afford while still keeping the bottom boxes?
       const commentsHeight = (n: number) => commentTitleH + n * commentLineGap + commentPadAfter;
       const boxesReservedAbs = boxH + boxPadAfter;
-
       let commentLines = 15;
 
-      // ✅ Build / fetch summary line for export (must be a single-line string)
+      // ✅ Load summary under Comments (vertical line format)
+      // First line: OCW / Ladder, then: |, part, |, part ...
+      const typeLabel =
+        this.selectedProject?.type === 'ocw'
+          ? 'OCW'
+          : this.selectedProject?.type === 'ladder'
+            ? 'Ladder'
+            : '';
+
       const summaryLine =
         typeof this.buildLoadSummaryLine === 'function' ? this.buildLoadSummaryLine() || '' : '';
+      const summaryParts = summaryLine.toString().trim()
+        ? summaryLine
+            .toString()
+            .trim()
+            .split(' | ')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
 
-      // ✅ If we have a summary line, reserve 1 comment row for it
-      const summaryConsumesOneLine = !!summaryLine;
+      const summaryLineCount = (typeLabel ? 1 : 0) + summaryParts.length;
 
       // Ensure we have room for at least absolute-min boxes.
       // If not, reduce comment lines until it fits (down to 0 if required).
-      while (commentLines > 0 && y + commentsHeight(commentLines) + boxesReservedAbs > pageBottom) {
+      while (
+        commentLines > 0 &&
+        y + commentsHeight(commentLines + summaryLineCount) + boxesReservedAbs > pageBottom
+      ) {
         commentLines--;
       }
 
@@ -2297,32 +2317,55 @@ export class LoadDevTabComponent implements OnInit {
       // use the reserved title height (includes blank line)
       y += commentTitleH;
 
-      // ✅ Draw summary as FIRST comment line (bold), then move y down one line
-      if (summaryConsumesOneLine && commentLines > 0) {
-        // Fit summary on one line (truncate if needed)
+      // ✅ Draw summary lines first (bold only for first line), each forced to 1 line (truncate)
+      if (summaryLineCount) {
         const maxW = pageW - rightMargin - leftMargin;
-        const oneLine = doc.splitTextToSize(summaryLine, maxW)?.[0] ?? summaryLine;
 
-        // Make sure it truly stays one line with an ellipsis if splitText would wrap
-        let summaryOut = oneLine;
-        if (doc.getTextWidth(summaryOut) > maxW) {
-          while (summaryOut.length > 0 && doc.getTextWidth(summaryOut + '…') > maxW) {
-            summaryOut = summaryOut.slice(0, -1);
+        // 1) Type label (bold)
+        if (typeLabel) {
+          (doc as any).setFont(undefined, 'bold');
+          doc.setFontSize(10);
+
+          let out = doc.splitTextToSize(typeLabel, maxW)?.[0] ?? typeLabel;
+          if (doc.getTextWidth(out) > maxW) {
+            while (out.length > 0 && doc.getTextWidth(out + '…') > maxW) out = out.slice(0, -1);
+            out = out + '…';
           }
-          summaryOut = summaryOut + '…';
+
+          doc.text(out, leftMargin, y - 3);
+          y += commentLineGap;
         }
 
-        // Bold summary
-        (doc as any).setFont(undefined, 'bold');
-        doc.setFontSize(10);
-        doc.text(summaryOut, leftMargin, y - 3); // slight baseline tweak
+        // 2) Vertical rule + stacked parts
+        const ruleX = leftMargin + 2;
+        const textX = leftMargin + 8;
+        const startY = y - 10; // slight lift so rule visually starts near the first part
+        const endY = y + summaryParts.length * commentLineGap - 10;
 
-        // Back to normal for lines
+        if (summaryParts.length) {
+          doc.setDrawColor(120, 120, 120);
+          doc.setLineWidth(0.8);
+          doc.line(ruleX, startY, ruleX, endY);
+
+          (doc as any).setFont(undefined, 'normal');
+          doc.setFontSize(10);
+
+          const maxW2 = pageW - rightMargin - textX;
+
+          for (const p of summaryParts) {
+            let out = doc.splitTextToSize(p, maxW2)?.[0] ?? p;
+            if (doc.getTextWidth(out) > maxW2) {
+              while (out.length > 0 && doc.getTextWidth(out + '…') > maxW2) out = out.slice(0, -1);
+              out = out + '…';
+            }
+
+            doc.text(out, textX, y - 3);
+            y += commentLineGap;
+          }
+        }
+
         (doc as any).setFont(undefined, 'normal');
-
-        // Consume one ruled line for summary
-        y += commentLineGap;
-        commentLines = Math.max(0, commentLines - 1);
+        doc.setFontSize(10);
       }
 
       // Draw comment lines (lighter grey for printing, but still visible)
@@ -2334,7 +2377,6 @@ export class LoadDevTabComponent implements OnInit {
       }
 
       y += commentLines * commentLineGap + 10;
-
       // ----- Bottom boxes: LEFT blank placeholder + RIGHT photo -----
       const remainingForBoxes = pageBottom - (y + boxPadAfter);
 
@@ -2343,6 +2385,7 @@ export class LoadDevTabComponent implements OnInit {
       }
 
       // Split area into 2 equal boxes
+
       const gap = 10;
       const halfW = (pageW - leftMargin - rightMargin - gap) / 2;
 
@@ -2354,91 +2397,152 @@ export class LoadDevTabComponent implements OnInit {
       const photoW = halfW;
       const photoY = y;
 
-      // LEFT: placeholder box (NO title, NO hit indicator)
+      const isPlanningExport = this.isPreWizardPlanningMode();
+      const projectAny = this.selectedProject as any;
+
+      // LEFT box
       doc.setLineWidth(0.8);
       doc.setDrawColor(120, 120, 120);
       doc.rect(leftX, leftY, leftW, boxH);
 
-      await this.drawAssetImageInBox(doc, 'assets/LoadDevExport.png', leftX, leftY, leftW, boxH, 6);
-
-      // RIGHT: photo box (keep photo behavior the same, but render only once)
+      // RIGHT box (always drawn; may remain empty depending on mode)
       doc.setLineWidth(0.8);
       doc.setDrawColor(120, 120, 120);
       doc.rect(photoX, photoY, photoW, boxH);
 
-      // Project-level only (single-page target photo area is reserved for the Notes/Project photo)
-      const projectAny = this.selectedProject as any;
-
-      let photoDataUrl: string | null = projectAny?.targetPhotoBase64
-        ? `data:image/jpeg;base64,${projectAny.targetPhotoBase64}`
-        : (projectAny?.targetPhotoDataUrl ?? null);
-
-      if (projectAny?.targetPhotoPath) {
-        const p = String(projectAny.targetPhotoPath);
-        photoDataUrl =
-          this.photoDataUrlCache.get(p) ??
-          (await this.readImageDataUrlFromFs(
-            p,
-            String(projectAny?.targetPhotoMime || 'image/jpeg'),
-          ));
-      }
-
-      if (
-        photoDataUrl &&
-        typeof photoDataUrl === 'string' &&
-        photoDataUrl.startsWith('data:image/')
-      ) {
-        try {
-          const imgType = photoDataUrl.includes('data:image/png') ? 'PNG' : 'JPEG';
-          const base64 = photoDataUrl.split(',')[1];
-
-          // Fit inside photo box with padding (NO STRETCH)
-          const pad = 6;
-
-          const boxX = photoX + pad;
-          const boxY = photoY + pad;
-          const boxW = Math.max(1, photoW - pad * 2);
-          const boxHInner = Math.max(1, boxH - pad * 2);
-
-          let drawX = boxX;
-          let drawY = boxY;
-          let drawW = boxW;
-          let drawH = boxHInner;
-
+      // ✅ Planning (pre-wizard): LEFT = target photo, RIGHT stays empty
+      // ✅ Post-wizard: LEFT reserved empty, RIGHT = project photo
+      const drawPhotoInBox = async (
+        boxX0: number,
+        boxY0: number,
+        boxW0: number,
+        boxH0: number,
+        dataUrl: string | null,
+        label: string,
+        noLabel: string,
+      ) => {
+        if (dataUrl && typeof dataUrl === 'string' && dataUrl.startsWith('data:image/')) {
           try {
-            const props = (doc as any).getImageProperties?.(photoDataUrl);
-            const iw = props?.width ?? props?.w;
-            const ih = props?.height ?? props?.h;
+            const imgType = dataUrl.includes('data:image/png') ? 'PNG' : 'JPEG';
+            const base64 = dataUrl.split(',')[1];
 
-            if (iw && ih) {
-              const scale = Math.min(boxW / iw, boxHInner / ih);
-              drawW = iw * scale;
-              drawH = ih * scale;
-              drawX = boxX + (boxW - drawW) / 2;
-              drawY = boxY + (boxHInner - drawH) / 2;
+            const pad = 6;
+            const boxX = boxX0 + pad;
+            const boxY = boxY0 + pad;
+            const boxW = Math.max(1, boxW0 - pad * 2);
+            const boxHInner = Math.max(1, boxH0 - pad * 2);
+
+            let drawX = boxX;
+            let drawY = boxY;
+            let drawW = boxW;
+            let drawH = boxHInner;
+
+            try {
+              const props = (doc as any).getImageProperties?.(dataUrl);
+              const iw = props?.width ?? props?.w;
+              const ih = props?.height ?? props?.h;
+
+              if (iw && ih) {
+                const scale = Math.min(boxW / iw, boxHInner / ih);
+                drawW = iw * scale;
+                drawH = ih * scale;
+                drawX = boxX + (boxW - drawW) / 2;
+                drawY = boxY + (boxHInner - drawH) / 2;
+              }
+            } catch {
+              // fallback: keep fill behavior
             }
+
+            doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH);
+
+            doc.setFontSize(8);
+            doc.setTextColor(60);
+            doc.text(label, boxX0 + 6, boxY0 + 12);
+            doc.setTextColor(0);
           } catch {
-            // fallback: keep fill behavior
+            doc.setFontSize(9);
+            doc.setTextColor(80);
+            doc.text('Photo load failed', boxX0 + 10, boxY0 + 18);
+            doc.setTextColor(0);
           }
-
-          doc.addImage(base64, imgType as any, drawX, drawY, drawW, drawH);
-
-          // Optional tiny label (same as before)
-          doc.setFontSize(8);
-          doc.setTextColor(60);
-          doc.text('Target photo', photoX + 6, photoY + 12);
-          doc.setTextColor(0);
-        } catch {
+        } else {
           doc.setFontSize(9);
           doc.setTextColor(80);
-          doc.text('Photo load failed', photoX + 10, photoY + 18);
+          doc.text(noLabel, boxX0 + 10, boxY0 + 18);
           doc.setTextColor(0);
         }
-      } else {
+      };
+
+      if (isPlanningExport) {
+        // LEFT: target photo
+        let targetDataUrl: string | null = projectAny?.targetPhotoBase64
+          ? `data:image/jpeg;base64,${projectAny.targetPhotoBase64}`
+          : (projectAny?.targetPhotoDataUrl ?? null);
+
+        if (projectAny?.targetPhotoPath) {
+          const p = String(projectAny.targetPhotoPath);
+          targetDataUrl =
+            this.photoDataUrlCache.get(p) ??
+            (await this.readImageDataUrlFromFs(
+              p,
+              String(projectAny?.targetPhotoMime || 'image/jpeg'),
+            ));
+        }
+
+        if (targetDataUrl) {
+          await drawPhotoInBox(
+            leftX,
+            leftY,
+            leftW,
+            boxH,
+            targetDataUrl,
+            'Target photo',
+            'No target photo',
+          );
+        } else {
+          await this.drawAssetImageInBox(
+            doc,
+            'assets/LoadDevExport.png',
+            leftX,
+            leftY,
+            leftW,
+            boxH,
+            6,
+          );
+        }
+
+        // RIGHT: Reserved for Best Load.
         doc.setFontSize(9);
-        doc.setTextColor(80);
-        doc.text('No target photo', photoX + 10, photoY + 18);
+        doc.setTextColor(120);
+        doc.text('Reserved for Best Load.', photoX + 10, photoY + 18);
         doc.setTextColor(0);
+      } else {
+        // LEFT reserved for Best Result (do nothing)
+
+        // RIGHT: project photo
+        let projectDataUrl: string | null = projectAny?.projectPhotoBase64
+          ? `data:image/jpeg;base64,${projectAny.projectPhotoBase64}`
+          : (projectAny?.projectPhotoDataUrl ?? null);
+
+        if (projectAny?.projectPhotoPath) {
+          const p = String(projectAny.projectPhotoPath);
+          projectDataUrl =
+            this.photoDataUrlCache.get(p) ??
+            (await this.readImageDataUrlFromFs(
+              p,
+              String(projectAny?.projectPhotoMime || 'image/jpeg'),
+            ));
+        }
+
+        await drawPhotoInBox(
+          photoX,
+          photoY,
+          photoW,
+          boxH,
+          projectDataUrl,
+          'Project photo',
+          'No project photo',
+        );
       }
 
       y += boxH + boxPadAfter;
@@ -2538,6 +2642,7 @@ export class LoadDevTabComponent implements OnInit {
           };
 
           // Start Page 2 (or next pages)
+
           startNewPhotosPage();
 
           for (const it of photoItems) {
@@ -2792,7 +2897,17 @@ export class LoadDevTabComponent implements OnInit {
     const n2 = (any.poiNote ?? '').toString().trim();
     if (n2) parts.push(n2);
 
-    return parts.join(' | ');
+    const alreadyHasGroupSizeLine = parts
+      .join('\n')
+      .split('\n')
+      .some((l) => l.trim().startsWith('Group size:'));
+
+    if (!alreadyHasGroupSizeLine) {
+      const gs = this.formatGroupSize(e);
+      if (gs && gs !== '—') parts.push(`Group size: ${gs}`);
+    }
+
+    return parts.join('\n');
   }
 
   // Filters
@@ -2814,6 +2929,7 @@ export class LoadDevTabComponent implements OnInit {
   // ----------------------------
   // PERF CACHES (avoid hangs)
   // ----------------------------
+
   private statsCache = new Map<number, VelocityStats | null>();
   private ladderNodeBandIds = new Set<number>();
   private ladderNodeBandSegmentById = new Map<number, number>();
