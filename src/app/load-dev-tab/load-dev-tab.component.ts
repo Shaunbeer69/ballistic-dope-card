@@ -2517,20 +2517,107 @@ export class LoadDevTabComponent implements OnInit {
         doc.text('Reserved for Best Load.', photoX + 10, photoY + 18);
         doc.setTextColor(0);
       } else {
-        // LEFT reserved for Best Result (do nothing)
+        // ✅ Post-wizard: LEFT = Best Load (smallest group), RIGHT = Overview photo
 
-        // RIGHT: project photo
-        let projectDataUrl: string | null = projectAny?.projectPhotoBase64
-          ? `data:image/jpeg;base64,${projectAny.projectPhotoBase64}`
-          : (projectAny?.projectPhotoDataUrl ?? null);
+        // -----------------------------
+        // LEFT: Best Load photo
+        // -----------------------------
+        const toMmScore = (e: LoadDevEntry): number | null => {
+          const anyE: any = e as any;
+          const v = Number(anyE?.groupSize);
+          if (!Number.isFinite(v) || v <= 0) return null;
 
-        if (projectAny?.projectPhotoPath) {
-          const p = String(projectAny.projectPhotoPath);
-          projectDataUrl =
+          const u = String(anyE?.groupUnit || '').toLowerCase();
+
+          // Prefer real length units when available
+          if (u === 'mm' || u === 'millimeter' || u === 'millimeters') return v;
+          if (u === 'in' || u === 'inch' || u === 'inches') return v * 25.4;
+
+          // Not convertible (MOA etc.)
+          return null;
+        };
+
+        const toMoaScore = (e: LoadDevEntry): number | null => {
+          const anyE: any = e as any;
+          const v = Number(anyE?.groupSize);
+          if (!Number.isFinite(v) || v <= 0) return null;
+
+          const u = String(anyE?.groupUnit || '').toLowerCase();
+          if (u === 'moa') return v;
+
+          return null;
+        };
+
+        // Choose best by mm/in if present; otherwise by MOA
+        const entriesWithPhoto = (entries ?? []).filter((e) => this.hasEntryPhoto(e));
+
+        let bestEntry: LoadDevEntry | null = null;
+
+        const mmCandidates = entriesWithPhoto
+          .map((e) => ({ e, s: toMmScore(e) }))
+          .filter((x) => x.s != null) as Array<{ e: LoadDevEntry; s: number }>;
+
+        if (mmCandidates.length) {
+          mmCandidates.sort((a, b) => a.s - b.s);
+          bestEntry = mmCandidates[0].e;
+        } else {
+          const moaCandidates = entriesWithPhoto
+            .map((e) => ({ e, s: toMoaScore(e) }))
+            .filter((x) => x.s != null) as Array<{ e: LoadDevEntry; s: number }>;
+          if (moaCandidates.length) {
+            moaCandidates.sort((a, b) => a.s - b.s);
+            bestEntry = moaCandidates[0].e;
+          }
+        }
+
+        let bestDataUrl: string | null = null;
+
+        if (bestEntry) {
+          // Try existing helper first (may be null if FS not yet cached)
+          bestDataUrl = this.getEntryPhotoDataUrl(bestEntry);
+
+          // If FS path exists, force-load it for export
+          const tp: any = (bestEntry as any)?.targetPhoto ?? null;
+          const path = tp?.path ? String(tp.path) : '';
+          const mime = String(tp?.mime || 'image/jpeg');
+
+          if (!bestDataUrl && path) {
+            bestDataUrl =
+              this.photoDataUrlCache.get(path) ?? (await this.readImageDataUrlFromFs(path, mime));
+
+            if (bestDataUrl) this.photoDataUrlCache.set(path, bestDataUrl);
+          }
+        }
+
+        // ✅ Best Load label includes charge + group size
+        const bestLabel = bestEntry
+          ? `Best Load • ${bestEntry.chargeGr ?? '—'} gr • ${this.formatGroupSize(bestEntry)}`
+          : 'Best Load';
+
+        await drawPhotoInBox(
+          leftX,
+          leftY,
+          leftW,
+          boxH,
+          bestDataUrl,
+          bestLabel,
+          'No best load photo',
+        );
+
+        // -----------------------------
+        // RIGHT: Overview (target) photo
+        // -----------------------------
+        let overviewDataUrl: string | null = projectAny?.targetPhotoBase64
+          ? `data:image/jpeg;base64,${projectAny.targetPhotoBase64}`
+          : (projectAny?.targetPhotoDataUrl ?? null);
+
+        if (projectAny?.targetPhotoPath) {
+          const p = String(projectAny.targetPhotoPath);
+          overviewDataUrl =
             this.photoDataUrlCache.get(p) ??
             (await this.readImageDataUrlFromFs(
               p,
-              String(projectAny?.projectPhotoMime || 'image/jpeg'),
+              String(projectAny?.targetPhotoMime || 'image/jpeg'),
             ));
         }
 
@@ -2539,9 +2626,9 @@ export class LoadDevTabComponent implements OnInit {
           photoY,
           photoW,
           boxH,
-          projectDataUrl,
-          'Project photo',
-          'No project photo',
+          overviewDataUrl,
+          'Overview photo',
+          'No overview photo',
         );
       }
 
@@ -2549,6 +2636,36 @@ export class LoadDevTabComponent implements OnInit {
       // ----- OCW line photos: Page 2+ (two columns, max 4 photos per page, charge under + note lines) -----
       if (isOcwProject) {
         const photoItems = this.ocwPhotoNotesItems(); // sorted by charge, only entries with photos
+
+        // ✅ IMPORTANT: ensure every OCW photo has a ready dataURL BEFORE we call doc.addImage()
+        // ocwPhotoNotesItems() may only "warm" the cache asynchronously; export needs it NOW.
+        const pid = Number((this.selectedProject as any)?.id ?? 0);
+
+        for (const it of photoItems) {
+          // already good
+          if (it.url && it.url.startsWith('data:image/')) continue;
+
+          const entryAny: any = it.entry as any;
+          const tp: any = entryAny?.targetPhoto ?? null;
+
+          // Ensure we have an FS photo path (migrates legacy base64/dataUrl into FS if needed)
+          if (pid) {
+            await this.ensureEntryPhotoOnFs(it.entry, pid);
+          }
+
+          // Refresh tp (ensureEntryPhotoOnFs can update the entry photo object)
+          const tp2: any = (it.entry as any)?.targetPhoto ?? tp;
+          const path = tp2?.path ? String(tp2.path) : '';
+          if (!path) continue;
+
+          const mime = String(tp2?.mime || 'image/jpeg');
+          const u = await this.readImageDataUrlFromFs(path, mime);
+
+          if (u) {
+            it.url = u;
+            this.photoDataUrlCache.set(path, u);
+          }
+        }
 
         if (photoItems.length) {
           const innerW = pageW - leftMargin - rightMargin;
@@ -2613,6 +2730,7 @@ export class LoadDevTabComponent implements OnInit {
             }
 
             // Separator line before photos
+
             y += 2;
             doc.setLineWidth(0.4);
             doc.line(leftMargin, y, pageW - rightMargin, y);
