@@ -1138,10 +1138,14 @@
                             class="px-2 py-1 rounded-xl text-[11px] font-semibold"
                             [disabled]="
                               isCalibratingPhoto ||
-                              (measuredGroupCm == null && !photoMeasurementJustSaved)
+                              (measuredGroupMm == null &&
+                                measuredGroupMoa == null &&
+                                !photoMeasurementJustSaved)
                             "
                             [ngClass]="
-                              measuredGroupCm != null || photoMeasurementJustSaved
+                              measuredGroupMm != null ||
+                              measuredGroupMoa != null ||
+                              photoMeasurementJustSaved
                                 ? 'bg-emerald-600 text-white'
                                 : 'bg-gray-800 text-gray-500'
                             "
@@ -1173,31 +1177,133 @@
                         <div class="mt-0.5 text-[10px] text-emerald-200/90">
                           <ng-container *ngIf="isCalibratingPhoto; else measureHint">
                             <div class="font-semibold">Calibration: tap 2 known points</div>
-                            <div class="mt-1 flex items-center gap-2">
-                              <span>Known distance</span>
-                              <input
-                                type="number"
-                                min="0.1"
-                                step="0.1"
-                                class="w-20 px-2 py-1 rounded-lg bg-black/40 border border-emerald-400/30 text-gray-100"
-                                [(ngModel)]="photoCalibKnownCm"
-                              />
-                              <span>cm</span>
+
+                            <!-- Mode selector (tick style) -->
+                            <div class="mt-2 space-y-2 text-[11px]">
+                              <button
+                                type="button"
+                                class="w-full flex items-center gap-2 px-2 py-2 rounded-2xl border"
+                                [ngClass]="
+                                  photoCalibMode === 'mm'
+                                    ? 'border-emerald-400/70 bg-emerald-500/10'
+                                    : 'border-gray-700 bg-black/20'
+                                "
+                                (click)="setPhotoCalibMode('mm')"
+                              >
+                                <span
+                                  class="w-4 h-4 rounded-md border flex items-center justify-center text-[10px]"
+                                  [ngClass]="
+                                    photoCalibMode === 'mm'
+                                      ? 'border-emerald-300 bg-emerald-500/20 text-emerald-200'
+                                      : 'border-gray-600 text-transparent'
+                                  "
+                                  >✓</span
+                                >
+                                <div class="text-left">
+                                  <div class="font-semibold text-gray-100">Calibrate using mm</div>
+                                  <div class="text-[10px] text-emerald-200/80">
+                                    Use a known physical length on the target (e.g. grid / ruler).
+                                  </div>
+                                </div>
+                              </button>
+
+                              <button
+                                type="button"
+                                class="w-full flex items-center gap-2 px-2 py-2 rounded-2xl border"
+                                [ngClass]="
+                                  photoCalibMode === 'moa'
+                                    ? 'border-emerald-400/70 bg-emerald-500/10'
+                                    : 'border-gray-700 bg-black/20'
+                                "
+                                (click)="setPhotoCalibMode('moa')"
+                              >
+                                <span
+                                  class="w-4 h-4 rounded-md border flex items-center justify-center text-[10px]"
+                                  [ngClass]="
+                                    photoCalibMode === 'moa'
+                                      ? 'border-emerald-300 bg-emerald-500/20 text-emerald-200'
+                                      : 'border-gray-600 text-transparent'
+                                  "
+                                  >✓</span
+                                >
+                                <div class="text-left">
+                                  <div class="font-semibold text-gray-100">Calibrate using MOA</div>
+                                  <div class="text-[10px] text-emerald-200/80">
+                                    Calibrate to an angular value (no range required).
+                                  </div>
+                                </div>
+                              </button>
+                            </div>
+
+                            <!-- Known value input -->
+                            <div class="mt-2 flex items-center gap-2">
+                              <ng-container *ngIf="photoCalibMode === 'mm'; else moaInput">
+                                <span>Known length</span>
+                                <input
+                                  type="number"
+                                  min="0.1"
+                                  step="0.1"
+                                  class="w-24 px-2 py-1 rounded-lg bg-black/40 border border-emerald-400/30 text-gray-100"
+                                  [(ngModel)]="photoCalibKnownMm"
+                                  placeholder="e.g. 25"
+                                />
+                                <span>mm</span>
+                              </ng-container>
+
+                              <ng-template #moaInput>
+                                <span>Known angle</span>
+                                <input
+                                  type="number"
+                                  min="0.01"
+                                  step="0.01"
+                                  class="w-24 px-2 py-1 rounded-lg bg-black/40 border border-emerald-400/30 text-gray-100"
+                                  [(ngModel)]="photoCalibKnownMoa"
+                                  placeholder="e.g. 1.00"
+                                />
+                                <span>MOA</span>
+                              </ng-template>
+
+                              <button
+                                type="button"
+                                class="ml-auto px-3 py-1 rounded-xl text-[11px] font-semibold"
+                                [disabled]="
+                                  photoCalibPoints.length !== 2 ||
+                                  (photoCalibMode === 'mm'
+                                    ? !((photoCalibKnownMm ?? 0) > 0)
+                                    : !((photoCalibKnownMoa ?? 0) > 0))
+                                "
+                                [ngClass]="
+                                  photoCalibPoints.length === 2 &&
+                                  (photoCalibMode === 'mm'
+                                    ? (photoCalibKnownMm ?? 0) > 0
+                                    : (photoCalibKnownMoa ?? 0) > 0)
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-gray-800 text-gray-500'
+                                "
+                                (click)="applyPhotoCalibration()"
+                              >
+                                Apply
+                              </button>
                             </div>
                           </ng-container>
 
                           <ng-template #measureHint> Tap 2 points </ng-template>
                         </div>
 
-                        <div
-                          *ngIf="measuredGroupCm != null; else noMeasureYet"
-                          class="mt-1 font-semibold"
-                        >
-                          {{ measuredGroupCm | number: '1.1-1' }} cm /
-                          {{ fmtLen(measuredGroupIn, 'in') }} in
-                          <ng-container *ngIf="measuredGroupMoa != null">
-                            / {{ measuredGroupMoa | number: '1.2-2' }} MOA
+                        <div class="mt-1 font-semibold">
+                          <ng-container *ngIf="measuredGroupMm != null; else moaOnly">
+                            {{ measuredGroupMm | number: '1.1-1' }} mm /
+                            {{ fmtLen(measuredGroupIn, 'in') }} in
+                            <ng-container *ngIf="measuredGroupMoa != null">
+                              / {{ measuredGroupMoa | number: '1.2-2' }} MOA
+                            </ng-container>
                           </ng-container>
+
+                          <ng-template #moaOnly>
+                            <ng-container *ngIf="measuredGroupMoa != null; else noMeasureYet">
+                              {{ measuredGroupMoa | number: '1.2-2' }} MOA
+                            </ng-container>
+                          </ng-template>
                         </div>
 
                         <ng-template #noMeasureYet>
@@ -1466,11 +1572,11 @@
 
                             <!-- ✅ (4) Measurement readout -->
                             <div
-                              *ngIf="measuredGroupCm || measuredGroupIn || measuredGroupMoa"
+                              *ngIf="measuredGroupMm || measuredGroupIn || measuredGroupMoa"
                               class="mt-1 text-[10px] text-gray-300"
                             >
-                              <span *ngIf="measuredGroupCm">
-                                {{ measuredGroupCm | number: '1.1-1' }} cm
+                              <span *ngIf="measuredGroupMm">
+                                {{ measuredGroupMm | number: '1.1-1' }} mm
                               </span>
                               <span *ngIf="measuredGroupIn" class="ml-2">
                                 {{ fmtLen(measuredGroupIn, 'in') }} in

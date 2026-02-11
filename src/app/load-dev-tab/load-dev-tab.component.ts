@@ -141,18 +141,26 @@ export class LoadDevTabComponent implements OnInit {
   // Measure mode
   isAnnotatingPhoto = false;
 
+  // Calibration mode: either calibrate using a known physical length (mm)
+  // or calibrate directly in angular units (MOA) without requiring range.
+  photoCalibMode: 'mm' | 'moa' = 'mm';
+
   // Grid scaling (px per 1cm block)
   gridPxPerCm: number | null = null;
+  // MOA calibration (px per 1 MOA)
+  photoPxPerMoa: number | null = null;
   // --- Option A: manual calibration (tap 2 known points) ---
   isCalibratingPhoto = false;
-  photoCalibKnownCm = 5; // default; user can change in UI
+  // User-entered calibration value (no default; user must supply)
+  photoCalibKnownMm: number | null = null;
+  photoCalibKnownMoa: number | null = null;
   photoCalibPoints: Array<{ x: number; y: number }> = [];
 
   // Measurement taps (viewer-local pixel coords)
   photoMeasurePoints: Array<{ x: number; y: number }> = [];
 
   // Measurement results
-  measuredGroupCm: number | null = null;
+  measuredGroupMm: number | null = null;
   measuredGroupIn: number | null = null;
   measuredGroupMoa: number | null = null;
 
@@ -1102,9 +1110,13 @@ export class LoadDevTabComponent implements OnInit {
 
     // reset measurement state
     this.photoMeasurePoints = [];
-    this.measuredGroupCm = null;
+    this.measuredGroupMm = null;
     this.measuredGroupIn = null;
     this.measuredGroupMoa = null;
+
+    this.photoPxPerMoa = null;
+
+    this.photoPxPerMoa = null;
     this.photoMeasurementJustSaved = false;
     this.photoViewerToast = null;
 
@@ -1129,13 +1141,16 @@ export class LoadDevTabComponent implements OnInit {
     // Option A: start with calibration step
     this.isCalibratingPhoto = true;
     this.gridPxPerCm = null;
+    this.photoPxPerMoa = null;
     this.photoCalibPoints = [];
 
     // reset measurement state
     this.photoMeasurePoints = [];
-    this.measuredGroupCm = null;
+    this.measuredGroupMm = null;
     this.measuredGroupIn = null;
     this.measuredGroupMoa = null;
+
+    this.photoPxPerMoa = null;
 
     this.photoMeasurementJustSaved = false;
     this.photoViewerToast = null;
@@ -1160,7 +1175,7 @@ export class LoadDevTabComponent implements OnInit {
     this.isAnnotatingPhoto = false;
 
     this.photoMeasurePoints = [];
-    this.measuredGroupCm = null;
+    this.measuredGroupMm = null;
     this.measuredGroupIn = null;
     this.measuredGroupMoa = null;
 
@@ -1178,11 +1193,13 @@ export class LoadDevTabComponent implements OnInit {
     this.isAnnotatingPhoto = false;
 
     this.photoMeasurePoints = [];
-    this.measuredGroupCm = null;
+    this.measuredGroupMm = null;
     this.measuredGroupIn = null;
     this.measuredGroupMoa = null;
 
     this.gridPxPerCm = null;
+    this.photoPxPerMoa = null;
+    this.photoPxPerMoa = null;
 
     // E) always reset save/toast state on close
     this.photoMeasurementJustSaved = false;
@@ -1195,7 +1212,7 @@ export class LoadDevTabComponent implements OnInit {
     this.photoViewerToast = null;
 
     this.photoMeasurePoints = [];
-    this.measuredGroupCm = null;
+    this.measuredGroupMm = null;
     this.measuredGroupIn = null;
     this.measuredGroupMoa = null;
 
@@ -1205,6 +1222,7 @@ export class LoadDevTabComponent implements OnInit {
       // Option A: require manual calibration first
       this.isCalibratingPhoto = true;
       this.gridPxPerCm = null;
+      this.photoPxPerMoa = null;
       this.photoCalibPoints = [];
     } else {
       this.isAnnotatingPhoto = false;
@@ -1213,6 +1231,7 @@ export class LoadDevTabComponent implements OnInit {
 
       // prevents grid from showing in view mode
       this.gridPxPerCm = null;
+      this.photoPxPerMoa = null;
 
       // E) leaving measure always clears save/toast
       this.photoMeasurementJustSaved = false;
@@ -1235,7 +1254,7 @@ export class LoadDevTabComponent implements OnInit {
       return;
     }
     // Guard: do not save without a valid measurement
-    if (this.measuredGroupCm == null) {
+    if (this.measuredGroupMm == null && this.measuredGroupMoa == null) {
       this.photoViewerToast = 'Tap 2 points first';
       setTimeout(() => (this.photoViewerToast = null), 2500);
       return;
@@ -1252,7 +1271,7 @@ export class LoadDevTabComponent implements OnInit {
 
   clearPhotoMeasurement(): void {
     this.photoMeasurePoints = [];
-    this.measuredGroupCm = null;
+    this.measuredGroupMm = null;
     this.measuredGroupIn = null;
     this.measuredGroupMoa = null;
 
@@ -1262,7 +1281,79 @@ export class LoadDevTabComponent implements OnInit {
     // Option A: clearing measurement returns to calibration step
     this.isCalibratingPhoto = true;
     this.gridPxPerCm = null;
+    this.photoPxPerMoa = null;
     this.photoCalibPoints = [];
+  }
+
+  setPhotoCalibMode(mode: 'mm' | 'moa'): void {
+    if (this.photoCalibMode === mode) return;
+    this.photoCalibMode = mode;
+
+    // Changing mode invalidates calibration + measurement
+    this.isCalibratingPhoto = true;
+    this.gridPxPerCm = null;
+    this.photoPxPerMoa = null;
+    this.photoCalibPoints = [];
+
+    this.photoMeasurePoints = [];
+    this.measuredGroupMm = null;
+    this.measuredGroupIn = null;
+    this.measuredGroupMoa = null;
+
+    this.photoMeasurementJustSaved = false;
+    this.photoViewerToast = null;
+  }
+
+  applyPhotoCalibration(): void {
+    if (!this.isAnnotatingPhoto || !this.isCalibratingPhoto) return;
+    if (this.photoCalibPoints.length !== 2) {
+      this.photoViewerToast = 'Tap 2 known points first';
+      setTimeout(() => (this.photoViewerToast = null), 2500);
+      return;
+    }
+
+    const [a, b] = this.photoCalibPoints;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dPx = Math.sqrt(dx * dx + dy * dy);
+    if (!Number.isFinite(dPx) || dPx < 2) {
+      this.photoViewerToast = 'Calibration points too close';
+      setTimeout(() => (this.photoViewerToast = null), 2500);
+      return;
+    }
+
+    if (this.photoCalibMode === 'moa') {
+      const moa = Number(this.photoCalibKnownMoa);
+      if (!Number.isFinite(moa) || moa <= 0) {
+        this.photoViewerToast = 'Enter a valid MOA value';
+        setTimeout(() => (this.photoViewerToast = null), 2500);
+        return;
+      }
+
+      this.photoPxPerMoa = dPx / moa; // px per 1 MOA
+      this.gridPxPerCm = null;
+    } else {
+      const mm = Number(this.photoCalibKnownMm);
+      if (!Number.isFinite(mm) || mm <= 0) {
+        this.photoViewerToast = 'Enter a valid mm value';
+        setTimeout(() => (this.photoViewerToast = null), 2500);
+        return;
+      }
+
+      const cm = mm / 10;
+      this.gridPxPerCm = dPx / cm; // px per 1 cm
+      this.photoPxPerMoa = null;
+    }
+
+    this.isCalibratingPhoto = false;
+    this.photoMeasurePoints = [];
+    this.measuredGroupMm = null;
+    this.measuredGroupIn = null;
+    this.measuredGroupMoa = null;
+
+    this.photoMeasurementJustSaved = false;
+    this.photoViewerToast = 'Calibration saved ✅ Now tap 2 points to measure';
+    setTimeout(() => (this.photoViewerToast = null), 3500);
   }
 
   onPhotoTap(ev: MouseEvent): void {
@@ -1274,36 +1365,14 @@ export class LoadDevTabComponent implements OnInit {
     const rect = host.getBoundingClientRect();
     const x = ev.clientX - rect.left;
     const y = ev.clientY - rect.top;
-    // --- Option A calibration step ---
+    // --- Calibration step: user taps 2 known points, then presses Apply ---
     if (this.isCalibratingPhoto) {
       this.photoCalibPoints.push({ x, y });
-      if (this.photoCalibPoints.length > 2) {
-        this.photoCalibPoints = this.photoCalibPoints.slice(-2);
-      }
+      if (this.photoCalibPoints.length > 2) this.photoCalibPoints = this.photoCalibPoints.slice(-2);
 
       if (this.photoCalibPoints.length === 2) {
-        const [a, b] = this.photoCalibPoints;
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const dPx = Math.sqrt(dx * dx + dy * dy);
-
-        const cm = Number(this.photoCalibKnownCm);
-        if (Number.isFinite(cm) && cm > 0 && dPx > 2) {
-          this.gridPxPerCm = dPx / cm;
-          this.isCalibratingPhoto = false;
-
-          // reset measurement taps/results for the next step
-          this.photoMeasurePoints = [];
-          this.measuredGroupCm = null;
-          this.measuredGroupIn = null;
-          this.measuredGroupMoa = null;
-
-          this.photoViewerToast = 'Calibrated ✅ Now tap 2 points to measure';
-          setTimeout(() => (this.photoViewerToast = null), 3500);
-        } else {
-          this.photoViewerToast = 'Enter a valid cm value';
-          setTimeout(() => (this.photoViewerToast = null), 2500);
-        }
+        this.photoViewerToast = 'Now enter the known value and tap Apply';
+        setTimeout(() => (this.photoViewerToast = null), 3000);
       }
 
       return; // IMPORTANT: do not fall through into measurement logic
@@ -1335,7 +1404,6 @@ export class LoadDevTabComponent implements OnInit {
     return null;
   }
   private recalcGroupFromTwoPoints(): void {
-    if (!this.gridPxPerCm) return;
     if (this.photoMeasurePoints.length !== 2) return;
 
     const [a, b] = this.photoMeasurePoints;
@@ -1344,20 +1412,34 @@ export class LoadDevTabComponent implements OnInit {
     const dy = b.y - a.y;
     const dPx = Math.sqrt(dx * dx + dy * dy);
 
-    const dCm = dPx / this.gridPxPerCm;
-    const dIn = dCm / 2.54;
+    // Two calibration modes:
+    // 1) mm: gridPxPerCm is set (px per 1cm). We convert to mm and inches.
+    // 2) moa: photoPxPerMoa is set (px per 1 MOA). We output MOA directly.
 
-    this.measuredGroupCm = dCm;
-    this.measuredGroupIn = dIn;
+    if (this.photoCalibMode === 'moa') {
+      if (!this.photoPxPerMoa || this.photoPxPerMoa <= 0) return;
 
-    // MOA if distance is available
-    // ✅ FIX: use entry distance first, then project/planner fallback
-    const distM = this.getMeasurementDistanceM();
-    if (distM != null) {
-      const yards = distM * 1.0936133;
-      this.measuredGroupMoa = (dIn * 100) / (yards * 1.047);
+      const dMoa = dPx / this.photoPxPerMoa;
+      this.measuredGroupMoa = dMoa;
+      this.measuredGroupMm = null;
+      this.measuredGroupIn = null;
     } else {
-      this.measuredGroupMoa = null;
+      if (!this.gridPxPerCm || this.gridPxPerCm <= 0) return;
+      const dCm = dPx / this.gridPxPerCm;
+      const dMm = dCm * 10;
+      const dIn = dMm / 25.4;
+
+      this.measuredGroupMm = dMm;
+      this.measuredGroupIn = dIn;
+
+      // MOA if distance is available (optional, derived)
+      const distM = this.getMeasurementDistanceM();
+      if (distM != null) {
+        const yards = distM * 1.0936133;
+        this.measuredGroupMoa = (dIn * 100) / (yards * 1.047);
+      } else {
+        this.measuredGroupMoa = null;
+      }
     }
 
     // After measuring, immediately write measurement line to Notes (at top)
@@ -1369,17 +1451,27 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   private writeMeasurementIntoNotes(): void {
-    const cm = this.measuredGroupCm;
+    const mm = this.measuredGroupMm;
     const inch = this.measuredGroupIn;
     const moa = this.measuredGroupMoa;
 
-    if (cm == null || inch == null) return;
+    // In MOA-calibration mode we may only have MOA.
+    if (this.photoCalibMode === 'moa') {
+      if (moa == null || !Number.isFinite(moa)) return;
+      const line = `📏 Group size: ${moa.toFixed(2)} MOA`;
+      this.writeMeasurementLine(line);
+      return;
+    }
 
-    const parts: string[] = [`📏 Group size: ${cm.toFixed(1)} cm`, `${inch.toFixed(2)} in`];
+    if (mm == null || inch == null) return;
+
+    const parts: string[] = [`📏 Group size: ${mm.toFixed(1)} mm`, `${inch.toFixed(2)} in`];
     if (moa != null && Number.isFinite(moa)) parts.push(`${moa.toFixed(2)} MOA`);
-
     const line = parts.join(' • ');
+    this.writeMeasurementLine(line);
+  }
 
+  private writeMeasurementLine(line: string): void {
     // Write to entry notes if measuring an entry photo; else project notes
     if (this.photoViewerEntry && this.selectedProject) {
       const entryAny: any = { ...(this.photoViewerEntry as any) };
