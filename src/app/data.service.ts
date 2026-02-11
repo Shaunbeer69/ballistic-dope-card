@@ -1162,7 +1162,14 @@ export class DataService {
               type: p?.type,
               dateStarted: p?.dateStarted,
               notes: p?.notes,
-            });
+
+              // Preserve project-level photo fields
+              targetPhotoPath: (p as any)?.targetPhotoPath,
+              targetPhotoMime: (p as any)?.targetPhotoMime,
+              targetPhotoCapturedAt: (p as any)?.targetPhotoCapturedAt,
+              targetPhotoBase64: (p as any)?.targetPhotoBase64,
+              targetPhotoDataUrl: (p as any)?.targetPhotoDataUrl,
+            } as any);
 
         if (!existingProject) addedProjects++;
 
@@ -1192,8 +1199,8 @@ export class DataService {
           const existingIdx = targetProject.entries.findIndex(
             (x: any) => Number(x?.chargeGr) === charge,
           );
-
           // If the row doesn't exist yet, add it (same as before)
+
           if (existingIdx < 0) {
             const created = this.addLoadDevEntry(targetProject.id, {
               chargeGr: e?.chargeGr,
@@ -1202,8 +1209,14 @@ export class DataService {
               velocityInput: (e as any)?.velocityInput ?? undefined,
               shotsFired: (e as any)?.shotsFired ?? undefined,
               notes: (e as any)?.notes,
+
+              // Preferred modern entry photo object
+              targetPhoto: (e as any)?.targetPhoto,
+
+              // Legacy inline support
               targetPhotoDataUrl: (e as any)?.targetPhotoDataUrl,
               entryPhotoDataUrl: (e as any)?.entryPhotoDataUrl,
+
               ...((e as any)?.groupSizeCm !== undefined
                 ? { groupSizeCm: (e as any).groupSizeCm }
                 : {}),
@@ -1237,6 +1250,11 @@ export class DataService {
               shotsFired: (e as any)?.shotsFired ?? undefined,
 
               notes: (e as any)?.notes,
+
+              // Preferred modern entry photo object
+              targetPhoto: (e as any)?.targetPhoto,
+
+              // Legacy inline support
               targetPhotoDataUrl: (e as any)?.targetPhotoDataUrl,
               entryPhotoDataUrl: (e as any)?.entryPhotoDataUrl,
 
@@ -1254,6 +1272,7 @@ export class DataService {
             }
 
             // Only update if something actually differs (avoid bumping updatedAt unnecessarily)
+
             const differs =
               String((existingEntry as any)?.velocityInput ?? '') !==
                 String(incomingNormalized.velocityInput ?? '') ||
@@ -1627,13 +1646,13 @@ export class DataService {
       entries?: LoadDevEntry[];
     },
   ): LoadDevProject {
-    const newProject: LoadDevProject = {
+    const newProject: any = {
+      ...(project as any), // Preserve additional properties like photo fields
       id: this.store.nextLoadDevProjectId++,
       rifleId: project.rifleId,
       name: project.name,
       type: project.type,
       dateStarted: project.dateStarted ?? new Date().toISOString(),
-      notes: project.notes,
       entries: project.entries ?? [],
     };
     this.store.loadDevProjects.push(newProject);
@@ -1642,11 +1661,11 @@ export class DataService {
   }
 
   /**
-   * Upsert behaviour – updates an existing project or inserts it if missing.
-    /**
-   * This keeps compatibility with places where a new project is created
-   * and then passed straight into updateLoadDevProject.
-   */
+ * Upsert behaviour – updates an existing project or inserts it if missing.
+ /**
+ * This keeps compatibility with places where a new project is created
+ * and then passed straight into updateLoadDevProject.
+ */
   updateLoadDevProject(project: LoadDevProject): void {
     const idx = this.store.loadDevProjects.findIndex((p) => p.id === project.id);
     if (idx >= 0) {
@@ -1663,7 +1682,8 @@ export class DataService {
   }
 
   /**
-   * Removes legacy/ghost LoadDev projects that are effectively empty.
+ * Removes legacy/ghost LoadDev projects that are effectively empty.
+
    * Returns number of projects removed.
    */
   pruneEmptyLoadDevProjects(): number {
