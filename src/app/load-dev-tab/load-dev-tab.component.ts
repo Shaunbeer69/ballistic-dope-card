@@ -2524,32 +2524,91 @@ export class LoadDevTabComponent implements OnInit {
         // -----------------------------
         const toMmScore = (e: LoadDevEntry): number | null => {
           const anyE: any = e as any;
+
+          // 1) Prefer structured fields when present
           const v = Number(anyE?.groupSize);
-          if (!Number.isFinite(v) || v <= 0) return null;
+          if (Number.isFinite(v) && v > 0) {
+            const u = String(anyE?.groupUnit || '').toLowerCase();
+            if (u === 'mm' || u === 'millimeter' || u === 'millimeters') return v;
+            if (u === 'in' || u === 'inch' || u === 'inches') return v * 25.4;
+          }
 
-          const u = String(anyE?.groupUnit || '').toLowerCase();
+          // 2) OCW often stores group size in export notes text, not entry.groupSize
+          const notesTxt = this.buildExportNotesForEntry(e) || '';
 
-          // Prefer real length units when available
-          if (u === 'mm' || u === 'millimeter' || u === 'millimeters') return v;
-          if (u === 'in' || u === 'inch' || u === 'inches') return v * 25.4;
+          // Match: "Group size: 14.8 mm" (your export format)
+          const mmMatch = notesTxt.match(/group\s*size:\s*([0-9]+(?:\.[0-9]+)?)\s*mm/i);
+          if (mmMatch?.[1]) {
+            const mm = Number(mmMatch[1]);
+            if (Number.isFinite(mm) && mm > 0) return mm;
+          }
 
-          // Not convertible (MOA etc.)
+          // Match: "Group size: 0.58 in"
+          const inMatch = notesTxt.match(/group\s*size:\s*([0-9]+(?:\.[0-9]+)?)\s*in\b/i);
+          if (inMatch?.[1]) {
+            const inches = Number(inMatch[1]);
+            if (Number.isFinite(inches) && inches > 0) return inches * 25.4;
+          }
+
           return null;
         };
 
         const toMoaScore = (e: LoadDevEntry): number | null => {
           const anyE: any = e as any;
-          const v = Number(anyE?.groupSize);
-          if (!Number.isFinite(v) || v <= 0) return null;
 
-          const u = String(anyE?.groupUnit || '').toLowerCase();
-          if (u === 'moa') return v;
+          // 1) Structured fields
+          const v = Number(anyE?.groupSize);
+          if (Number.isFinite(v) && v > 0) {
+            const u = String(anyE?.groupUnit || '').toLowerCase();
+            if (u === 'moa') return v;
+          }
+
+          // 2) Notes fallback: "... 0.85 MOA"
+          const notesTxt = this.buildExportNotesForEntry(e) || '';
+          const moaMatch = notesTxt.match(/([0-9]+(?:\.[0-9]+)?)\s*moa\b/i);
+          if (moaMatch?.[1]) {
+            const moa = Number(moaMatch[1]);
+            if (Number.isFinite(moa) && moa > 0) return moa;
+          }
 
           return null;
         };
 
         // Choose best by mm/in if present; otherwise by MOA
-        const entriesWithPhoto = (entries ?? []).filter((e) => this.hasEntryPhoto(e));
+        // IMPORTANT: use OCW photo items (these are the entries that REALLY have photos)
+        const photoItems = this.ocwPhotoNotesItems();
+
+        // ✅ Only calculate Best Load if more than one entry exists
+        const entriesWithPhoto = photoItems.length > 1 ? photoItems.map((it) => it.entry) : [];
+
+        // ✅ IMPORTANT: ensure OCW photoItems have a ready dataURL BEFORE Best Load draw
+        // (the global loop that does this runs later for page-2; Best Load needs it now)
+        const pidBest = Number((this.selectedProject as any)?.id ?? 0);
+
+        for (const it of photoItems) {
+          if (it.url && it.url.startsWith('data:image/')) continue;
+
+          const entryAny: any = it.entry as any;
+          const tp: any = entryAny?.targetPhoto ?? null;
+
+          // Ensure we have an FS photo path (migrates legacy base64/dataUrl into FS if needed)
+          if (pidBest) {
+            await this.ensureEntryPhotoOnFs(it.entry, pidBest);
+          }
+
+          // Refresh tp (ensureEntryPhotoOnFs can update the entry photo object)
+          const tp2: any = (it.entry as any)?.targetPhoto ?? tp;
+          const path = tp2?.path ? String(tp2.path) : '';
+          if (!path) continue;
+
+          const mime = String(tp2?.mime || 'image/jpeg');
+          const u = await this.readImageDataUrlFromFs(path, mime);
+
+          if (u) {
+            it.url = u;
+            this.photoDataUrlCache.set(path, u);
+          }
+        }
 
         let bestEntry: LoadDevEntry | null = null;
 
@@ -2572,11 +2631,19 @@ export class LoadDevTabComponent implements OnInit {
 
         let bestDataUrl: string | null = null;
 
-        if (bestEntry) {
-          // Try existing helper first (may be null if FS not yet cached)
+        // Prefer the already-prepared URL from ocwPhotoNotesItems()
+        const bestId = bestEntry ? Number((bestEntry as any)?.id ?? 0) : 0;
+        const bestItem =
+          bestId && photoItems.length
+            ? (photoItems.find((it) => Number((it.entry as any)?.id ?? 0) === bestId) ?? null)
+            : null;
+
+        if (bestItem?.url) bestDataUrl = bestItem.url;
+
+        // Fallback: force-load from entry photo object (FS path / legacy)
+        if (bestEntry && !bestDataUrl) {
           bestDataUrl = this.getEntryPhotoDataUrl(bestEntry);
 
-          // If FS path exists, force-load it for export
           const tp: any = (bestEntry as any)?.targetPhoto ?? null;
           const path = tp?.path ? String(tp.path) : '';
           const mime = String(tp?.mime || 'image/jpeg');
