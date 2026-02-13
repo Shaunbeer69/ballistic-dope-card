@@ -141,19 +141,22 @@ export class LoadDevTabComponent implements OnInit {
   // Measure mode
   isAnnotatingPhoto = false;
 
-  // Calibration mode: either calibrate using a known physical length (mm)
-  // or calibrate directly in angular units (MOA) without requiring range.
-  photoCalibMode: 'mm' | 'moa' = 'mm';
+  // Calibration mode: calibrate using a known physical length (mm or inches).
+  // MOA is derived during measurement when distance is available.
+  photoCalibMode: 'mm' | 'in' = 'mm';
 
   // Grid scaling (px per 1cm block)
   gridPxPerCm: number | null = null;
-  // MOA calibration (px per 1 MOA)
+  // (Legacy) MOA calibration (px per 1 MOA) - no longer used in UI modes
   photoPxPerMoa: number | null = null;
+
   // --- Option A: manual calibration (tap 2 known points) ---
   isCalibratingPhoto = false;
-  // User-entered calibration value (no default; user must supply)
+
+  // User-entered calibration values (no default; user must supply)
   photoCalibKnownMm: number | null = null;
-  photoCalibKnownMoa: number | null = null;
+  photoCalibKnownIn: number | null = null;
+
   photoCalibPoints: Array<{ x: number; y: number }> = [];
 
   // Measurement taps (viewer-local pixel coords)
@@ -167,6 +170,7 @@ export class LoadDevTabComponent implements OnInit {
   // Save-state + viewer toast (for Save -> Close behavior)
   photoMeasurementJustSaved = false;
   photoViewerToast: string | null = null;
+  photoHelpOpen = true; // ✅ show “how to” modal over the photo while calibrating
 
   // ==========================
   // OCW per-entry notes + voice
@@ -1219,12 +1223,17 @@ export class LoadDevTabComponent implements OnInit {
     if (mode === 'measure') {
       this.isAnnotatingPhoto = true;
 
+      // ✅ show help modal on top of photo while calibrating
+      this.photoHelpOpen = true;
+
       // Option A: require manual calibration first
       this.isCalibratingPhoto = true;
       this.gridPxPerCm = null;
       this.photoPxPerMoa = null;
       this.photoCalibPoints = [];
     } else {
+      this.photoHelpOpen = false;
+
       this.isAnnotatingPhoto = false;
       this.isCalibratingPhoto = false;
       this.photoCalibPoints = [];
@@ -1245,6 +1254,10 @@ export class LoadDevTabComponent implements OnInit {
     this.photoViewerToast = null;
 
     this.setPhotoViewerMode(this.isAnnotatingPhoto ? 'view' : 'measure');
+  }
+  dismissPhotoHelp(ev?: Event): void {
+    if (ev) ev.stopPropagation();
+    this.photoHelpOpen = false;
   }
 
   photoSaveOrClose(): void {
@@ -1280,12 +1293,13 @@ export class LoadDevTabComponent implements OnInit {
     this.photoViewerToast = null;
     // Option A: clearing measurement returns to calibration step
     this.isCalibratingPhoto = true;
+    this.photoHelpOpen = true;
     this.gridPxPerCm = null;
     this.photoPxPerMoa = null;
     this.photoCalibPoints = [];
   }
 
-  setPhotoCalibMode(mode: 'mm' | 'moa'): void {
+  setPhotoCalibMode(mode: 'mm' | 'in'): void {
     if (this.photoCalibMode === mode) return;
     this.photoCalibMode = mode;
 
@@ -1322,16 +1336,18 @@ export class LoadDevTabComponent implements OnInit {
       return;
     }
 
-    if (this.photoCalibMode === 'moa') {
-      const moa = Number(this.photoCalibKnownMoa);
-      if (!Number.isFinite(moa) || moa <= 0) {
-        this.photoViewerToast = 'Enter a valid MOA value';
+    // BOTH modes produce gridPxPerCm so grid overlays the target after Apply.
+    if (this.photoCalibMode === 'in') {
+      const inch = Number(this.photoCalibKnownIn);
+      if (!Number.isFinite(inch) || inch <= 0) {
+        this.photoViewerToast = 'Enter a valid inches value';
         setTimeout(() => (this.photoViewerToast = null), 2500);
         return;
       }
 
-      this.photoPxPerMoa = dPx / moa; // px per 1 MOA
-      this.gridPxPerCm = null;
+      const cm = inch * 2.54;
+      this.gridPxPerCm = dPx / cm; // px per 1 cm (grid overlay)
+      this.photoPxPerMoa = null;
     } else {
       const mm = Number(this.photoCalibKnownMm);
       if (!Number.isFinite(mm) || mm <= 0) {
@@ -1341,7 +1357,7 @@ export class LoadDevTabComponent implements OnInit {
       }
 
       const cm = mm / 10;
-      this.gridPxPerCm = dPx / cm; // px per 1 cm
+      this.gridPxPerCm = dPx / cm; // px per 1 cm (grid overlay)
       this.photoPxPerMoa = null;
     }
 
@@ -1416,30 +1432,23 @@ export class LoadDevTabComponent implements OnInit {
     // 1) mm: gridPxPerCm is set (px per 1cm). We convert to mm and inches.
     // 2) moa: photoPxPerMoa is set (px per 1 MOA). We output MOA directly.
 
-    if (this.photoCalibMode === 'moa') {
-      if (!this.photoPxPerMoa || this.photoPxPerMoa <= 0) return;
+    // We always use gridPxPerCm (calibrated from mm OR inches).
+    if (!this.gridPxPerCm || this.gridPxPerCm <= 0) return;
 
-      const dMoa = dPx / this.photoPxPerMoa;
-      this.measuredGroupMoa = dMoa;
-      this.measuredGroupMm = null;
-      this.measuredGroupIn = null;
+    const dCm = dPx / this.gridPxPerCm;
+    const dMm = dCm * 10;
+    const dIn = dMm / 25.4;
+
+    this.measuredGroupMm = dMm;
+    this.measuredGroupIn = dIn;
+
+    // MOA if distance is available (optional, derived)
+    const distM = this.getMeasurementDistanceM();
+    if (distM != null) {
+      const yards = distM * 1.0936133;
+      this.measuredGroupMoa = (dIn * 100) / (yards * 1.047);
     } else {
-      if (!this.gridPxPerCm || this.gridPxPerCm <= 0) return;
-      const dCm = dPx / this.gridPxPerCm;
-      const dMm = dCm * 10;
-      const dIn = dMm / 25.4;
-
-      this.measuredGroupMm = dMm;
-      this.measuredGroupIn = dIn;
-
-      // MOA if distance is available (optional, derived)
-      const distM = this.getMeasurementDistanceM();
-      if (distM != null) {
-        const yards = distM * 1.0936133;
-        this.measuredGroupMoa = (dIn * 100) / (yards * 1.047);
-      } else {
-        this.measuredGroupMoa = null;
-      }
+      this.measuredGroupMoa = null;
     }
 
     // After measuring, immediately write measurement line to Notes (at top)
@@ -1454,14 +1463,6 @@ export class LoadDevTabComponent implements OnInit {
     const mm = this.measuredGroupMm;
     const inch = this.measuredGroupIn;
     const moa = this.measuredGroupMoa;
-
-    // In MOA-calibration mode we may only have MOA.
-    if (this.photoCalibMode === 'moa') {
-      if (moa == null || !Number.isFinite(moa)) return;
-      const line = `Group size: ${moa.toFixed(2)} MOA`;
-      this.writeMeasurementLine(line);
-      return;
-    }
 
     if (mm == null || inch == null) return;
 
@@ -2968,9 +2969,10 @@ export class LoadDevTabComponent implements OnInit {
       const dd = String(now.getDate()).padStart(2, '0');
       const hh = String(now.getHours()).padStart(2, '0');
       const min = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      const ms = String(now.getMilliseconds()).padStart(3, '0');
 
-      const stamp = `${yy}-${mm}-${dd}_${hh}-${min}`;
-
+      const stamp = `${yy}-${mm}-${dd}_${hh}-${min}-${ss}-${ms}`;
       const fileName = `${safeName}-${type}-${stamp}.pdf`;
 
       if (Capacitor.isNativePlatform()) {
@@ -2990,8 +2992,9 @@ export class LoadDevTabComponent implements OnInit {
           res = await Filesystem.writeFile({
             path: fileName,
             data: pdfBase64,
-            directory: Directory.Documents,
+            directory: Directory.Cache, // instead of Documents
           });
+
           console.log('writeFile OK, uri =', res?.uri);
         } catch (e) {
           console.error('FAILED at Filesystem.writeFile()', e);
@@ -3002,7 +3005,7 @@ export class LoadDevTabComponent implements OnInit {
         // the share promise even after the print job is created — do NOT treat that as export failure.
         try {
           await Share.share({
-            title: 'Load development PDF',
+            title: fileName,
             text: fileName,
             url: res.uri,
           });
@@ -3674,6 +3677,7 @@ export class LoadDevTabComponent implements OnInit {
       !!p?.targetPhotoDataUrl
     );
   }
+
   onLandsDecimalInput(event: any) {
     const input = event.target as HTMLInputElement;
 
@@ -3685,9 +3689,11 @@ export class LoadDevTabComponent implements OnInit {
       inputType === 'deleteContentForward' ||
       inputType.startsWith('delete');
 
-    const raw = input.value;
+    // Normalize commas and ALWAYS sanitize first (removes extra '.')
+    const raw = String(input.value ?? '').replace(/,/g, '.');
+    const cleaned = this.sanitizeDecimalInput(raw);
 
-    const newVal = isDelete ? this.sanitizeDecimalInput(raw) : this.applyAutoDecimal(raw, unit);
+    const newVal = isDelete ? cleaned : this.applyAutoDecimal(cleaned, unit);
 
     input.value = newVal;
     (this.projectForm as any).lands = newVal;
@@ -3707,9 +3713,11 @@ export class LoadDevTabComponent implements OnInit {
       inputType === 'deleteContentForward' ||
       inputType.startsWith('delete');
 
-    const raw = input.value;
+    // Normalize commas and ALWAYS sanitize first (removes extra '.')
+    const raw = String(input.value ?? '').replace(/,/g, '.');
+    const cleaned = this.sanitizeDecimalInput(raw);
 
-    const newVal = isDelete ? this.sanitizeDecimalInput(raw) : this.applyAutoDecimal(raw, unit);
+    const newVal = isDelete ? cleaned : this.applyAutoDecimal(cleaned, unit);
 
     input.value = newVal;
     (this.projectForm as any)[field] = newVal;
@@ -3731,6 +3739,7 @@ export class LoadDevTabComponent implements OnInit {
       day: '2-digit',
     });
   }
+
   shortDateTime(value: string | Date | null | undefined): string {
     if (!value) return '';
     const d = value instanceof Date ? value : new Date(value);
@@ -3746,6 +3755,7 @@ export class LoadDevTabComponent implements OnInit {
 
   // ===============================
   // PDF: load and draw placeholder image in a box
+
   // ===============================
   private async loadAssetAsDataUrl(assetPath: string): Promise<string | null> {
     try {

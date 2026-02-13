@@ -5,6 +5,7 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -16,30 +17,27 @@ public class MainActivity extends BridgeActivity {
             if (am == null)
                 return;
 
-            // Clear any “communication” routing that can stick after recording
+            // Clear any communication routing that can stick after recording
             try {
                 am.stopBluetoothSco();
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
+
             try {
                 am.setBluetoothScoOn(false);
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
 
             try {
                 am.setMode(AudioManager.MODE_NORMAL);
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
+
             try {
                 am.setSpeakerphoneOn(true);
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
 
             // Volume buttons control media volume
             try {
                 setVolumeControlStream(AudioManager.STREAM_MUSIC);
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
 
             // Android 12+ stronger routing control
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -50,8 +48,7 @@ public class MainActivity extends BridgeActivity {
                             break;
                         }
                     }
-                } catch (Exception ignored) {
-                }
+                } catch (Exception ignored) {}
             }
         } catch (Exception ignored) {
             // Never crash app due to routing quirks
@@ -64,6 +61,14 @@ public class MainActivity extends BridgeActivity {
 
         // Ensure JS calls to registerPlugin('AudioRoute') hit native code
         registerPlugin(AudioRoutePlugin.class);
+
+        // 🔒 Disable global pinch zoom for entire WebView
+        WebView webView = this.bridge.getWebView();
+        if (webView != null) {
+            webView.getSettings().setSupportZoom(false);
+            webView.getSettings().setBuiltInZoomControls(false);
+            webView.getSettings().setDisplayZoomControls(false);
+        }
 
         forceSpeakerRoute();
     }

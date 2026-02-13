@@ -938,6 +938,12 @@ export class RiflesTabComponent implements OnInit {
 
     // Allow digits and dot only
     v = v.replace(/[^0-9.]/g, '');
+
+    // If user types multiple '.', keep the first and remove the rest
+    const firstDot = v.indexOf('.');
+    if (firstDot >= 0) {
+      v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+    }
     // Respect sub-unit entry like ".5"
     if (v.startsWith('.')) {
       input.value = v;

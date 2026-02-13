@@ -1092,14 +1092,15 @@
                   </div>
                 </div>
               </ng-container>
+
               <!-- ✅ Photo viewer overlay -->
               <ng-container *ngIf="photoViewerOpen && photoViewerUrl as pvUrl">
                 <div
-                  class="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-3 pb-[calc(env(safe-area-inset-bottom)+24px)]"
+                  class="fixed inset-0 z-[9999] bg-black/80 flex items-start justify-center overflow-y-auto p-3 pt-[calc(env(safe-area-inset-top)+12px)] pb-[calc(env(safe-area-inset-bottom)+24px)]"
                   (click)="closePhotoViewer()"
                 >
                   <div
-                    class="relative w-full max-w-[920px] rounded-2xl border border-gray-700 bg-gray-900/95 overflow-hidden"
+                    class="relative w-full max-w-[920px] rounded-2xl border border-gray-700 bg-gray-900/95 overflow-x-hidden overflow-y-auto max-h-[calc(100vh-36px)]"
                     (click)="$event.stopPropagation()"
                   >
                     <div class="px-3 py-2 border-b border-gray-800 bg-black/40">
@@ -1154,9 +1155,8 @@
                             >
                               {{ photoMeasurementJustSaved ? 'Close' : 'Save' }}
                             </button>
-
-                            <!-- Hide the normal Close when Save has turned into Close (avoids 2 Close buttons) -->
                           </ng-container>
+
                           <button
                             *ngIf="!isAnnotatingPhoto || !photoMeasurementJustSaved"
                             type="button"
@@ -1168,20 +1168,20 @@
                         </div>
                       </div>
 
-                      <!-- Row 2: RESULT (full-width “modal style” box under buttons) -->
-                      <!-- ✅ Measurement panel (always visible in Measure mode) -->
+                      <!-- ✅ Measurement panel (Measure mode only) -->
                       <div
                         *ngIf="isAnnotatingPhoto"
-                        class="mt-2 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-[12px] text-gray-100"
+                        class="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-3 text-[12px] text-gray-100"
                       >
-                        <div class="font-semibold text-emerald-200">Measurement</div>
-
-                        <div class="mt-0.5 text-[10px] text-emerald-200/90">
+                        <div class="mt-2 text-[11px] text-emerald-200/90">
                           <ng-container *ngIf="isCalibratingPhoto; else measureHint">
-                            <div class="font-semibold">Calibration: tap 2 known points</div>
+                            <!-- ✅ NOTHING ABOVE THIS LINE -->
+                            <div class="text-[10px] font-extrabold text-emerald-100 tracking-wide">
+                              Calibration: Tap 2 Known Points
+                            </div>
 
                             <!-- Mode selector (tick style) -->
-                            <div class="mt-2 space-y-2 text-[11px]">
+                            <div class="mt-3 space-y-2 text-[11px]">
                               <button
                                 type="button"
                                 class="w-full flex items-center gap-2 px-2 py-2 rounded-2xl border"
@@ -1204,7 +1204,7 @@
                                 <div class="text-left">
                                   <div class="font-semibold text-gray-100">Calibrate using mm</div>
                                   <div class="text-[10px] text-emerald-200/80">
-                                    Use a known physical length on the target (e.g. grid / ruler).
+                                    Tap a known physical mm length on the target.
                                   </div>
                                 </div>
                               </button>
@@ -1213,25 +1213,28 @@
                                 type="button"
                                 class="w-full flex items-center gap-2 px-2 py-2 rounded-2xl border"
                                 [ngClass]="
-                                  photoCalibMode === 'moa'
+                                  photoCalibMode === 'in'
                                     ? 'border-emerald-400/70 bg-emerald-500/10'
                                     : 'border-gray-700 bg-black/20'
                                 "
-                                (click)="setPhotoCalibMode('moa')"
+                                (click)="setPhotoCalibMode('in')"
                               >
                                 <span
                                   class="w-4 h-4 rounded-md border flex items-center justify-center text-[10px]"
                                   [ngClass]="
-                                    photoCalibMode === 'moa'
+                                    photoCalibMode === 'in'
                                       ? 'border-emerald-300 bg-emerald-500/20 text-emerald-200'
                                       : 'border-gray-600 text-transparent'
                                   "
                                   >✓</span
                                 >
                                 <div class="text-left">
-                                  <div class="font-semibold text-gray-100">Calibrate using MOA</div>
+                                  <div class="font-semibold text-gray-100">
+                                    Calibrate using inches
+                                  </div>
                                   <div class="text-[10px] text-emerald-200/80">
-                                    Calibrate to an angular value (no range required).
+                                    Tap a known physical inch length on the target (we’ll convert to
+                                    MOA using distance).
                                   </div>
                                 </div>
                               </button>
@@ -1239,7 +1242,7 @@
 
                             <!-- Known value input -->
                             <div class="mt-2 flex items-center gap-2">
-                              <ng-container *ngIf="photoCalibMode === 'mm'; else moaInput">
+                              <ng-container *ngIf="photoCalibMode === 'mm'; else inInput">
                                 <span>Known length</span>
                                 <input
                                   type="number"
@@ -1252,17 +1255,17 @@
                                 <span>mm</span>
                               </ng-container>
 
-                              <ng-template #moaInput>
-                                <span>Known angle</span>
+                              <ng-template #inInput>
+                                <span>Known length</span>
                                 <input
                                   type="number"
                                   min="0.01"
                                   step="0.01"
                                   class="w-24 px-2 py-1 rounded-lg bg-black/40 border border-emerald-400/30 text-gray-100"
-                                  [(ngModel)]="photoCalibKnownMoa"
+                                  [(ngModel)]="photoCalibKnownIn"
                                   placeholder="e.g. 1.00"
                                 />
-                                <span>MOA</span>
+                                <span>in</span>
                               </ng-template>
 
                               <button
@@ -1272,13 +1275,13 @@
                                   photoCalibPoints.length !== 2 ||
                                   (photoCalibMode === 'mm'
                                     ? !((photoCalibKnownMm ?? 0) > 0)
-                                    : !((photoCalibKnownMoa ?? 0) > 0))
+                                    : !((photoCalibKnownIn ?? 0) > 0))
                                 "
                                 [ngClass]="
                                   photoCalibPoints.length === 2 &&
                                   (photoCalibMode === 'mm'
                                     ? (photoCalibKnownMm ?? 0) > 0
-                                    : (photoCalibKnownMoa ?? 0) > 0)
+                                    : (photoCalibKnownIn ?? 0) > 0)
                                     ? 'bg-emerald-600 text-white'
                                     : 'bg-gray-800 text-gray-500'
                                 "
@@ -1328,6 +1331,18 @@
                       style="height: min(70vh, 680px)"
                       (click)="isAnnotatingPhoto && onPhotoTap($event)"
                     >
+                      <!-- ✅ Help modal: sits OVER the photo while calibrating, then disappears -->
+                      <div
+                        *ngIf="isAnnotatingPhoto && isCalibratingPhoto && photoHelpOpen"
+                        class="absolute inset-0 z-20 flex items-center justify-center p-4"
+                        (click)="dismissPhotoHelp($event)"
+                      >
+                        <div
+                          class="w-full max-w-[480px] rounded-2xl border border-emerald-400/50 bg-black/85 p-4 text-emerald-50 shadow-xl"
+                          (click)="$event.stopPropagation()"
+                        ></div>
+                      </div>
+
                       <img [src]="pvUrl" class="absolute inset-0 w-full h-full object-contain" />
 
                       <!-- ✅ Grid overlay ONLY in measure mode -->
