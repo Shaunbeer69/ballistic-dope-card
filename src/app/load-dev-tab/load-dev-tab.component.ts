@@ -71,6 +71,7 @@ interface EntryForm {
   notes: string;
 }
 
+// lines 74–90 (replace existing PlannerForm)
 interface PlannerForm {
   distanceM: number | null;
 
@@ -80,7 +81,13 @@ interface PlannerForm {
   startChargeGr: number | null;
   endChargeGr: number | null;
   stepGr: number | null;
+
+  // Legacy single-shot-count (keep for backward compatibility / existing OCW code)
   shotsPerGroup: number | null;
+
+  // ✅ OCW sessions (wizard)
+  ocwSessions: number; // 1..4
+  ocwShotsBySession: number[]; // length 4, values 3..5
 }
 
 interface VelocityStats {
@@ -3311,6 +3318,7 @@ export class LoadDevTabComponent implements OnInit {
 
   // Post-save banner (top)
   postSaveMessage: string | null = null;
+  public ocwSessionPrepComplete: boolean = false;
 
   // Ladder/OCW wizard
   ladderWizardActive = false;
@@ -3522,7 +3530,7 @@ export class LoadDevTabComponent implements OnInit {
 
     return out;
   }
-
+  // lines 3526–3543 (replace existing createEmptyPlannerForm)
   private createEmptyPlannerForm(): PlannerForm {
     this.plannerStepText = '.';
 
@@ -3532,9 +3540,28 @@ export class LoadDevTabComponent implements OnInit {
       startChargeGr: null,
       endChargeGr: null,
       stepGr: null,
-      shotsPerGroup: null,
+
+      // keep legacy field
+      shotsPerGroup: 3,
+
+      // ✅ wizard defaults
+      ocwSessions: 1,
+      ocwShotsBySession: [3, 3, 3, 3],
     };
   }
+
+  // ---------------- OCW Sessions helpers ----------------
+  private clampInt(n: any, min: number, max: number): number {
+    const x = Math.round(Number(n));
+    if (!Number.isFinite(x)) return min;
+    return Math.max(min, Math.min(max, x));
+  }
+
+  private normalizeSessionTag(loadLabel: any): string {
+    const s = (loadLabel ?? '').toString().trim().toUpperCase();
+    return s ? s : 'S1';
+  }
+
   onStepFocus(ev: FocusEvent): void {
     const el = ev.target as HTMLInputElement | null;
     if (!el) return;
@@ -4009,6 +4036,9 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
     this.selectedProject = this.projects.find((p) => p.id === this.selectedProjectId) ?? null;
 
+    // ✅ OCW wizard planner defaults based on project progress
+    this.syncOcwPlannerFromProjectIfNeeded();
+
     this.projectFormVisible = false;
     this.resultsCollapsed = false;
     this.howToExpanded = false;
@@ -4131,6 +4161,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.projectFormVisible = true;
     this.postSaveMessage = null;
     this.showNotesPanel = false;
+    this.ocwSessionPrepComplete = false;
 
     this.resetWizard();
   }
@@ -4194,90 +4225,135 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
     this.plannerError = null;
 
-    const { distanceM, startChargeGr, endChargeGr, stepGr, shotsPerGroup } = this.planner;
-    // ✅ OCW: allow single-charge plan (start === end) by forcing Step = 0.0
-    if (
-      type === 'ocw' &&
-      startChargeGr != null &&
-      endChargeGr != null &&
-      startChargeGr === endChargeGr
-    ) {
-      // Force the UI field + planner numeric value
-      this.planner.stepGr = 0;
-      this.plannerStepText = '0.0';
+    const { distanceM, startChargeGr, endChargeGr, stepGr } = this.planner;
 
-      const dist = distanceM ?? undefined;
-      const defaultShots: number | undefined = shotsPerGroup ?? undefined;
+    // locate project + existing entries (so we append, not overwrite)
+    const proj =
+      this.projects.find((p) => p.id === projectId) ??
+      (this.selectedProject && this.selectedProject.id === projectId ? this.selectedProject : null);
 
-      const entry: LoadDevEntry = {
-        id: 1,
-        loadLabel: '',
-        powder: undefined,
-        chargeGr: Number(startChargeGr.toFixed(2)),
-        coal: undefined,
-        primer: undefined,
-        bullet: undefined,
-        bulletWeightGr: undefined,
-        bulletBc: undefined,
-        distanceM: dist,
-        shotsFired: defaultShots,
-        groupSize: undefined,
-        groupUnit: 'MOA',
-        poiNote: undefined,
-        notes: undefined,
-      } as LoadDevEntry;
+    const existing = this.getEntriesForProject(proj as any);
+    let nextId = existing.length ? Math.max(...existing.map((e) => e.id)) + 1 : 1;
 
-      this.data.updateLoadDevEntry(projectId, entry);
+    const dist = distanceM ?? undefined;
+
+    // ---------------- LADDER (unchanged behaviour) ----------------
+    if (type === 'ladder') {
+      if (startChargeGr == null || endChargeGr == null || stepGr == null || stepGr <= 0) {
+        this.plannerError = 'Enter start, end and a positive step size for the charge ladder.';
+        return;
+      }
+      if (endChargeGr < startChargeGr) {
+        this.plannerError = 'End charge must be greater than start charge.';
+        return;
+      }
+
+      let charge = startChargeGr;
+      let localId = 1;
+
+      while (charge <= endChargeGr + 1e-6) {
+        const roundedCharge = Number(charge.toFixed(2));
+
+        const entry: LoadDevEntry = {
+          id: localId++,
+          loadLabel: '',
+          powder: undefined,
+          chargeGr: roundedCharge,
+          coal: undefined,
+          primer: undefined,
+          bullet: undefined,
+          bulletWeightGr: undefined,
+          bulletBc: undefined,
+          distanceM: dist,
+          shotsFired: 1,
+          groupSize: undefined,
+          groupUnit: 'MOA',
+          poiNote: undefined,
+          notes: undefined,
+        } as LoadDevEntry;
+
+        this.data.updateLoadDevEntry(projectId, entry);
+        charge = Number((charge + stepGr).toFixed(2));
+      }
       return;
     }
 
-    if (startChargeGr == null || endChargeGr == null || stepGr == null || stepGr <= 0) {
-      this.plannerError = 'Enter start, end and a positive step size for the charge ladder.';
-      return;
-    }
-    // ✅ OCW: enforce 3–5 shots per group
-    if (type === 'ocw') {
-      const n = Number(shotsPerGroup ?? 0);
+    // ---------------- OCW WIZARD ----------------
+    // validate sessions + shots
+    const total = this.clampInt(this.planner.ocwSessions ?? 1, 1, 4);
+    this.planner.ocwSessions = total;
+
+    if (!Array.isArray(this.planner.ocwShotsBySession))
+      this.planner.ocwShotsBySession = [3, 3, 3, 3];
+    while (this.planner.ocwShotsBySession.length < 4) this.planner.ocwShotsBySession.push(3);
+
+    for (let i = 0; i < total; i++) {
+      const n = Number(this.planner.ocwShotsBySession[i]);
       if (!Number.isFinite(n) || n < 3 || n > 5) {
-        this.plannerError = 'OCW requires 3 to 5 shots per group.';
+        this.plannerError = `OCW requires 3 to 5 shots per group (Session ${i + 1}).`;
         return;
       }
     }
 
+    // Determine next session to build (based on entries already in this project)
+    const builtMax = this.getOcwBuiltSessionMax(proj as any); // 0..4
+    const nextSessionIdx0 = builtMax; // build S(builtMax+1)
+
+    if (nextSessionIdx0 >= total) {
+      this.plannerError = 'All planned OCW sessions are already built.';
+      return;
+    }
+
+    // Require previous session complete before building the next
+    if (nextSessionIdx0 > 0) {
+      const prevSession = nextSessionIdx0; // e.g. building S2 => prevSession is S1
+      if (!this.isOcwSessionComplete(prevSession, proj as any)) {
+        this.plannerError = `Complete and Save Session S${prevSession} before building S${nextSessionIdx0 + 1}.`;
+        return;
+      }
+    }
+
+    // OCW validation for charges
+    if (startChargeGr == null || endChargeGr == null || stepGr == null || stepGr <= 0) {
+      this.plannerError = 'Enter start, end and a positive step size for the charge ladder.';
+      return;
+    }
     if (endChargeGr < startChargeGr) {
       this.plannerError = 'End charge must be greater than start charge.';
       return;
     }
 
-    const span = endChargeGr - startChargeGr;
-    const stepsFloat = span / stepGr;
-    const stepsInt = Math.round(stepsFloat);
-    if (Math.abs(stepsFloat - stepsInt) > 1e-6) {
-      this.plannerError =
-        'Warning: step does not divide evenly into the window – last charge may be partial.';
+    // Build charges list
+    const charges: number[] = [];
+    let charge = startChargeGr;
+    while (charge <= endChargeGr + 1e-6) {
+      charges.push(Number(charge.toFixed(2)));
+      charge = Number((charge + stepGr).toFixed(2));
     }
 
-    const dist = distanceM ?? undefined;
-    const defaultShots: number | undefined = type === 'ocw' ? (shotsPerGroup ?? undefined) : 1;
+    const tag = `S${nextSessionIdx0 + 1}`;
+    const plannedShots = this.planner.ocwShotsBySession[nextSessionIdx0];
 
-    let charge = startChargeGr;
-    let localId = 1;
-
-    while (charge <= endChargeGr + 1e-6) {
-      const roundedCharge = Number(charge.toFixed(2));
+    // Create only THIS session entries
+    for (const c of charges) {
+      const exists = existing.some(
+        (e) =>
+          Number(e.chargeGr ?? 0) === c && this.normalizeSessionTag((e as any).loadLabel) === tag,
+      );
+      if (exists) continue;
 
       const entry: LoadDevEntry = {
-        id: localId++,
-        loadLabel: '',
+        id: nextId++,
+        loadLabel: tag,
         powder: undefined,
-        chargeGr: roundedCharge,
+        chargeGr: c,
         coal: undefined,
         primer: undefined,
         bullet: undefined,
         bulletWeightGr: undefined,
         bulletBc: undefined,
         distanceM: dist,
-        shotsFired: defaultShots,
+        shotsFired: plannedShots,
         groupSize: undefined,
         groupUnit: 'MOA',
         poiNote: undefined,
@@ -4285,7 +4361,221 @@ This confirms which timing node is the most repeatable and forgiving in real sho
       } as LoadDevEntry;
 
       this.data.updateLoadDevEntry(projectId, entry);
-      charge = Number((charge + stepGr).toFixed(2));
+    }
+  }
+  // ===============================
+  // OCW Session Wizard (no graph)
+  // ===============================
+
+  public ocwMinusSession(): void {
+    this.planner.ocwSessions = Math.max(1, (this.planner.ocwSessions ?? 1) - 1);
+    this.ocwSessionPrepComplete = false;
+  }
+
+  public ocwPlusSession(): void {
+    this.planner.ocwSessions = Math.min(4, (this.planner.ocwSessions ?? 1) + 1);
+    this.ocwSessionPrepComplete = false;
+  }
+
+  public onOcwSessionShotsChange(i: number, raw: any): void {
+    const n = Number(raw);
+    const clamped = Number.isFinite(n) ? Math.min(5, Math.max(3, Math.round(n))) : 3;
+
+    // Ensure array exists and has 4 slots
+    if (
+      !Array.isArray(this.planner.ocwShotsBySession) ||
+      this.planner.ocwShotsBySession.length !== 4
+    ) {
+      this.planner.ocwShotsBySession = [3, 3, 3, 3];
+    }
+
+    this.planner.ocwShotsBySession[i] = clamped;
+  }
+  /** Highest built OCW session number based on entry.loadLabel (S1..S4). Template-safe. */
+  public ocwBuiltSessionMax(): number {
+    return this.getOcwBuiltSessionMax();
+  }
+
+  /** Finalizes OCW session preparation once all sessions are built. */
+  public ocwCompleteSessionPreparation(): void {
+    if (!this.selectedProject || this.selectedProject.type !== 'ocw') return;
+
+    const built = this.getOcwBuiltSessionMax();
+    const total = this.planner.ocwSessions ?? 1;
+
+    if (built < total) {
+      this.postSaveMessage = `Build Session S${built + 1} first.`;
+      setTimeout(() => (this.postSaveMessage = null), 5000);
+      return;
+    }
+
+    this.ocwSessionPrepComplete = true;
+    this.postSaveMessage = 'Session preparation complete. Continue below as normal.';
+    setTimeout(() => (this.postSaveMessage = null), 6000);
+  }
+
+  // Template-safe wrapper (because createLadderEntriesFromPlanner is private)
+  public ocwBuildNextSession(): void {
+    if (!this.selectedProject) return;
+    if (this.selectedProject.type !== 'ocw') return;
+
+    // Session preparation: build sessions sequentially (no velocity gating here).
+    const next = this.getOcwBuiltSessionMax() + 1;
+    const total = this.planner.ocwSessions ?? 1;
+
+    if (next > total) {
+      this.postSaveMessage = 'All sessions already built. Tap Complete Session Preparation.';
+      setTimeout(() => (this.postSaveMessage = null), 5000);
+      return;
+    }
+
+    this.createOcwSessionEntries(this.selectedProject.id, next);
+    this.loadProjects();
+
+    const builtNow = this.getOcwBuiltSessionMax();
+    this.ocwSessionPrepComplete = builtNow >= total && builtNow > 0;
+
+    if (builtNow >= total) {
+      this.postSaveMessage = `Built Session S${next}. All sessions built — tap Complete Session Preparation.`;
+      setTimeout(() => (this.postSaveMessage = null), 7000);
+      return;
+    }
+
+    this.postSaveMessage = `Built Session S${next}. Update inputs if needed, then Build Session for S${next + 1}.`;
+    setTimeout(() => (this.postSaveMessage = null), 7000);
+
+    // Jump back to the sessions block so the user can repeat the flow.
+    this.scrollToOcwSessionWizard();
+  }
+
+  public ocwSaveAndLockCurrentSession(): void {
+    if (!this.selectedProject || this.selectedProject.type !== 'ocw') return;
+
+    const built = this.getOcwBuiltSessionMax();
+    if (built < 1) {
+      this.postSaveMessage = 'Build Session S1 first.';
+      setTimeout(() => (this.postSaveMessage = null), 4000);
+      return;
+    }
+
+    if (!this.isOcwSessionComplete(built)) {
+      this.postSaveMessage = `Session S${built} is not complete. Fill velocities for all charges.`;
+      setTimeout(() => (this.postSaveMessage = null), 5000);
+      return;
+    }
+
+    const total = this.planner.ocwSessions ?? 1;
+    if (built >= total) {
+      this.postSaveMessage = 'Complete Project planning.';
+    } else {
+      this.postSaveMessage = `Session S${built} saved/locked. Ready to build S${built + 1}.`;
+    }
+
+    setTimeout(() => (this.postSaveMessage = null), 6000);
+  }
+  private scrollToOcwSessionWizard(): void {
+    setTimeout(() => {
+      try {
+        const el = document.getElementById('ocw-session-wizard');
+        el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      } catch {
+        // ignore
+      }
+    }, 0);
+  }
+
+  /** Returns highest built session number found in entries loadLabel "S1".."S4" */
+  private getOcwBuiltSessionMax(projectAny?: any): number {
+    const entries = projectAny
+      ? this.getEntriesForProject(projectAny)
+      : this.entriesForSelectedProject();
+    let max = 0;
+
+    for (const e of entries) {
+      const label = String((e as any).loadLabel ?? '').trim();
+      const m = /^S([1-4])$/.exec(label);
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+
+    return max;
+  }
+
+  /** Session is complete if every entry in that session has >= expected shot velocities */
+  private isOcwSessionComplete(session: number, projectAny?: any): boolean {
+    const tag = `S${session}`;
+    const entries = (
+      projectAny ? this.getEntriesForProject(projectAny) : this.entriesForSelectedProject()
+    ).filter((e) => String((e as any).loadLabel ?? '') === tag);
+    if (!entries.length) return false;
+
+    for (const e of entries) {
+      const any = e as any;
+      const expected = Number(any.shotsFired ?? 0);
+      const vals = this.parseVelocityInput(any.velocityInput);
+      if (!Number.isFinite(expected) || expected <= 0) return false;
+      if (vals.length < expected) return false;
+    }
+
+    return true;
+  }
+
+  /** Create planned entries for ONE session only (S1..S4) */
+  private createOcwSessionEntries(projectId: number, session: number): void {
+    // Use existing planner range validation from createLadderEntriesFromPlanner()
+    const { distanceM, startChargeGr, endChargeGr, stepGr } = this.planner;
+
+    if (startChargeGr == null || endChargeGr == null || stepGr == null) return;
+
+    // OCW single-charge support: step 0 => one entry
+    const isSingle = startChargeGr === endChargeGr;
+    const effectiveStep = isSingle ? 0 : stepGr;
+    if (!isSingle && effectiveStep <= 0) return;
+
+    const dist = distanceM ?? undefined;
+    const sessionShots =
+      this.planner.ocwShotsBySession?.[session - 1] ?? this.planner.shotsPerGroup ?? 3;
+    const tag = `S${session}`;
+
+    // Compute next id without collisions
+    const existing = (this.selectedProject as any)?.entries ?? [];
+    const maxId =
+      Array.isArray(existing) && existing.length
+        ? Math.max(...existing.map((x: any) => Number(x.id ?? 0)))
+        : 0;
+    let localId = maxId + 1;
+
+    let charge = startChargeGr;
+
+    const addEntry = (c: number) => {
+      const entry: LoadDevEntry = {
+        id: localId++,
+        loadLabel: tag,
+        powder: undefined,
+        chargeGr: Number(c.toFixed(2)),
+        coal: undefined,
+        primer: undefined,
+        bullet: undefined,
+        bulletWeightGr: undefined,
+        bulletBc: undefined,
+        distanceM: dist,
+        shotsFired: sessionShots,
+        groupSize: undefined,
+        groupUnit: 'MOA',
+        poiNote: undefined,
+        notes: undefined,
+      } as LoadDevEntry;
+
+      this.data.updateLoadDevEntry(projectId, entry);
+    };
+
+    if (isSingle) {
+      addEntry(startChargeGr);
+      return;
+    }
+
+    while (charge <= endChargeGr + 1e-6) {
+      addEntry(charge);
+      charge = Number((charge + effectiveStep).toFixed(2));
     }
   }
 
@@ -4392,8 +4682,13 @@ This confirms which timing node is the most repeatable and forgiving in real sho
       };
       this.data.updateLoadDevProject(newProjectAny as LoadDevProject);
       this.selectedProjectId = newProjectAny.id;
+      if (type === 'ocw') {
+        // ✅ Build ONLY Session 1 initially
+        this.createOcwSessionEntries(newProjectAny.id, 1);
+      } else {
+        this.createLadderEntriesFromPlanner(newProjectAny.id);
+      }
 
-      this.createLadderEntriesFromPlanner(newProjectAny.id);
       this.data.createSessionForLoadDevProject(newProjectAny);
 
       this.postSaveMessage =
@@ -4529,6 +4824,40 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.data.deleteLoadDevEntry(this.selectedProject.id, entry.id);
     this.loadProjects();
   }
+  /** Helper: get entries list from an arbitrary project object (selected or not). */
+  private getEntriesForProject(projectAny: any): LoadDevEntry[] {
+    if (!projectAny) return [];
+    const raw =
+      projectAny.entries ??
+      projectAny.loadData ??
+      projectAny.shots ??
+      projectAny.results ??
+      projectAny.data ??
+      [];
+
+    const list: LoadDevEntry[] = Array.isArray(raw) ? [...raw] : [];
+    if (projectAny.type === 'ocw') return this.sortOcwEntriesBySd(list);
+    return list;
+  }
+
+  /** Ensure OCW planner fields are initialized + consistent with current project progress. */
+  private syncOcwPlannerFromProjectIfNeeded(): void {
+    if (!this.selectedProject || this.selectedProject.type !== 'ocw') return;
+
+    this.planner.ocwSessions = this.clampInt(this.planner.ocwSessions ?? 1, 1, 4);
+
+    if (!Array.isArray(this.planner.ocwShotsBySession))
+      this.planner.ocwShotsBySession = [3, 3, 3, 3];
+    while (this.planner.ocwShotsBySession.length < 4) this.planner.ocwShotsBySession.push(3);
+    if (this.planner.ocwShotsBySession.length > 4)
+      this.planner.ocwShotsBySession = this.planner.ocwShotsBySession.slice(0, 4);
+
+    // If sessions were already built, don’t allow planner total to be less than built sessions
+    const built = this.getOcwBuiltSessionMax(this.selectedProject as any);
+    if (this.planner.ocwSessions < built) this.planner.ocwSessions = built;
+    this.ocwSessionPrepComplete = built >= (this.planner.ocwSessions ?? 1) && built > 0;
+  }
+
   // Removed duplicate implementation of rebuildVisibleEntries()
   entriesForSelectedProject(): LoadDevEntry[] {
     if (!this.selectedProject) return [];

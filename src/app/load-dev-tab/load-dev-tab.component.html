@@ -111,9 +111,38 @@
           <div *ngIf="projectForm.type === 'ladder'" class="text-gray-100 font-semibold mt-2">
             Ladder planning
           </div>
-          <!-- OCW planning header (mirrors ladder) -->
-          <div *ngIf="projectForm.type === 'ocw'" class="text-gray-100 font-semibold mt-2">
-            OCW planning
+          <!-- OCW planning header + session counter -->
+          <div *ngIf="projectForm.type === 'ocw'" class="flex items-center justify-between mt-2">
+            <div class="text-gray-100 font-semibold">OCW planning</div>
+
+            <!-- Keep name "OCW Sessions" but place it next to OCW planning -->
+            <div class="flex items-center gap-2">
+              <div class="text-gray-400 text-[11px]">OCW Sessions</div>
+
+              <button
+                type="button"
+                class="px-2 py-1 rounded-xl border border-gray-700 bg-black/40 text-gray-100"
+                (click)="ocwMinusSession()"
+                [disabled]="!selectedProject || ocwSessionPrepComplete"
+                title="Decrease OCW session count"
+              >
+                −
+              </button>
+
+              <div class="text-gray-100 text-[12px] w-7 text-center">
+                {{ planner.ocwSessions }}
+              </div>
+
+              <button
+                type="button"
+                class="px-2 py-1 rounded-xl border border-gray-700 bg-black/40 text-gray-100"
+                (click)="ocwPlusSession()"
+                [disabled]="!selectedProject || ocwSessionPrepComplete"
+                title="Increase OCW session count"
+              >
+                +
+              </button>
+            </div>
           </div>
 
           <!-- Powder / Bullet / Weight -->
@@ -231,79 +260,97 @@
             </div>
           </div>
 
-          <!-- Ladder planning values -->
+          <!-- OCW Sessions wizard (1..4) -->
           <div
-            *ngIf="projectForm.type === 'ladder' || projectForm.type === 'ocw'"
-            class="mt-2 border border-gray-800 rounded-2xl p-2 text-[11px] bg-black/40 space-y-2"
+            *ngIf="projectForm.type === 'ocw' && !ocwSessionPrepComplete"
+            id="ocw-session-wizard"
+            class="mt-2 border border-gray-800 rounded-2xl p-2 bg-black/40"
           >
-            <!-- Distance (meters) -->
-            <div *ngIf="projectForm.type === 'ladder' || projectForm.type === 'ocw'" class="mt-2">
-              <div class="text-gray-400 mb-0.5">Distance (m)</div>
-              <input
-                type="number"
-                inputmode="decimal"
-                class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
-                [(ngModel)]="planner.distanceM"
-                placeholder="e.g. 100"
-              />
-              <div class="mt-0.5 text-[9px] text-gray-500">Required for MOA calculation.</div>
+            <div class="flex items-center justify-between">
+              <div class="text-gray-400 mb-0.5">OCW Sessions</div>
+
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="px-2 py-1 rounded-xl border border-gray-700 bg-black/40 text-gray-100"
+                  (click)="ocwMinusSession()"
+                >
+                  −
+                </button>
+
+                <div class="text-gray-100 text-[12px] w-8 text-center">
+                  {{ planner.ocwSessions }}
+                </div>
+
+                <button
+                  type="button"
+                  class="px-2 py-1 rounded-xl border border-gray-700 bg-black/40 text-gray-100"
+                  (click)="ocwPlusSession()"
+                >
+                  +
+                </button>
+              </div>
             </div>
 
-            <!-- Start / End / Step -->
-            <div class="grid grid-cols-3 gap-2">
-              <div>
-                <div class="text-gray-400 mb-0.5">Start (gr)</div>
-                <input
-                  type="number"
-                  class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
-                  [(ngModel)]="planner.startChargeGr"
-                  (ngModelChange)="onPlannerRangeChange()"
-                  placeholder="First"
-                />
-              </div>
+            <div class="mt-2 grid grid-cols-2 gap-2">
+              <ng-container *ngFor="let _ of [0, 1, 2, 3]; let i = index">
+                <div
+                  *ngIf="i < planner.ocwSessions"
+                  class="border border-gray-800 rounded-2xl p-2 bg-black/20"
+                >
+                  <div class="text-gray-400 text-[10px] mb-1">
+                    Session S{{ i + 1 }} • shots per group (3–5)
+                  </div>
 
-              <div>
-                <div class="text-gray-400 mb-0.5">End (gr)</div>
-                <input
-                  type="number"
-                  class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
-                  [(ngModel)]="planner.endChargeGr"
-                  (ngModelChange)="onPlannerRangeChange()"
-                  placeholder="Last"
-                />
-              </div>
+                  <input
+                    type="number"
+                    min="3"
+                    max="5"
+                    class="w-full !bg-black/40 !text-gray-100 border border-gray-700 rounded-2xl px-2 py-1 appearance-none focus:!bg-black/60"
+                    [ngModel]="planner.ocwShotsBySession[i]"
+                    (ngModelChange)="onOcwSessionShotsChange(i, $event)"
+                  />
+                </div>
+              </ng-container>
+            </div>
 
-              <div>
-                <div class="text-gray-400 mb-0.5">Step (gr)</div>
-                <input
-                  type="text"
-                  inputmode="decimal"
-                  pattern="[0-9.]*"
-                  maxlength="4"
-                  class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
-                  [ngModel]="plannerStepText"
-                  (ngModelChange)="onStepChange($event)"
-                  (focus)="onStepFocus($event)"
-                />
-              </div>
+            <div class="mt-2 flex gap-2">
+              <button
+                type="button"
+                class="flex-1 px-3 py-2 rounded-2xl border border-gray-700 bg-black/40 text-gray-100"
+                (click)="ocwBuildNextSessionAndMaybeScroll()"
+                [disabled]="!selectedProject"
+                title="Build the next OCW session (S1 then S2...) using the ladder inputs below"
+              >
+                Build Session
+              </button>
+
+              <button
+                type="button"
+                class="flex-1 px-3 py-2 rounded-2xl border border-gray-700 bg-black/40 text-gray-100"
+                (click)="ocwCompleteSessionPreparation()"
+                [disabled]="!selectedProject || ocwBuiltSessionMax() < (planner.ocwSessions || 1)"
+                title="Marks session preparation complete once all sessions are built"
+              >
+                Complete Session Preparation
+              </button>
+            </div>
+
+            <div class="mt-1 text-[9px] text-gray-500">
+              Flow: set sessions → enter Distance + Start/End/Step below → Build Session (repeat) →
+              Complete Session Preparation.
             </div>
           </div>
-          <!-- Shots per group: OCW only -->
-          <div *ngIf="projectForm.type === 'ocw'" class="mt-2">
-            <div class="text-gray-400 mb-0.5">Shots per group</div>
-            <input
-              #shotsPerGroupEl
-              type="number"
-              class="w-full !bg-black/40 !text-gray-100 border border-gray-700 rounded-2xl px-2 py-1 appearance-none focus:!bg-black/60"
-              [(ngModel)]="planner.shotsPerGroup"
-            />
 
-            <div class="mt-0.5 text-[9px] text-gray-500">
-              e.g. 3 to 5 shot OCW groups per charge.
-            </div>
+          <div
+            *ngIf="projectForm.type === 'ocw' && ocwSessionPrepComplete"
+            class="mt-2 border border-emerald-700/60 rounded-2xl p-2 bg-emerald-500/10 text-[10px] text-emerald-200"
+          >
+            OCW session preparation complete. Continue below as normal.
           </div>
 
           <!-- Notes (moved to last position above Save) -->
+
           <div class="mt-2">
             <div class="text-gray-400 mb-0.5">Notes</div>
             <textarea
@@ -874,6 +921,12 @@
                             <div class="leading-tight">
                               <div>
                                 {{ entry.chargeGr | number: '1.0-2' }}
+                                <span class="ml-1 opacity-70 text-[10px]"
+                                  >({{ entry.loadLabel || 'S1' }})</span
+                                >
+                                <span class="ml-1 opacity-70 text-[10px]">
+                                  ({{ entry.loadLabel || 'S1' }})
+                                </span>
                                 <span *ngIf="hasEntryPhoto(entry)" class="ml-1 opacity-80">📷</span>
                               </div>
                             </div>
