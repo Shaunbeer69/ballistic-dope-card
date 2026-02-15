@@ -128,6 +128,9 @@ interface OcwGroupEllipse {
   templateUrl: './load-dev-tab.component.html',
 })
 export class LoadDevTabComponent implements OnInit {
+  ocwBuildNextSessionAndMaybeScroll() {
+    throw new Error('Method not implemented.');
+  }
   close() {
     throw new Error('Method not implemented.');
   }
@@ -4412,6 +4415,60 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.ocwSessionPrepComplete = true;
     this.postSaveMessage = 'Session preparation complete. Continue below as normal.';
     setTimeout(() => (this.postSaveMessage = null), 6000);
+  }
+  /** Scrolls back to the OCW planning header (top of the OCW planning block). */
+  private scrollToOcwPlanningTop(): void {
+    setTimeout(() => {
+      try {
+        const el = document.getElementById('ocw-planning-top');
+        el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      } catch {
+        // ignore
+      }
+    }, 0);
+  }
+
+  /** UI flow: Build next OCW load (1..N) and jump back to top if more loads remain. */
+  public ocwBuildLoadAndMaybeScroll(): void {
+    if (!this.selectedProject) return;
+    if (this.selectedProject.type !== 'ocw') return;
+
+    const next = this.getOcwBuiltSessionMax() + 1;
+    const total = this.planner.ocwSessions ?? 1;
+
+    if (next > total) {
+      this.postSaveMessage = 'All loads already built.';
+      setTimeout(() => (this.postSaveMessage = null), 5000);
+      return;
+    }
+
+    // Require charge step inputs for OCW build.
+    const { startChargeGr, endChargeGr, stepGr } = this.planner;
+    if (startChargeGr == null || endChargeGr == null || stepGr == null || stepGr <= 0) {
+      this.postSaveMessage = 'Enter Start / End / Step first.';
+      setTimeout(() => (this.postSaveMessage = null), 5000);
+      return;
+    }
+
+    if (endChargeGr < startChargeGr) {
+      this.postSaveMessage = 'End charge must be ≥ Start charge.';
+      setTimeout(() => (this.postSaveMessage = null), 5000);
+      return;
+    }
+
+    this.createOcwSessionEntries(this.selectedProject.id, next);
+    this.loadProjects();
+
+    if (next >= total) {
+      this.postSaveMessage = `Built Load ${next}.`;
+      setTimeout(() => (this.postSaveMessage = null), 6000);
+      return;
+    }
+
+    this.postSaveMessage = `Built Load ${next}. Build Load ${next + 1} next.`;
+    setTimeout(() => (this.postSaveMessage = null), 6000);
+
+    this.scrollToOcwPlanningTop();
   }
 
   // Template-safe wrapper (because createLadderEntriesFromPlanner is private)
