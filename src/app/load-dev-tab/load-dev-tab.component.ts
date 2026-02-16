@@ -32,10 +32,12 @@ const AudioRoute = Capacitor.isNativePlatform()
   ? registerPlugin<AudioRoutePlugin>('AudioRoute')
   : null;
 
+type UiLoadDevType = 'ladder' | 'ocw';
+
 interface ProjectForm {
   rifleId: number | null;
   name: string;
-  type: LoadDevType | null;
+  type: UiLoadDevType | null;
   notes: string;
 
   powder: string;
@@ -47,7 +49,7 @@ interface ProjectForm {
   oal: string | null;
   oalOgive: string | null;
 
-  // ✅ NEW: unit selector for COAL / Ogive input
+  // unit selector for COAL / Ogive input
   oalUnit: 'mm' | 'in';
 
   distanceM: number | null;
@@ -72,20 +74,24 @@ interface EntryForm {
 }
 
 // lines 74–90 (replace existing PlannerForm)
-interface PlannerForm {
+interface LadderPlannerForm {
   distanceM: number | null;
-
-  // ✅ NEW: unit selector for distance
-  distanceUnit: 'm' | 'mi';
-
+  distanceUnit: 'm' | 'yd';
   startChargeGr: number | null;
   endChargeGr: number | null;
   stepGr: number | null;
+}
 
-  // Legacy single-shot-count (keep for backward compatibility / existing OCW code)
+interface OcwPlannerForm {
+  distanceM: number | null;
+  distanceUnit: 'm' | 'yd';
+  // keep separate names so nobody accidentally reuses ladder step
+  startChargeGr: number | null;
+  endChargeGr: number | null;
+  ocwStepGr: number | null;
+
+  // existing OCW fields (can change later without touching ladder)
   shotsPerGroup: number | null;
-
-  // ✅ OCW sessions (wizard)
   ocwSessions: number; // 1..4
   ocwShotsBySession: number[]; // length 4, values 3..5
 }
@@ -1424,11 +1430,14 @@ export class LoadDevTabComponent implements OnInit {
     const projM = (this.selectedProject as any)?.distanceM;
     if (typeof projM === 'number' && isFinite(projM) && projM > 0) return projM;
 
-    const plannerM = (this.planner as any)?.distanceM;
+    // fallback to whichever planner is currently being edited
+    const isOcw = this.projectForm?.type === 'ocw';
+    const plannerM = isOcw ? this.ocwPlanner?.distanceM : this.ladderPlanner?.distanceM;
     if (typeof plannerM === 'number' && isFinite(plannerM) && plannerM > 0) return plannerM;
 
     return null;
   }
+
   private recalcGroupFromTwoPoints(): void {
     if (this.photoMeasurePoints.length !== 2) return;
 
@@ -3078,9 +3087,12 @@ export class LoadDevTabComponent implements OnInit {
   projectForm: ProjectForm = this.createEmptyProjectForm();
   showNotesPanel = false;
 
-  // Planner + validation
-  planner: PlannerForm = this.createEmptyPlannerForm();
-  plannerStepText: string = '.';
+  // Planner + validation (SEPARATED: Ladder vs OCW)
+  ladderPlanner: LadderPlannerForm = this.createEmptyLadderPlannerForm();
+  ocwPlanner: OcwPlannerForm = this.createEmptyOcwPlannerForm();
+
+  ladderStepText: string = '.';
+  ocwStepText: string = '.'; // optional, but keeps UI messaging separate
 
   plannerError: string | null = null;
 
@@ -3318,6 +3330,7 @@ export class LoadDevTabComponent implements OnInit {
   resultsCollapsed = false;
   hasResultsForSelectedProject = false;
   howToExpanded = false; // How-to hint collapsible (default collapsed)
+  devTypeDescExpanded = false; // Dev type explanation (default collapsed)
 
   // Post-save banner (top)
   postSaveMessage: string | null = null;
@@ -3391,7 +3404,7 @@ export class LoadDevTabComponent implements OnInit {
     return {
       rifleId: null,
       name: '',
-      type: 'ladder',
+      type: null,
       notes: '',
 
       powder: '',
@@ -3418,6 +3431,59 @@ export class LoadDevTabComponent implements OnInit {
     const jump = lands - ogive;
     // keep 3 decimals max, trim trailing zeros
     return String(Math.round(jump * 1000) / 1000);
+  }
+  private getDefaultDistanceUnit(): 'm' | 'yd' {
+    const rifle = this.rifles.find((r: any) => r?.id === this.selectedRifleId) as any;
+
+    // Try rifle-specific first (your “rifle preference” requirement)
+    const riflePref =
+      rifle?.distanceUnit ??
+      rifle?.distanceUnitPreference ??
+      rifle?.prefDistanceUnit ??
+      rifle?.preferredDistanceUnit;
+
+    // Then try general app default (if you have it in DataService)
+    const generalPref =
+      (this.data as any)?.getDefaultLoadDevDistanceUnit?.() ??
+      (this.data as any)?.getDefaultDistanceUnit?.();
+
+    const unit = (riflePref ?? generalPref ?? 'yd').toString();
+    return unit === 'm' ? 'm' : 'yd';
+  }
+
+  private mToYd(m: number): number {
+    return m * 1.0936132983;
+  }
+  private ydToM(yd: number): number {
+    return yd / 1.0936132983;
+  }
+  // ---------- Ladder distance display + conversion ----------
+  // Internally store distanceM in meters always.
+  // UI shows meters or yards based on ladderPlanner.distanceUnit.
+
+  ladderDistanceDisplay(): number | null {
+    const m = this.ladderPlanner?.distanceM;
+    if (m == null) return null;
+
+    return this.ladderPlanner.distanceUnit === 'yd' ? this.mToYd(m) : m;
+  }
+
+  onLadderDistanceChange(v: any): void {
+    // v can be number or string depending on platform
+    const n = typeof v === 'number' ? v : Number.parseFloat(String(v));
+    if (!Number.isFinite(n)) {
+      this.ladderPlanner.distanceM = null;
+      return;
+    }
+
+    // Convert display units -> meters for storage
+    this.ladderPlanner.distanceM = this.ladderPlanner.distanceUnit === 'yd' ? this.ydToM(n) : n;
+  }
+
+  onLadderDistanceUnitChange(unit: 'm' | 'yd'): void {
+    // Keep the physical distance the same (stored meters).
+    // Only the display unit changes.
+    this.ladderPlanner.distanceUnit = unit;
   }
 
   private createEmptyEntryForm(): EntryForm {
@@ -3534,20 +3600,28 @@ export class LoadDevTabComponent implements OnInit {
     return out;
   }
   // lines 3526–3543 (replace existing createEmptyPlannerForm)
-  private createEmptyPlannerForm(): PlannerForm {
-    this.plannerStepText = '.';
-
+  private createEmptyLadderPlannerForm(): LadderPlannerForm {
+    this.ladderStepText = '.';
     return {
-      distanceUnit: 'm',
+      distanceUnit: this.getDefaultDistanceUnit(),
       distanceM: null,
       startChargeGr: null,
       endChargeGr: null,
       stepGr: null,
+    };
+  }
 
-      // keep legacy field
+  private createEmptyOcwPlannerForm(): OcwPlannerForm {
+    this.ocwStepText = '.';
+    return {
+      distanceUnit: this.getDefaultDistanceUnit(),
+      distanceM: null,
+
+      startChargeGr: null,
+      endChargeGr: null,
+      ocwStepGr: null,
+
       shotsPerGroup: 3,
-
-      // ✅ wizard defaults
       ocwSessions: 1,
       ocwShotsBySession: [3, 3, 3, 3],
     };
@@ -3569,12 +3643,12 @@ export class LoadDevTabComponent implements OnInit {
     const el = ev.target as HTMLInputElement | null;
     if (!el) return;
 
+    // Keep placeholder as "."
     if (!el.value) {
       el.value = '.';
-      this.plannerStepText = '.';
     }
 
-    // Cursor must start after the fullstop
+    // Cursor after the dot
     if (el.value === '.') {
       setTimeout(() => {
         try {
@@ -3587,24 +3661,24 @@ export class LoadDevTabComponent implements OnInit {
   onStepChange(raw: any): void {
     let s = (raw ?? '').toString();
 
-    // keep only digits and dots, and allow only ONE dot
+    // Keep only digits and dot; allow only one dot
     s = s.replace(/[^0-9.]/g, '');
     const firstDot = s.indexOf('.');
     if (firstDot !== -1) {
       s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '');
     }
 
-    // If user clears it, keep the dot placeholder
+    // If user clears it => placeholder only (OCW)
     if (s === '') {
-      this.plannerStepText = '.';
-      this.planner.stepGr = null;
+      this.ocwStepText = '.';
+      this.ocwPlanner.ocwStepGr = null;
       return;
     }
 
     // If it's only ".", don't set a number yet
     if (s === '.') {
-      this.plannerStepText = '.';
-      this.planner.stepGr = null;
+      this.ocwStepText = '.';
+      this.ocwPlanner.ocwStepGr = null;
       return;
     }
 
@@ -3615,41 +3689,102 @@ export class LoadDevTabComponent implements OnInit {
       setTimeout(() => (this.postSaveMessage = null), 2000);
     }
 
-    // Parse (".1" works in parseFloat)
     let n = Number.parseFloat(s);
-
     if (!Number.isFinite(n)) {
-      this.plannerStepText = '.';
-      this.planner.stepGr = null;
+      this.ocwStepText = '.';
+      this.ocwPlanner.ocwStepGr = null;
       return;
     }
 
-    // Hard block > 0.6 (cap) + toast
+    // Cap at 0.6gr
     if (n > 0.6) {
-      n = 0.0;
-      s = '0.0';
+      n = 0.6;
+      s = '.6';
       this.postSaveMessage = 'Step max is 0.6 gr';
       setTimeout(() => (this.postSaveMessage = null), 2000);
     }
 
-    // Normalize display so user sees ".x" instead of "0.x"
+    // Normalize display: "0.x" => ".x"
     if (s.startsWith('0.') && n < 1) s = s.slice(1);
 
-    this.plannerStepText = s;
-    this.planner.stepGr = n;
+    this.ocwStepText = s;
+    this.ocwPlanner.ocwStepGr = n;
   }
+  onLadderStepFocus(ev: FocusEvent): void {
+    const el = ev.target as HTMLInputElement | null;
+    if (!el) return;
+
+    if (!el.value) {
+      el.value = '.';
+      this.ladderStepText = '.';
+    }
+
+    if (el.value === '.') {
+      setTimeout(() => {
+        try {
+          el.setSelectionRange(1, 1);
+        } catch {}
+      }, 0);
+    }
+  }
+
+  onLadderStepChange(raw: any): void {
+    let s = (raw ?? '').toString();
+
+    // Keep only digits and dot; allow only one dot
+    s = s.replace(/[^0-9.]/g, '');
+    const firstDot = s.indexOf('.');
+    if (firstDot !== -1) {
+      s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '');
+    }
+
+    // If user clears it => placeholder only (LADDER)
+    if (s === '' || s === '.') {
+      this.ladderStepText = '.';
+      this.ladderPlanner.stepGr = null;
+      return;
+    }
+
+    // Auto-correct "1" => ".1" (LADDER)
+    if (s === '1') {
+      s = '.1';
+      this.postSaveMessage = 'Auto-corrected 1 → .1';
+      setTimeout(() => (this.postSaveMessage = null), 2000);
+    }
+
+    let n = Number.parseFloat(s);
+    if (!Number.isFinite(n)) {
+      this.ladderStepText = '.';
+      this.ladderPlanner.stepGr = null;
+      return;
+    }
+
+    // Optional: keep the same cap as OCW (or remove if Ladder wants bigger steps)
+    if (n > 0.6) {
+      n = 0.6;
+      s = '.6';
+      this.postSaveMessage = 'Step max is 0.6 gr';
+      setTimeout(() => (this.postSaveMessage = null), 2000);
+    }
+
+    // Normalize display: "0.x" => ".x"
+    if (s.startsWith('0.') && n < 1) s = s.slice(1);
+
+    this.ladderStepText = s;
+    this.ladderPlanner.stepGr = n;
+  }
+
   onPlannerRangeChange(): void {
     if (this.projectForm.type !== 'ocw') return;
 
-    const s = this.planner.startChargeGr;
-    const e = this.planner.endChargeGr;
-
+    const s = this.ocwPlanner.startChargeGr;
+    const e = this.ocwPlanner.endChargeGr;
     if (s == null || e == null) return;
 
-    // Single-charge OCW (start === end) => force step = 0 and jump to shots input
+    // Single-charge OCW => force step = 0 and jump to shots input
     if (Number(s) === Number(e)) {
-      this.planner.stepGr = 0;
-      this.plannerStepText = '0.0';
+      this.ocwPlanner.ocwStepGr = 0;
+      this.ocwStepText = '0.0';
 
       setTimeout(() => {
         try {
@@ -3658,27 +3793,37 @@ export class LoadDevTabComponent implements OnInit {
       }, 0);
     }
   }
+
   private applyAutoDecimal(value: string, unit: 'in' | 'mm'): string {
     if (!value) return value;
 
-    if (value.startsWith('.')) return value;
+    // If user already typed a dot, don't interfere
+    if (value.includes('.')) return value;
 
-    const digitsOnly = value.replace('.', '');
+    // Keep only digits (we sanitize earlier, but be safe)
+    const digitsOnly = value.replace(/[^0-9]/g, '');
+    if (!digitsOnly) return value;
 
+    // Inches: insert decimal AFTER the first digit
+    // Examples:
+    //  "1"    -> "1"        (let them continue)
+    //  "22"   -> "2.2"
+    //  "2205" -> "2.205"
     if (unit === 'in') {
-      if (digitsOnly.length === 1 && !value.includes('.')) {
-        return digitsOnly + '.';
-      }
+      if (digitsOnly.length === 1) return digitsOnly;
+      return digitsOnly[0] + '.' + digitsOnly.slice(1);
     }
 
-    if (unit === 'mm') {
-      if (digitsOnly.length === 2 && !value.includes('.')) {
-        return digitsOnly + '.';
-      }
-    }
-
-    return value;
+    // mm: insert decimal AFTER the first two digits
+    // Examples:
+    //  "7"    -> "7"        (let them continue)
+    //  "74"   -> "74"       (let them continue)
+    //  "748"  -> "74.8"
+    //  "2840" -> "28.40"
+    if (digitsOnly.length <= 2) return digitsOnly;
+    return digitsOnly.slice(0, 2) + '.' + digitsOnly.slice(2);
   }
+
   private sanitizeDecimalInput(value: string): string {
     if (!value) return value;
 
@@ -3927,6 +4072,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
     this.hasResultsForSelectedProject = false;
     this.resultsCollapsed = false;
+    this.devTypeDescExpanded = false;
 
     this.showGraph = false;
     this.graphCoords = [];
@@ -4028,6 +4174,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
       this.visibleEntries = []; // ✅ keep cache in sync
       this.resultsCollapsed = true;
       this.howToExpanded = false;
+      this.devTypeDescExpanded = false;
 
       this.updateHasResultsFlag();
       this.rebuildGraphData();
@@ -4045,6 +4192,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.projectFormVisible = false;
     this.resultsCollapsed = false;
     this.howToExpanded = false;
+    this.devTypeDescExpanded = false;
 
     this.syncTargetPhotoFromProject();
     this.syncVoiceNoteFromProject();
@@ -4158,7 +4306,8 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.projectForm.rifleId = this.selectedRifleId;
     this.projectForm.type = 'ladder';
 
-    this.planner = this.createEmptyPlannerForm();
+    this.ladderPlanner = this.createEmptyLadderPlannerForm();
+    this.ocwPlanner = this.createEmptyOcwPlannerForm();
     this.plannerError = null;
 
     this.projectFormVisible = true;
@@ -4174,7 +4323,8 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.editingProject = null;
     this.projectForm = this.createEmptyProjectForm();
 
-    this.planner = this.createEmptyPlannerForm();
+    this.ladderPlanner = this.createEmptyLadderPlannerForm();
+    this.ocwPlanner = this.createEmptyOcwPlannerForm();
     this.plannerError = null;
 
     this.showNotesPanel = false;
@@ -4224,11 +4374,11 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
   private createLadderEntriesFromPlanner(projectId: number): void {
     const type = this.projectForm.type;
-    if (type !== 'ladder' && type !== 'ocw') return;
+    if (type !== 'ladder') return;
 
     this.plannerError = null;
 
-    const { distanceM, startChargeGr, endChargeGr, stepGr } = this.planner;
+    const { distanceM, startChargeGr, endChargeGr, stepGr } = this.ladderPlanner;
 
     // locate project + existing entries (so we append, not overwrite)
     const proj =
@@ -4275,108 +4425,25 @@ This confirms which timing node is the most repeatable and forgiving in real sho
           notes: undefined,
         } as LoadDevEntry;
 
+        // around line 4300
+        // around line 4300
         this.data.updateLoadDevEntry(projectId, entry);
         charge = Number((charge + stepGr).toFixed(2));
       }
       return;
     }
+  } // <-- ADD THIS (closes createLadderEntriesFromPlanner)
 
-    // ---------------- OCW WIZARD ----------------
-    // validate sessions + shots
-    const total = this.clampInt(this.planner.ocwSessions ?? 1, 1, 4);
-    this.planner.ocwSessions = total;
-
-    if (!Array.isArray(this.planner.ocwShotsBySession))
-      this.planner.ocwShotsBySession = [3, 3, 3, 3];
-    while (this.planner.ocwShotsBySession.length < 4) this.planner.ocwShotsBySession.push(3);
-
-    for (let i = 0; i < total; i++) {
-      const n = Number(this.planner.ocwShotsBySession[i]);
-      if (!Number.isFinite(n) || n < 3 || n > 5) {
-        this.plannerError = `OCW requires 3 to 5 shots per group (Session ${i + 1}).`;
-        return;
-      }
-    }
-
-    // Determine next session to build (based on entries already in this project)
-    const builtMax = this.getOcwBuiltSessionMax(proj as any); // 0..4
-    const nextSessionIdx0 = builtMax; // build S(builtMax+1)
-
-    if (nextSessionIdx0 >= total) {
-      this.plannerError = 'All planned OCW sessions are already built.';
-      return;
-    }
-
-    // Require previous session complete before building the next
-    if (nextSessionIdx0 > 0) {
-      const prevSession = nextSessionIdx0; // e.g. building S2 => prevSession is S1
-      if (!this.isOcwSessionComplete(prevSession, proj as any)) {
-        this.plannerError = `Complete and Save Session S${prevSession} before building S${nextSessionIdx0 + 1}.`;
-        return;
-      }
-    }
-
-    // OCW validation for charges
-    if (startChargeGr == null || endChargeGr == null || stepGr == null || stepGr <= 0) {
-      this.plannerError = 'Enter start, end and a positive step size for the charge ladder.';
-      return;
-    }
-    if (endChargeGr < startChargeGr) {
-      this.plannerError = 'End charge must be greater than start charge.';
-      return;
-    }
-
-    // Build charges list
-    const charges: number[] = [];
-    let charge = startChargeGr;
-    while (charge <= endChargeGr + 1e-6) {
-      charges.push(Number(charge.toFixed(2)));
-      charge = Number((charge + stepGr).toFixed(2));
-    }
-
-    const tag = `S${nextSessionIdx0 + 1}`;
-    const plannedShots = this.planner.ocwShotsBySession[nextSessionIdx0];
-
-    // Create only THIS session entries
-    for (const c of charges) {
-      const exists = existing.some(
-        (e) =>
-          Number(e.chargeGr ?? 0) === c && this.normalizeSessionTag((e as any).loadLabel) === tag,
-      );
-      if (exists) continue;
-
-      const entry: LoadDevEntry = {
-        id: nextId++,
-        loadLabel: tag,
-        powder: undefined,
-        chargeGr: c,
-        coal: undefined,
-        primer: undefined,
-        bullet: undefined,
-        bulletWeightGr: undefined,
-        bulletBc: undefined,
-        distanceM: dist,
-        shotsFired: plannedShots,
-        groupSize: undefined,
-        groupUnit: 'MOA',
-        poiNote: undefined,
-        notes: undefined,
-      } as LoadDevEntry;
-
-      this.data.updateLoadDevEntry(projectId, entry);
-    }
-  }
   // ===============================
   // OCW Session Wizard (no graph)
   // ===============================
-
   public ocwMinusSession(): void {
-    this.planner.ocwSessions = Math.max(1, (this.planner.ocwSessions ?? 1) - 1);
+    this.ocwPlanner.ocwSessions = Math.max(1, (this.ocwPlanner.ocwSessions ?? 1) - 1);
     this.ocwSessionPrepComplete = false;
   }
 
   public ocwPlusSession(): void {
-    this.planner.ocwSessions = Math.min(4, (this.planner.ocwSessions ?? 1) + 1);
+    this.ocwPlanner.ocwSessions = Math.min(4, (this.ocwPlanner.ocwSessions ?? 1) + 1);
     this.ocwSessionPrepComplete = false;
   }
 
@@ -4386,14 +4453,15 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
     // Ensure array exists and has 4 slots
     if (
-      !Array.isArray(this.planner.ocwShotsBySession) ||
-      this.planner.ocwShotsBySession.length !== 4
+      !Array.isArray(this.ocwPlanner.ocwShotsBySession) ||
+      this.ocwPlanner.ocwShotsBySession.length !== 4
     ) {
-      this.planner.ocwShotsBySession = [3, 3, 3, 3];
+      this.ocwPlanner.ocwShotsBySession = [3, 3, 3, 3];
     }
 
-    this.planner.ocwShotsBySession[i] = clamped;
+    this.ocwPlanner.ocwShotsBySession[i] = clamped;
   }
+
   /** Highest built OCW session number based on entry.loadLabel (S1..S4). Template-safe. */
   public ocwBuiltSessionMax(): number {
     return this.getOcwBuiltSessionMax();
@@ -4404,7 +4472,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     if (!this.selectedProject || this.selectedProject.type !== 'ocw') return;
 
     const built = this.getOcwBuiltSessionMax();
-    const total = this.planner.ocwSessions ?? 1;
+    const total = this.ocwPlanner.ocwSessions ?? 1;
 
     if (built < total) {
       this.postSaveMessage = `Build Session S${built + 1} first.`;
@@ -4434,7 +4502,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     if (this.selectedProject.type !== 'ocw') return;
 
     const next = this.getOcwBuiltSessionMax() + 1;
-    const total = this.planner.ocwSessions ?? 1;
+    const total = this.ocwPlanner.ocwSessions ?? 1;
 
     if (next > total) {
       this.postSaveMessage = 'All loads already built.';
@@ -4443,8 +4511,8 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     }
 
     // Require charge step inputs for OCW build.
-    const { startChargeGr, endChargeGr, stepGr } = this.planner;
-    if (startChargeGr == null || endChargeGr == null || stepGr == null || stepGr <= 0) {
+    const { startChargeGr, endChargeGr, ocwStepGr } = this.ocwPlanner;
+    if (startChargeGr == null || endChargeGr == null || ocwStepGr == null || ocwStepGr <= 0) {
       this.postSaveMessage = 'Enter Start / End / Step first.';
       setTimeout(() => (this.postSaveMessage = null), 5000);
       return;
@@ -4478,7 +4546,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
     // Session preparation: build sessions sequentially (no velocity gating here).
     const next = this.getOcwBuiltSessionMax() + 1;
-    const total = this.planner.ocwSessions ?? 1;
+    const total = this.ocwPlanner.ocwSessions ?? 1;
 
     if (next > total) {
       this.postSaveMessage = 'All sessions already built. Tap Complete Session Preparation.';
@@ -4521,7 +4589,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
       return;
     }
 
-    const total = this.planner.ocwSessions ?? 1;
+    const total = this.ocwPlanner.ocwSessions ?? 1;
     if (built >= total) {
       this.postSaveMessage = 'Complete Project planning.';
     } else {
@@ -4578,19 +4646,30 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
   /** Create planned entries for ONE session only (S1..S4) */
   private createOcwSessionEntries(projectId: number, session: number): void {
-    // Use existing planner range validation from createLadderEntriesFromPlanner()
-    const { distanceM, startChargeGr, endChargeGr, stepGr } = this.planner;
+    const { distanceM, startChargeGr, endChargeGr, ocwStepGr } = this.ocwPlanner;
 
-    if (startChargeGr == null || endChargeGr == null || stepGr == null) return;
+    // Defensive validation (this method is called from multiple UI paths)
+    if (startChargeGr == null || endChargeGr == null) {
+      this.postSaveMessage = 'Enter Start and End charge first.';
+      setTimeout(() => (this.postSaveMessage = null), 5000);
+      return;
+    }
 
-    // OCW single-charge support: step 0 => one entry
     const isSingle = startChargeGr === endChargeGr;
-    const effectiveStep = isSingle ? 0 : stepGr;
-    if (!isSingle && effectiveStep <= 0) return;
 
+    // For multi-charge OCW, step is required and must be > 0
+    if (!isSingle && (ocwStepGr == null || ocwStepGr <= 0)) {
+      this.postSaveMessage = 'Enter a positive Step first.';
+      setTimeout(() => (this.postSaveMessage = null), 5000);
+      return;
+    }
+
+    const effectiveStep: number = isSingle ? 0 : ocwStepGr!;
     const dist = distanceM ?? undefined;
+
     const sessionShots =
-      this.planner.ocwShotsBySession?.[session - 1] ?? this.planner.shotsPerGroup ?? 3;
+      this.ocwPlanner.ocwShotsBySession?.[session - 1] ?? this.ocwPlanner.shotsPerGroup ?? 3;
+
     const tag = `S${session}`;
 
     // Compute next id without collisions
@@ -4601,7 +4680,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
         : 0;
     let localId = maxId + 1;
 
-    let charge = startChargeGr;
+    let charge: number = startChargeGr;
 
     const addEntry = (c: number) => {
       const entry: LoadDevEntry = {
@@ -4647,15 +4726,15 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.postSaveMessage = null;
     // ✅ OCW: allow single-charge plan (start === end) → force Step = 0.0
     if (type === 'ocw') {
-      const { startChargeGr, endChargeGr } = this.planner;
+      const { startChargeGr, endChargeGr } = this.ocwPlanner;
       if (startChargeGr != null && endChargeGr != null && startChargeGr === endChargeGr) {
-        this.planner.stepGr = 0;
-        this.plannerStepText = '0.0';
+        this.ocwPlanner.ocwStepGr = 0;
+        this.ocwStepText = '0.0';
       }
     }
 
     if (type === 'ocw') {
-      const n = Number(this.planner.shotsPerGroup ?? 0);
+      const n = Number(this.ocwPlanner.shotsPerGroup ?? 0);
       if (!Number.isFinite(n) || n < 3 || n > 5) {
         alert('OCW requires 3 to 5 shots per group.');
         return;
@@ -4663,30 +4742,19 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     }
 
     // ✅ ADD THIS GUARD (prevents empty ladder/ocw projects)
-    if (type === 'ladder' || type === 'ocw') {
-      const { startChargeGr, endChargeGr, stepGr } = this.planner;
-
-      const isOcwSingleCharge =
-        type === 'ocw' &&
-        startChargeGr != null &&
-        endChargeGr != null &&
-        startChargeGr === endChargeGr;
-
-      if (
-        startChargeGr == null ||
-        endChargeGr == null ||
-        stepGr == null ||
-        (stepGr <= 0 && !isOcwSingleCharge)
-      ) {
-        alert('Please enter Start, End and a positive Step to plan the ladder/OCW charges.');
+    if (type === 'ladder') {
+      const { startChargeGr, endChargeGr } = this.ladderPlanner;
+      if (startChargeGr != null && endChargeGr != null && endChargeGr < startChargeGr) {
+        alert('End charge must be greater than start charge.');
         return;
       }
     }
 
-    if (type === 'ladder' || type === 'ocw') {
-      const { startChargeGr, endChargeGr } = this.planner;
-      if (startChargeGr != null && endChargeGr != null && endChargeGr < startChargeGr) {
-        alert('End charge must be greater than start charge.');
+    if (type === 'ladder') {
+      const { startChargeGr, endChargeGr, stepGr } = this.ladderPlanner;
+
+      if (startChargeGr == null || endChargeGr == null || stepGr == null || stepGr <= 0) {
+        alert('Please enter Start, End and a positive Step to plan the ladder charges.');
         return;
       }
     }
@@ -4709,7 +4777,12 @@ This confirms which timing node is the most repeatable and forgiving in real sho
         oalOgive: (this.projectForm as any).oalOgive ?? null,
         oalUnit: this.projectForm.oalUnit ?? this.data.getDefaultLoadDevOalUnit(),
 
-        distanceM: type === 'ladder' || type === 'ocw' ? (this.planner.distanceM ?? null) : null,
+        distanceM:
+          type === 'ladder'
+            ? (this.ladderPlanner.distanceM ?? null)
+            : type === 'ocw'
+              ? (this.ocwPlanner.distanceM ?? null)
+              : null,
       };
       this.data.updateLoadDevProject(updatedAny as LoadDevProject);
       this.selectedProjectId = updatedAny.id;
@@ -4735,7 +4808,12 @@ This confirms which timing node is the most repeatable and forgiving in real sho
         oalOgive: (this.projectForm as any).oalOgive ?? null,
         oalUnit: this.projectForm.oalUnit ?? this.data.getDefaultLoadDevOalUnit(),
 
-        distanceM: type === 'ladder' || type === 'ocw' ? (this.planner.distanceM ?? null) : null,
+        distanceM:
+          type === 'ladder'
+            ? (this.ladderPlanner.distanceM ?? null)
+            : type === 'ocw'
+              ? (this.ocwPlanner.distanceM ?? null)
+              : null,
       };
       this.data.updateLoadDevProject(newProjectAny as LoadDevProject);
       this.selectedProjectId = newProjectAny.id;
@@ -4760,8 +4838,10 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.editingProject = null;
 
     this.projectForm = this.createEmptyProjectForm();
-    this.planner = this.createEmptyPlannerForm();
+    this.ladderPlanner = this.createEmptyLadderPlannerForm();
+    this.ocwPlanner = this.createEmptyOcwPlannerForm();
     this.plannerError = null;
+
     this.showNotesPanel = false;
 
     this.loadProjects();
@@ -4901,18 +4981,17 @@ This confirms which timing node is the most repeatable and forgiving in real sho
   private syncOcwPlannerFromProjectIfNeeded(): void {
     if (!this.selectedProject || this.selectedProject.type !== 'ocw') return;
 
-    this.planner.ocwSessions = this.clampInt(this.planner.ocwSessions ?? 1, 1, 4);
+    this.ocwPlanner.ocwSessions = this.clampInt(this.ocwPlanner.ocwSessions ?? 1, 1, 4);
 
-    if (!Array.isArray(this.planner.ocwShotsBySession))
-      this.planner.ocwShotsBySession = [3, 3, 3, 3];
-    while (this.planner.ocwShotsBySession.length < 4) this.planner.ocwShotsBySession.push(3);
-    if (this.planner.ocwShotsBySession.length > 4)
-      this.planner.ocwShotsBySession = this.planner.ocwShotsBySession.slice(0, 4);
+    if (!Array.isArray(this.ocwPlanner.ocwShotsBySession))
+      this.ocwPlanner.ocwShotsBySession = [3, 3, 3, 3];
+    while (this.ocwPlanner.ocwShotsBySession.length < 4) this.ocwPlanner.ocwShotsBySession.push(3);
+    if (this.ocwPlanner.ocwShotsBySession.length > 4)
+      this.ocwPlanner.ocwShotsBySession = this.ocwPlanner.ocwShotsBySession.slice(0, 4);
 
-    // If sessions were already built, don’t allow planner total to be less than built sessions
     const built = this.getOcwBuiltSessionMax(this.selectedProject as any);
-    if (this.planner.ocwSessions < built) this.planner.ocwSessions = built;
-    this.ocwSessionPrepComplete = built >= (this.planner.ocwSessions ?? 1) && built > 0;
+    if (this.ocwPlanner.ocwSessions < built) this.ocwPlanner.ocwSessions = built;
+    this.ocwSessionPrepComplete = built >= (this.ocwPlanner.ocwSessions ?? 1) && built > 0;
   }
 
   // Removed duplicate implementation of rebuildVisibleEntries()
@@ -5703,7 +5782,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
       if (this.selectedProject.type === 'ocw') {
         const plannedShots =
-          this.velocityEditEntry.shotsFired ?? this.planner.shotsPerGroup ?? null;
+          this.velocityEditEntry.shotsFired ?? this.ocwPlanner.shotsPerGroup ?? null;
 
         if (plannedShots && values.length !== plannedShots) {
           alert(
@@ -6205,7 +6284,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
     // OCW planned shots (shots per group)
     if (this.selectedProject?.type === 'ocw') {
-      const n = this.planner.shotsPerGroup ?? entry.shotsFired ?? '';
+      const n = this.ocwPlanner.shotsPerGroup ?? entry.shotsFired ?? '';
       this.planningShotsPerGroupEditValue = n != null ? String(n) : '';
     } else {
       this.planningShotsPerGroupEditValue = '';
@@ -6268,7 +6347,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
         return;
       }
 
-      this.planner.shotsPerGroup = n;
+      this.ocwPlanner.shotsPerGroup = n;
 
       const entries = [...(this.selectedProject.entries ?? [])];
       for (const e of entries) {
@@ -6322,7 +6401,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     const newId = existing.length ? Math.max(...existing.map((x) => x.id)) + 1 : 1;
 
     const plannedShots =
-      this.selectedProject.type === 'ocw' ? (this.planner.shotsPerGroup ?? 3) : 1;
+      this.selectedProject.type === 'ocw' ? (this.ocwPlanner.shotsPerGroup ?? 3) : 1;
 
     const newEntry: LoadDevEntry = {
       id: newId,
@@ -6395,7 +6474,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     }
 
     const plannedShots =
-      this.selectedProject.type === 'ocw' ? (this.planner.shotsPerGroup ?? 3) : 1;
+      this.selectedProject.type === 'ocw' ? (this.ocwPlanner.shotsPerGroup ?? 3) : 1;
 
     let id = 1;
 
