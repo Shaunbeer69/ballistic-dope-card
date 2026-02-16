@@ -85,6 +85,10 @@ interface LadderPlannerForm {
 interface OcwPlannerForm {
   distanceM: number | null;
   distanceUnit: 'm' | 'yd';
+
+  // ✅ NEW: single-charge OCW mode
+  chargeGr: number | null;
+
   // keep separate names so nobody accidentally reuses ladder step
   startChargeGr: number | null;
   endChargeGr: number | null;
@@ -134,12 +138,17 @@ interface OcwGroupEllipse {
   templateUrl: './load-dev-tab.component.html',
 })
 export class LoadDevTabComponent implements OnInit {
-  ocwBuildNextSessionAndMaybeScroll() {
-    throw new Error('Method not implemented.');
+  /** Backwards-compat alias used by older OCW wizard block. */
+  public ocwBuildNextSessionAndMaybeScroll(): void {
+    // Wizard button should build the next OCW load and refresh the table
+    this.ocwBuildLoadAndMaybeScroll();
   }
-  close() {
-    throw new Error('Method not implemented.');
+
+  public close(): void {
+    // This component already uses closePhotoViewer() for the photo modal.
+    this.closePhotoViewer();
   }
+
   @ViewChild('velocityInputEl') velocityInputEl?: ElementRef<HTMLInputElement>;
   @ViewChild('pdfContent') pdfContent?: ElementRef<HTMLElement>;
   @ViewChild('targetFileInput') targetFileInput?: ElementRef<HTMLInputElement>;
@@ -3619,6 +3628,9 @@ export class LoadDevTabComponent implements OnInit {
       distanceUnit: this.getDefaultDistanceUnit(),
       distanceM: null,
 
+      // ✅ NEW
+      chargeGr: null,
+
       startChargeGr: null,
       endChargeGr: null,
       ocwStepGr: null,
@@ -4498,69 +4510,134 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.postSaveMessage = 'Session preparation complete. Continue below as normal.';
     setTimeout(() => (this.postSaveMessage = null), 6000);
   }
+  /**
+   * Ensures there is a persisted OCW project selected so "Build Load" can work even before the user taps Save.
+   * - If an OCW project is already selected, returns its id.
+   * - Otherwise, creates a new OCW project from the current form + planner state, selects it, and returns its id.
+   */
+  private ensureOcwProjectExistsFromForm(): number | null {
+    // Already selected + correct type
+    if (this.selectedProject && this.selectedProject.type === 'ocw') return this.selectedProject.id;
+
+    if (!this.selectedRifleId || !this.projectForm.name?.trim()) {
+      this.postSaveMessage = 'Select rifle and enter a name first.';
+      setTimeout(() => (this.postSaveMessage = null), 6000);
+      return null;
+    }
+
+    const type: LoadDevType = (this.projectForm.type as LoadDevType) || 'ocw';
+    if (type !== 'ocw') {
+      this.postSaveMessage = 'Build Load is only available for OCW projects.';
+      setTimeout(() => (this.postSaveMessage = null), 6000);
+      return null;
+    }
+
+    // Persist the chosen session count onto the project so Build Load can step through 1..N.
+    const ocwSessions = this.clampInt(this.ocwPlanner.ocwSessions ?? 1, 1, 4);
+
+    const newProjectAny: any = {
+      id: Date.now(),
+      rifleId: this.selectedRifleId,
+      name: this.projectForm.name.trim(),
+      type,
+      notes: this.projectForm.notes?.trim?.() || undefined,
+      powder: this.projectForm.powder?.trim?.() || undefined,
+      bullet: this.projectForm.bullet?.trim?.() || undefined,
+      bulletWeightGr: this.projectForm.bulletWeightGr ?? null,
+
+      dateStarted: new Date().toISOString(),
+      entries: [],
+
+      lands: (this.projectForm as any).lands ?? null,
+      oal: this.projectForm.oal ?? null,
+      oalOgive: (this.projectForm as any).oalOgive ?? null,
+      oalUnit: this.projectForm.oalUnit ?? this.data.getDefaultLoadDevOalUnit(),
+
+      distanceM: this.ocwPlanner.distanceM ?? null,
+
+      ocwSessions,
+    };
+
+    this.data.updateLoadDevProject(newProjectAny as LoadDevProject);
+    this.data.createSessionForLoadDevProject(newProjectAny);
+
+    // Make it the active selection and treat it as "editing" so Save updates the same record.
+    this.selectedProjectId = newProjectAny.id;
+    this.selectedProject = newProjectAny as LoadDevProject;
+    this.editingProject = newProjectAny as LoadDevProject;
+
+    // Keep planner in sync with persisted value.
+    this.ocwPlanner.ocwSessions = ocwSessions;
+
+    this.loadProjects();
+    return newProjectAny.id;
+  }
+
+  public ocwTotalSessions(): number {
+    if (this.selectedProject && this.selectedProject.type === 'ocw') {
+      return (this.selectedProject as any).ocwSessions ?? 1;
+    }
+    return this.ocwPlanner.ocwSessions ?? 1;
+  }
+
   /** Scrolls back to the OCW planning header (top of the OCW planning block). */
   private scrollToOcwPlanningTop(): void {
     setTimeout(() => {
-      const el = document.getElementById('ocw-planning-top');
-      el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      try {
+        const el = document.getElementById('ocw-planning-top');
+        el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      } catch {
+        // ignore
+      }
     }, 0);
   }
 
-  /** GREEN button: Build next OCW load (S1..SN). If sessions > 1 and more remain, return to top. */
+  /** UI flow: Build next OCW load (1..N) and jump back to top if more loads remain. */
+  /** UI flow: Build next OCW load (1..N) and jump back to top if more loads remain. */
   public ocwBuildLoadAndMaybeScroll(): void {
     if (!this.selectedProject) return;
     if (this.selectedProject.type !== 'ocw') return;
 
-    const total = this.ocwPlanner.ocwSessions ?? 1;
     const next = this.getOcwBuiltSessionMax() + 1;
+    const total = this.ocwTotalSessions() || 1;
 
-    // nothing left to build
     if (next > total) {
       this.postSaveMessage = 'All loads already built.';
       setTimeout(() => (this.postSaveMessage = null), 5000);
       return;
     }
 
-    // Require charge inputs for OCW build.
-    // Step is required ONLY when Start != End (multi-charge OCW).
-    const { startChargeGr, endChargeGr, ocwStepGr } = this.ocwPlanner;
-    if (startChargeGr == null || endChargeGr == null) {
-      this.postSaveMessage = 'Enter Start and End charge first.';
+    // ✅ Single-charge OCW: require one charge value + planned shots (3..5).
+    const charge = this.ocwPlanner.chargeGr;
+    if (charge == null || !Number.isFinite(Number(charge))) {
+      this.postSaveMessage = 'Enter Charge Load first.';
       setTimeout(() => (this.postSaveMessage = null), 5000);
       return;
     }
 
-    const isSingle = startChargeGr === endChargeGr;
-    if (!isSingle && (ocwStepGr == null || ocwStepGr <= 0)) {
-      this.postSaveMessage = 'Enter a positive Step (gr) first.';
-      setTimeout(() => (this.postSaveMessage = null), 5000);
-      return;
-    }
+    // Clamp + persist planned shots (3..5). (UI may allow other values; normalize here.)
+    const rawShots = Number(this.ocwPlanner.shotsPerGroup ?? 3);
+    const shots = Number.isFinite(rawShots) ? Math.min(5, Math.max(3, Math.round(rawShots))) : 3;
+    this.ocwPlanner.shotsPerGroup = shots;
 
-    if (endChargeGr < startChargeGr) {
-      this.postSaveMessage = 'End charge must be ≥ Start charge.';
-      setTimeout(() => (this.postSaveMessage = null), 5000);
-      return;
-    }
+    // Re-use existing builder by mapping single-charge inputs into Start/End.
+    this.ocwPlanner.startChargeGr = Number(charge);
+    this.ocwPlanner.endChargeGr = Number(charge);
+    this.ocwPlanner.ocwStepGr = 0;
 
-    // ✅ build the next session/load
     this.createOcwSessionEntries(this.selectedProject.id, next);
     this.loadProjects();
 
-    // ✅ last one: no scroll
     if (next >= total) {
       this.postSaveMessage = `Built Load ${next}.`;
       setTimeout(() => (this.postSaveMessage = null), 6000);
       return;
     }
 
-    // ✅ more remain: return to top ONLY if sessions > 1
-    this.postSaveMessage = `Built Load ${next}. Plan Load ${next + 1} next.`;
+    this.postSaveMessage = `Built Load ${next}. Build Load ${next + 1} next.`;
     setTimeout(() => (this.postSaveMessage = null), 6000);
 
-    if (total > 1) {
-      this.scrollToOcwPlanningTop();
-    }
+    this.scrollToOcwPlanningTop();
   }
 
   // Template-safe wrapper (because createLadderEntriesFromPlanner is private)

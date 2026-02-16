@@ -25,6 +25,7 @@
       <!-- ====================================== -->
       <!--           NEW DEVELOPMENT TOP         -->
       <!-- ====================================== -->
+
       <div class="space-y-2">
         <!-- Header row: Back | Load development | New -->
         <div class="flex items-center justify-between">
@@ -67,7 +68,7 @@
         <div class="grid grid-cols-1 gap-2 text-[11px]">
           <!-- Name -->
           <div>
-            <div class="text-gray-400 mb-0.5">Load development name</div>
+            <div class="text-white-400 mb-0.5">Load development name</div>
             <input
               type="text"
               class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-gray-100"
@@ -129,7 +130,7 @@
             class="flex items-center justify-between mt-2"
           >
             <div class="text-gray-100 font-semibold">
-              SESSION
+              LOAD(S)
               <span *ngIf="(ocwPlanner.ocwSessions || 1) > 1" class="text-gray-400 font-normal">
                 ({{ ocwBuiltSessionMax() + 1 }})
               </span>
@@ -160,6 +161,39 @@
               >
                 +
               </button>
+            </div>
+          </div>
+          <!-- ✅ OCW single-charge inputs (no Start/End/Step) -->
+          <div
+            *ngIf="projectForm.type === 'ocw'"
+            class="mt-2 border border-gray-800 rounded-2xl p-2 bg-black/40"
+          >
+            <div class="grid grid-cols-2 gap-2 items-end">
+              <div>
+                <div class="text-gray-400 mb-0.5 text-[11px]">Charge Load</div>
+                <input
+                  type="number"
+                  inputmode="decimal"
+                  step="0.01"
+                  class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
+                  [(ngModel)]="ocwPlanner.chargeGr"
+                  placeholder="e.g. 42.4"
+                />
+              </div>
+
+              <div>
+                <div class="text-gray-400 mb-0.5 text-[11px]">Shots Planned</div>
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  min="3"
+                  max="5"
+                  step="1"
+                  class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
+                  [(ngModel)]="ocwPlanner.shotsPerGroup"
+                  placeholder="Choose between 3 - 5"
+                />
+              </div>
             </div>
           </div>
 
@@ -260,8 +294,8 @@
 
             <!-- RIGHT: Length BTT -->
             <div>
-              <div class="text-gray-400 mb-0.5 flex items-center justify-between gap-2">
-                <span>Length BTT</span>
+              <div class="text-white-400 mb-0.5 flex items-center justify-between gap-2">
+                <span>Test Coal</span>
                 <span class="text-[10px] text-gray-500">({{ projectForm.oalUnit || 'mm' }})</span>
               </div>
 
@@ -364,25 +398,6 @@
             ></textarea>
           </div>
 
-          <!-- OCW: Build loads (one button; loops back to top if more remain) -->
-          <div *ngIf="projectForm.type === 'ocw'" class="mt-2">
-            <button
-              type="button"
-              class="w-full px-3 py-2 rounded-2xl border border-gray-700 bg-black/40 text-gray-100 text-[11px]"
-              (click)="ocwBuildLoadAndMaybeScroll()"
-              [disabled]="
-                !selectedProject ||
-                ocwBuiltSessionMax() >= (ocwPlanner.ocwSessions || 1) ||
-                ocwPlanner.startChargeGr == null ||
-                ocwPlanner.endChargeGr == null ||
-                ocwPlanner.ocwStepGr == null
-              "
-              title="Build the next OCW load (1..N) using the charge steps above"
-            >
-              Build Load {{ ocwBuiltSessionMax() + 1 }}
-            </button>
-          </div>
-
           <!-- Ladder / OCW planner warnings -->
           <div *ngIf="plannerError" class="mt-1 text-[10px] text-red-400">
             {{ plannerError }}
@@ -410,6 +425,7 @@
 
       <!-- ====================================== -->
       <!--         DIVIDER & HISTORY BELOW       -->
+
       <!-- ====================================== -->
       <div class="mt-4 pt-3 border-t border-gray-800"></div>
 
