@@ -129,7 +129,7 @@
             class="flex items-center justify-between mt-2"
           >
             <div class="text-gray-100 font-semibold">
-              OCW planning
+              SESSION
               <span *ngIf="(ocwPlanner.ocwSessions || 1) > 1" class="text-gray-400 font-normal">
                 ({{ ocwBuiltSessionMax() + 1 }})
               </span>
@@ -137,27 +137,26 @@
 
             <!-- Keep name "OCW Sessions" but place it next to OCW planning -->
             <div class="flex items-center gap-2">
-              <div class="text-gray-400 text-[11px]">OCW Sessions</div>
-
               <button
                 type="button"
-                class="px-2 py-1 rounded-xl border border-gray-700 bg-black/40 text-gray-100"
+                class="px-3 py-2 rounded-xl border border-gray-700 bg-black/40 text-gray-100 text-[16px]"
                 (click)="ocwMinusSession()"
-                [disabled]="!selectedProject"
-                title="Decrease OCW session count"
+                [disabled]="projectForm.type !== 'ocw'"
               >
                 −
               </button>
 
-              <div class="text-gray-100 text-[12px] w-7 text-center">
-                {{ ocwPlanner.ocwSessions }}
+              <div
+                class="min-w-[48px] text-center text-[18px] font-bold px-3 py-2 rounded-xl border border-gray-700 bg-black/30 text-gray-100"
+              >
+                {{ ocwPlanner.ocwSessions || 1 }}
               </div>
+
               <button
                 type="button"
-                class="px-2 py-1 rounded-xl border border-gray-700 bg-black/40 text-gray-100"
+                class="px-3 py-2 rounded-xl border border-gray-700 bg-black/40 text-gray-100 text-[16px]"
                 (click)="ocwPlusSession()"
-                [disabled]="!selectedProject"
-                title="Increase OCW session count"
+                [disabled]="projectForm.type !== 'ocw'"
               >
                 +
               </button>
@@ -346,34 +345,6 @@
           </div>
 
           <!-- OCW Sessions build (repeat for each load test) -->
-          <div
-            *ngIf="projectForm.type === 'ocw' && !ocwSessionPrepComplete"
-            id="ocw-session-wizard"
-            class="mt-2 border border-gray-800 rounded-2xl p-2 bg-black/40"
-          >
-            <div class="flex items-center justify-between gap-2">
-              <div class="text-gray-400 mb-0.5">
-                Build load test
-                <span *ngIf="(ocwPlanner.ocwSessions || 1) > 1" class="text-gray-500">
-                  ({{ ocwBuiltSessionMax() + 1 }} / {{ ocwPlanner.ocwSessions }})
-                </span>
-              </div>
-
-              <button
-                type="button"
-                class="px-3 py-2 rounded-2xl border border-gray-700 bg-black/40 text-gray-100 text-[11px]"
-                (click)="ocwBuildNextSessionAndMaybeScroll()"
-                [disabled]="!selectedProject"
-                title="Build the next OCW load test"
-              >
-                Build Load {{ (ocwBuiltSessionMax() || 0) + 1 }}
-              </button>
-            </div>
-
-            <div class="mt-1 text-[9px] text-gray-500">
-              Set OCW Sessions → enter COAL / lengths + charge range → Build Load (repeat).
-            </div>
-          </div>
 
           <div
             *ngIf="projectForm.type === 'ocw' && ocwSessionPrepComplete"

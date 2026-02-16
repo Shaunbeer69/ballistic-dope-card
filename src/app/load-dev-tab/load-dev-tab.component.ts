@@ -3452,8 +3452,10 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   private mToYd(m: number): number {
-    return m * 1.0936132983;
+    const yd = m * 1.0936132983;
+    return Math.round(yd * 100) / 100; // ✅ limit to 2 decimals
   }
+
   private ydToM(yd: number): number {
     return yd / 1.0936132983;
   }
@@ -4438,13 +4440,25 @@ This confirms which timing node is the most repeatable and forgiving in real sho
   // OCW Session Wizard (no graph)
   // ===============================
   public ocwMinusSession(): void {
-    this.ocwPlanner.ocwSessions = Math.max(1, (this.ocwPlanner.ocwSessions ?? 1) - 1);
+    const next = Math.max(1, (this.ocwPlanner.ocwSessions ?? 1) - 1);
+    this.ocwPlanner.ocwSessions = next;
     this.ocwSessionPrepComplete = false;
+
+    if (this.selectedProject && this.selectedProject.type === 'ocw') {
+      (this.selectedProject as any).ocwSessions = next;
+      this.data.updateLoadDevProject(this.selectedProject);
+    }
   }
 
   public ocwPlusSession(): void {
-    this.ocwPlanner.ocwSessions = Math.min(4, (this.ocwPlanner.ocwSessions ?? 1) + 1);
+    const next = Math.min(4, (this.ocwPlanner.ocwSessions ?? 1) + 1);
+    this.ocwPlanner.ocwSessions = next;
     this.ocwSessionPrepComplete = false;
+
+    if (this.selectedProject && this.selectedProject.type === 'ocw') {
+      (this.selectedProject as any).ocwSessions = next;
+      this.data.updateLoadDevProject(this.selectedProject);
+    }
   }
 
   public onOcwSessionShotsChange(i: number, raw: any): void {
@@ -4487,33 +4501,38 @@ This confirms which timing node is the most repeatable and forgiving in real sho
   /** Scrolls back to the OCW planning header (top of the OCW planning block). */
   private scrollToOcwPlanningTop(): void {
     setTimeout(() => {
-      try {
-        const el = document.getElementById('ocw-planning-top');
-        el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-      } catch {
-        // ignore
-      }
+      const el = document.getElementById('ocw-planning-top');
+      el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     }, 0);
   }
 
-  /** UI flow: Build next OCW load (1..N) and jump back to top if more loads remain. */
+  /** GREEN button: Build next OCW load (S1..SN). If sessions > 1 and more remain, return to top. */
   public ocwBuildLoadAndMaybeScroll(): void {
     if (!this.selectedProject) return;
     if (this.selectedProject.type !== 'ocw') return;
 
-    const next = this.getOcwBuiltSessionMax() + 1;
     const total = this.ocwPlanner.ocwSessions ?? 1;
+    const next = this.getOcwBuiltSessionMax() + 1;
 
+    // nothing left to build
     if (next > total) {
       this.postSaveMessage = 'All loads already built.';
       setTimeout(() => (this.postSaveMessage = null), 5000);
       return;
     }
 
-    // Require charge step inputs for OCW build.
+    // Require charge inputs for OCW build.
+    // Step is required ONLY when Start != End (multi-charge OCW).
     const { startChargeGr, endChargeGr, ocwStepGr } = this.ocwPlanner;
-    if (startChargeGr == null || endChargeGr == null || ocwStepGr == null || ocwStepGr <= 0) {
-      this.postSaveMessage = 'Enter Start / End / Step first.';
+    if (startChargeGr == null || endChargeGr == null) {
+      this.postSaveMessage = 'Enter Start and End charge first.';
+      setTimeout(() => (this.postSaveMessage = null), 5000);
+      return;
+    }
+
+    const isSingle = startChargeGr === endChargeGr;
+    if (!isSingle && (ocwStepGr == null || ocwStepGr <= 0)) {
+      this.postSaveMessage = 'Enter a positive Step (gr) first.';
       setTimeout(() => (this.postSaveMessage = null), 5000);
       return;
     }
@@ -4524,19 +4543,24 @@ This confirms which timing node is the most repeatable and forgiving in real sho
       return;
     }
 
+    // ✅ build the next session/load
     this.createOcwSessionEntries(this.selectedProject.id, next);
     this.loadProjects();
 
+    // ✅ last one: no scroll
     if (next >= total) {
       this.postSaveMessage = `Built Load ${next}.`;
       setTimeout(() => (this.postSaveMessage = null), 6000);
       return;
     }
 
-    this.postSaveMessage = `Built Load ${next}. Build Load ${next + 1} next.`;
+    // ✅ more remain: return to top ONLY if sessions > 1
+    this.postSaveMessage = `Built Load ${next}. Plan Load ${next + 1} next.`;
     setTimeout(() => (this.postSaveMessage = null), 6000);
 
-    this.scrollToOcwPlanningTop();
+    if (total > 1) {
+      this.scrollToOcwPlanningTop();
+    }
   }
 
   // Template-safe wrapper (because createLadderEntriesFromPlanner is private)
@@ -4795,6 +4819,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
         rifleId: this.selectedRifleId,
         name: this.projectForm.name.trim(),
         type,
+        ocwSessions: this.ocwPlanner.ocwSessions ?? 1,
         notes: this.projectForm.notes.trim() || undefined,
         powder: this.projectForm.powder?.trim?.() || undefined,
         bullet: this.projectForm.bullet?.trim?.() || undefined,
@@ -4982,6 +5007,9 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     if (!this.selectedProject || this.selectedProject.type !== 'ocw') return;
 
     this.ocwPlanner.ocwSessions = this.clampInt(this.ocwPlanner.ocwSessions ?? 1, 1, 4);
+    if ((this.selectedProject as any).ocwSessions) {
+      this.ocwPlanner.ocwSessions = (this.selectedProject as any).ocwSessions;
+    }
 
     if (!Array.isArray(this.ocwPlanner.ocwShotsBySession))
       this.ocwPlanner.ocwShotsBySession = [3, 3, 3, 3];
