@@ -4463,6 +4463,23 @@ This confirms which timing node is the most repeatable and forgiving in real sho
   }
 
   public ocwPlusSession(): void {
+    // UX:
+    // - Before any OCW loads are built, + acts as the session/load quantity selector (1..4).
+    // - Once the user starts building loads (manual OCW single-charge flow), + becomes
+    //   "Save this load and start the next" until the chosen quantity is reached.
+
+    // If an OCW project is active and we still have loads to build, treat + as "build next load".
+    if (this.selectedProject && this.selectedProject.type === 'ocw') {
+      const built = this.getOcwBuiltSessionMax();
+      const total = this.ocwTotalSessions() || 1;
+
+      if (built < total) {
+        this.ocwBuildLoadAndMaybeScroll();
+        return;
+      }
+    }
+
+    // Otherwise, + just increases the chosen quantity.
     const next = Math.min(4, (this.ocwPlanner.ocwSessions ?? 1) + 1);
     this.ocwPlanner.ocwSessions = next;
     this.ocwSessionPrepComplete = false;
@@ -4580,12 +4597,137 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     return this.ocwPlanner.ocwSessions ?? 1;
   }
 
-  /** Scrolls back to the OCW planning header (top of the OCW planning block). */
-  private scrollToOcwPlanningTop(): void {
+  /** True if there are still OCW loads (S1..SN) left to build. */
+  public ocwHasRemainingLoads(): boolean {
+    const built = this.getOcwBuiltSessionMax();
+    const total = this.ocwTotalSessions() || 1;
+    return built < total;
+  }
+
+  /** Label for the bottom-right primary button in the Project form (OCW multi-load aware). */
+  public ocwPrimaryActionLabel(): string {
+    // Default (ladder or single-load OCW)
+    if (this.projectForm.type !== 'ocw') return 'Save & plan charges';
+
+    const total = this.ocwPlanner.ocwSessions ?? 1;
+    if (total <= 1) return 'Save & plan charges';
+
+    const built = this.getOcwBuiltSessionMax(
+      this.editingProject ?? this.selectedProject ?? undefined,
+    );
+    if (built < total) return `Build Load ${built + 1}`;
+    return 'Save Project';
+  }
+
+  /** Primary action behind the bottom-right button in the Project form. */
+  public onOcwPrimaryAction(): void {
+    if (this.projectForm.type === 'ocw' && (this.ocwPlanner.ocwSessions ?? 1) > 1) {
+      const total = this.ocwPlanner.ocwSessions ?? 1;
+      const built = this.getOcwBuiltSessionMax(
+        this.editingProject ?? this.selectedProject ?? undefined,
+      );
+
+      // Build loads 1..N in-form; only on the LAST one do we "Save Project" and close.
+      if (built < total) {
+        this.ocwBuildOneLoadStayInForm();
+        return;
+      }
+    }
+
+    // Ladder OR OCW single-load OR OCW multi-load finalization
+    this.saveProject();
+  }
+
+  /**
+   * OCW multi-load flow:
+   * - Create (or keep) the project
+   * - Add ONE planned session (S1..S4) using the single-charge manual input
+   * - Keep the Project form open, jump back to the top, and clear the charge for next entry
+   */
+  private ocwBuildOneLoadStayInForm(): void {
+    if (!this.selectedRifleId || !this.projectForm.name.trim()) {
+      alert('Please select rifle and enter a name for the load development.');
+      return;
+    }
+
+    // Ensure a project exists (first press creates it, subsequent presses reuse it)
+    if (!this.editingProject) {
+      const newProjectAny: any = {
+        id: Date.now(),
+        rifleId: this.selectedRifleId,
+        name: this.projectForm.name.trim(),
+        type: 'ocw',
+        ocwSessions: this.ocwPlanner.ocwSessions ?? 1,
+        notes: this.projectForm.notes.trim() || undefined,
+        powder: this.projectForm.powder?.trim?.() || undefined,
+        bullet: this.projectForm.bullet?.trim?.() || undefined,
+        bulletWeightGr: this.projectForm.bulletWeightGr ?? null,
+
+        dateStarted: new Date().toISOString(),
+        entries: [],
+        lands: (this.projectForm as any).lands ?? null,
+        oal: this.projectForm.oal ?? null,
+        oalOgive: (this.projectForm as any).oalOgive ?? null,
+        oalUnit: this.projectForm.oalUnit ?? this.data.getDefaultLoadDevOalUnit(),
+        distanceM: this.ocwPlanner.distanceM ?? null,
+      };
+
+      this.data.updateLoadDevProject(newProjectAny as LoadDevProject);
+      this.data.createSessionForLoadDevProject(newProjectAny);
+
+      // Make it the active selection and treat it as "editing" so future presses add to same record.
+      this.selectedProjectId = newProjectAny.id;
+      this.selectedProject = newProjectAny as LoadDevProject;
+      this.editingProject = newProjectAny as LoadDevProject;
+    }
+
+    if (!this.editingProject) return;
+
+    const total = this.ocwPlanner.ocwSessions ?? 1;
+    const built = this.getOcwBuiltSessionMax(this.editingProject);
+    const next = built + 1;
+    if (next > total) return;
+
+    // Validate + normalize single-charge input
+    const charge = this.ocwPlanner.chargeGr;
+    if (charge == null || !Number.isFinite(Number(charge))) {
+      this.postSaveMessage = 'Enter Charge Load first.';
+      setTimeout(() => (this.postSaveMessage = null), 5000);
+      return;
+    }
+
+    // Clamp + persist planned shots (3..5)
+    const rawShots = Number(this.ocwPlanner.shotsPerGroup ?? 3);
+    const shots = Number.isFinite(rawShots) ? Math.min(5, Math.max(3, Math.round(rawShots))) : 3;
+    this.ocwPlanner.shotsPerGroup = shots;
+
+    // Hydrate legacy fields so createOcwSessionEntries() works
+    this.ocwPlanner.startChargeGr = Number(charge);
+    this.ocwPlanner.endChargeGr = Number(charge);
+    this.ocwPlanner.ocwStepGr = 0;
+
+    this.createOcwSessionEntries(this.editingProject.id, next);
+    this.loadProjects();
+
+    // Prepare for the next manual entry.
+    // (User enters the next charge, then taps + again.)
+    this.ocwPlanner.chargeGr = null;
+
+    if (next >= total) {
+      this.postSaveMessage = `Built Load ${next}. Tap Save Project to finish.`;
+    } else {
+      this.postSaveMessage = `Built Load ${next}. Enter the next charge and tap Build Load ${next + 1}.`;
+    }
+    setTimeout(() => (this.postSaveMessage = null), 7000);
+
+    this.scrollToOcwPlanningTop();
+  }
+
+  /** Scrolls to the results block (table/graph) after the last OCW load is built. */
+  private scrollToResults(): void {
     setTimeout(() => {
       try {
-        const el = document.getElementById('ocw-planning-top');
-        el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        this.pdfContent?.nativeElement?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       } catch {
         // ignore
       }
@@ -4595,8 +4737,11 @@ This confirms which timing node is the most repeatable and forgiving in real sho
   /** UI flow: Build next OCW load (1..N) and jump back to top if more loads remain. */
   /** UI flow: Build next OCW load (1..N) and jump back to top if more loads remain. */
   public ocwBuildLoadAndMaybeScroll(): void {
-    if (!this.selectedProject) return;
-    if (this.selectedProject.type !== 'ocw') return;
+    // Allow building even if user hasn't explicitly saved yet.
+    // (Creates + selects a project from the form when needed.)
+    const ensuredId = this.ensureOcwProjectExistsFromForm();
+    if (!ensuredId) return;
+    if (!this.selectedProject || this.selectedProject.type !== 'ocw') return;
 
     const next = this.getOcwBuiltSessionMax() + 1;
     const total = this.ocwTotalSessions() || 1;
@@ -4628,9 +4773,14 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.createOcwSessionEntries(this.selectedProject.id, next);
     this.loadProjects();
 
+    // Prepare for the next manual entry.
+    // (User enters the next charge, then taps + again.)
+    this.ocwPlanner.chargeGr = null;
+
     if (next >= total) {
-      this.postSaveMessage = `Built Load ${next}.`;
+      this.postSaveMessage = `Built Load ${next}. Go Shoot.`;
       setTimeout(() => (this.postSaveMessage = null), 6000);
+      this.scrollToResults();
       return;
     }
 
@@ -4674,6 +4824,11 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.scrollToOcwSessionWizard();
   }
 
+  /** Back-compat: some flows call this name; we scroll to the OCW planning top anchor. */
+  public scrollToOcwSessionWizard(): void {
+    this.scrollToOcwPlanningTop();
+  }
+
   public ocwSaveAndLockCurrentSession(): void {
     if (!this.selectedProject || this.selectedProject.type !== 'ocw') return;
 
@@ -4699,10 +4854,13 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
     setTimeout(() => (this.postSaveMessage = null), 6000);
   }
-  private scrollToOcwSessionWizard(): void {
+
+  /** Scrolls back to the OCW planning header (top of the OCW planning block). */
+
+  public scrollToOcwPlanningTop(): void {
     setTimeout(() => {
       try {
-        const el = document.getElementById('ocw-session-wizard');
+        const el = document.getElementById('ocw-planning-top');
         el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       } catch {
         // ignore
