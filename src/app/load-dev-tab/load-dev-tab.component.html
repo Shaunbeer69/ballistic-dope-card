@@ -130,7 +130,7 @@
             class="flex items-center justify-between mt-2"
           >
             <div class="text-gray-100 font-semibold">
-              LOAD(S)
+              LOAD
               <span *ngIf="(ocwPlanner.ocwSessions || 1) > 1" class="text-gray-400 font-normal">
                 ({{ ocwBuiltSessionMax() + 1 }})
               </span>
@@ -929,15 +929,14 @@
                 <table class="min-w-full text-[11px]">
                   <thead class="bg-gray-900/70 text-gray-300">
                     <tr *ngIf="selectedProject?.type === 'ocw'; else ladderHead">
-                      <th class="px-2 py-1 text-left">Charge (gr)</th>
+                      <th class="px-2 py-1 text-left">Charge</th>
                       <th class="px-2 py-1 text-left leading-tight">
                         <div>Shots</div>
-                        <div class="text-[9px] text-gray-400">planned</div>
                       </th>
                       <th class="px-2 py-1 text-left">Vel</th>
                       <th class="px-2 py-1 text-left">SD</th>
                       <th class="px-2 py-1 text-left">ES</th>
-                      <th class="px-2 py-1 text-right">Group size</th>
+                      <th class="px-2 py-1 text-right">Group</th>
                     </tr>
 
                     <ng-template #ladderHead>
@@ -961,12 +960,10 @@
                             <div class="leading-tight">
                               <div>
                                 {{ entry.chargeGr | number: '1.0-2' }}
-                                <span class="ml-1 opacity-70 text-[10px]"
+                                <span class="ml-1 opacity-70 text-[8px]"
                                   >({{ entry.loadLabel || 'S1' }})</span
                                 >
-                                <span class="ml-1 opacity-70 text-[10px]">
-                                  ({{ entry.loadLabel || 'S1' }})
-                                </span>
+
                                 <span *ngIf="hasEntryPhoto(entry)" class="ml-1 opacity-80">📷</span>
                               </div>
                             </div>
