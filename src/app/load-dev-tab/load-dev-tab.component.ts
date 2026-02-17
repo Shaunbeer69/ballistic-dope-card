@@ -1780,11 +1780,37 @@ export class LoadDevTabComponent implements OnInit {
 
   // ---------- PDF export (Graph + table inside #pdfContent) ----------
   // ---------- PDF export (Graph + table inside #pdfContent) ----------
-  async exportPdf(): Promise<void> {
+  async exportPdf(session?: number): Promise<void> {
+    // Optional: for OCW multi-load, export a single session (S1..S4) by passing session index.
+    // We temporarily filter selectedProject.entries so all existing export logic (graph/table/summary)
+    // naturally exports just that load.
+    const spAny: any = this.selectedProject as any;
+    const originalEntries: any[] | null = Array.isArray(spAny?.entries) ? [...spAny.entries] : null;
+    const originalName: string | null = this.selectedProject?.name ?? null;
+
     try {
       if (!this.selectedProject) {
         alert('Select a load development first.');
         return;
+      }
+
+      if (session != null && this.selectedProject.type === 'ocw' && Array.isArray(spAny?.entries)) {
+        const tag = `S${session}`;
+        const filtered = (spAny.entries as any[]).filter(
+          (e) => String((e as any)?.loadLabel ?? 'S1') === tag,
+        );
+
+        if (!filtered.length) {
+          alert(`No entries found for ${tag}.`);
+          return;
+        }
+
+        spAny.entries = filtered;
+
+        // Make the PDF header explicit for OCW session exports
+        if (typeof this.selectedProject.name === 'string') {
+          this.selectedProject.name = `${originalName ?? 'Load development'} - L${session}`;
+        }
       }
 
       // Always rebuild graph data for export (even if the UI graph is hidden)
@@ -3064,6 +3090,20 @@ export class LoadDevTabComponent implements OnInit {
     } catch (err) {
       console.error(err);
       alert('PDF export failed.');
+    } finally {
+      // Restore original project entries/name after filtered OCW export.
+      try {
+        if (this.selectedProject && this.selectedProject.type === 'ocw') {
+          const anySp: any = this.selectedProject as any;
+          if (originalEntries) anySp.entries = originalEntries;
+          if (originalName != null) this.selectedProject.name = originalName;
+
+          // Keep the UI graph/table consistent after restoring full entries.
+          this.rebuildGraphData();
+        }
+      } catch {
+        // ignore
+      }
     }
   }
 
@@ -4596,6 +4636,54 @@ This confirms which timing node is the most repeatable and forgiving in real sho
       return (this.selectedProject as any).ocwSessions ?? 1;
     }
     return this.ocwPlanner.ocwSessions ?? 1;
+  }
+  public ocwSessionSummaryExpanded: Record<string, boolean> = {};
+
+  public toggleOcwSessionSummary(label: string): void {
+    this.ocwSessionSummaryExpanded[label] = !this.ocwSessionSummaryExpanded[label];
+  }
+
+  public isOcwSessionSummaryExpanded(label: string): boolean {
+    return !!this.ocwSessionSummaryExpanded[label];
+  }
+
+  public ocwSessionSummaryItems(): {
+    label: string;
+    index: number;
+    chargeGr: number | null;
+    entryCount: number;
+  }[] {
+    const p = this.selectedProject as any;
+    if (!p || p.type !== 'ocw') return [];
+
+    const total = this.ocwTotalSessions() || 1;
+    const entries: any[] = Array.isArray(p.entries) ? p.entries : [];
+
+    const labelOf = (e: any): string => (e?.loadLabel ? String(e.loadLabel) : 'S1');
+
+    const out: { label: string; index: number; chargeGr: number | null; entryCount: number }[] = [];
+
+    for (let i = 1; i <= total; i++) {
+      const label = `S${i}`;
+      const sessionEntries = entries.filter((e) => labelOf(e) === label);
+
+      const firstWithCharge = sessionEntries.find(
+        (e) => e?.chargeGr != null && Number.isFinite(Number(e.chargeGr)),
+      );
+      const chargeGr =
+        firstWithCharge && firstWithCharge.chargeGr != null
+          ? Number(firstWithCharge.chargeGr)
+          : null;
+
+      out.push({
+        label,
+        index: i,
+        chargeGr,
+        entryCount: sessionEntries.length,
+      });
+    }
+
+    return out;
   }
 
   /** True if there are still OCW loads (S1..SN) left to build. */

@@ -1887,18 +1887,66 @@
                           <ng-template #jumpDash>—</ng-template>
                         </div>
 
-                        <!-- Charge range (wrap + continue on next line) -->
-                        <div
-                          class="col-span-4 grid grid-cols-[auto,1fr] gap-x-2 gap-y-1 items-start"
+                        <!-- Charge range OR (OCW multi) per-load summaries -->
+                        <ng-container
+                          *ngIf="
+                            selectedProject.type !== 'ocw' || (ocwTotalSessions() || 1) <= 1;
+                            else ocwLoadSummaries
+                          "
                         >
-                          <div class="text-gray-400">Charge range:</div>
                           <div
-                            class="font-semibold"
-                            style="white-space: normal; word-break: break-word"
+                            class="col-span-4 grid grid-cols-[auto,1fr] gap-x-2 gap-y-1 items-start"
                           >
-                            {{ selectedProjectChargeRangeText() }}
+                            <div class="text-gray-400">Charge range:</div>
+                            <div
+                              class="font-semibold"
+                              style="white-space: normal; word-break: break-word"
+                            >
+                              {{ selectedProjectChargeRangeText() }}
+                            </div>
                           </div>
-                        </div>
+                        </ng-container>
+
+                        <ng-template #ocwLoadSummaries>
+                          <div class="col-span-4 mt-1 space-y-2">
+                            <div class="text-gray-300 text-[10px]">Loads</div>
+
+                            <ng-container *ngFor="let s of ocwSessionSummaryItems()">
+                              <div class="rounded-xl border border-gray-700 bg-black/20">
+                                <button
+                                  type="button"
+                                  class="w-full flex items-center justify-between px-2 py-1.5 text-[10px] text-gray-100"
+                                  (click)="toggleOcwSessionSummary(s.label)"
+                                >
+                                  <span class="font-semibold">L{{ s.index }}</span>
+
+                                  <span class="text-gray-300">
+                                    <ng-container *ngIf="s.chargeGr != null; else dashCharge">
+                                      {{ s.chargeGr | number: '1.0-2' }} gr
+                                    </ng-container>
+                                    <ng-template #dashCharge>—</ng-template>
+                                  </span>
+                                </button>
+
+                                <div
+                                  *ngIf="isOcwSessionSummaryExpanded(s.label)"
+                                  class="px-2 pb-2 text-[10px] text-gray-200 grid grid-cols-[auto,1fr] gap-x-2 gap-y-1"
+                                >
+                                  <div class="text-gray-400">Charge:</div>
+                                  <div class="font-semibold">
+                                    <ng-container *ngIf="s.chargeGr != null; else dashCharge2">
+                                      {{ s.chargeGr | number: '1.0-2' }} gr
+                                    </ng-container>
+                                    <ng-template #dashCharge2>—</ng-template>
+                                  </div>
+
+                                  <div class="text-gray-400">Entries:</div>
+                                  <div class="font-semibold">{{ s.entryCount }}</div>
+                                </div>
+                              </div>
+                            </ng-container>
+                          </div>
+                        </ng-template>
                       </div>
                       <div class="mt-3 flex justify-end gap-2"></div>
                     </div>
@@ -1918,12 +1966,28 @@
             <!-- Bottom Back (always visible, even when results are collapsed/hidden) -->
 
             <div class="w-100 flex justify-between gap-2">
-              <button
-                class="px-3 py-[4px] rounded-full bg-gray-100 text-black text-[12px] font-semibold shadow"
-                (click)="exportPdf()"
-              >
-                Export PDF
-              </button>
+              <ng-container *ngIf="selectedProject?.type === 'ocw'; else exportSingle">
+                <div class="flex flex-wrap gap-1">
+                  <button
+                    *ngFor="let s of ocwSessionSummaryItems()"
+                    class="px-2 py-[4px] rounded-full bg-gray-100 text-black text-[11px] font-semibold shadow"
+                    [disabled]="s.entryCount === 0"
+                    (click)="exportPdf(s.index)"
+                  >
+                    Export L{{ s.index }}
+                  </button>
+                </div>
+              </ng-container>
+
+              <ng-template #exportSingle>
+                <button
+                  class="px-3 py-[4px] rounded-full bg-gray-100 text-black text-[12px] font-semibold shadow"
+                  (click)="exportPdf()"
+                >
+                  Export PDF
+                </button>
+              </ng-template>
+
               <button
                 type="button"
                 class="px-3 py-1.5 rounded-2xl text-black text-[11px] font-semibold"
