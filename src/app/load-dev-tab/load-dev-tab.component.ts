@@ -3343,6 +3343,7 @@ export class LoadDevTabComponent implements OnInit {
 
   // Post-save banner (top)
   postSaveMessage: string | null = null;
+  postSaveIsError: boolean = false;
   public ocwSessionPrepComplete: boolean = false;
 
   // Ladder/OCW wizard
@@ -4605,6 +4606,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
   }
 
   /** Label for the bottom-right primary button in the Project form (OCW multi-load aware). */
+  /** Label for the bottom-right primary button in the Project form (OCW multi-load aware). */
   public ocwPrimaryActionLabel(): string {
     // Default (ladder or single-load OCW)
     if (this.projectForm.type !== 'ocw') return 'Save & plan charges';
@@ -4615,7 +4617,13 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     const built = this.getOcwBuiltSessionMax(
       this.editingProject ?? this.selectedProject ?? undefined,
     );
-    if (built < total) return `Build Load ${built + 1}`;
+
+    const next = built + 1;
+
+    // If the user is about to build the last load, present "Complete Session" instead of "Build Load N".
+    if (next === total) return 'Complete Session';
+
+    if (built < total) return `Build Load ${next}`;
     return 'Save Project';
   }
 
@@ -4645,8 +4653,58 @@ This confirms which timing node is the most repeatable and forgiving in real sho
    * - Keep the Project form open, jump back to the top, and clear the charge for next entry
    */
   private ocwBuildOneLoadStayInForm(): void {
-    if (!this.selectedRifleId || !this.projectForm.name.trim()) {
-      alert('Please select rifle and enter a name for the load development.');
+    // ✅ Required fields toast + jump to first missing field
+    const missing: { label: string; id: string }[] = [];
+
+    if (!this.selectedRifleId) {
+      missing.push({ label: 'Rifle', id: 'ld-name' }); // fallback target
+    }
+
+    if (!this.projectForm.name.trim()) {
+      missing.push({ label: 'Load Dev Name', id: 'ld-name' });
+    }
+
+    if (this.ocwPlanner.chargeGr == null || !Number.isFinite(Number(this.ocwPlanner.chargeGr))) {
+      missing.push({ label: 'Charge Load', id: 'ocw-charge' });
+    }
+
+    // Shots Planned defaults to 3 (we still clamp later); not treated as "missing"
+    if (!this.projectForm.powder?.trim?.()) {
+      missing.push({ label: 'Powder', id: 'ocw-powder' });
+    }
+
+    if (
+      this.projectForm.bulletWeightGr == null ||
+      !Number.isFinite(Number(this.projectForm.bulletWeightGr))
+    ) {
+      missing.push({ label: 'Bullet Weight', id: 'ocw-bullet-weight' });
+    }
+
+    const lands = (this.projectForm as any).lands;
+    if (lands == null || lands === '' || !Number.isFinite(Number(lands))) {
+      missing.push({ label: 'Actual Lands (BTO)', id: 'ocw-lands' });
+    }
+
+    const testBto = (this.projectForm as any).oalOgive;
+    if (testBto == null || testBto === '' || !Number.isFinite(Number(testBto))) {
+      missing.push({ label: 'Test COAL (BTO)', id: 'ocw-test-coal-bto' });
+    }
+
+    if (missing.length) {
+      this.postSaveMessage = `Missing required fields:\n• ${missing.map((m) => m.label).join('\n• ')}`;
+      setTimeout(() => (this.postSaveMessage = null), 7000);
+
+      // Jump + focus the first missing field (requires matching ids in HTML)
+      setTimeout(() => {
+        try {
+          const el = document.getElementById(missing[0].id) as any;
+          el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+          setTimeout(() => el?.focus?.(), 150);
+        } catch {
+          // ignore
+        }
+      }, 0);
+
       return;
     }
 
@@ -4714,7 +4772,10 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.ocwPlanner.chargeGr = null;
 
     if (next >= total) {
-      this.postSaveMessage = `Built Load ${next}. Tap Save Project to finish.`;
+      this.postSaveMessage = `Built Load ${next}. Go Shoot.`;
+      setTimeout(() => (this.postSaveMessage = null), 7000);
+      this.scrollToResults();
+      return;
     } else {
       this.postSaveMessage = `Built Load ${next}. Enter the next charge and tap Build Load ${next + 1}.`;
     }
@@ -4753,6 +4814,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     }
 
     // ✅ Single-charge OCW: require one charge value + planned shots (3..5).
+
     const charge = this.ocwPlanner.chargeGr;
     if (charge == null || !Number.isFinite(Number(charge))) {
       this.postSaveMessage = 'Enter Charge Load first.';
@@ -4997,6 +5059,60 @@ This confirms which timing node is the most repeatable and forgiving in real sho
         this.ocwPlanner.endChargeGr = charge;
         this.ocwPlanner.ocwStepGr = 0;
         this.ocwStepText = '0.0';
+      }
+    }
+
+    // ✅ OCW required fields (Save Project can still be pressed without building any load)
+    if (type === 'ocw') {
+      const missing: { label: string; id: string }[] = [];
+
+      if (!this.projectForm.name.trim()) {
+        missing.push({ label: 'Load Dev Name', id: 'ld-name' });
+      }
+
+      if (this.ocwPlanner.chargeGr == null || !Number.isFinite(Number(this.ocwPlanner.chargeGr))) {
+        missing.push({ label: 'Charge Load', id: 'ocw-charge' });
+      }
+
+      if (!this.projectForm.powder?.trim?.()) {
+        missing.push({ label: 'Powder', id: 'ocw-powder' });
+      }
+
+      if (
+        this.projectForm.bulletWeightGr == null ||
+        !Number.isFinite(Number(this.projectForm.bulletWeightGr))
+      ) {
+        missing.push({ label: 'Bullet Weight', id: 'ocw-bullet-weight' });
+      }
+
+      const lands = (this.projectForm as any).lands;
+      if (lands == null || lands === '' || !Number.isFinite(Number(lands))) {
+        missing.push({ label: 'Actual Lands (BTO)', id: 'ocw-lands' });
+      }
+
+      const testBto = (this.projectForm as any).oalOgive;
+      if (testBto == null || testBto === '' || !Number.isFinite(Number(testBto))) {
+        missing.push({ label: 'Test COAL (BTO)', id: 'ocw-test-coal-bto' });
+      }
+
+      if (missing.length) {
+        this.postSaveIsError = true;
+        this.postSaveMessage = `Missing required fields:\n• ${missing
+          .map((m) => m.label)
+          .join('\n• ')}`;
+        setTimeout(() => (this.postSaveMessage = null), 7000);
+
+        setTimeout(() => {
+          try {
+            const el = document.getElementById(missing[0].id) as any;
+            el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+            setTimeout(() => el?.focus?.(), 150);
+          } catch {
+            // ignore
+          }
+        }, 0);
+
+        return;
       }
     }
 

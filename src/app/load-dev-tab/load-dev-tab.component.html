@@ -55,7 +55,12 @@
       <!-- Info banner after save -->
       <div
         *ngIf="postSaveMessage"
-        class="mt-2 text-[10px] rounded-2xl bg-amber-500/10 border border-amber-400/60 text-amber-200 px-2 py-1.5"
+        class="mt-2 text-[10px] rounded-2xl px-2 py-1.5 whitespace-pre-line"
+        [ngClass]="
+          postSaveIsError
+            ? 'bg-red-500/10 border border-red-400/60 text-red-200'
+            : 'bg-amber-500/10 border border-amber-400/60 text-amber-200'
+        "
       >
         {{ postSaveMessage }}
       </div>
@@ -70,6 +75,7 @@
           <div>
             <div class="text-white-400 mb-0.5">Load development name</div>
             <input
+              id="ld-name"
               type="text"
               class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1.5 text-gray-100"
               [(ngModel)]="projectForm.name"
@@ -172,6 +178,7 @@
               <div>
                 <div class="text-gray-400 mb-0.5 text-[11px]">Charge Load</div>
                 <input
+                  id="ocw-charge"
                   type="number"
                   inputmode="decimal"
                   step="0.01"
@@ -184,8 +191,8 @@
               <div>
                 <div class="text-gray-400 mb-0.5 text-[11px]">Shots Planned</div>
                 <input
+                  id="ocw-shots"
                   type="number"
-                  inputmode="numeric"
                   min="3"
                   max="5"
                   step="1"
@@ -202,6 +209,7 @@
             <div>
               <div class="text-gray-400 mb-0.5">Powder</div>
               <input
+                id="ocw-powder"
                 type="text"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                 [(ngModel)]="projectForm.powder"
@@ -221,6 +229,7 @@
             <div>
               <div class="text-gray-400 mb-0.5">Weight (gr)</div>
               <input
+                id="ocw-bullet-weight"
                 type="number"
                 class="w-full bg-black/40 border border-gray-700 rounded-2xl px-2 py-1 text-gray-100"
                 [(ngModel)]="projectForm.bulletWeightGr"
@@ -237,6 +246,7 @@
               </div>
 
               <input
+                id="ocw-lands"
                 type="text"
                 inputmode="decimal"
                 pattern="[0-9.]*"
@@ -281,6 +291,7 @@
               </div>
 
               <input
+                id="ocw-test-coal-bto"
                 type="text"
                 inputmode="decimal"
                 pattern="[0-9.]*"
