@@ -4825,29 +4825,29 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
     const type: LoadDevType = (this.projectForm.type as LoadDevType) || 'ladder';
     this.postSaveMessage = null;
+
+    // ✅ Fix A: New Manual OCW single-charge input (chargeGr) must hydrate legacy Start/End fields
+    // so createOcwSessionEntries() actually plans entries.
+    if (type === 'ocw') {
+      const c = this.ocwPlanner.chargeGr;
+      const haveLegacy =
+        this.ocwPlanner.startChargeGr != null && this.ocwPlanner.endChargeGr != null;
+
+      if (!haveLegacy && c != null && Number.isFinite(Number(c))) {
+        const charge = Number(c);
+        this.ocwPlanner.startChargeGr = charge;
+        this.ocwPlanner.endChargeGr = charge;
+        this.ocwPlanner.ocwStepGr = 0;
+        this.ocwStepText = '0.0';
+      }
+    }
+
     // ✅ OCW: allow single-charge plan (start === end) → force Step = 0.0
     if (type === 'ocw') {
       const { startChargeGr, endChargeGr } = this.ocwPlanner;
       if (startChargeGr != null && endChargeGr != null && startChargeGr === endChargeGr) {
         this.ocwPlanner.ocwStepGr = 0;
         this.ocwStepText = '0.0';
-      }
-    }
-
-    if (type === 'ocw') {
-      const n = Number(this.ocwPlanner.shotsPerGroup ?? 0);
-      if (!Number.isFinite(n) || n < 3 || n > 5) {
-        alert('OCW requires 3 to 5 shots per group.');
-        return;
-      }
-    }
-
-    // ✅ ADD THIS GUARD (prevents empty ladder/ocw projects)
-    if (type === 'ladder') {
-      const { startChargeGr, endChargeGr } = this.ladderPlanner;
-      if (startChargeGr != null && endChargeGr != null && endChargeGr < startChargeGr) {
-        alert('End charge must be greater than start charge.');
-        return;
       }
     }
 
