@@ -3676,7 +3676,7 @@ export class LoadDevTabComponent implements OnInit {
       endChargeGr: null,
       ocwStepGr: null,
 
-      shotsPerGroup: 3,
+      shotsPerGroup: null,
       ocwSessions: 1,
       ocwShotsBySession: [3, 3, 3, 3],
     };
@@ -3690,8 +3690,15 @@ export class LoadDevTabComponent implements OnInit {
   }
 
   private normalizeSessionTag(loadLabel: any): string {
-    const s = (loadLabel ?? '').toString().trim().toUpperCase();
-    return s ? s : 'S1';
+    const raw = (loadLabel ?? '').toString().trim().toUpperCase();
+    if (!raw) return 'S1';
+
+    // Accept: "S1", "s1", "1", "L1", "LOAD 1"
+    const m = /^(?:S|L|LOAD\s*)?([1-4])$/.exec(raw);
+    if (m) return `S${m[1]}`;
+
+    // If it’s already something else, keep it, but never allow empty.
+    return raw;
   }
 
   onStepFocus(ev: FocusEvent): void {
@@ -4240,6 +4247,13 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     }
 
     this.selectedProject = this.projects.find((p) => p.id === this.selectedProjectId) ?? null;
+    this.selectedProject = this.projects.find((p) => p.id === this.selectedProjectId) ?? null;
+
+    // ✅ OCW per-load summary blocks should start collapsed whenever a project is opened.
+    this.ocwSessionSummaryExpanded = {};
+
+    // ✅ OCW wizard planner defaults based on project progress
+    this.syncOcwPlannerFromProjectIfNeeded();
 
     // ✅ OCW wizard planner defaults based on project progress
     this.syncOcwPlannerFromProjectIfNeeded();
@@ -4632,11 +4646,28 @@ This confirms which timing node is the most repeatable and forgiving in real sho
   }
 
   public ocwTotalSessions(): number {
+    // Prefer persisted project value, but if it's missing (or wrong),
+    // derive from entries (S1..S4) so the UI shows multi-load correctly.
     if (this.selectedProject && this.selectedProject.type === 'ocw') {
-      return (this.selectedProject as any).ocwSessions ?? 1;
+      const spAny: any = this.selectedProject as any;
+      const persisted = Number(spAny?.ocwSessions ?? 0);
+
+      // Derive max session found in entry.loadLabel
+      const entries: any[] = Array.isArray(spAny?.entries) ? spAny.entries : [];
+      let derived = 1;
+      for (const e of entries) {
+        const tag = this.normalizeSessionTag((e as any)?.loadLabel);
+        const m = /^S([1-4])$/.exec(tag);
+        if (m) derived = Math.max(derived, Number(m[1]));
+      }
+
+      if (Number.isFinite(persisted) && persisted >= 1) return Math.max(persisted, derived);
+      return derived;
     }
+
     return this.ocwPlanner.ocwSessions ?? 1;
   }
+
   public ocwSessionSummaryExpanded: Record<string, boolean> = {};
 
   public toggleOcwSessionSummary(label: string): void {
@@ -4656,10 +4687,11 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     const p = this.selectedProject as any;
     if (!p || p.type !== 'ocw') return [];
 
+    // Total must reflect what's actually in entries (S1..S4) even if ocwSessions wasn't persisted.
     const total = this.ocwTotalSessions() || 1;
-    const entries: any[] = Array.isArray(p.entries) ? p.entries : [];
 
-    const labelOf = (e: any): string => (e?.loadLabel ? String(e.loadLabel) : 'S1');
+    const entries: any[] = Array.isArray(p.entries) ? p.entries : [];
+    const labelOf = (e: any): string => this.normalizeSessionTag(e?.loadLabel);
 
     const out: { label: string; index: number; chargeGr: number | null; entryCount: number }[] = [];
 
@@ -4842,9 +4874,16 @@ This confirms which timing node is the most repeatable and forgiving in real sho
       return;
     }
 
-    // Clamp + persist planned shots (3..5)
-    const rawShots = Number(this.ocwPlanner.shotsPerGroup ?? 3);
-    const shots = Number.isFinite(rawShots) ? Math.min(5, Math.max(3, Math.round(rawShots))) : 3;
+    // Require planned shots (minimum 3). No max cap.
+    const rawShots = Number(this.ocwPlanner.shotsPerGroup);
+
+    if (!Number.isFinite(rawShots) || rawShots < 3) {
+      this.postSaveMessage = 'Enter Shots Planned (minimum 3).';
+      setTimeout(() => (this.postSaveMessage = null), 5000);
+      return;
+    }
+
+    const shots = Math.max(3, Math.round(rawShots));
     this.ocwPlanner.shotsPerGroup = shots;
 
     // Hydrate legacy fields so createOcwSessionEntries() works
@@ -4910,9 +4949,16 @@ This confirms which timing node is the most repeatable and forgiving in real sho
       return;
     }
 
-    // Clamp + persist planned shots (3..5). (UI may allow other values; normalize here.)
-    const rawShots = Number(this.ocwPlanner.shotsPerGroup ?? 3);
-    const shots = Number.isFinite(rawShots) ? Math.min(5, Math.max(3, Math.round(rawShots))) : 3;
+    // Require planned shots (minimum 3). No max cap.
+    const rawShots = Number(this.ocwPlanner.shotsPerGroup);
+
+    if (!Number.isFinite(rawShots) || rawShots < 3) {
+      this.postSaveMessage = 'Enter Shots Planned (minimum 3).';
+      setTimeout(() => (this.postSaveMessage = null), 5000);
+      return;
+    }
+
+    const shots = Math.max(3, Math.round(rawShots));
     this.ocwPlanner.shotsPerGroup = shots;
 
     // Re-use existing builder by mapping single-charge inputs into Start/End.
@@ -5092,15 +5138,27 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     let charge: number = startChargeGr;
 
     const addEntry = (c: number) => {
+      const unit: 'mm' | 'in' = this.projectForm?.oalUnit === 'in' ? 'in' : 'mm';
+      const lands = (this.projectForm as any)?.lands ?? null;
+      const oalOgive = (this.projectForm as any)?.oalOgive ?? null;
+      const oal = this.projectForm?.oal ?? null;
+
+      // Snapshot the planning fields onto the entry so OCW multi-load summaries remain correct
+      // even when each load uses different components.
       const entry: LoadDevEntry = {
         id: localId++,
         loadLabel: tag,
-        powder: undefined,
+
+        powder: this.projectForm?.powder?.trim?.() || undefined,
+        bullet: this.projectForm?.bullet?.trim?.() || undefined,
+        bulletWeightGr: this.projectForm?.bulletWeightGr ?? undefined,
+
         chargeGr: Number(c.toFixed(2)),
-        coal: undefined,
+
+        // COAL / seating snapshots (keep both legacy + newer keys for compatibility)
+        coal: oal ?? undefined,
+
         primer: undefined,
-        bullet: undefined,
-        bulletWeightGr: undefined,
         bulletBc: undefined,
         distanceM: dist,
         shotsFired: sessionShots,
@@ -5108,7 +5166,13 @@ This confirms which timing node is the most repeatable and forgiving in real sho
         groupUnit: 'MOA',
         poiNote: undefined,
         notes: undefined,
-      } as LoadDevEntry;
+      } as any;
+
+      // Extra snapshot fields (not in the strict LoadDevEntry shape everywhere)
+      (entry as any).oalUnit = unit;
+      (entry as any).lands = lands;
+      (entry as any).oalOgive = oalOgive;
+      (entry as any).oal = oal;
 
       this.data.updateLoadDevEntry(projectId, entry);
     };
@@ -5591,6 +5655,100 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     if (raw == null) return null;
     const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
     return Number.isFinite(n) ? n : null;
+  }
+  // ---------- OCW per-load Summary helpers (entry-level when available) ----------
+  private ocwEntriesForLabel(label: string): any[] {
+    const sp: any = this.selectedProject as any;
+    if (!sp || sp.type !== 'ocw') return [];
+    const tag = this.normalizeSessionTag(label);
+    const entries: any[] = Array.isArray(sp.entries) ? sp.entries : [];
+    return entries.filter((e) => this.normalizeSessionTag((e as any)?.loadLabel) === tag);
+  }
+
+  private ocwFirstText(label: string, key: string): string | null {
+    const entries = this.ocwEntriesForLabel(label);
+    for (const e of entries) {
+      const v = (e as any)?.[key];
+      if (v != null && String(v).trim().length) return String(v);
+    }
+    return null;
+  }
+
+  private ocwFirstNumber(label: string, key: string): number | null {
+    const entries = this.ocwEntriesForLabel(label);
+    for (const e of entries) {
+      const raw = (e as any)?.[key];
+      if (raw == null) continue;
+      const n = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
+      if (Number.isFinite(n)) return n;
+    }
+    return null;
+  }
+
+  private ocwChargeRange(label: string): { min: number | null; max: number | null } {
+    const entries = this.ocwEntriesForLabel(label);
+    const vals = entries.map((e) => Number((e as any)?.chargeGr)).filter((x) => Number.isFinite(x));
+    if (!vals.length) return { min: null, max: null };
+    return { min: Math.min(...vals), max: Math.max(...vals) };
+  }
+  public ocwLoadChargeText(label: string): string {
+    const r = this.ocwChargeRange(label);
+    if (r.min == null || r.max == null) return '—';
+    return `${this.truncTo(r.min, 2).toFixed(2)} – ${this.truncTo(r.max, 2).toFixed(2)}gr`;
+  }
+
+  // Single line used by HTML (matches your v1.6.63 stacked summary look)
+  public ocwLoadSummaryLine(label: string): string {
+    const sp: any = this.selectedProject as any;
+
+    const powder = this.ocwFirstText(label, 'powder') ?? String(sp?.powder ?? '—');
+    const bullet = this.ocwFirstText(label, 'bullet') ?? String(sp?.bullet ?? '—');
+
+    const bw =
+      this.ocwFirstNumber(label, 'bulletWeightGr') ??
+      (typeof sp?.bulletWeightGr === 'number' ? sp.bulletWeightGr : Number(sp?.bulletWeightGr));
+    const bwTxt = Number.isFinite(bw) ? `${bw}` : '—';
+
+    const unit: 'mm' | 'in' = (String(sp?.oalUnit ?? 'mm') === 'in' ? 'in' : 'mm') as any;
+
+    const landsRaw =
+      this.ocwFirstNumber(label, 'lands') ??
+      (typeof sp?.lands === 'number'
+        ? sp.lands
+        : Number(String(sp?.lands ?? '').replace(',', '.')));
+    const landsTxt =
+      landsRaw != null && Number.isFinite(landsRaw) ? this.fmtLen(landsRaw, unit) : '—';
+
+    const ogiveRaw =
+      this.ocwFirstNumber(label, 'oalOgive') ??
+      (typeof sp?.oalOgive === 'number'
+        ? sp.oalOgive
+        : Number(String(sp?.oalOgive ?? '').replace(',', '.')));
+    const ogiveTxt =
+      ogiveRaw != null && Number.isFinite(ogiveRaw) ? this.fmtLen(ogiveRaw, unit) : '—';
+
+    const coalRaw =
+      this.ocwFirstNumber(label, 'oal') ??
+      (typeof sp?.oal === 'number' ? sp.oal : Number(String(sp?.oal ?? '').replace(',', '.')));
+    const coalTxt = coalRaw != null && Number.isFinite(coalRaw) ? this.fmtLen(coalRaw, unit) : '—';
+
+    let jumpTxt = '—';
+    if (
+      landsRaw != null &&
+      ogiveRaw != null &&
+      Number.isFinite(landsRaw) &&
+      Number.isFinite(ogiveRaw)
+    ) {
+      jumpTxt = this.fmtLen(landsRaw - ogiveRaw, unit);
+    }
+
+    const r = this.ocwChargeRange(label);
+    const chargeTxt =
+      r.min != null && r.max != null
+        ? `${this.truncTo(r.min, 2).toFixed(2)} – ${this.truncTo(r.max, 2).toFixed(2)}gr`
+        : '—';
+
+    return `Powder:${powder} | Bullet:${bullet} | Wt:${bwTxt}gr | Lands (BTO): ${landsTxt}${unit} | Test (BTO): ${ogiveTxt}${unit} | Test (BTT): ${coalTxt}${unit} | Jump: ${jumpTxt}${unit} | Charge: ${chargeTxt}`;
   }
 
   // 1) decimal space => dot (only when the fractional part is 1 digit)
@@ -6248,8 +6406,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
       }
 
       if (this.selectedProject.type === 'ocw') {
-        const plannedShots =
-          this.velocityEditEntry.shotsFired ?? this.ocwPlanner.shotsPerGroup ?? null;
+        const plannedShots = this.velocityEditEntry.shotsFired ?? null;
 
         if (plannedShots && values.length !== plannedShots) {
           alert(
@@ -6749,9 +6906,9 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     this.planningChargeEditValue =
       entry.chargeGr != null && Number.isFinite(entry.chargeGr) ? String(entry.chargeGr) : '';
 
-    // OCW planned shots (shots per group)
+    // OCW planned shots are per-entry (not global)
     if (this.selectedProject?.type === 'ocw') {
-      const n = this.ocwPlanner.shotsPerGroup ?? entry.shotsFired ?? '';
+      const n = entry.shotsFired ?? '';
       this.planningShotsPerGroupEditValue = n != null ? String(n) : '';
     } else {
       this.planningShotsPerGroupEditValue = '';
@@ -6804,29 +6961,18 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     const updated = { ...this.planningEditEntry, chargeGr: Number(charge.toFixed(2)) };
     this.data.updateLoadDevEntry(this.selectedProject.id, updated);
 
-    // OCW: update planned shots per group (and push to all un-shot entries)
+    // OCW: planned shots are per-entry (minimum 3, no max)
     if (this.selectedProject.type === 'ocw') {
       const shotsRaw = (this.planningShotsPerGroupEditValue ?? '').toString().trim();
       const n = Number(shotsRaw);
 
-      if (!Number.isFinite(n) || n < 3 || n > 5) {
-        alert('OCW requires 3 to 5 shots per group.');
+      if (!Number.isFinite(n) || n < 3) {
+        alert('OCW requires a minimum of 3 shots per group.');
         return;
       }
 
-      this.ocwPlanner.shotsPerGroup = n;
-
-      const entries = [...(this.selectedProject.entries ?? [])];
-      for (const e of entries) {
-        const any = e as any;
-        const vals = this.parseVelocityInput(any.velocityInput);
-
-        // Only treat as "planned" if not shot yet
-        if (!vals.length) {
-          const e2 = { ...e, shotsFired: n };
-          this.data.updateLoadDevEntry(this.selectedProject.id, e2);
-        }
-      }
+      const e2 = { ...updated, shotsFired: Math.max(3, Math.round(n)) };
+      this.data.updateLoadDevEntry(this.selectedProject.id, e2);
     }
 
     this.refreshSelectedProject();
