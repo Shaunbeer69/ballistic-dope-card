@@ -1875,7 +1875,14 @@
                     [disabled]="s.entryCount === 0"
                     (click)="exportPdf(s.index)"
                   >
-                    Export L{{ s.index }}
+                    Export {{ ocwLoadChargeText(s.label) }}
+                  </button>
+
+                  <button
+                    class="px-2 py-[4px] rounded-full bg-gray-100 text-black text-[11px] font-semibold shadow"
+                    (click)="exportPdf()"
+                  >
+                    Export project
                   </button>
                 </div>
               </ng-container>

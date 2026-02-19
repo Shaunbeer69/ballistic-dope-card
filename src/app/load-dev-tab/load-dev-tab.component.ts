@@ -2325,8 +2325,9 @@ export class LoadDevTabComponent implements OnInit {
       const boxesReservedAbs = boxH + boxPadAfter;
       let commentLines = 15;
 
-      // ✅ Load summary under Comments (vertical line format)
-      // First line: OCW / Ladder, then: |, part, |, part ...
+      // ✅ Load summary under Comments
+      // Default: vertical-line format (existing behavior).
+      // OCW whole-project export: show per-load summaries horizontally (side-by-side).
       const typeLabel =
         this.selectedProject?.type === 'ocw'
           ? 'OCW'
@@ -2336,6 +2337,7 @@ export class LoadDevTabComponent implements OnInit {
 
       const summaryLine =
         typeof this.buildLoadSummaryLine === 'function' ? this.buildLoadSummaryLine() || '' : '';
+
       const summaryParts = summaryLine.toString().trim()
         ? summaryLine
             .toString()
@@ -2345,9 +2347,40 @@ export class LoadDevTabComponent implements OnInit {
             .filter(Boolean)
         : [];
 
-      const summaryLineCount = (typeLabel ? 1 : 0) + summaryParts.length;
+      const isOcwWholeProjectExport =
+        this.selectedProject?.type === 'ocw' &&
+        session == null &&
+        typeof (this as any).ocwSessionSummaryItems === 'function' &&
+        ((this as any).ocwSessionSummaryItems()?.length || 0) > 1;
 
-      // Ensure we have room for at least absolute-min boxes.
+      const ocwSummaryCells: string[] = isOcwWholeProjectExport
+        ? (this as any)
+            .ocwSessionSummaryItems()
+            .map((s: any) => `L${s.index} ${this.ocwLoadSummaryLine(s.label)}`)
+        : [];
+
+      const ocwSummaryCellLines: string[][] = isOcwWholeProjectExport
+        ? ocwSummaryCells.map((t) =>
+            String(t)
+              .split(' | ')
+              .map((x) => x.trim())
+              .filter(Boolean),
+          )
+        : [];
+
+      const ocwSummaryMaxLines =
+        isOcwWholeProjectExport && ocwSummaryCellLines.length
+          ? Math.max(...ocwSummaryCellLines.map((a) => a.length))
+          : 0;
+
+      // For OCW whole-project export we draw a "Load Summary" header + one horizontal row of up to 4 columns.
+      const summaryRowCount = isOcwWholeProjectExport
+        ? ocwSummaryCells.length
+          ? 1 + ocwSummaryMaxLines
+          : 0
+        : summaryParts.length;
+
+      const summaryLineCount = (typeLabel ? 1 : 0) + summaryRowCount; // Ensure we have room for at least absolute-min boxes.
       // If not, reduce comment lines until it fits (down to 0 if required).
       while (
         commentLines > 0 &&
@@ -2357,13 +2390,6 @@ export class LoadDevTabComponent implements OnInit {
       }
 
       // Draw Comments title (bold + 50% larger) + one-line gap below
-      (doc as any).setFont(undefined, 'bold');
-      doc.setFontSize(17); // 11 * 1.5 ≈ 16.5
-      doc.setTextColor(0);
-      doc.text('Comments', leftMargin, y);
-
-      (doc as any).setFont(undefined, 'normal');
-      doc.setFontSize(10);
 
       // use the reserved title height (includes blank line)
       y += commentTitleH;
@@ -2387,31 +2413,72 @@ export class LoadDevTabComponent implements OnInit {
           y += commentLineGap;
         }
 
-        // 2) Vertical rule + stacked parts
-        const ruleX = leftMargin + 2;
-        const textX = leftMargin + 8;
-        const startY = y - 10; // slight lift so rule visually starts near the first part
-        const endY = y + summaryParts.length * commentLineGap - 10;
+        (doc as any).setFont(undefined, 'normal');
+        doc.setFontSize(10);
 
-        if (summaryParts.length) {
-          doc.setDrawColor(120, 120, 120);
-          doc.setLineWidth(0.8);
-          doc.line(ruleX, startY, ruleX, endY);
+        if (isOcwWholeProjectExport && ocwSummaryCells.length) {
+          // OCW whole-project export: "Load Summary" header + up to 4 columns, stacked lines per column
+          (doc as any).setFont(undefined, 'bold');
+          doc.setFontSize(10);
+          doc.text('Load Summary', leftMargin, y - 3);
+          y += commentLineGap;
 
           (doc as any).setFont(undefined, 'normal');
           doc.setFontSize(10);
 
-          const maxW2 = pageW - rightMargin - textX;
+          const cells = (ocwSummaryCellLines || []).slice(0, 4);
+          const cols = Math.max(1, Math.min(4, cells.length));
+          const gap = 6;
+          const colW = (pageW - leftMargin - rightMargin - gap * (cols - 1)) / cols;
 
-          for (const p of summaryParts) {
-            let out = doc.splitTextToSize(p, maxW2)?.[0] ?? p;
-            if (doc.getTextWidth(out) > maxW2) {
-              while (out.length > 0 && doc.getTextWidth(out + '…') > maxW2) out = out.slice(0, -1);
-              out = out + '…';
+          let maxLines = 0;
+
+          for (let i = 0; i < cells.length; i++) {
+            const x = leftMargin + i * (colW + gap);
+            const linesInCell = cells[i] || [];
+            if (linesInCell.length > maxLines) maxLines = linesInCell.length;
+
+            for (let j = 0; j < linesInCell.length; j++) {
+              const p = linesInCell[j];
+              const maxW2 = colW;
+
+              let out = doc.splitTextToSize(p, maxW2)?.[0] ?? p;
+              if (doc.getTextWidth(out) > maxW2) {
+                while (out.length > 0 && doc.getTextWidth(out + '…') > maxW2)
+                  out = out.slice(0, -1);
+                out = out + '…';
+              }
+
+              doc.text(out, x, y + j * commentLineGap - 3);
             }
+          }
 
-            doc.text(out, textX, y - 3);
-            y += commentLineGap;
+          y += maxLines * commentLineGap;
+        } else {
+          // Default behavior: vertical rule + stacked parts
+          const ruleX = leftMargin + 2;
+          const textX = leftMargin + 8;
+          const startY = y - 10;
+          const endY = y + summaryParts.length * commentLineGap - 10;
+
+          if (summaryParts.length) {
+            doc.setDrawColor(120, 120, 120);
+            doc.setLineWidth(0.8);
+            doc.line(ruleX, startY, ruleX, endY);
+
+            const maxW2 = pageW - rightMargin - textX;
+
+            for (const p of summaryParts) {
+              let out = doc.splitTextToSize(p, maxW2)?.[0] ?? p;
+              if (doc.getTextWidth(out) > maxW2) {
+                while (out.length > 0 && doc.getTextWidth(out + '…') > maxW2)
+                  out = out.slice(0, -1);
+                out = out + '…';
+              }
+
+              doc.text(out, textX, y - 3);
+              y += commentLineGap;
+            }
           }
         }
 
@@ -5706,8 +5773,8 @@ This confirms which timing node is the most repeatable and forgiving in real sho
   }
   public ocwLoadChargeText(label: string): string {
     const r = this.ocwChargeRange(label);
-    if (r.min == null || r.max == null) return '—';
-    return `${this.truncTo(r.min, 2).toFixed(2)} – ${this.truncTo(r.max, 2).toFixed(2)}gr`;
+    if (r.min == null) return '—';
+    return `${this.truncTo(r.min, 2).toFixed(2)}gr`;
   }
 
   // Single line used by HTML (matches your v1.6.63 stacked summary look)
