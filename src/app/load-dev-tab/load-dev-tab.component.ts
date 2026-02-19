@@ -1797,7 +1797,7 @@ export class LoadDevTabComponent implements OnInit {
       if (session != null && this.selectedProject.type === 'ocw' && Array.isArray(spAny?.entries)) {
         const tag = `S${session}`;
         const filtered = (spAny.entries as any[]).filter(
-          (e) => String((e as any)?.loadLabel ?? 'S1') === tag,
+          (e) => this.normalizeSessionTag((e as any)?.loadLabel) === tag,
         );
 
         if (!filtered.length) {
@@ -7018,7 +7018,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
     const newEntry: LoadDevEntry = {
       id: newId,
-      loadLabel: '',
+      loadLabel: this.selectedProject.type === 'ocw' ? `S${this.getOcwBuiltSessionMax() + 1}` : '',
       powder: undefined,
       chargeGr: Number(charge.toFixed(2)),
       coal: undefined,
@@ -7094,7 +7094,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     if (this.selectedProject.type === 'ocw' && start === end) {
       const entry: LoadDevEntry = {
         id: id++,
-        loadLabel: '',
+        loadLabel: 'S1',
         powder: undefined,
         chargeGr: Number(start.toFixed(2)),
         coal: undefined,
