@@ -489,13 +489,9 @@ export class LoadDevTabComponent implements OnInit {
       };
 
       this.data.updateLoadDevProject(updated);
-      this.data.updateLoadDevProject(updated);
 
       // 🔥 IMPORTANT: reload selectedProject from DataService, then rebuild preview
       this.refreshSelectedProject();
-      this.syncVoiceNoteFromProject();
-
-      // Refresh UI preview
       this.syncVoiceNoteFromProject();
 
       this.micInlineMessage = '✅ Voice note saved';
@@ -3176,6 +3172,9 @@ export class LoadDevTabComponent implements OnInit {
   availableBullets: string[] = [];
   filteredProjects: LoadDevProject[] | null = null;
 
+  // cache: prevents rebuilding global filter options on every loadProjects()
+  private filterOptionsSig = '';
+
   // OCW validation
   ocwValidationWarning: string | null = null;
 
@@ -4164,18 +4163,11 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     if (this.selectedRifleId == null) {
       this.projects = [];
       this.selectedProject = null;
-      this.selectedProjectId = null;
-      this.visibleEntries = [];
-      this.hasResultsForSelectedProject = false;
-
       this.availablePowders = [];
       this.availableBullets = [];
-      this.filteredProjects = null;
-      this.visibleEntries = [];
-      this.ocwPhotoNotesCache = [];
+      this.filterOptionsStamp = ''; // reset cache
 
-      this.rebuildGraphData();
-      this.resetWizard();
+      this.filterOptionsSig = ''; // ✅ reset filter signature cache
       return;
     }
 
@@ -4201,8 +4193,13 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     }
 
     this.rebuildFilterOptions();
+    const stamp = this.computeFilterOptionsStamp(this.projects);
+    if (stamp !== this.filterOptionsStamp) {
+      this.filterOptionsStamp = stamp;
+      this.rebuildFilterOptions();
+    }
     this.applyProjectFilters();
-    this.rebuildVisibleEntries();
+
     this.updateHasResultsFlag();
     this.rebuildGraphData();
     if (!this.graphCoords.length && !this.ocwShotPoints.length) this.showGraph = false;
@@ -4222,8 +4219,13 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     }
 
     this.rebuildFilterOptions();
+    const stamp = this.computeFilterOptionsStamp(this.projects);
+    if (stamp !== this.filterOptionsStamp) {
+      this.filterOptionsStamp = stamp;
+      this.rebuildFilterOptions();
+    }
     this.applyProjectFilters();
-    this.rebuildVisibleEntries();
+
     this.updateHasResultsFlag();
     this.rebuildGraphData();
     if (!this.graphCoords.length && !this.ocwShotPoints.length) this.showGraph = false;
@@ -4247,13 +4249,9 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     }
 
     this.selectedProject = this.projects.find((p) => p.id === this.selectedProjectId) ?? null;
-    this.selectedProject = this.projects.find((p) => p.id === this.selectedProjectId) ?? null;
 
     // ✅ OCW per-load summary blocks should start collapsed whenever a project is opened.
     this.ocwSessionSummaryExpanded = {};
-
-    // ✅ OCW wizard planner defaults based on project progress
-    this.syncOcwPlannerFromProjectIfNeeded();
 
     // ✅ OCW wizard planner defaults based on project progress
     this.syncOcwPlannerFromProjectIfNeeded();
@@ -4274,7 +4272,7 @@ This confirms which timing node is the most repeatable and forgiving in real sho
 
     this.resetWizard();
   }
-
+  private filterOptionsStamp = '';
   openSelectedProject(): void {
     if (!this.selectedProjectId) {
       alert('Select a load development first.');
@@ -5663,6 +5661,21 @@ This confirms which timing node is the most repeatable and forgiving in real sho
     const tag = this.normalizeSessionTag(label);
     const entries: any[] = Array.isArray(sp.entries) ? sp.entries : [];
     return entries.filter((e) => this.normalizeSessionTag((e as any)?.loadLabel) === tag);
+  }
+  private computeFilterOptionsStamp(projects: any[]): string {
+    let maxP = '';
+    let maxE = '';
+    for (const p of projects ?? []) {
+      const pu = String((p?.updatedAt ?? p?.createdAt ?? '') || '');
+      if (pu > maxP) maxP = pu;
+
+      for (const e of p?.entries ?? []) {
+        const eu = String((e?.updatedAt ?? e?.createdAt ?? '') || '');
+        if (eu > maxE) maxE = eu;
+      }
+    }
+    // include count as well (cheap and helps detect prune/add/remove)
+    return `${projects?.length ?? 0}|${maxP}|${maxE}`;
   }
 
   private ocwFirstText(label: string, key: string): string | null {
