@@ -1,0 +1,85 @@
+<section class="space-y-4">
+  <div class="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-sm">
+    <div class="flex items-center justify-between">
+      <div class="min-w-0">
+        <div class="text-sm font-semibold">Documents</div>
+        <div class="text-xs text-slate-300">Manuals • notes • references</div>
+      </div>
+      <button type="button" class="rounded-2xl border border-white/10 bg-slate-900/40 px-3 py-2 text-xs text-slate-100 active:scale-[0.99]" (click)="back()">
+        Back
+      </button>
+    </div>
+
+    <div class="mt-4 grid grid-cols-3 gap-2">
+      <div class="col-span-2">
+        <label class="block text-slate-300 mb-0.5 text-xs">Search</label>
+        <input type="text" class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs"
+               [(ngModel)]="documentsSearch" placeholder="Search title / tags…" />
+      </div>
+
+      <div>
+        <label class="block text-slate-300 mb-0.5 text-xs">Sort</label>
+        <select class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs" [(ngModel)]="documentsSort">
+          <option value="az">A → Z</option>
+          <option value="za">Z → A</option>
+          <option value="new">Newest</option>
+          <option value="old">Oldest</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="mt-3 flex items-center justify-between">
+      <button type="button" class="rounded-2xl border border-white/10 bg-slate-900/40 px-3 py-2 text-xs text-slate-100 active:scale-[0.99]"
+              (click)="documentsListExpanded = !documentsListExpanded">
+        {{ documentsListExpanded ? 'Hide all files' : 'Show all files' }}
+      </button>
+
+      <div *ngIf="!documentsHasSearch && !documentsListExpanded" class="text-xs text-slate-400">
+        Type in Search to show matching files…
+      </div>
+    </div>
+
+    <div *ngIf="documentsListExpanded || documentsHasSearch" class="mt-3 rounded-2xl bg-black/30 border border-white/10 p-3 space-y-2">
+      <div *ngIf="!filteredDocuments.length" class="text-xs text-slate-400">
+        No documents yet.
+      </div>
+
+      <div *ngFor="let d of filteredDocuments" class="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900/30 px-3 py-2">
+        <div class="min-w-0">
+          <div class="text-sm text-slate-100 font-semibold truncate">{{ d.title }}</div>
+          <div *ngIf="d.tags.length" class="text-xs text-slate-400 truncate">{{ d.tags.join(', ') }}</div>
+          <div class="text-[11px] text-slate-500 mt-0.5">{{ d.createdAt | date: 'yyyy-MM-dd HH:mm' }}</div>
+        </div>
+
+        <div class="flex flex-col gap-2 shrink-0">
+          <button type="button" class="rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2 text-xs text-slate-100 active:scale-[0.99]"
+                  (click)="openDocument(d)" [disabled]="!d.link">
+            Open
+          </button>
+          <button type="button" class="rounded-xl border border-white/10 bg-slate-900/40 px-3 py-2 text-xs text-slate-100 active:scale-[0.99]"
+                  (click)="shareDocument(d)" [disabled]="!d.link">
+            Share
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-3 rounded-2xl border border-white/10 bg-slate-900/30 p-3">
+      <div class="text-xs text-slate-300">Add a link (URL or file path)</div>
+      <div class="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
+        <input class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs md:col-span-1"
+               #title placeholder="Title" />
+        <input class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs md:col-span-1"
+               #tags placeholder="Tags (comma separated)" />
+        <input class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs md:col-span-1"
+               #link placeholder="Link (https://...)" />
+      </div>
+      <div class="mt-2 flex justify-end">
+        <button type="button" class="rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-2 text-xs text-slate-100 active:scale-[0.99]"
+                (click)="addDocument(title.value, tags.value, link.value); title.value=''; tags.value=''; link.value='';">
+          Add
+        </button>
+      </div>
+    </div>
+  </div>
+</section>

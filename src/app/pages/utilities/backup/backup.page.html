@@ -1,0 +1,25 @@
+<section class="space-y-4">
+  <div class="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-sm">
+    <div class="flex items-center justify-between">
+      <div class="min-w-0">
+        <div class="text-sm font-semibold">Backup / Restore</div>
+        <div class="text-xs text-slate-300">Export a full JSON backup or import a backup to merge</div>
+      </div>
+      <button type="button" class="rounded-2xl border border-white/10 bg-slate-900/40 px-3 py-2 text-xs text-slate-100 active:scale-[0.99]" (click)="back()">
+        Back
+      </button>
+    </div>
+
+    <div class="mt-4 grid grid-cols-1 gap-3">
+      <button type="button" class="w-full rounded-2xl border border-white/10 bg-slate-900/40 p-4 text-left active:scale-[0.99]" (click)="exportFullBackup()">
+        <div class="text-sm font-semibold">Export full backup</div>
+        <div class="text-xs text-slate-300 mt-1">Creates a complete merge-safe JSON file (includes load-dev media when available).</div>
+      </button>
+
+      <button type="button" class="w-full rounded-2xl border border-white/10 bg-slate-900/40 p-4 text-left active:scale-[0.99]" (click)="importBackup()">
+        <div class="text-sm font-semibold">Import backup</div>
+        <div class="text-xs text-slate-300 mt-1">Select a JSON backup file. Import merges into existing data (no overwrite).</div>
+      </button>
+    </div>
+  </div>
+</section>

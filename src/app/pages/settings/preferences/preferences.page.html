@@ -1,0 +1,101 @@
+<section class="space-y-4">
+  <div class="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-sm">
+    <div class="flex items-center justify-between">
+      <div class="min-w-0">
+        <div class="text-sm font-semibold">Preferences</div>
+        <div class="text-xs text-slate-300">Units • display • scope settings</div>
+      </div>
+
+      <button type="button" class="rounded-2xl border border-white/10 bg-slate-900/40 px-3 py-2 text-xs text-slate-100 active:scale-[0.99]" (click)="back()">
+        Back
+      </button>
+    </div>
+
+    <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+      <div class="rounded-2xl border border-white/10 bg-slate-900/30 p-3">
+        <div class="font-semibold text-slate-200">Distance</div>
+        <div class="mt-2 flex gap-3">
+          <label class="flex items-center gap-2"><input type="radio" name="dist" [(ngModel)]="prefs.distanceUnit" value="m" />Meters</label>
+          <label class="flex items-center gap-2"><input type="radio" name="dist" [(ngModel)]="prefs.distanceUnit" value="yd" />Yards</label>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-slate-900/30 p-3">
+        <div class="font-semibold text-slate-200">Velocity</div>
+        <div class="mt-2 flex gap-3">
+          <label class="flex items-center gap-2"><input type="radio" name="vel" [(ngModel)]="prefs.velocityUnit" value="mps" />m/s</label>
+          <label class="flex items-center gap-2"><input type="radio" name="vel" [(ngModel)]="prefs.velocityUnit" value="fps" />fps</label>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-slate-900/30 p-3">
+        <div class="font-semibold text-slate-200">Temperature</div>
+        <div class="mt-2 flex gap-3">
+          <label class="flex items-center gap-2"><input type="radio" name="temp" [(ngModel)]="prefs.temperatureUnit" value="c" />°C</label>
+          <label class="flex items-center gap-2"><input type="radio" name="temp" [(ngModel)]="prefs.temperatureUnit" value="f" />°F</label>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-slate-900/30 p-3">
+        <div class="font-semibold text-slate-200">Pressure</div>
+        <div class="mt-2 grid grid-cols-2 gap-2">
+          <label class="flex items-center gap-2"><input type="radio" name="press" [(ngModel)]="prefs.pressureUnit" value="hpa" />hPa</label>
+          <label class="flex items-center gap-2"><input type="radio" name="press" [(ngModel)]="prefs.pressureUnit" value="kpa" />kPa</label>
+          <label class="flex items-center gap-2"><input type="radio" name="press" [(ngModel)]="prefs.pressureUnit" value="inhg" />inHg</label>
+          <label class="flex items-center gap-2"><input type="radio" name="press" [(ngModel)]="prefs.pressureUnit" value="mmhg" />mmHg</label>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-slate-900/30 p-3">
+        <div class="font-semibold text-slate-200">Wind speed</div>
+        <div class="mt-2 grid grid-cols-2 gap-2">
+          <label class="flex items-center gap-2"><input type="radio" name="wind" [(ngModel)]="prefs.windSpeedUnit" value="kmh" />km/h</label>
+          <label class="flex items-center gap-2"><input type="radio" name="wind" [(ngModel)]="prefs.windSpeedUnit" value="mph" />mph</label>
+          <label class="flex items-center gap-2"><input type="radio" name="wind" [(ngModel)]="prefs.windSpeedUnit" value="ms" />m/s</label>
+          <label class="flex items-center gap-2"><input type="radio" name="wind" [(ngModel)]="prefs.windSpeedUnit" value="kn" />kn</label>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-slate-900/30 p-3">
+        <div class="font-semibold text-slate-200">Angle display</div>
+        <div class="mt-2 flex gap-3">
+          <label class="flex items-center gap-2"><input type="radio" name="angle" [(ngModel)]="prefs.angleDisplay" value="clock" />Clock</label>
+          <label class="flex items-center gap-2"><input type="radio" name="angle" [(ngModel)]="prefs.angleDisplay" value="degrees" />Degrees</label>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-slate-900/30 p-3">
+        <div class="font-semibold text-slate-200">Scope adjust</div>
+        <div class="mt-2 flex gap-3">
+          <label class="flex items-center gap-2"><input type="radio" name="scope" [(ngModel)]="prefs.scopeAdjust" value="mil" />Mil</label>
+          <label class="flex items-center gap-2"><input type="radio" name="scope" [(ngModel)]="prefs.scopeAdjust" value="moa" />MOA</label>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-slate-900/30 p-3">
+        <div class="font-semibold text-slate-200">Load dev</div>
+        <div class="mt-2 grid grid-cols-2 gap-2">
+          <label class="flex items-center gap-2"><span class="text-slate-300">OAL:</span>
+            <select class="bg-black/40 border border-white/10 rounded-xl px-2 py-1" [(ngModel)]="prefs.loadDevOalUnit">
+              <option value="mm">mm</option>
+              <option value="in">in</option>
+            </select>
+          </label>
+
+          <label class="flex items-center gap-2"><span class="text-slate-300">BC model:</span>
+            <select class="bg-black/40 border border-white/10 rounded-xl px-2 py-1" [(ngModel)]="prefs.loadDevBcModel">
+              <option value="g7">G7</option>
+              <option value="g1">G1</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4 flex justify-end">
+      <button type="button" class="rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-2 text-xs text-slate-100 active:scale-[0.99]" (click)="saveAndBack()">
+        Save
+      </button>
+    </div>
+  </div>
+</section>

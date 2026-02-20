@@ -4,83 +4,65 @@ export const routes: Routes = [
   {
     path: '',
     title: 'Menu',
-    loadComponent: () =>
-      import('./pages/menu/menu.page').then(m => m.MenuPage),
+    loadComponent: () => import('./pages/menu/menu.page').then((m) => m.MenuPage),
   },
 
-  // Tools deep-links (must be BEFORE the hub routes; hub routes are pathMatch: 'full')
+  {
+    path: 'tools',
+    title: 'Tools',
+    loadComponent: () => import('./pages/tools/tools.page').then((m) => m.ToolsPage),
+  },
+
+  // Hubs
+  {
+    path: 'tools/utilities',
+    title: 'Utilities',
+    loadComponent: () => import('./pages/utilities/utilities.page').then((m) => m.UtilitiesPage),
+  },
+  {
+    path: 'tools/settings',
+    title: 'Settings',
+    loadComponent: () => import('./pages/settings/settings.page').then((m) => m.SettingsPage),
+  },
+
+  // Utilities (each function has its own page)
   {
     path: 'tools/utilities/converter',
     title: 'Unit Converter',
-    data: { panel: 'utilities', tool: 'converter' },
     loadComponent: () =>
-      import('./pages/home/home.page').then(m => m.HomePage),
+      import('./pages/utilities/converter/converter.page').then((m) => m.ConverterPage),
   },
   {
     path: 'tools/utilities/kestrel',
     title: 'Kestrel env',
-    data: { panel: 'utilities', tool: 'kestrel' },
-    loadComponent: () =>
-      import('./pages/home/home.page').then(m => m.HomePage),
+    loadComponent: () => import('./pages/utilities/kestrel/kestrel.page').then((m) => m.KestrelPage),
   },
   {
     path: 'tools/utilities/targets',
-    title: 'Target downloads',
-    data: { panel: 'utilities', tool: 'targets' },
-    loadComponent: () =>
-      import('./pages/home/home.page').then(m => m.HomePage),
+    title: 'Targets',
+    loadComponent: () => import('./pages/utilities/targets/targets.page').then((m) => m.TargetsPage),
   },
   {
     path: 'tools/utilities/backup',
-    title: 'Backup / Restore',
-    data: { panel: 'utilities', tool: 'backup' },
-    loadComponent: () =>
-      import('./pages/home/home.page').then(m => m.HomePage),
+    title: 'Backup',
+    loadComponent: () => import('./pages/utilities/backup/backup.page').then((m) => m.BackupPage),
   },
   {
     path: 'tools/utilities/export',
-    title: 'Export File / PDF',
-    data: { panel: 'utilities', tool: 'export' },
-    loadComponent: () =>
-      import('./pages/home/home.page').then(m => m.HomePage),
+    title: 'Export',
+    loadComponent: () => import('./pages/utilities/export/export.page').then((m) => m.ExportPage),
   },
   {
     path: 'tools/utilities/documents',
     title: 'Documents',
-    data: { panel: 'utilities', tool: 'documents' },
     loadComponent: () =>
-      import('./pages/home/home.page').then(m => m.HomePage),
+      import('./pages/utilities/documents/documents.page').then((m) => m.DocumentsPage),
   },
-  {
-    path: 'tools/settings/preferences',
-    title: 'Preferences',
-    data: { panel: 'settings', tool: 'preferences' },
+    {
+    path: 'tools/wind-effect',
+    title: 'Wind Effect',
     loadComponent: () =>
-      import('./pages/home/home.page').then(m => m.HomePage),
-  },
-  {
-    path: 'rifles',
-    title: 'Rifles',
-    loadComponent: () =>
-      import('./rifles-tab/rifles-tab.component').then(m => m.RiflesTabComponent),
-  },
-  {
-    path: 'venues',
-    title: 'Venues',
-    loadComponent: () =>
-      import('./venues-tab/venues-tab.component').then(m => m.VenuesTabComponent),
-  },
-  {
-    path: 'session',
-    title: 'Session',
-    loadComponent: () =>
-      import('./session-tab/session-tab.component').then(m => m.SessionTabComponent),
-  },
-  {
-    path: 'history',
-    title: 'History',
-    loadComponent: () =>
-      import('./history-tab/history-tab.component').then(m => m.HistoryTabComponent),
+      import('./wind-effect-tool.component').then(m => m.WindEffectToolComponent),
   },
   {
     path: 'load-dev',
@@ -88,33 +70,14 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./load-dev-tab/load-dev-tab.component').then(m => m.LoadDevTabComponent),
   },
+  // Settings pages
   {
-    path: 'tools/utilities',
-    title: 'Utilities',
-    data: { panel: 'utilities' },
-    pathMatch: 'full',
+    path: 'tools/settings/preferences',
+    title: 'Preferences',
     loadComponent: () =>
-      import('./pages/home/home.page').then(m => m.HomePage),
+      import('./pages/settings/preferences/preferences.page').then((m) => m.PreferencesPage),
   },
-  {
-    path: 'tools/settings',
-    title: 'System & Settings',
-    data: { panel: 'settings' },
-    pathMatch: 'full',
-    loadComponent: () =>
-      import('./pages/home/home.page').then(m => m.HomePage),
-  },
-  {
-    path: 'tools',
-    title: 'Tools',
-    loadComponent: () =>
-      import('./pages/tools/tools.page').then(m => m.ToolsPage),
-  },
-  {
-    path: 'tools/wind-effect',
-    title: 'Wind Effect',
-    loadComponent: () =>
-      import('./wind-effect-tool.component').then(m => m.WindEffectToolComponent),
-  },
+
+  // Fallback
   { path: '**', redirectTo: '' },
 ];
