@@ -31,6 +31,18 @@
     aria-label="Primary"
   >
     <div class="mx-auto grid max-w-md grid-cols-5 gap-1 px-2 py-2 text-[11px]">
+
+
+      <a
+        routerLink="/"
+        routerLinkActive="bg-white/10 text-white"
+        [routerLinkActiveOptions]="{ exact: true }"
+        class="flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-slate-300 active:scale-[0.98]"
+        aria-label="home"
+      >
+        <span class="text-base leading-none">⌂</span>
+        <span>Home</span>
+      </a>
       <a
         routerLink="/venues"
         routerLinkActive="bg-white/10 text-white"
@@ -38,7 +50,7 @@
         class="flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-slate-300 active:scale-[0.98]"
         aria-label="venues"
       >
-        <span class="text-base leading-none">⌂</span>
+        <span class="text-base leading-none">⚲</span>
         <span>Venues</span>
       </a>
 
@@ -48,7 +60,7 @@
         class="flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-slate-300 active:scale-[0.98]"
         aria-label="Rifles"
       >
-        <span class="text-base leading-none">⌁</span>
+        <span class="text-base leading-none">⁍</span>
         <span>Rifles</span>
       </a>
 
@@ -63,7 +75,7 @@
         <span>Session</span>
       </a>
 
-      <a
+      <!-- <a
         routerLink="/history"
         routerLinkActive="bg-white/10 text-white"
         class="flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-slate-300 active:scale-[0.98]"
@@ -71,7 +83,7 @@
       >
         <span class="text-base leading-none">⟲</span>
         <span>History</span>
-      </a>
+      </a> -->
 
       <a
         routerLink="/tools"
