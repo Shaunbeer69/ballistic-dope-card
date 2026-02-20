@@ -930,11 +930,7 @@
         </div></div
     ></ng-container>
   </div>
-  <!-- Bottom actions: Export (left) / Back (right) -->
-  <div
-    class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 mt-3"
-  >
-    <div class="flex items-center justify-between">
+   <div class="flex items-center justify-center w-100">
       <button
         *ngIf="selectedRifle"
         type="button"
@@ -945,13 +941,6 @@
         Export Rifle Data
       </button>
       <div *ngIf="!selectedRifle"></div>
-      <button
-        type="button"
-        class="px-3 py-2 rounded-xl bg-orange-500 text-black text-xs"
-        (click)="goBack()"
-      >
-        Back
-      </button>
+
     </div>
-  </div>
 </div>
