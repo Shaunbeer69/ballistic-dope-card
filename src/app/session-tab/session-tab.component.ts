@@ -5,6 +5,7 @@ import { DataService } from '../data.service';
 import { Rifle, Venue, SubRange, Environment, DistanceDope, Session } from '../models';
 import { BleClient } from '@capacitor-community/bluetooth-le';
 import { KestrelDataSnapshot, KestrelService } from '../shared/services/kestrel-bluetooth.service';
+import {HistoryTabComponent} from '../history-tab/history-tab.component'
 
 type WizardStep = 'setup' | 'environment' | 'shots' | 'complete';
 
@@ -19,7 +20,7 @@ interface KestrelSnapshot {
 @Component({
   selector: 'app-session-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HistoryTabComponent],
   templateUrl: './session-tab.component.html',
   styleUrls: ['./session-tab.component.css'],
 })

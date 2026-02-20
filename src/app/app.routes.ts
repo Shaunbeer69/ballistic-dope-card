@@ -70,6 +70,30 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./load-dev-tab/load-dev-tab.component').then(m => m.LoadDevTabComponent),
   },
+    {
+    path: 'rifles',
+    title: 'Rifles',
+    loadComponent: () =>
+      import('./rifles-tab/rifles-tab.component').then(m => m.RiflesTabComponent),
+  },
+  {
+    path: 'venues',
+    title: 'Venues',
+    loadComponent: () =>
+      import('./venues-tab/venues-tab.component').then(m => m.VenuesTabComponent),
+  },
+  {
+    path: 'session',
+    title: 'Session',
+    loadComponent: () =>
+      import('./session-tab/session-tab.component').then(m => m.SessionTabComponent),
+  },
+  {
+    path: 'history',
+    title: 'History',
+    loadComponent: () =>
+      import('./history-tab/history-tab.component').then(m => m.HistoryTabComponent),
+  },
   // Settings pages
   {
     path: 'tools/settings/preferences',
