@@ -7,6 +7,57 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/menu/menu.page').then(m => m.MenuPage),
   },
+
+  // Tools deep-links (must be BEFORE the hub routes; hub routes are pathMatch: 'full')
+  {
+    path: 'tools/utilities/converter',
+    title: 'Unit Converter',
+    data: { panel: 'utilities', tool: 'converter' },
+    loadComponent: () =>
+      import('./pages/home/home.page').then(m => m.HomePage),
+  },
+  {
+    path: 'tools/utilities/kestrel',
+    title: 'Kestrel env',
+    data: { panel: 'utilities', tool: 'kestrel' },
+    loadComponent: () =>
+      import('./pages/home/home.page').then(m => m.HomePage),
+  },
+  {
+    path: 'tools/utilities/targets',
+    title: 'Target downloads',
+    data: { panel: 'utilities', tool: 'targets' },
+    loadComponent: () =>
+      import('./pages/home/home.page').then(m => m.HomePage),
+  },
+  {
+    path: 'tools/utilities/backup',
+    title: 'Backup / Restore',
+    data: { panel: 'utilities', tool: 'backup' },
+    loadComponent: () =>
+      import('./pages/home/home.page').then(m => m.HomePage),
+  },
+  {
+    path: 'tools/utilities/export',
+    title: 'Export File / PDF',
+    data: { panel: 'utilities', tool: 'export' },
+    loadComponent: () =>
+      import('./pages/home/home.page').then(m => m.HomePage),
+  },
+  {
+    path: 'tools/utilities/documents',
+    title: 'Documents',
+    data: { panel: 'utilities', tool: 'documents' },
+    loadComponent: () =>
+      import('./pages/home/home.page').then(m => m.HomePage),
+  },
+  {
+    path: 'tools/settings/preferences',
+    title: 'Preferences',
+    data: { panel: 'settings', tool: 'preferences' },
+    loadComponent: () =>
+      import('./pages/home/home.page').then(m => m.HomePage),
+  },
   {
     path: 'rifles',
     title: 'Rifles',
@@ -41,6 +92,7 @@ export const routes: Routes = [
     path: 'tools/utilities',
     title: 'Utilities',
     data: { panel: 'utilities' },
+    pathMatch: 'full',
     loadComponent: () =>
       import('./pages/home/home.page').then(m => m.HomePage),
   },
@@ -48,6 +100,7 @@ export const routes: Routes = [
     path: 'tools/settings',
     title: 'System & Settings',
     data: { panel: 'settings' },
+    pathMatch: 'full',
     loadComponent: () =>
       import('./pages/home/home.page').then(m => m.HomePage),
   },

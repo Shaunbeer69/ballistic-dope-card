@@ -1,7 +1,13 @@
 <section class="space-y-4">
+
+
+
   <div class="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-sm">
     <div class="text-sm font-semibold">Quick access</div>
     <div class="mt-3 grid grid-cols-2 gap-3">
+      <a routerLink="/rifles" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99] col-span-2">
+        <div class="mt-1 text-sm font-semibold">Start Session</div>
+      </a>
       <a routerLink="/rifles" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
         <div class="text-base">⌁</div>
         <div class="mt-1 text-sm font-semibold">Rifles</div>
@@ -34,14 +40,47 @@
       <a routerLink="/tools" class="text-xs text-slate-300 underline decoration-white/20 underline-offset-4">View all</a>
     </div>
 
-    <div class="mt-3 grid grid-cols-1 gap-3">
+    <div class="mt-3 grid grid-cols-2 gap-3">
       <a routerLink="/load-dev" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
-        <div class="text-sm font-semibold">Load Development</div>
-        <div class="text-xs text-slate-300">Track ladders and OCW</div>
+        <div class="text-sm font-semibold">Load Dev</div>
+        <div class="text-xs text-slate-300">Ladders • OCW</div>
       </a>
+
       <a routerLink="/tools/wind-effect" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
-        <div class="text-sm font-semibold">Wind Effect Tool</div>
-        <div class="text-xs text-slate-300">Estimate drift and corrections</div>
+        <div class="text-sm font-semibold">Wind Effect</div>
+        <div class="text-xs text-slate-300">Drift • correction</div>
+      </a>
+
+      <a routerLink="/tools/utilities/converter" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Converter</div>
+        <div class="text-xs text-slate-300">Units • mil/MOA</div>
+      </a>
+
+      <a routerLink="/tools/utilities/kestrel" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Kestrel env</div>
+        <div class="text-xs text-slate-300">BLE readouts</div>
+      </a>
+
+      <a routerLink="/tools/utilities/targets" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Targets</div>
+        <div class="text-xs text-slate-300">Printable PDFs</div>
+      </a>
+
+
+
+      <a routerLink="/tools/utilities/export" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Export</div>
+        <div class="text-xs text-slate-300">File • PDF</div>
+      </a>
+
+      <a routerLink="/tools/settings/preferences" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Preferences</div>
+        <div class="text-xs text-slate-300">Units • display</div>
+      </a>
+
+      <a routerLink="/tools/utilities/documents" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Documents</div>
+        <div class="text-xs text-slate-300">Manuals • notes</div>
       </a>
     </div>
   </div>

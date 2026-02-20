@@ -1,23 +1,59 @@
 <section class="space-y-4">
   <div class="rounded-3xl border border-white/10 bg-white/5 p-4">
     <div class="text-sm font-semibold">Utilities</div>
-    <div class="mt-3 space-y-2">
-      <a routerLink="/tools/utilities" class="block rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
-        <div class="text-sm font-semibold">Open Utilities Hub</div>
-        <div class="text-xs text-slate-300">Converter, targets, Kestrel, more</div>
+    <div class="mt-3 grid grid-cols-2 gap-3">
+      <a routerLink="/tools/utilities" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Utilities Hub</div>
+        <div class="text-xs text-slate-300">All utilities</div>
       </a>
 
+      <a routerLink="/tools/utilities/converter" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Converter</div>
+        <div class="text-xs text-slate-300">Units • mil/MOA</div>
+      </a>
 
+      <a routerLink="/tools/utilities/kestrel" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Kestrel env</div>
+        <div class="text-xs text-slate-300">BLE readouts</div>
+      </a>
 
+      <a routerLink="/tools/utilities/targets" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Targets</div>
+        <div class="text-xs text-slate-300">Printable</div>
+      </a>
+
+      <a routerLink="/tools/utilities/backup" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Backup</div>
+        <div class="text-xs text-slate-300">Restore • import</div>
+      </a>
+
+      <a routerLink="/tools/utilities/export" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Export</div>
+        <div class="text-xs text-slate-300">File • PDF</div>
+      </a>
+
+      <a routerLink="/tools/utilities/documents" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Documents</div>
+        <div class="text-xs text-slate-300">Manuals • notes</div>
+      </a>
+
+      <a routerLink="/tools/wind-effect" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Wind Effect</div>
+        <div class="text-xs text-slate-300">Drift tool</div>
+      </a>
     </div>
   </div>
 
   <div class="rounded-3xl border border-white/10 bg-white/5 p-4">
     <div class="text-sm font-semibold">System &amp; Settings</div>
-    <div class="mt-3 space-y-2">
-      <a routerLink="/tools/settings" class="block rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
-        <div class="text-sm font-semibold">Open System &amp; Settings</div>
-        <div class="text-xs text-slate-300">Preferences, documents, maintenance</div>
+    <div class="mt-3 grid grid-cols-2 gap-3">
+      <a routerLink="/tools/settings" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Settings Hub</div>
+        <div class="text-xs text-slate-300">System tools</div>
+      </a>
+      <a routerLink="/tools/settings/preferences" class="rounded-2xl border border-white/10 bg-slate-900/40 p-3 active:scale-[0.99]">
+        <div class="text-sm font-semibold">Preferences</div>
+        <div class="text-xs text-slate-300">Units • display</div>
       </a>
     </div>
   </div>

@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, ViewChild, ElementRef } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -225,12 +225,18 @@ export class HomePage implements OnInit {
     | 'preferences'
     | 'documents'
     | null = null;
+
+  /** When this page is opened via /tools/* routes, we treat it as a panel host (Utilities/Settings). */
+  isPanelRoute = false;
+  panelTitle: string | null = null;
   private converterReturnState: {
     showTools: boolean;
     showSetup: boolean;
     showReportsForm: boolean;
     selectedTool: any;
   } | null = null;
+
+  private readonly router = inject(Router);
 
   // Preferences (Units & Display v1)
   // (removed duplicate 'prefs' declaration; see below for the strongly typed version)
@@ -1210,19 +1216,73 @@ export class HomePage implements OnInit {
     this.initSloganVisibilityListener();
     this.maybeShowFirstLaunchSlogan();
 
-    // If this page is mounted from a router route that wants a specific panel, open it.
-    // Used by /tools/utilities and /tools/settings to reuse the existing functionality.
+    // If this page is mounted from a router route that wants a specific panel/tool, open it.
+    // Used by /tools/utilities/* and /tools/settings/* routes.
     const panel = this.route.snapshot.data?.['panel'] as ('utilities' | 'settings' | undefined);
-    if (panel === 'utilities') {
+    const tool = this.route.snapshot.data?.['tool'] as
+      | 'converter'
+      | 'kestrel'
+      | 'targets'
+      | 'backup'
+      | 'export'
+      | 'documents'
+      | 'preferences'
+      | undefined;
+
+    if (panel) {
+      this.isPanelRoute = true;
+      this.panelTitle = panel === 'utilities' ? 'Utilities' : 'System & Settings';
       this.currentTab = 'menu';
       this.selectedTool = null as any;
-      this.openTools();
-    } else if (panel === 'settings') {
-      this.currentTab = 'menu';
-      this.selectedTool = null as any;
-      this.openSetup();
+
+      // Open the correct panel (Utilities vs Setup)
+      if (panel === 'utilities') {
+        this.openTools();
+      } else {
+        this.openSetup();
+      }
+
+      // Then deep-link into a specific tool if requested.
+      if (tool) {
+        // Keep the UI stable; some tools expect Utilities vs Setup.
+        switch (tool) {
+          case 'converter':
+            this.onConverterToolClick();
+            break;
+          case 'kestrel':
+            this.showTools = true;
+            this.showSetup = false;
+            this.selectedTool = 'kestrel';
+            break;
+          case 'targets':
+            this.openTargetDownloads();
+            break;
+          case 'backup':
+            this.showTools = true;
+            this.showSetup = false;
+            this.openExportImportModal();
+            break;
+          case 'export':
+            this.showTools = true;
+            this.showSetup = false;
+            this.openDataShareChooser();
+            break;
+          case 'documents':
+            this.onDocumentsToolClick();
+            break;
+          case 'preferences':
+            this.openPreferences();
+            break;
+        }
+      }
     }
 
+  }
+
+  /** Header back button for deep-linked tool panels. */
+  goBackToToolsHub(): void {
+    // Prefer returning to the Tools hub, since these routes are all under /tools.
+    this.router.navigateByUrl('/tools');
   }
 
   private loadCoreData(): void {

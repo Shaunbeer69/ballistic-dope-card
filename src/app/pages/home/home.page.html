@@ -19,6 +19,9 @@
       class="flex-1 flex flex-col mt-4 overflow-y-auto overflow-x-hidden pb-[120px]"
       (scroll)="onMainScroll($event)"
     >
+      <!-- Panel header (used when opened from /tools/* routes) -->
+
+
       <!-- MENU TAB CONTENT -->
       <ng-container *ngIf="currentTab === 'menu'; else otherTabs">
         <!-- WIND EFFECT TOOL FULLSCREEN INSIDE MENU -->
