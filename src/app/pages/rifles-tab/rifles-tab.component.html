@@ -20,16 +20,17 @@
   <!-- Rifle form -->
   <div
     *ngIf="addFormVisible"
-    class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 space-y-2"
+    class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 space-y-3"
   >
-    <div class="grid grid-cols-2 gap-2">
+    <!-- Mobile-first: single column, expand to 2 cols on larger screens -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <label class="flex flex-col">
         Name
         <input
           [(ngModel)]="rifleForm.name"
           name="name"
           placeholder="e.g. 6.5 CM ELR"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+          class="mt-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[12px]"
         />
       </label>
 
@@ -39,14 +40,14 @@
           [(ngModel)]="rifleForm.caliber"
           name="caliber"
           placeholder="e.g. 6.5 Creedmoor"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+          class="mt-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[12px]"
         />
       </label>
       <div>
         <label class="block text-[11px] text-gray-300 mb-1">Serial Number</label>
         <input
           [(ngModel)]="rifleForm.serialNumber"
-          class="w-full px-3 py-2 rounded bg-[#0b1220] border border-gray-700 text-white"
+          class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-gray-700 text-white text-[12px]"
           placeholder="e.g. ABC123 / S/N"
         />
       </div>
@@ -57,7 +58,7 @@
           type="number"
           [(ngModel)]="rifleForm.barrelLength"
           name="barrelLength"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+          class="mt-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[12px]"
         />
       </label>
 
@@ -66,7 +67,7 @@
         <select
           [(ngModel)]="rifleForm.barrelUnit"
           name="barrelUnit"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+          class="mt-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[12px]"
         >
           <option value="cm">cm</option>
           <option value="inch">inch</option>
@@ -79,7 +80,7 @@
           [(ngModel)]="rifleForm.twistRate"
           name="twistRate"
           placeholder="e.g. 1:8"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+          class="mt-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[12px]"
         />
       </label>
 
@@ -89,7 +90,7 @@
           type="number"
           [(ngModel)]="rifleForm.muzzleVelocityFps"
           name="muzzleVelocity"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+          class="mt-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[12px]"
         />
       </label>
 
@@ -98,7 +99,7 @@
         <select
           [(ngModel)]="rifleForm.scopeUnit"
           name="scopeUnit"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+          class="mt-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[12px]"
         >
           <option value="MIL">MIL</option>
           <option value="MOA">MOA</option>
@@ -111,7 +112,7 @@
           [(ngModel)]="rifleForm.scope"
           name="scope"
           placeholder="e.g. GPO 5-25x56"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+          class="mt-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[12px]"
         />
       </label>
 
@@ -122,28 +123,29 @@
           [(ngModel)]="rifleForm.roundCount"
           name="roundCount"
           placeholder="Total rounds fired so far"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
+          class="mt-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[12px]"
         />
       </label>
     </div>
 
-    <div class="flex gap-2 items-start">
+    <div class="flex flex-col sm:flex-row gap-3 items-start w-100">
       <!-- Notes -->
-      <label class="flex flex-col flex-1">
-        Notes
-        <textarea
-          [(ngModel)]="rifleForm.notes"
-          name="notes"
-          rows="2"
-          class="mt-1 px-2 py-1 rounded bg-slate-900 border border-slate-700"
-        ></textarea>
-      </label>
+      <div>Notes</div>
+      <textarea
+        [(ngModel)]="rifleForm.notes"
+        name="notes"
+        rows="2"
+        style="width: 100% !important"
+        class="mt-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[12px] w-100"
+      ></textarea>
 
       <!-- Photo (same idea as Load Dev) -->
-      <div class="flex flex-col items-end gap-1 pt-[18px]">
+      <div
+        class="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 pt-[2px] w-full sm:w-auto"
+      >
         <button
           type="button"
-          class="px-3 py-1 rounded-xl bg-slate-700 text-slate-100 text-xs font-semibold"
+          class="px-3 py-2 rounded-xl bg-slate-700 text-slate-100 text-xs font-semibold w-full sm:w-auto"
           title="Take rifle photo"
           (click)="onRiflePhotoClick($event)"
         >
@@ -161,7 +163,7 @@
           <img
             [src]="photoUrl"
             alt="Rifle photo"
-            class="h-14 w-14 object-cover rounded-xl border border-slate-700 cursor-pointer"
+            class="h-16 w-16 object-cover rounded-xl border border-slate-700 cursor-pointer"
             (click)="openRiflePhotoViewer(photoUrl, 'form', null, $event)"
           />
         </ng-container>
@@ -847,15 +849,14 @@
                 </label>
 
                 <!-- Notes -->
-                <label class="flex flex-col">
-                  Notes
-                  <textarea
-                    [(ngModel)]="loadForm.notes"
-                    name="loadNotes"
-                    rows="3"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700 resize-none"
-                  ></textarea>
-                </label>
+                <div>Notes</div>
+                <textarea
+                  [(ngModel)]="loadForm.notes"
+                  name="loadNotes"
+                  rows="3"
+                  style="width: 100% !important"
+                  class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700 resize-none w-100"
+                ></textarea>
               </div>
 
               <!-- Bottom row: Cancel / Clear / Add -->
@@ -930,17 +931,16 @@
         </div></div
     ></ng-container>
   </div>
-   <div class="flex items-center justify-center w-100">
-      <button
-        *ngIf="selectedRifle"
-        type="button"
-        class="px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold"
-        (click)="exportSelectedRiflePdf()"
-        [disabled]="!selectedRifle"
-      >
-        Export Rifle Data
-      </button>
-      <div *ngIf="!selectedRifle"></div>
-
-    </div>
+  <div class="flex items-center justify-center w-100">
+    <button
+      *ngIf="selectedRifle"
+      type="button"
+      class="px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-xs font-semibold"
+      (click)="exportSelectedRiflePdf()"
+      [disabled]="!selectedRifle"
+    >
+      Export Rifle Data
+    </button>
+    <div *ngIf="!selectedRifle"></div>
+  </div>
 </div>

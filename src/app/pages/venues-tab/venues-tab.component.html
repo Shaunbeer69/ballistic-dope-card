@@ -29,13 +29,13 @@
     class="bg-slate-950 rounded-2xl border border-slate-700 p-3 shadow-lg ring-1 ring-white/10 space-y-2"
   >
     <!-- Basic venue fields -->
-    <div class="grid grid-cols-2 gap-2">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <label class="flex flex-col">
         Name
         <input
           [(ngModel)]="venueForm.name"
           name="venueName"
-          class="mt-1 px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-white outline-none ring-1 ring-white/5"
+          class="mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-[12px] text-white outline-none ring-1 ring-white/5"
         />
       </label>
 
@@ -45,19 +45,19 @@
           [(ngModel)]="venueForm.location"
           name="venueLocation"
           placeholder="e.g. Vaalwater onderkant"
-          class="mt-1 px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-white outline-none ring-1 ring-white/5"
+          class="mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-[12px] text-white outline-none ring-1 ring-white/5"
         />
       </label>
     </div>
 
-    <div class="grid grid-cols-2 gap-2">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <label class="flex flex-col">
         Altitude (m)
         <input
           type="number"
           [(ngModel)]="venueForm.altitudeM"
           name="venueAltitude"
-          class="mt-1 px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-white outline-none ring-1 ring-white/5"
+          class="mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-[12px] text-white outline-none ring-1 ring-white/5"
         />
       </label>
 
@@ -66,7 +66,7 @@
         <input
           [(ngModel)]="venueForm.notes"
           name="venueNotes"
-          class="mt-1 px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-white outline-none ring-1 ring-white/5"
+          class="mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-[12px] text-white outline-none ring-1 ring-white/5"
         />
       </label>
     </div>
@@ -77,10 +77,10 @@
         [(ngModel)]="venueDistancesText"
         name="venueDistancesText"
         placeholder="e.g. 100, 200, 300"
-        class="mt-1 px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-[11px] text-white outline-none ring-1 ring-white/5"
+        class="mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-[12px] text-white outline-none ring-1 ring-white/5"
       />
-      <span class="text-[10px] text-fluorescent bg-orange-500"
-        >Complete when Venue offers only one shooting area with no named subranges.</span
+      <span class="text-[10px] text-slate-300"
+        >Use this when the venue has a single shooting area (no named subranges).</span
       >
     </label>
 
@@ -107,14 +107,14 @@
           <button class="text-[11px] text-red-300" (click)="removeSubRangeRow(sr)">Remove</button>
         </div>
 
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label class="flex flex-col">
             Name
             <input
               [(ngModel)]="sr.name"
               name="srName{{ i }}"
               placeholder="Warrior, Zeiss, Lane 3"
-              class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+              class="mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-[12px]"
             />
           </label>
 
@@ -124,7 +124,7 @@
               [(ngModel)]="sr.distancesText"
               name="srDistances{{ i }}"
               placeholder="500, 578, 780"
-              class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+              class="mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-[12px]"
             />
             <span class="text-[10px] text-slate-400"> Comma separated. </span>
           </label>

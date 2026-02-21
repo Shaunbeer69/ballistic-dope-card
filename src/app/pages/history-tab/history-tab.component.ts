@@ -232,7 +232,7 @@ export class HistoryTabComponent implements OnInit {
   // --------------------------------------------------
   // Load sessions
   // --------------------------------------------------
-  private loadSessions(): void {
+  loadSessions(): void {
     try {
       const ds: any = this.dataService;
 

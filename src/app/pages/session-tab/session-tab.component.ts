@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, Output, EventEmitter, inject } from '@angular/core';
+import { Component, OnInit, Output, EventEmitter, inject, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../data.service';
 import { Rifle, Venue, SubRange, Environment, DistanceDope } from '../../models';
@@ -32,7 +32,7 @@ export class SessionTabComponent implements OnInit {
   venues: Venue[] = [];
   // Notify parent app when user wants to jump to History
   @Output() jumpToHistory = new EventEmitter<void>();
-
+  @ViewChild('history') historyTabComponent : HistoryTabComponent | undefined;
   // IDs used in the HTML template
   rifleId: number | null = null;
   venueId: number | null = null;
@@ -151,7 +151,7 @@ export class SessionTabComponent implements OnInit {
   shotsToastMessage: string | null = null;
   private shotsToastTimer: any | null = null;
   // Large “go shoot” guidance toast shown when entering Shots
-  showGoShootToast = false;
+
   private showShotsToast(msg: string): void {
     this.shotsToastMessage = msg;
     if (this.shotsToastTimer) clearTimeout(this.shotsToastTimer);
@@ -196,6 +196,155 @@ export class SessionTabComponent implements OnInit {
   ngOnInit(): void {
     this.rifles = this.data.getRifles();
     this.venues = this.data.getVenues();
+
+    // If the user enters Session with no rifles/venues, guide them through a lightweight wizard.
+    // This avoids a dead-end where required fields can never be satisfied on mobile.
+    if ((this.rifles?.length ?? 0) === 0 || (this.venues?.length ?? 0) === 0) {
+      this.openSetupWizard();
+    }
+  }
+
+  // ---------- Setup Wizard (Add Rifle / Add Venue) ----------
+  setupWizardOpen = false;
+  setupWizardStep: 'intro' | 'rifle' | 'venue' | 'done' = 'intro';
+  setupWizardError: string | null = null;
+
+  wizardRifleForm: {
+    name: string;
+    caliber: string;
+    notes?: string;
+  } = {
+    name: '',
+    caliber: '',
+  };
+
+  wizardVenueForm: {
+    name: string;
+    location: string;
+    altitudeM: number | null;
+    notes: string;
+    distancesText: string;
+  } = {
+    name: '',
+    location: '',
+    altitudeM: null,
+    notes: '',
+    distancesText: '',
+  };
+
+  needsRifle(): boolean {
+    return (this.data.getRifles()?.length ?? 0) === 0;
+  }
+
+  needsVenue(): boolean {
+    return (this.data.getVenues()?.length ?? 0) === 0;
+  }
+
+  openSetupWizard(forceStep?: 'rifle' | 'venue'): void {
+    this.setupWizardOpen = true;
+    this.setupWizardError = null;
+
+    // Keep lists fresh.
+    this.rifles = this.data.getRifles();
+    this.venues = this.data.getVenues();
+
+    if (forceStep) {
+      this.setupWizardStep = forceStep;
+      return;
+    }
+
+    // Default: intro if anything is missing; otherwise don't open.
+    if (this.needsRifle() || this.needsVenue()) {
+      this.setupWizardStep = 'intro';
+    } else {
+      this.setupWizardOpen = false;
+    }
+  }
+
+  closeSetupWizard(): void {
+    this.setupWizardOpen = false;
+    this.setupWizardError = null;
+  }
+
+  wizardNextFromIntro(): void {
+    this.setupWizardError = null;
+    if (this.needsRifle()) {
+      this.setupWizardStep = 'rifle';
+      return;
+    }
+    if (this.needsVenue()) {
+      this.setupWizardStep = 'venue';
+      return;
+    }
+    this.setupWizardStep = 'done';
+  }
+
+  wizardSaveRifle(): void {
+    this.setupWizardError = null;
+    const name = (this.wizardRifleForm.name || '').trim();
+    const caliber = (this.wizardRifleForm.caliber || '').trim();
+
+    if (!name) {
+      this.setupWizardError = 'Please enter a rifle name.';
+      return;
+    }
+
+    const created = this.data.addRifle({
+      name,
+      caliber,
+      barrelLength: null,
+      barrelUnit: 'inch',
+      twistRate: '',
+      muzzleVelocityFps: null,
+      scopeUnit: 'MIL',
+      scope: '',
+      notes: this.wizardRifleForm.notes || '',
+      roundCount: 0,
+      loads: [],
+    });
+
+    // Refresh local state + auto-select.
+    this.rifles = this.data.getRifles();
+    this.rifleId = (created as any)?.id ?? null;
+
+    if (this.needsVenue()) {
+      this.setupWizardStep = 'venue';
+    } else {
+      this.setupWizardStep = 'done';
+    }
+  }
+
+  wizardSaveVenue(): void {
+    this.setupWizardError = null;
+    const name = (this.wizardVenueForm.name || '').trim();
+    if (!name) {
+      this.setupWizardError = 'Please enter a venue name.';
+      return;
+    }
+
+    const distances = (this.wizardVenueForm.distancesText || '')
+      .split(',')
+      .map((x) => Number(String(x).trim()))
+      .filter((n) => Number.isFinite(n) && n > 0);
+
+    const created = this.data.addVenue({
+      name,
+      location: (this.wizardVenueForm.location || '').trim(),
+      altitudeM: this.wizardVenueForm.altitudeM ?? undefined,
+      notes: (this.wizardVenueForm.notes || '').trim(),
+      distancesM: distances,
+      subRanges: [],
+    } as any);
+
+    this.venues = this.data.getVenues();
+    this.venueId = (created as any)?.id ?? null;
+    this.onVenueChange();
+
+    this.setupWizardStep = 'done';
+  }
+
+  wizardFinish(): void {
+    this.closeSetupWizard();
   }
   // ---------- Rifle picker (canonical; matches Rifles tab) ----------
 
@@ -218,6 +367,12 @@ export class SessionTabComponent implements OnInit {
   openRiflePicker(): void {
     // Always re-pull rifles so the picker can’t be stale after deletes/repairs/imports.
     this.rifles = this.data.getRifles();
+
+    // If there are no rifles yet, guide the user into the wizard instead of showing an empty picker.
+    if ((this.rifles?.length ?? 0) === 0) {
+      this.openSetupWizard('rifle');
+      return;
+    }
 
     // If selected rifle no longer exists, clear it.
     if (
@@ -523,8 +678,7 @@ export class SessionTabComponent implements OnInit {
     this.clearEnvToast();
 
     this.step = 'shots';
-    this.showGoShootToast = true;
-    setTimeout(() => (this.showGoShootToast = false), 6000);
+
   }
 
   // Alias for template name
@@ -569,13 +723,17 @@ export class SessionTabComponent implements OnInit {
     }
   }
 
+  resetSession()
+  {
+    this.step = 'setup'
+    this.ngOnInit();
+  }
+
   canCompleteSession(): boolean {
     return (
       this.selectedDistances.length > 0 &&
       !!this.shotCount &&
-      this.shotCount > 0 &&
-      !!this.notes &&
-      this.notes.trim().length > 0
+      this.shotCount > 0
     );
   }
 
@@ -590,9 +748,7 @@ export class SessionTabComponent implements OnInit {
     if (!this.shotCount || this.shotCount <= 0) {
       missing.push('planned shots');
     }
-    if (!this.notes || this.notes.trim().length === 0) {
-      missing.push('comments');
-    }
+
 
     if (missing.length) {
       this.showShotsToast(`Please complete: ${missing.join(', ')}.`);
@@ -602,8 +758,7 @@ export class SessionTabComponent implements OnInit {
           ? 'distancePickerBlock'
           : !this.shotCount || this.shotCount <= 0
             ? 'shotCountInput'
-            : !this.notes || this.notes.trim().length === 0
-              ? 'sessionNotesInput'
+
               : null;
 
       if (firstMissingId) this.scrollToField(firstMissingId);
@@ -658,6 +813,7 @@ export class SessionTabComponent implements OnInit {
     this.completeMessage =
       'Session saved to History. Go shoot! After you are done, open the History tab to enter your actual dope.';
     this.step = 'complete';
+    this.historyTabComponent?.loadSessions();
   }
 
   // ---------- Navigation ----------
@@ -735,6 +891,12 @@ export class SessionTabComponent implements OnInit {
 
   openVenuePicker(): void {
     this.venues = this.data.getVenues();
+
+    // If there are no venues yet, guide the user into the wizard instead of showing an empty picker.
+    if ((this.venues?.length ?? 0) === 0) {
+      this.openSetupWizard('venue');
+      return;
+    }
     this.venuePickerOpen = true;
     this.venuePickerSearch = '';
     this.updateVenuePickerFilter();
