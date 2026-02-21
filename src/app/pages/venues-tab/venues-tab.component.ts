@@ -1,11 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, EventEmitter, Output } from '@angular/core';
+import { Component, OnInit, EventEmitter, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DataService } from '../data.service';
-import { Venue, SubRange } from '../models';
+
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { DataService } from '../../data.service';
+import { Venue, SubRange } from '../../models';
 
 interface SubRangeRow {
   id: number;
@@ -42,8 +43,9 @@ export class VenuesTabComponent implements OnInit {
   subRangeRows: SubRangeRow[] = [];
   venueToastMessage: string | null = null;
   private venueToastTimer: any = null;
+private data: DataService = inject(DataService)
 
-  constructor(private data: DataService) {}
+  constructor() {}
 
   ngOnInit(): void {
     this.loadVenues();
@@ -374,7 +376,7 @@ export class VenuesTabComponent implements OnInit {
       .map((row) => {
         const distancesM = this.parseDistances(row.distancesText);
 
-        const existing = this.editingVenue?.subRanges?.find((sr) => sr.id === row.id) ?? undefined;
+        const existing = this.editingVenue?.subRanges?.find((sr:any) => sr.id === row.id) ?? undefined;
 
         return {
           ...(existing || {}),
@@ -434,7 +436,7 @@ export class VenuesTabComponent implements OnInit {
         : '';
 
     this.subRangeRows =
-      (v.subRanges || []).map((sr) => ({
+      (v.subRanges || []).map((sr:any) => ({
         id: sr.id as number,
         name: sr.name,
         distancesText: (sr.distancesM || []).join(', '),

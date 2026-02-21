@@ -1,12 +1,12 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, inject, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
-import { DataService } from './data.service';
 import { BleClient } from '@capacitor-community/bluetooth-le';
-import { KestrelService, KestrelDataSnapshot } from './shared/services/kestrel-bluetooth.service';
+import { DataService } from '../../data.service';
+import { KestrelDataSnapshot, KestrelService } from '../../shared/services/kestrel-bluetooth.service';
 
 type WindUnit = 'mph' | 'kmh' | 'mps';
 type DragModel = 'G1' | 'G7';
@@ -135,11 +135,13 @@ export class WindEffectToolComponent implements OnInit {
     clicks: number;
   } = null;
 
+    private data: DataService = inject(DataService);
+    private router: Router= inject(Router);
+    public kestrel: KestrelService= inject(KestrelService);
+    private http: HttpClient= inject(HttpClient);
+
   constructor(
-    private data: DataService,
-    private router: Router,
-    public kestrel: KestrelService,
-    private http: HttpClient,
+
   ) {}
 
   // --------------------------------
@@ -760,7 +762,7 @@ export class WindEffectToolComponent implements OnInit {
   // Kestrel → Shooting Solution (backbone)
   // --------------------------------
   private initKestrelSubscription(): void {
-    this.kestrel.kestrelStatus$.subscribe((status) => {
+    this.kestrel.kestrelStatus$.subscribe((status:any) => {
       // Keep showing the current status, but auto-hide RED errors after 3 seconds.
       this.kestrelStatusText = status || '';
       const t = (this.kestrelStatusText || '').toLowerCase();

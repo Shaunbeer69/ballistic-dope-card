@@ -1,11 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, Output, EventEmitter, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DataService } from '../data.service';
-import { Rifle, Venue, SubRange, Environment, DistanceDope, Session } from '../models';
-import { BleClient } from '@capacitor-community/bluetooth-le';
-import { KestrelDataSnapshot, KestrelService } from '../shared/services/kestrel-bluetooth.service';
-import {HistoryTabComponent} from '../history-tab/history-tab.component'
+import { DataService } from '../../data.service';
+import { Rifle, Venue, SubRange, Environment, DistanceDope } from '../../models';
+import { KestrelDataSnapshot, KestrelService } from '../../shared/services/kestrel-bluetooth.service';
+import { HistoryTabComponent } from '../history-tab/history-tab.component';
+
 
 type WizardStep = 'setup' | 'environment' | 'shots' | 'complete';
 

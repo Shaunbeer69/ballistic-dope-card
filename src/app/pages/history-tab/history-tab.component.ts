@@ -1,9 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, EventEmitter, Output } from '@angular/core';
+import { Component, OnInit, EventEmitter, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DataService } from '../data.service';
 import { CapacitorVoiceRecorder } from '@lgicc/capacitor-voice-recorder';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { DataService } from '../../data.service';
 
 @Component({
   selector: 'app-history-tab',
@@ -221,8 +221,9 @@ export class HistoryTabComponent implements OnInit {
   private rowRecording = false;
 
   @Output() backToMenu = new EventEmitter<void>();
+  private dataService: DataService = inject(DataService)
 
-  constructor(private dataService: DataService) {}
+  constructor() {}
 
   ngOnInit(): void {
     this.loadSessions();

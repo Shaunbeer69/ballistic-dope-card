@@ -11,16 +11,17 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import { APP_VERSION } from '../../environments/version';
-import { RiflesTabComponent } from '../../rifles-tab/rifles-tab.component';
-import { VenuesTabComponent } from '../../venues-tab/venues-tab.component';
-import { SessionTabComponent } from '../../session-tab/session-tab.component';
-import { HistoryTabComponent } from '../../history-tab/history-tab.component';
-import { LoadDevTabComponent } from '../../load-dev-tab/load-dev-tab.component';
-import { WindEffectToolComponent } from '../../wind-effect-tool.component';
+
 import { environment } from '../../environments/environment';
 import { DataService } from '../../data.service';
 import { BleClient } from '@capacitor-community/bluetooth-le';
 import { KestrelDataSnapshot, KestrelService } from '../../shared/services/kestrel-bluetooth.service';
+import { HistoryTabComponent } from '../history-tab/history-tab.component';
+import { LoadDevTabComponent } from '../load-dev-tab/load-dev-tab.component';
+import { RiflesTabComponent } from '../rifles-tab/rifles-tab.component';
+import { SessionTabComponent } from '../session-tab/session-tab.component';
+import { VenuesTabComponent } from '../venues-tab/venues-tab.component';
+import { WindEffectToolComponent } from '../wind-effect/wind-effect-tool.component';
 
 interface ReportRequest {
   type: 'recent' | 'rifle' | 'venue' | 'dateRange';

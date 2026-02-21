@@ -17,13 +17,11 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 
 import { Share } from '@capacitor/share';
-import { Rifle, LoadDevProject, LoadDevEntry, LoadDevType, GroupSizeUnit } from '../models';
-
-import { DataService } from '../data.service';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { registerPlugin } from '@capacitor/core';
-import { RiflePickerComponent } from '../shared/rifle-picker/rifle-picker.component';
-
+import { DataService } from '../../data.service';
+import { GroupSizeUnit, LoadDevEntry, LoadDevProject, Rifle, LoadDevType } from '../../models';
+import { RiflePickerComponent } from '../../shared/rifle-picker/rifle-picker.component';
 interface AudioRoutePlugin {
   forceSpeaker(): Promise<void>;
 }
@@ -4143,13 +4141,13 @@ export class LoadDevTabComponent implements OnInit {
   get devTypeDescription(): string | null {
     switch (this.projectForm.type) {
       case 'ladder':
-        return `Ladder test: one shot per charge at distance. You are NOT looking for groups or SD. 
-You are looking for a flat vertical point-of-impact where increasing powder no longer moves the impact up. 
+        return `Ladder test: one shot per charge at distance. You are NOT looking for groups or SD.
+You are looking for a flat vertical point-of-impact where increasing powder no longer moves the impact up.
 That flat spot reveals a forgiving barrel timing node and defines your safe pressure window before you run OCW.`;
 
       case 'ocw':
-        return `OCW (Optimal Charge Weight): 3–5 shot groups inside a ladder-found node. 
-You are looking for a range of charges where point of impact stays in the same place while groups remain tight. 
+        return `OCW (Optimal Charge Weight): 3–5 shot groups inside a ladder-found node.
+You are looking for a range of charges where point of impact stays in the same place while groups remain tight.
 This confirms which timing node is the most repeatable and forgiving in real shooting.`;
 
       default:

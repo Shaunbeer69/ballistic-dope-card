@@ -24,24 +24,28 @@ export class AppComponent {
   private currentUrl: string = this.router.url;
 
   constructor() {
-
-
-    this.router.events
-      .pipe(filter(e => e instanceof NavigationEnd))
-      .subscribe((e) => {
-        const nav = e as NavigationEnd;
-        this.previousUrl = this.currentUrl;
-        this.currentUrl = nav.urlAfterRedirects;
-        this.syncTitleAndBack();
-      });
+    this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe((e) => {
+      const nav = e as NavigationEnd;
+      this.previousUrl = this.currentUrl;
+      this.currentUrl = nav.urlAfterRedirects;
+      this.syncTitleAndBack();
+    });
     this.syncTitleAndBack();
   }
 
   back(): void {
-    // Prefer in-app navigation history (avoids jumping out of the SPA on mobile PWAs).
-    if (this.previousUrl && this.previousUrl !== this.currentUrl) {
-      this.router.navigateByUrl(this.previousUrl);
+    if (
+      this.currentUrl === '/venues' ||
+      this.currentUrl === '/rifles' ||
+      this.currentUrl === '/tools'
+    ) {
+      this.router.navigateByUrl('/');
       return;
+    } else {
+      if (this.previousUrl && this.previousUrl !== this.currentUrl) {
+        this.router.navigateByUrl(this.previousUrl);
+        return;
+      }
     }
 
     // Fallback: try browser history; if none, go home.
@@ -59,7 +63,7 @@ export class AppComponent {
       if (t) title = t;
     }
 
-    this.title = (typeof title === 'string' && title.trim().length) ? title : 'Ballistic Dope Card';
+    this.title = typeof title === 'string' && title.trim().length ? title : 'Ballistic Dope Card';
     this.showBack = this.router.url !== '/' && this.router.url !== '';
   }
 }

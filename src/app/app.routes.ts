@@ -62,37 +62,37 @@ export const routes: Routes = [
     path: 'tools/wind-effect',
     title: 'Wind Effect',
     loadComponent: () =>
-      import('./wind-effect-tool.component').then(m => m.WindEffectToolComponent),
+      import('./pages/wind-effect/wind-effect-tool.component').then(m => m.WindEffectToolComponent),
   },
   {
     path: 'load-dev',
     title: 'Load Development',
     loadComponent: () =>
-      import('./load-dev-tab/load-dev-tab.component').then(m => m.LoadDevTabComponent),
+      import('./pages/load-dev-tab/load-dev-tab.component').then(m => m.LoadDevTabComponent),
   },
     {
     path: 'rifles',
     title: 'Rifles',
     loadComponent: () =>
-      import('./rifles-tab/rifles-tab.component').then(m => m.RiflesTabComponent),
+      import('./pages/rifles-tab/rifles-tab.component').then(m => m.RiflesTabComponent),
   },
   {
     path: 'venues',
     title: 'Venues',
     loadComponent: () =>
-      import('./venues-tab/venues-tab.component').then(m => m.VenuesTabComponent),
+      import('./pages/venues-tab/venues-tab.component').then(m => m.VenuesTabComponent),
   },
   {
     path: 'session',
     title: 'Session',
     loadComponent: () =>
-      import('./session-tab/session-tab.component').then(m => m.SessionTabComponent),
+      import('./pages/session-tab/session-tab.component').then(m => m.SessionTabComponent),
   },
   {
     path: 'history',
     title: 'History',
     loadComponent: () =>
-      import('./history-tab/history-tab.component').then(m => m.HistoryTabComponent),
+      import('./pages/history-tab/history-tab.component').then(m => m.HistoryTabComponent),
   },
   // Settings pages
   {

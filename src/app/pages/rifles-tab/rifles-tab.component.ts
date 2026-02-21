@@ -1,11 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, EventEmitter, Output, Input } from '@angular/core';
+import { Component, OnInit, EventEmitter, Output, Input, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DataService } from '../data.service';
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { DataService } from '../../data.service';
 
 @Component({
   selector: 'app-rifles-tab',
@@ -253,8 +253,8 @@ export class RiflesTabComponent implements OnInit {
   }
 
   loadForm: any = {};
-
-  constructor(private data: DataService) {
+  private data: DataService = inject(DataService)
+  constructor() {
     try {
       const u =
         typeof (this.data as any).getDefaultLoadDevOalUnit === 'function'
