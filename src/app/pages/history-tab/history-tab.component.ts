@@ -40,12 +40,7 @@ export class HistoryTabComponent implements OnInit {
 
   onAveVelEnter(ev: Event): void {
     ev.preventDefault();
-
-    // First Elev input in the table (your file already marks it with #elevFirst)
-
-    const el = document.querySelector('#elevFirst') as HTMLInputElement | null;
-
-    el?.focus();
+    this.focusField('elevFirst');
   }
   onAveVelFocus(): void {
     if (!this.editSession) return;
@@ -74,12 +69,35 @@ export class HistoryTabComponent implements OnInit {
       el?.focus();
     }, 0);
   }
-  private focusById(id: string | null | undefined): void {
-    if (!id) return;
+  private isElementVisible(el: HTMLElement): boolean {
+    // offsetParent is null for display:none; getClientRects() handles edge cases
+    return !!(el.offsetParent || el.getClientRects().length);
+  }
+
+  private focusField(id: string): void {
+    const isDesktop = typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia('(min-width: 640px)').matches
+      : false;
+
+    const candidates = isDesktop ? [`${id}Desktop`, id] : [id, `${id}Desktop`];
+
     setTimeout(() => {
+      for (const cid of candidates) {
+        const el = document.getElementById(cid) as any;
+        if (el && this.isElementVisible(el)) {
+          el.focus?.();
+          return;
+        }
+      }
+      // fallback: focus even if hidden (last resort)
       const el = document.getElementById(id) as any;
       el?.focus?.();
     }, 0);
+  }
+
+  private focusById(id: string | null | undefined): void {
+    if (!id) return;
+    this.focusField(id);
   }
 
   private toNumber(val: any): number {

@@ -181,7 +181,7 @@
   <!-- STEP HEADER + PROGRESS -->
   <div class="w-full flex flex-col items-center mt-1 mb-3 px-2">
     <div
-      class="w-full bg-gray-900/80 px-2 py-2 rounded-2xl shadow border border-gray-700 text-[11px] flex justify-between"
+      class="w-full bg-gray-900/80 px-2 py-2  rounded-2xl shadow border border-gray-700 text-[11px] flex justify-between"
     >
       <!-- Step bubbles -->
       <div class="flex flex-col items-center flex-1">
@@ -273,7 +273,7 @@
       <!-- ✅ SETUP VALIDATION PROMPT (shows after user taps Next once) -->
       <div
         *ngIf="setupTriedNext && !canGoToEnvironment()"
-        class="mb-2 rounded-xl border border-red-700 bg-red-950/50 px-2 py-2"
+        class="mb-2 rounded-xl border border-red-700 bg-red-950/50 px-2 py-2 "
       >
         <div class="text-[11px] text-red-200 font-semibold">Missing required fields</div>
         <ul class="mt-1 text-[10px] text-red-200 list-disc pl-4 space-y-0.5">
@@ -292,7 +292,7 @@
           id="setupTitleInput"
           [(ngModel)]="title"
           placeholder="e.g. Alma practice – 1100m"
-          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
+          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-2 text-[11px]"
         />
         <div
           *ngIf="setupTriedNext && (!title || !title.trim())"
@@ -310,7 +310,7 @@
         <button
           id="setupRifleBtn"
           type="button"
-          class="mt-1 w-full px-2 py-1 rounded bg-slate-900 border border-slate-700 flex items-center justify-between"
+          class="mt-1 w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 flex items-center justify-between"
           (click)="openRiflePicker()"
         >
           <span class="truncate">{{ selectedRifleLabel() }}</span>
@@ -354,7 +354,7 @@
             <div class="flex gap-2">
               <button
                 type="button"
-                class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                class="px-2 py-2 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
                 (click)="clearRifleFromPicker()"
               >
                 Clear
@@ -362,7 +362,7 @@
 
               <button
                 type="button"
-                class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                class="px-2 py-2 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
                 (click)="closeRiflePicker()"
               >
                 Close
@@ -373,7 +373,7 @@
           <div class="mt-2">
             <input
               type="text"
-              class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
+              class="w-full px-2 py-2  rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
               placeholder="Search rifles…"
               [(ngModel)]="riflePickerSearch"
               (ngModelChange)="onRiflePickerSearchChange($event)"
@@ -394,7 +394,7 @@
             <button
               *ngFor="let r of riflePickerFiltered"
               type="button"
-              class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
+              class="w-full text-left px-2 py-2  rounded-xl hover:bg-slate-800 flex items-start gap-2"
               (click)="selectRifleFromPicker(r)"
             >
               <input
@@ -425,7 +425,7 @@
         <button
           id="setupVenueBtn"
           type="button"
-          class="mt-1 w-full px-2 py-1 rounded bg-slate-900 border border-slate-700 flex items-center justify-between"
+          class="mt-1 w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 flex items-center justify-between"
           (click)="openVenuePicker()"
         >
           <span class="truncate">
@@ -472,7 +472,7 @@
             <div class="flex gap-2">
               <button
                 type="button"
-                class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                class="px-2 py-2 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
                 (click)="clearVenueFromPicker()"
               >
                 Clear
@@ -480,7 +480,7 @@
 
               <button
                 type="button"
-                class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                class="px-2 py-2 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
                 (click)="closeVenuePicker()"
               >
                 Close
@@ -491,7 +491,7 @@
           <div class="mt-2">
             <input
               type="text"
-              class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
+              class="w-full px-2 py-2  rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
               placeholder="Search venues…"
               [(ngModel)]="venuePickerSearch"
               (ngModelChange)="onVenuePickerSearchChange($event)"
@@ -512,7 +512,7 @@
             <button
               *ngFor="let v of venuePickerFiltered"
               type="button"
-              class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
+              class="w-full text-left px-2 py-2  rounded-xl hover:bg-slate-800 flex items-start gap-2"
               (click)="selectVenueFromPicker(v)"
             >
               <input
@@ -542,7 +542,7 @@
         <!-- Tap-to-open picker (canonical modal style) -->
         <button
           type="button"
-          class="mt-1 w-full px-2 py-1 rounded bg-slate-900 border border-slate-700 flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+          class="mt-1 w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
           [disabled]="!venueId"
           (click)="openSubRangePicker()"
         >
@@ -580,7 +580,7 @@
             <div class="flex gap-2">
               <button
                 type="button"
-                class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                class="px-2 py-2 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
                 (click)="clearSubRangeFromPicker()"
               >
                 Clear
@@ -588,7 +588,7 @@
 
               <button
                 type="button"
-                class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                class="px-2 py-2 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
                 (click)="closeSubRangePicker()"
               >
                 Close
@@ -599,7 +599,7 @@
           <div class="mt-2">
             <input
               type="text"
-              class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
+              class="w-full px-2 py-2  rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
               placeholder="Search sub-ranges…"
               [(ngModel)]="subRangePickerSearch"
               (ngModelChange)="onSubRangePickerSearchChange($event)"
@@ -614,7 +614,7 @@
             <button
               *ngIf="hasWholeVenueDistances()"
               type="button"
-              class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
+              class="w-full text-left px-2 py-2  rounded-xl hover:bg-slate-800 flex items-start gap-2"
               (click)="selectSubRangeFromPicker(null)"
             >
               <input
@@ -640,7 +640,7 @@
             <button
               *ngFor="let sr of subRangePickerFiltered"
               type="button"
-              class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
+              class="w-full text-left px-2 py-2  rounded-xl hover:bg-slate-800 flex items-start gap-2"
               (click)="selectSubRangeFromPicker(sr)"
             >
               <input
@@ -691,7 +691,7 @@
       <!-- ✅ ENV VALIDATION PROMPT (shows after user taps Next once) -->
       <div
         *ngIf="environmentTriedNext && !canGoToShots()"
-        class="mb-2 rounded-xl border border-red-700 bg-red-950/50 px-2 py-2"
+        class="mb-2 rounded-xl border border-red-700 bg-red-950/50 px-2 py-2 "
       >
         <div class="text-[11px] text-red-200 font-semibold">Missing required fields</div>
         <ul class="mt-1 text-[10px] text-red-200 list-disc pl-4 space-y-0.5">
@@ -766,7 +766,7 @@
             type="number"
             [(ngModel)]="environment.temperatureC"
             id="envTempInput"
-            class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
+            class="px-2 py-2 rounded bg-black border border-gray-700 text-center"
           />
         </div>
 
@@ -778,7 +778,7 @@
             type="number"
             [(ngModel)]="environment.pressureInHg"
             id="envPressureInput"
-            class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
+            class="px-2 py-2 rounded bg-black border border-gray-700 text-center"
           />
         </div>
 
@@ -790,7 +790,7 @@
             type="number"
             [(ngModel)]="environment.humidityPercent"
             id="envHumidityInput"
-            class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
+            class="px-2 py-2 rounded bg-black border border-gray-700 text-center"
           />
         </div>
       </div>
@@ -818,7 +818,7 @@
             [(ngModel)]="windSpeedInputValue"
             (ngModelChange)="updateWindHint()"
             id="envWindSpeedInput"
-            class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
+            class="px-2 py-2 rounded bg-black border border-gray-700 text-center"
           />
         </div>
 
@@ -834,7 +834,7 @@
             [(ngModel)]="windClock"
             (ngModelChange)="updateWindHint()"
             id="envWindClockInput"
-            class="px-2 py-1 rounded bg-black border border-gray-700 text-center"
+            class="px-2 py-2 rounded bg-black border border-gray-700 text-center"
           />
         </div>
       </div>
@@ -853,7 +853,7 @@
           [(ngModel)]="environment.lightConditions"
           id="envLightConditionsInput"
           placeholder="Overcast, mirage, etc."
-          class="px-2 py-1 rounded bg-black border border-gray-700 text-[11px]"
+          class="px-2 py-2 rounded bg-black border border-gray-700 text-[11px]"
         />
       </label>
 
@@ -909,7 +909,7 @@
             [(ngModel)]="wholeVenueDistanceInput"
             (ngModelChange)="clearShotsToast()"
             placeholder="Distance (m)"
-            class="flex-1 px-2 py-2 text-xs rounded bg-black border border-gray-700 text-gray-200"
+            class="flex-1 px-2 py-2  text-xs rounded bg-black border border-gray-700 text-gray-200"
           />
           <button
             type="button"
@@ -935,7 +935,7 @@
           [(ngModel)]="shotCount"
           (ngModelChange)="clearShotsToast()"
           id="shotCountInput"
-          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
+          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-2 text-[11px]"
         />
       </label>
 
@@ -957,7 +957,7 @@
           (ngModelChange)="clearShotsToast()"
           rows="3"
           id="sessionNotesInput"
-          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-1.5 text-[11px]"
+          class="mt-1 block w-full rounded-lg bg-black border border-gray-700 px-2 py-2 text-[11px]"
           placeholder="Wind pattern, mirage, positional notes, etc."
         ></textarea>
 

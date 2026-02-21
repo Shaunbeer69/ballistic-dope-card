@@ -6,7 +6,7 @@
     <!-- Tap-to-open picker (canonical modal style) -->
     <button
       type="button"
-      class="w-full bg-black border border-gray-700 rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px] flex items-center justify-between"
+      class="w-full bg-black border border-gray-700 rounded-lg px-2 py-2 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px] flex items-center justify-between"
       (click)="openRiflePicker()"
     >
       <span class="truncate">{{ selectedRifleLabel() }}</span>
@@ -46,7 +46,7 @@
         <div class="flex gap-2">
           <button
             type="button"
-            class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+            class="px-2 py-2 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
             (click)="clearRifleFromPicker()"
           >
             Clear
@@ -54,7 +54,7 @@
 
           <button
             type="button"
-            class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+            class="px-2 py-2 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
             (click)="closeRiflePicker()"
           >
             Close
@@ -65,7 +65,7 @@
       <div class="mt-2">
         <input
           type="text"
-          class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
+          class="w-full px-2 py-2  rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
           placeholder="Search rifles…"
           [(ngModel)]="riflePickerSearch"
           (ngModelChange)="onRiflePickerSearchChange($event)"
@@ -83,7 +83,7 @@
         <button
           *ngFor="let r of riflePickerFiltered"
           type="button"
-          class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
+          class="w-full text-left px-2 py-2  rounded-xl hover:bg-slate-800 flex items-start gap-2"
           (click)="selectRifleFromPicker(r)"
         >
           <input
@@ -115,7 +115,7 @@
           type="number"
           [ngModel]="rangeMeters"
           (ngModelChange)="onRangeMetersChange($event)"
-          class="w-full bg-black border border-gray-700 rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px]"
+          class="w-full bg-black border border-gray-700 rounded-lg px-2 py-2 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px]"
         />
       </div>
 
@@ -126,7 +126,7 @@
           type="number"
           [(ngModel)]="muzzleVelocityFps"
           (ngModelChange)="updatePoiFromDrift()"
-          class="w-full bg-black border border-gray-700 rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px]"
+          class="w-full bg-black border border-gray-700 rounded-lg px-2 py-2 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px]"
         />
       </div>
 
@@ -134,7 +134,7 @@
         <div class="text-[9px] sm:text-[10px] md:text-[11px] text-gray-400">Wind from</div>
 
         <div
-          class="w-full bg-black border border-gray-700 rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px] text-center font-semibold"
+          class="w-full bg-black border border-gray-700 rounded-lg px-2 py-2 sm:py-1.5 text-[10px] sm:text-[11px] md:text-[12px] text-center font-semibold"
         >
           {{
             shootingSolutionResult && kestrelData?.windDirectionClock
@@ -157,7 +157,7 @@
         type="number"
         [ngModel]="windSpeedInput"
         (ngModelChange)="onWindSpeedInputChange($event)"
-        class="w-20 sm:w-24 md:w-28 bg-black border border-gray-700 rounded-lg px-2 py-1 sm:py-1.5 text-[11px] sm:text-[12px] md:text-[13px]"
+        class="w-20 sm:w-24 md:w-28 bg-black border border-gray-700 rounded-lg px-2 py-2 sm:py-1.5 text-[11px] sm:text-[12px] md:text-[13px]"
       />
 
       <select
@@ -421,7 +421,7 @@
   >
     <!-- Mil + cm (horizontal drift) -->
     <div
-      class="flex-1 min-w-0 bg-gray-900/90 border border-emerald-500/70 rounded-xl px-2 py-1 sm:py-1.5"
+      class="flex-1 min-w-0 bg-gray-900/90 border border-emerald-500/70 rounded-xl px-2 py-2 sm:py-1.5"
     >
       <div class="flex items-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold">
         <span class="flex-1 text-emerald-400"> Drift (mil) </span>
@@ -518,7 +518,7 @@
 
     <!-- MOA + inch (horizontal drift) -->
     <div
-      class="flex-1 min-w-0 bg-gray-900/90 border border-emerald-500/70 rounded-xl px-2 py-1 sm:py-1.5"
+      class="flex-1 min-w-0 bg-gray-900/90 border border-emerald-500/70 rounded-xl px-2 py-2 sm:py-1.5"
     >
       <div class="flex items-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold">
         <span class="flex-1 text-emerald-400"> Drift (MOA) </span>

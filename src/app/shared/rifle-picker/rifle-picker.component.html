@@ -1,6 +1,6 @@
 <button
   type="button"
-  class="w-full bg-black/40 border border-amber-400 rounded-2xl px-2 py-2 text-xs text-gray-100 ring-1 ring-amber-400/70 shadow-md shadow-amber-400/40 flex items-center justify-between"
+  class="w-full bg-black/40 border border-amber-400 rounded-2xl px-2 py-2  text-xs text-gray-100 ring-1 ring-amber-400/70 shadow-md shadow-amber-400/40 flex items-center justify-between"
   (click)="openRiflePicker()"
 >
   <span class="truncate">{{ selectedRiflePickerLabel() }}</span>
@@ -23,7 +23,7 @@
       <div class="flex gap-2">
         <button
           type="button"
-          class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+          class="px-2 py-2 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
           (click)="clearRifleFromPicker()"
         >
           Clear
@@ -31,7 +31,7 @@
 
         <button
           type="button"
-          class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+          class="px-2 py-2 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
           (click)="closeRiflePicker()"
         >
           Close
@@ -42,7 +42,7 @@
     <div class="mt-2">
       <input
         type="text"
-        class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
+        class="w-full px-2 py-2  rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
         placeholder="Search rifles…"
         [(ngModel)]="riflePickerSearch"
         (ngModelChange)="onRiflePickerSearchChange($event)"
@@ -60,7 +60,7 @@
       <button
         *ngFor="let r of riflePickerFiltered"
         type="button"
-        class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
+        class="w-full text-left px-2 py-2  rounded-xl hover:bg-slate-800 flex items-start gap-2"
         (click)="selectRifleFromPicker(r)"
       >
         <!-- LEFT checkbox aligned to rifle name line -->

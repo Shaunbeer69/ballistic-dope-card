@@ -8,7 +8,7 @@
           <label class="block text-gray-300 mb-0.5 text-[10px]">Input</label>
           <input
             type="number"
-            class="w-full bg-black border-2 border-orange-400/70 rounded px-2 py-1 text-[11px] outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-400/30"
+            class="w-full bg-black border-2 border-orange-400/70 rounded px-2 py-2 text-[11px] outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-400/30"
             [(ngModel)]="converterInput"
             placeholder="Enter value…"
           />
@@ -16,7 +16,7 @@
 
         <div>
           <label class="block text-gray-300 mb-0.5 text-[10px]">Output</label>
-          <div class="w-full bg-black border-2 border-sky-400/70 rounded px-2 py-1 text-[11px] min-h-[28px] flex items-center">
+          <div class="w-full bg-black border-2 border-sky-400/70 rounded px-2 py-2 text-[11px] min-h-[28px] flex items-center">
             <span class="text-gray-100 font-semibold">
               {{ converterOutput === null ? '—' : (converterOutput | number: '1.3-3') }}
             </span>

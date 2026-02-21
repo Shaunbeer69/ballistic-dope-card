@@ -205,7 +205,7 @@
         <!-- Tap-to-open picker (Export/Import style) -->
         <button
           type="button"
-          class="mt-1 w-full px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-700 flex items-center justify-between ring-1 ring-white/5"
+          class="mt-1 w-full px-2 py-2 rounded-xl bg-slate-950 border border-slate-700 flex items-center justify-between ring-1 ring-white/5"
           (click)="openRiflePicker()"
         >
           <span class="truncate">
@@ -251,7 +251,7 @@
             <div class="flex gap-2">
               <button
                 type="button"
-                class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                class="px-2 py-2 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
                 (click)="clearRifleFromPicker()"
               >
                 Clear
@@ -259,7 +259,7 @@
 
               <button
                 type="button"
-                class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                class="px-2 py-2 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
                 (click)="closeRiflePicker()"
               >
                 Close
@@ -270,7 +270,7 @@
           <div class="mt-2">
             <input
               type="text"
-              class="w-full px-2 py-2 rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
+              class="w-full px-2 py-2  rounded bg-slate-900 border border-slate-700 text-[11px] text-white outline-none"
               placeholder="Search rifles…"
               [(ngModel)]="riflePickerSearch"
               (ngModelChange)="onRiflePickerSearchChange($event)"
@@ -291,7 +291,7 @@
             <button
               *ngFor="let r of riflePickerFiltered"
               type="button"
-              class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-800 flex items-start gap-2"
+              class="w-full text-left px-2 py-2  rounded-xl hover:bg-slate-800 flex items-start gap-2"
               (click)="selectRifleFromPicker(r)"
             >
               <!-- LEFT checkbox (Export/Import style) -->
@@ -410,10 +410,10 @@
               <table class="min-w-full text-[10px] border-collapse">
                 <thead>
                   <tr class="bg-slate-900 border-b border-slate-700">
-                    <th class="px-2 py-1 text-left font-semibold">Powder</th>
-                    <th class="px-2 py-1 text-left font-semibold">Charge</th>
-                    <th class="px-2 py-1 text-left font-semibold">Bullet</th>
-                    <th class="px-2 py-1 text-right font-semibold">Info</th>
+                    <th class="px-2 py-2 text-left font-semibold">Powder</th>
+                    <th class="px-2 py-2 text-left font-semibold">Charge</th>
+                    <th class="px-2 py-2 text-left font-semibold">Bullet</th>
+                    <th class="px-2 py-2 text-right font-semibold">Info</th>
                   </tr>
                 </thead>
 
@@ -426,7 +426,7 @@
                       <td class="px-2 py-1">{{ l.powder || '-' }}</td>
                       <td class="px-2 py-1">{{ l.chargeGn ?? '-' }}</td>
 
-                      <td class="px-2 py-1 align-top text-left">
+                      <td class="px-2 py-2 align-top text-left">
                         <div class="text-[10px] leading-tight max-w-[120px]">
                           <ng-container *ngIf="l.bulletWeightGr || l.bullet; else noBullet">
                             <span *ngIf="l.bulletWeightGr">{{ l.bulletWeightGr }} gr </span
@@ -441,10 +441,10 @@
                         </div>
                       </td>
 
-                      <td class="px-2 py-1 text-right">
+                      <td class="px-2 py-2 text-right">
                         <button
                           type="button"
-                          class="px-2 py-1 rounded-lg bg-slate-700 text-slate-100 text-[10px] font-semibold"
+                          class="px-2 py-2 rounded-lg bg-slate-700 text-slate-100 text-[10px] font-semibold"
                           (click)="openLoadDetails(r, l, $event)"
                         >
                           View
@@ -471,7 +471,7 @@
 
                   <button
                     type="button"
-                    class="px-2 py-1 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
+                    class="px-2 py-2 rounded-xl bg-slate-800 text-slate-100 text-[10px]"
                     (click)="closeLoadDetails()"
                   >
                     Close
@@ -690,7 +690,7 @@
                   <input
                     [(ngModel)]="loadForm.powder"
                     name="loadPowder"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                    class="mt-1 px-2 py-2 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>
 
@@ -701,7 +701,7 @@
                     type="number"
                     [(ngModel)]="loadForm.chargeGn"
                     name="loadCharge"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                    class="mt-1 px-2 py-2 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>
 
@@ -722,7 +722,7 @@
                     (blur)="onInchDecimalInput('landsOgive', $event)"
                     name="loadLandsOgive"
                     placeholder="Bullet specific"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                    class="mt-1 px-2 py-2 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>
 
@@ -739,7 +739,7 @@
                     [value]="loadLandsMinusOgiveText()"
                     placeholder="—"
                     readonly
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-800 text-slate-200"
+                    class="mt-1 px-2 py-2 rounded bg-slate-950 border border-slate-800 text-slate-200"
                   />
                 </label>
 
@@ -768,7 +768,7 @@
                     (blur)="onInchDecimalInput('coalOgive', $event)"
                     name="loadCoalOgive"
                     placeholder="Length BTO"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                    class="mt-1 px-2 py-2 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>
 
@@ -789,7 +789,7 @@
                     (blur)="onInchDecimalInput('coal', $event)"
                     name="loadCoal"
                     placeholder="BTT"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                    class="mt-1 px-2 py-2 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>
 
@@ -799,7 +799,7 @@
                   <input
                     [(ngModel)]="loadForm.primer"
                     placeholder="e.g. brand, large, small, magnum"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                    class="mt-1 px-2 py-2 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>
 
@@ -810,7 +810,7 @@
                     [(ngModel)]="loadForm.bullet"
                     name="loadBullet"
                     placeholder="e.g. 140 ELD-M"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                    class="mt-1 px-2 py-2 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>
 
@@ -821,7 +821,7 @@
                     type="number"
                     [(ngModel)]="loadForm.bulletWeightGr"
                     name="loadBulletWeight"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                    class="mt-1 px-2 py-2 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>
 
@@ -832,7 +832,7 @@
                     [(ngModel)]="loadForm.bulletBc"
                     name="loadBulletBc"
                     placeholder="e.g. 0.345 G7 / 0.510 G1"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                    class="mt-1 px-2 py-2 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>
 
@@ -844,7 +844,7 @@
                     [(ngModel)]="loadForm.aveVelocityFps"
                     name="loadAveVelocity"
                     placeholder="e.g. 2850"
-                    class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700"
+                    class="mt-1 px-2 py-2 rounded bg-slate-950 border border-slate-700"
                   />
                 </label>
 
@@ -855,7 +855,7 @@
                   name="loadNotes"
                   rows="3"
                   style="width: 100% !important"
-                  class="mt-1 px-2 py-1 rounded bg-slate-950 border border-slate-700 resize-none w-100"
+                  class="mt-1 px-2 py-2 rounded bg-slate-950 border border-slate-700 resize-none w-100"
                 ></textarea>
               </div>
 
