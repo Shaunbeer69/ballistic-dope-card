@@ -1,6 +1,6 @@
 <button
   type="button"
-  class="w-full bg-black/40 border border-amber-400 rounded-2xl px-2 py-2  text-xs text-gray-100 ring-1 ring-amber-400/70 shadow-md shadow-amber-400/40 flex items-center justify-between"
+  class="w-full bg-black/40 border border-amber-400 rounded-xl px-2 py-2  text-xs text-gray-100 ring-1 ring-amber-400/70 shadow-md shadow-amber-400/40 flex items-center justify-between"
   (click)="openRiflePicker()"
 >
   <span class="truncate">{{ selectedRiflePickerLabel() }}</span>
@@ -14,7 +14,7 @@
   (click)="closeRiflePicker()"
 >
   <div
-    class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-3"
+    class="w-full max-w-md rounded-xl border border-slate-700 bg-slate-950 p-3"
     (click)="$event.stopPropagation()"
   >
     <div class="flex items-start justify-between gap-2">

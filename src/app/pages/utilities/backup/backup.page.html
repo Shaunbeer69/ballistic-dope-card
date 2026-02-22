@@ -3,12 +3,12 @@
 
 
     <div class="mt-4 grid grid-cols-1 gap-3">
-      <button type="button" class="w-full rounded-2xl border border-white/10 bg-slate-900/40 p-4 text-left active:scale-[0.99]" (click)="exportFullBackup()">
+      <button type="button" class="w-full rounded-xl border border-white/10 bg-slate-900/40 p-4 text-left active:scale-[0.99]" (click)="exportFullBackup()">
         <div class="text-sm font-semibold">Export full backup</div>
         <div class="text-xs text-slate-300 mt-1">Creates a complete merge-safe JSON file (includes load-dev media when available).</div>
       </button>
 
-      <button type="button" class="w-full rounded-2xl border border-white/10 bg-slate-900/40 p-4 text-left active:scale-[0.99]" (click)="importBackup()">
+      <button type="button" class="w-full rounded-xl border border-white/10 bg-slate-900/40 p-4 text-left active:scale-[0.99]" (click)="importBackup()">
         <div class="text-sm font-semibold">Import backup</div>
         <div class="text-xs text-slate-300 mt-1">Select a JSON backup file. Import merges into existing data (no overwrite).</div>
       </button>

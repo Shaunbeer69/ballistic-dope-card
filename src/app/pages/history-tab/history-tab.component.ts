@@ -283,7 +283,7 @@ export class HistoryTabComponent implements OnInit {
   getStatusClass(s: any): string {
     const base = 'px-2 py-[2px] rounded-full text-[10px] font-semibold ';
     if (s?.completed) return base + 'bg-emerald-500 text-slate-900';
-    if (s?.dope && s.dope.length > 0) return base + 'bg-amber-400 text-slate-900';
+    if (s?.dope && s.dope.length > 0) return base + 'bg-blue-400 text-slate-900';
     return base + 'bg-slate-600 text-slate-100';
   }
 
