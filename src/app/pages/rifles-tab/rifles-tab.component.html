@@ -10,7 +10,7 @@
     </div>
 
     <button
-      class="px-3 py-1 rounded-xl bg-emerald-500 text-slate-900 text-xs font-semibold"
+      class="px-3 py-1 rounded-xl bg-orange-500 text-slate-900 text-xs font-semibold"
       (click)="toggleAddForm()"
     >
       {{ addFormVisible ? 'Close' : 'Add' }}
@@ -170,12 +170,10 @@
       </div>
     </div>
 
-    <div class="flex justify-end gap-2 mt-2">
-      <button class="px-3 py-1 text-xs rounded bg-slate-700" (click)="clearRifleForm()">
-        Cancel
-      </button>
+    <div class="flex justify-center gap-2 mt-2">
+
       <button
-        class="px-3 py-1 text-xs rounded bg-emerald-500 text-slate-900 font-semibold"
+        class="py-2 text-xs rounded bg-orange-500 text-slate-900 font-semibold" style="width: 100% !important;"
         (click)="saveRifle()"
       >
         {{ editingRifle ? 'Save changes' : 'Add rifle' }}

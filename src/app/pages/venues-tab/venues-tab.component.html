@@ -9,7 +9,7 @@
       {{ editingVenue ? 'Edit Venue' : 'Add Venue' }}
     </div>
     <button
-      class="px-3 py-1 rounded-xl bg-emerald-500 text-slate-900 text-xs font-semibold"
+      class="px-3 py-1 rounded-xl bg-orange-500 text-slate-900 text-xs font-semibold"
       (click)="toggleForm()"
     >
       {{ formVisible ? 'Close' : 'Add' }}
@@ -133,17 +133,11 @@
     </div>
 
     <!-- Form actions -->
-    <div class="flex justify-end gap-2 mt-3">
-      <button class="px-3 py-1 text-xs rounded bg-slate-700" (click)="cancelVenueForm()">
-        Cancel
-      </button>
 
-      <button class="px-3 py-1 text-xs rounded bg-slate-600" (click)="saveSubrangesOnly()">
+    <div class="flex justify-between mt-2">
+        <button class="px-3 py-1 text-xs rounded bg-slate-600" (click)="saveSubrangesOnly()">
         Add subrange
       </button>
-    </div>
-
-    <div class="flex justify-end mt-2">
       <button
         class="px-4 py-1.5 text-xs rounded bg-emerald-500 text-slate-900 font-semibold"
         (click)="saveVenue()"
